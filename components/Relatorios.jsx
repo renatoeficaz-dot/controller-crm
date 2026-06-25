@@ -28,6 +28,8 @@ const PRESETS = [
 
 export default function Relatorios() {
   const [stages, setStages] = useState([]);
+  const [unidades, setUnidades] = useState([]);
+  const [rutaFiltro, setRutaFiltro] = useState(""); // "" = todas as rutas
   const [loading, setLoading] = useState(true);
   const [preset, setPreset] = useState("mes");
   const [ini, setIni] = useState(inicioMesStr());
@@ -41,6 +43,18 @@ export default function Relatorios() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    fetch("/api/units").then((r) => r.json()).then(setUnidades).catch(() => {});
+  }, []);
+
+  // Aplica o filtro de ruta: mantém só os contatos da ruta escolhida
+  const stagesFiltrados = useMemo(() => {
+    if (!rutaFiltro) return stages;
+    return stages.map((s) => ({
+      ...s,
+      contacts: (s.contacts || []).filter((c) => c.unitId === rutaFiltro),
+    }));
+  }, [stages, rutaFiltro]);
 
   function aplicarPreset(p) {
     setPreset(p.key);
@@ -49,14 +63,31 @@ export default function Relatorios() {
     setFim(b);
   }
 
-  const receber = useMemo(() => aReceber(stages), [stages]);
-  const recebido = useMemo(() => totalRecebido(stages, ini, fim), [stages, ini, fim]);
-  const inad = useMemo(() => inadimplenciaCravo(stages), [stages]);
+  const receber = useMemo(() => aReceber(stagesFiltrados), [stagesFiltrados]);
+  const recebido = useMemo(() => totalRecebido(stagesFiltrados, ini, fim), [stagesFiltrados, ini, fim]);
+  const inad = useMemo(() => inadimplenciaCravo(stagesFiltrados), [stagesFiltrados]);
 
   if (loading) return <div className="p-6 text-slate-400">Carregando relatórios…</div>;
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-6 space-y-6 max-w-5xl">
+      {/* Filtro por ruta */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-400">Ruta:</span>
+        <select
+          value={rutaFiltro}
+          onChange={(e) => setRutaFiltro(e.target.value)}
+          className={`text-sm rounded-lg px-3 py-1.5 border bg-white outline-none transition-colors ${
+            rutaFiltro ? "border-emerald-400 text-slate-800" : "border-slate-200 text-slate-600"
+          }`}
+        >
+          <option value="">Todas as rutas</option>
+          {unidades.map((u) => (
+            <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
+          ))}
+        </select>
+      </div>
+
       {/* A receber */}
       <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">A receber</h2>
