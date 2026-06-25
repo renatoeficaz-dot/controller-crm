@@ -8,7 +8,9 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 
 # Instala dependências (cache eficiente)
 COPY package.json package-lock.json ./
-RUN npm ci
+# --ignore-scripts evita o postinstall (prisma generate) antes do schema ser copiado;
+# o prisma generate roda depois, com o código já presente (linha abaixo e no build).
+RUN npm ci --ignore-scripts
 
 # Copia o restante do código
 COPY . .
