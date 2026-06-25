@@ -35,6 +35,8 @@ model Contact {
   valorCapital     Float?     // valor do empréstimo (base do cálculo dos honorários)
   pagamentoCapital DateTime?  // data da entrega do capital; 1ª cobrança = +1 dia
   responsavel      String?    // usuário responsável pela lead
+  unit             Unit?      @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unitId           String?    // ruta/unidade associada à lead
   parcelas         Parcela[]
   tasks            Task[]
 
@@ -138,6 +140,8 @@ model Unit {
   ultimaSync   DateTime?
   pin          String?
   appVersion   String?
+
+  contacts     Contact[]                              // leads associadas a esta ruta
 
   // --- Dinheiro Atual (movimento do caixa) ---
   novasVendas       Float @default(0)

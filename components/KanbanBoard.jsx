@@ -67,6 +67,7 @@ export default function KanbanBoard() {
   const [filtros, setFiltros] = useState([]); // situações selecionadas; vazio = todos
   const [respFiltro, setRespFiltro] = useState(""); // "" = todos; "__none__" = sem responsável
   const [usuarios, setUsuarios] = useState([]);
+  const [unidades, setUnidades] = useState([]); // rutas/unidades para o seletor do card
 
   function toggleFiltro(sit) {
     setFiltros((prev) =>
@@ -92,7 +93,23 @@ export default function KanbanBoard() {
 
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsuarios).catch(() => {});
+    fetch("/api/units").then((r) => r.json()).then(setUnidades).catch(() => {});
   }, []);
+
+  // Define a ruta (unidade) de uma lead direto pelo card
+  async function setUnit(contactId, unitId) {
+    setStages((prev) =>
+      prev.map((s) => ({
+        ...s,
+        contacts: s.contacts.map((c) => (c.id === contactId ? { ...c, unitId: unitId || null } : c)),
+      }))
+    );
+    await fetch(`/api/contacts/${contactId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unitId: unitId || null }),
+    }).catch(() => {});
+  }
 
   async function moveContact(contactId, toStageId) {
     // Atualização otimista
@@ -301,6 +318,26 @@ export default function KanbanBoard() {
                             <span className="text-emerald-500">●</span> {c.phone}
                           </p>
                         )}
+
+                        {/* Seletor de ruta da lead */}
+                        <select
+                          value={c.unitId || ""}
+                          draggable={false}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setUnit(c.id, e.target.value);
+                          }}
+                          className="mt-2 w-full text-xs border border-slate-200 rounded px-1.5 py-1 bg-white text-slate-600 outline-none focus:border-emerald-400 cursor-pointer"
+                        >
+                          <option value="">— Ruta —</option>
+                          {unidades.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.number} - {u.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     );
                   })}
