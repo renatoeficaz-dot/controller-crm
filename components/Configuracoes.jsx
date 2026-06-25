@@ -31,12 +31,16 @@ export default function Configuracoes() {
         <TabBtn active={tab === "numeros"} onClick={() => setTab("numeros")}>
           Números
         </TabBtn>
+        <TabBtn active={tab === "mensagens"} onClick={() => setTab("mensagens")}>
+          Mensagens prontas
+        </TabBtn>
       </div>
 
       {tab === "ruta" && <CadastroRuta />}
       {tab === "honorarios" && <Honorarios />}
       {tab === "usuarios" && <Usuarios />}
       {tab === "numeros" && <Numeros />}
+      {tab === "mensagens" && <MensagensProntas />}
     </div>
   );
 }
@@ -537,6 +541,134 @@ function Numeros() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------------- Mensagens prontas (templates) ---------------- */
+function MensagensProntas() {
+  const [templates, setTemplates] = useState([]);
+  const [form, setForm] = useState({ title: "", body: "" });
+  const [editId, setEditId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const editando = editId !== null;
+
+  const load = useCallback(async () => {
+    setTemplates(await fetch("/api/templates").then((r) => r.json()));
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function startEdit(t) {
+    setEditId(t.id);
+    setForm({ title: t.title, body: t.body });
+    setError("");
+  }
+
+  function cancelEdit() {
+    setEditId(null);
+    setForm({ title: "", body: "" });
+    setError("");
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    setError("");
+    if (!form.title.trim() || !form.body.trim()) {
+      setError("Preencha o título e a mensagem.");
+      return;
+    }
+    setSaving(true);
+    const res = await fetch(editando ? `/api/templates/${editId}` : "/api/templates", {
+      method: editando ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error || "Erro ao salvar a mensagem.");
+      return;
+    }
+    cancelEdit();
+    load();
+  }
+
+  async function remove(id) {
+    if (!confirm("Excluir esta mensagem pronta?")) return;
+    if (editId === id) cancelEdit();
+    await fetch(`/api/templates/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
+        <h2 className="font-medium text-slate-800">
+          {editando ? "Editar mensagem" : "Nova mensagem pronta"}
+        </h2>
+        <Field
+          label="Título (aparece no seletor)"
+          value={form.title}
+          onChange={(v) => setForm((f) => ({ ...f, title: v }))}
+          placeholder="Ex.: Saudação inicial"
+        />
+        <label className="block">
+          <span className="text-xs text-slate-400">Mensagem</span>
+          <textarea
+            value={form.body}
+            onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
+            rows={5}
+            placeholder="Ex.: Olá! Tudo bem? Aqui é da Controller…"
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400 resize-none"
+          />
+        </label>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+        <div className="flex gap-2">
+          <button
+            disabled={saving}
+            className="flex-1 bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
+          >
+            {saving ? "Salvando…" : editando ? "Salvar alterações" : "Cadastrar mensagem"}
+          </button>
+          {editando && (
+            <button type="button" onClick={cancelEdit} className="px-3 text-sm text-slate-400 hover:text-slate-600">
+              Cancelar
+            </button>
+          )}
+        </div>
+      </form>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <h2 className="font-medium text-slate-800 mb-3">Mensagens cadastradas ({templates.length})</h2>
+        <ul className="divide-y divide-slate-100">
+          {templates.map((t) => (
+            <li
+              key={t.id}
+              className={`py-2.5 ${editId === t.id ? "bg-emerald-50/50 -mx-2 px-2 rounded" : ""}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-700">{t.title}</p>
+                  <p className="text-xs text-slate-400 whitespace-pre-wrap break-words line-clamp-3">{t.body}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button onClick={() => startEdit(t)} className="text-xs text-emerald-600 hover:text-emerald-700">
+                    Editar
+                  </button>
+                  <button onClick={() => remove(t.id)} className="text-xs text-red-400 hover:text-red-600">
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+          {templates.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma mensagem ainda.</li>}
+        </ul>
+      </div>
     </div>
   );
 }

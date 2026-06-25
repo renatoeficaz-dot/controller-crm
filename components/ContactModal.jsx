@@ -32,6 +32,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [users, setUsers] = useState([]);
   const [stagesList, setStagesList] = useState([]);
   const [moveErr, setMoveErr] = useState("");
+  const [templates, setTemplates] = useState([]);
+  const [tplCopied, setTplCopied] = useState(false);
   const chatEnd = useRef(null);
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
@@ -64,14 +66,29 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     loadContact();
   }, [loadContact]);
 
-  // Usuários (para o seletor de responsável) e etapas (para mudar de coluna)
+  // Usuários (responsável), etapas (mudar de coluna) e mensagens prontas
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsers).catch(() => {});
     fetch("/api/stages")
       .then((r) => r.json())
       .then((d) => setStagesList(d.map((s) => ({ id: s.id, name: s.name }))))
       .catch(() => {});
+    fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
   }, []);
+
+  // Escolhe uma mensagem pronta: joga no campo de envio e copia pra área de transferência
+  async function pickTemplate(id) {
+    const t = templates.find((x) => x.id === id);
+    if (!t) return;
+    setText(t.body);
+    try {
+      await navigator.clipboard.writeText(t.body);
+      setTplCopied(true);
+      setTimeout(() => setTplCopied(false), 1500);
+    } catch {
+      // sem clipboard (navegador antigo/HTTP) — o texto já foi pro campo de envio
+    }
+  }
 
   // Move o contato para outra etapa direto do card
   async function changeStage(stageId) {
@@ -269,6 +286,31 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
           <div className="p-5 flex flex-col gap-3 overflow-y-auto thin-scroll flex-1">
             {field("Nome", "name")}
             {field("WhatsApp (ex.: 5511999998888)", "phone")}
+
+            {/* Mensagens prontas — escolhe um modelo e joga no campo de envio */}
+            <label className="block">
+              <span className="text-xs text-slate-400 flex items-center gap-2">
+                Mensagens prontas
+                {tplCopied && <span className="text-emerald-600">copiado ✓</span>}
+              </span>
+              <select
+                value=""
+                onChange={(e) => {
+                  pickTemplate(e.target.value);
+                  e.target.value = "";
+                }}
+                disabled={templates.length === 0}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400 disabled:bg-slate-50 disabled:text-slate-400"
+              >
+                <option value="">
+                  {templates.length ? "— Selecionar mensagem —" : "Nenhuma (cadastre em Configurações)"}
+                </option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+            </label>
+
             <label className="block">
               <span className="text-xs text-slate-400">Observações</span>
               <textarea

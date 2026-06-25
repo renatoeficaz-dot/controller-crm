@@ -68,6 +68,15 @@ model Task {
   createdAt DateTime  @default(now())
 }
 
+// Mensagem pronta (modelo de texto) para envio rápido aos contatos
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  title     String   // nome curto que aparece no seletor
+  body      String   // texto que vai para o campo de envio
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
 // Configurações globais do sistema (linha única)
 model Config {
   id              String  @id @default("singleton")
