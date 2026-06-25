@@ -149,7 +149,7 @@ export default function Relatorios() {
         </h2>
         <div className="grid sm:grid-cols-2 gap-4">
           <Card titulo="Pendente em capital" valor={inad.pendenteCapital} cor="red" />
-          <Card titulo="Pendente total (com honorários + multa)" valor={inad.pendenteTotal} cor="red" />
+          <Card titulo="Pendente total (com honorários)" valor={inad.pendenteTotal} cor="red" />
         </div>
       </section>
     </div>

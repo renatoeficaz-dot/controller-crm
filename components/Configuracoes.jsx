@@ -63,7 +63,7 @@ function TabBtn({ active, onClick, children }) {
 /* ---------------- Cadastro de Ruta (unidades) ---------------- */
 function CadastroRuta() {
   const [units, setUnits] = useState([]);
-  const [form, setForm] = useState({ name: "", cn: "/1/", location: "Brasil, São Paulo" });
+  const [form, setForm] = useState({ name: "", cn: "/1/", location: "Brasil, São Paulo", caixaInicial: "" });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -80,9 +80,9 @@ function CadastroRuta() {
     await fetch("/api/units", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, caixaInicial: Number(form.caixaInicial) || 0 }),
     });
-    setForm({ name: "", cn: "/1/", location: "Brasil, São Paulo" });
+    setForm({ name: "", cn: "/1/", location: "Brasil, São Paulo", caixaInicial: "" });
     setSaving(false);
     load();
   }
@@ -99,6 +99,17 @@ function CadastroRuta() {
         <h2 className="font-medium text-slate-800">Nova Ruta</h2>
         <Field label="Nome da unidade" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Crédito Express" />
         <Field label="CN" value={form.cn} onChange={(v) => setForm((f) => ({ ...f, cn: v }))} />
+        <label className="block">
+          <span className="text-xs text-slate-400">Capital inicial (R$)</span>
+          <input
+            type="number"
+            step="0.01"
+            value={form.caixaInicial}
+            onChange={(e) => setForm((f) => ({ ...f, caixaInicial: e.target.value }))}
+            placeholder="0,00"
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+          />
+        </label>
         <label className="block">
           <span className="text-xs text-slate-400">Localização (estado)</span>
           <select
@@ -128,7 +139,9 @@ function CadastroRuta() {
             <li key={u.id} className="flex items-center justify-between py-2.5">
               <div>
                 <p className="text-sm font-medium text-slate-700">{u.number} - {u.name}</p>
-                <p className="text-xs text-slate-400">{u.cn} · {u.location}</p>
+                <p className="text-xs text-slate-400">
+                  {u.cn} · {u.location} · Capital: R$ {Number(u.caixaInicial || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
               </div>
               <button onClick={() => remove(u.id)} className="text-xs text-red-400 hover:text-red-600">
                 Excluir
