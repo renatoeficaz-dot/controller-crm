@@ -23,5 +23,5 @@ ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
 
-# Ao iniciar: garante o schema no banco e sobe o servidor
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && npm start"]
+# Ao iniciar: garante o schema, cria as colunas padrão (só se o banco estiver vazio) e sobe o servidor
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node prisma/ensure-stages.js && npm start"]
