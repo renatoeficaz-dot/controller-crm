@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { resumoCobranca } from "@/lib/finance";
+import { resumoCobranca, valorParcelaAtual, parcelaAtrasada } from "@/lib/finance";
 
 function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -426,7 +426,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 {parcelas.length > 0 && (
                   <>
                     <ul className="divide-y divide-emerald-100 text-xs">
-                      {parcelas.map((p) => (
+                      {parcelas.map((p) => {
+                        const atrasada = parcelaAtrasada(p);
+                        return (
                         <li key={p.id} className="flex items-center justify-between py-1.5">
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input
@@ -438,12 +440,18 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                             <span className={p.paid ? "line-through text-slate-400" : "text-slate-600"}>
                               {p.number}ª · {fmtDate(p.dueDate)}
                             </span>
+                            {atrasada && (
+                              <span className="text-[10px] font-semibold bg-red-500 text-white rounded-full px-1.5 py-0.5">
+                                +50%
+                              </span>
+                            )}
                           </label>
-                          <span className={`font-medium ${p.paid ? "text-emerald-600" : "text-slate-700"}`}>
-                            {money(p.amount)}
+                          <span className={`font-medium ${p.paid ? "text-emerald-600" : atrasada ? "text-red-600" : "text-slate-700"}`}>
+                            {money(valorParcelaAtual(p))}
                           </span>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                     <p className="text-xs text-slate-500 mt-2 text-right">
                       Recebido: <span className="font-semibold text-emerald-700">{money(totalPago)}</span> / {money(resumo.total)}
