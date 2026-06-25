@@ -318,26 +318,6 @@ export default function KanbanBoard() {
                             <span className="text-emerald-500">●</span> {c.phone}
                           </p>
                         )}
-
-                        {/* Seletor de ruta da lead */}
-                        <select
-                          value={c.unitId || ""}
-                          draggable={false}
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            setUnit(c.id, e.target.value);
-                          }}
-                          className="mt-2 w-full text-xs border border-slate-200 rounded px-1.5 py-1 bg-white text-slate-600 outline-none focus:border-emerald-400 cursor-pointer"
-                        >
-                          <option value="">— Ruta —</option>
-                          {unidades.map((u) => (
-                            <option key={u.id} value={u.id}>
-                              {u.number} - {u.name}
-                            </option>
-                          ))}
-                        </select>
                       </div>
                     );
                   })}
