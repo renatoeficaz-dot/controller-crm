@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Controller CRM
 
-## Getting Started
+CRM de contatos com **funil Kanban** e **atendimento por WhatsApp** integrado à
+[Evolution API](https://doc.evolution-api.com/). Inspirado no conceito do TryController.
 
-First, run the development server:
+Stack: **Next.js (App Router) + Prisma + SQLite + Tailwind CSS**.
+
+## Rodando localmente
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npx prisma db push      # cria o banco SQLite
+node prisma/seed.js      # popula colunas + contatos de exemplo (opcional)
+npm run dev              # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Funcionalidades
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+- **Kanban de contatos**: colunas (Novo Lead → Em Conversa → Negociando → Fechado → Perdido),
+  arrastar e soltar cartões entre colunas (persiste no banco).
+- **Cartão do contato**: dados editáveis (nome, WhatsApp, e-mail, empresa, observações).
+- **Chat WhatsApp** no próprio cartão: envia mensagem pela Evolution API e guarda o histórico.
+- **Webhook**: mensagens que o cliente envia caem no chat automaticamente; se o número
+  não existir, vira um lead novo na primeira coluna.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Enquanto a Evolution não estiver configurada, o chat funciona em **modo simulado**:
+a mensagem é salva no histórico (marcada como `simulado`) mas não sai de verdade.
 
-## Learn More
+## Conectando a Evolution API
 
-To learn more about Next.js, take a look at the following resources:
+1. Suba uma instância da Evolution API (ex.: via Docker) e crie uma instância de WhatsApp.
+2. Preencha o `.env`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```env
+   EVOLUTION_API_URL="https://sua-evolution.exemplo.com"
+   EVOLUTION_API_KEY="sua-api-key"
+   EVOLUTION_INSTANCE="nome-da-instancia"
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. Reinicie o `npm run dev`.
+4. Para **receber** mensagens, configure o webhook da Evolution apontando para:
 
-## Deploy on Vercel
+   ```
+   https://SEU-DOMINIO/api/webhook/evolution
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   habilitando o evento `messages.upsert`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> Os números devem estar no formato internacional só com dígitos: `5511999998888`.
+
+## Estrutura
+
+| Caminho | O quê |
+|---|---|
+| `prisma/schema.prisma` | Modelos: `Stage`, `Contact`, `Message` |
+| `lib/evolution.js` | Cliente da Evolution API (enviar/parsear mensagens) |
+| `app/api/stages` | Lista colunas + contatos |
+| `app/api/contacts/...` | CRUD de contato, mover de coluna, mensagens |
+| `app/api/webhook/evolution` | Recebe mensagens do cliente |
+| `components/KanbanBoard.jsx` | Board com drag-and-drop |
+| `components/ContactModal.jsx` | Cartão do contato + chat |
+
+## Migrar para Postgres (produção)
+
+Troque o `provider` em `prisma/schema.prisma` para `postgresql`, ajuste a `DATABASE_URL`
+e rode `npx prisma migrate dev`. O resto do código não muda.

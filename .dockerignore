@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+build
+.git
+.gitignore
+npm-debug.log*
+.env*
+prisma/*.db
+prisma/*.db-journal
+public/uploads
+README.md
+DEPLOY.md

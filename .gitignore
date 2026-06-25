@@ -13,6 +13,13 @@
 # testing
 /coverage
 
+# uploads de mídia do WhatsApp (gerados em runtime)
+/public/uploads
+
+# banco SQLite local (não vai para o deploy)
+/prisma/*.db
+/prisma/*.db-journal
+
 # next.js
 /.next/
 /out/

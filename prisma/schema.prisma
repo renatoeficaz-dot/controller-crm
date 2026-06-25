@@ -1,0 +1,168 @@
+// Schema do CRM — Kanban de contatos + mensagens de WhatsApp
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Coluna do Kanban (ex.: Novo, Em conversa, Negociando, Fechado)
+model Stage {
+  id        String    @id @default(cuid())
+  name      String
+  color     String    @default("#64748b")
+  order     Int       @default(0)
+  contacts  Contact[]
+  createdAt DateTime  @default(now())
+}
+
+// Contato / lead
+model Contact {
+  id        String    @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  company   String?
+  notes     String?
+  order     Int       @default(0)
+  stage     Stage     @relation(fields: [stageId], references: [id])
+  stageId   String
+  messages  Message[]
+
+  // Financeiro / cobrança
+  valorCapital     Float?     // valor do empréstimo (base do cálculo dos honorários)
+  pagamentoCapital DateTime?  // data da entrega do capital; 1ª cobrança = +1 dia
+  responsavel      String?    // usuário responsável pela lead
+  parcelas         Parcela[]
+  tasks            Task[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// Parcela diária de cobrança (10 por empréstimo)
+model Parcela {
+  id        String    @id @default(cuid())
+  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String
+  number    Int                       // 1..10
+  dueDate   DateTime
+  amount    Float
+  paid      Boolean   @default(false)
+  paidAt    DateTime?
+  task      Task?
+}
+
+// Tarefa do responsável pela lead (uma por parcela, na data do pagamento)
+model Task {
+  id        String    @id @default(cuid())
+  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String
+  parcela   Parcela?  @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
+  parcelaId String?   @unique
+  title     String
+  dueDate   DateTime
+  done      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+}
+
+// Configurações globais do sistema (linha única)
+model Config {
+  id              String  @id @default("singleton")
+  honorariosPct   Float   @default(30) // % cobrado sobre o Valor do capital
+  evolutionUrl    String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
+  evolutionApiKey String? // API Key global da Evolution
+}
+
+// Usuário do sistema (cadastro em Configurações)
+model User {
+  id           String           @id @default(cuid())
+  name         String
+  login        String           @unique
+  passwordHash String
+  numeros      WhatsappNumber[]
+  createdAt    DateTime         @default(now())
+}
+
+// Número de WhatsApp conectado (uma instância da Evolution), atribuível a um usuário
+model WhatsappNumber {
+  id        String   @id @default(cuid())
+  label     String   // nome amigável (ex.: "Comercial 1")
+  number    String   // número (ex.: 5511999998888)
+  instance  String   // nome da instância na Evolution
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+  createdAt DateTime @default(now())
+}
+
+// Mensagem trocada com o contato pelo WhatsApp (Evolution API)
+model Message {
+  id        String   @id @default(cuid())
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String
+  body      String   @default("") // texto / legenda
+  kind      String   @default("text") // text | audio | image | document
+  mediaUrl  String?  // caminho do arquivo (áudio/imagem/anexo)
+  mimeType  String?
+  fileName  String?
+  fromMe    Boolean  @default(true) // true = enviada por nós, false = recebida do cliente
+  status    String   @default("sent")
+  createdAt DateTime @default(now())
+}
+
+// Empresa / Unidade (a tela "onde gerenciamos as empresas")
+model Unit {
+  id           String    @id @default(cuid())
+  number       Int                                   // índice mostrado antes do nome (1, 2, 3...)
+  name         String
+  cn           String    @default("/1/")
+  location     String    @default("Brasil, São Paulo")
+  status       String    @default("open")            // open | closed
+  score        String    @default("N")               // Pontuação
+  caixa        Int?                                    // número da caixa
+  caixaDate    DateTime?
+  caixaInicial Float     @default(0)
+  caixaFinal   Float     @default(0)
+  progresso    Int       @default(0)                  // %
+  ultimaSync   DateTime?
+  pin          String?
+  appVersion   String?
+
+  // --- Dinheiro Atual (movimento do caixa) ---
+  novasVendas       Float @default(0)
+  vendasRenovadas   Float @default(0)
+  colecao           Float @default(0)   // total recebido dos clientes
+  renda             Float @default(0)   // dinheiro adicionado ao caixa
+  contas            Float @default(0)   // despesas
+  retiradas         Float @default(0)
+
+  // --- Desempenho (carteira / coleção) ---
+  pastaInicial         Float @default(0) // carteira no início
+  alegadamente         Float @default(0) // valor a coletar no dia
+  clientesParaColetar  Int   @default(0)
+  receitaAdicional     Float @default(0)
+  receitaExtra         Float @default(0)
+  clientesSemAgendamento Int @default(0)
+
+  // --- Informação (caixa atual) ---
+  trabalhador      String?
+  dataAbertura     DateTime?
+  dataDispositivo  DateTime?
+  dataEncerramento DateTime?
+
+  // Créditos
+  credParaAumentar Int @default(0)
+  credSemHorario   Int @default(0)
+  credNovo         Int @default(0)
+  credCancelado    Int @default(0)
+  credAtivos       Int @default(0)
+
+  // Movimento de crédito
+  movPagamentos   Int @default(0)
+  movEuNaoPago    Int @default(0)
+  movSincronizado Int @default(0)
+
+  createdAt    DateTime  @default(now())
+}
