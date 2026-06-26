@@ -245,7 +245,7 @@ export default function KanbanBoard() {
       )}
 
       {/* Filtro por situação de cobrança (multi-seleção) */}
-      <div className="flex items-center gap-2 px-4 pt-3 flex-wrap">
+      <div className="flex items-center gap-2 px-3 md:px-4 pt-3 flex-wrap overflow-x-auto">
         <span className="text-xs text-slate-400">Filtrar:</span>
         <button
           onClick={() => setFiltros([])}
@@ -312,7 +312,7 @@ export default function KanbanBoard() {
       </div>
 
       {/* Ações em massa sobre os leads do filtro */}
-      <div className="flex items-center gap-2 px-4 pt-2 flex-wrap">
+      <div className="flex items-center gap-2 px-3 md:px-4 pt-2 flex-wrap overflow-x-auto">
         <span className="text-xs text-slate-400">Em massa:</span>
         <select
           value={bulkAction}
@@ -379,8 +379,8 @@ export default function KanbanBoard() {
         )}
       </div>
 
-      <div className="flex-1 overflow-x-auto thin-scroll p-4">
-        <div className="flex gap-4 h-full items-start">
+      <div className="flex-1 overflow-x-auto thin-scroll p-2 md:p-4">
+        <div className="flex gap-3 md:gap-4 h-full items-start">
           {stages.map((stage) => {
             const isOver = overStage === stage.id;
             const visiveis = stage.contacts.filter(passaFiltro);
@@ -393,7 +393,7 @@ export default function KanbanBoard() {
                 }}
                 onDragLeave={() => setOverStage((s) => (s === stage.id ? null : s))}
                 onDrop={() => onDrop(stage.id)}
-                className={`w-72 shrink-0 rounded-xl bg-slate-100/70 border transition-colors ${
+                className={`w-64 md:w-72 shrink-0 rounded-xl bg-slate-100/70 border transition-colors ${
                   isOver ? "border-emerald-400 bg-emerald-50" : "border-slate-200"
                 }`}
               >

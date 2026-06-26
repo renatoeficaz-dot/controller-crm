@@ -99,7 +99,7 @@ export default function Relatorios() {
   if (loading) return <div className="p-6 text-slate-400">Carregando relatórios…</div>;
 
   return (
-    <div className="flex-1 overflow-y-auto thin-scroll p-6 space-y-6 max-w-5xl">
+    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 space-y-4 md:space-y-6 max-w-5xl">
       {/* Filtro por ruta */}
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-400">Ruta:</span>

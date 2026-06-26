@@ -70,9 +70,9 @@ export default function ChatView() {
   const selected = conversations.find((c) => c.id === selectedId);
 
   return (
-    <div className="flex-1 flex min-h-0">
+    <div className="flex-1 flex flex-col md:flex-row min-h-0">
       {/* Lista de conversas */}
-      <div className="w-80 shrink-0 border-r border-slate-200 bg-white flex flex-col min-h-0">
+      <div className={`${selectedId ? "hidden md:flex" : "flex"} w-full md:w-80 shrink-0 border-r border-slate-200 bg-white flex-col min-h-0`}>
         <div className="px-4 py-3 border-b border-slate-200">
           <h2 className="font-semibold text-slate-800 text-sm">Conversas</h2>
         </div>
@@ -118,10 +118,16 @@ export default function ChatView() {
       </div>
 
       {/* Painel de mensagens */}
-      <div className="flex-1 flex flex-col bg-slate-50 min-h-0">
+      <div className={`${selectedId ? "flex" : "hidden md:flex"} flex-1 flex-col bg-slate-50 min-h-0`}>
         {selected ? (
           <>
             <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center gap-3">
+              <button
+                onClick={() => setSelectedId(null)}
+                className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 shrink-0"
+              >
+                ←
+              </button>
               <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center">
                 {initials(selected.name)}
               </div>

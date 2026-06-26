@@ -321,15 +321,15 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-0 md:p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-3xl h-[80vh] flex overflow-hidden"
+        className="bg-white md:rounded-2xl shadow-xl w-full h-full md:max-w-3xl md:h-[80vh] flex flex-col md:flex-row overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Coluna esquerda: dados do contato */}
-        <div className="w-1/2 border-r border-slate-200 flex flex-col">
+        <div className="w-full md:w-1/2 md:border-r border-b md:border-b-0 border-slate-200 flex flex-col max-h-[50vh] md:max-h-none">
           <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
             <h2 className="font-semibold text-slate-800">Dados do contato</h2>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
@@ -612,7 +612,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
         </div>
 
         {/* Coluna direita: chat WhatsApp */}
-        <div className="w-1/2 flex flex-col bg-slate-50">
+        <div className="w-full md:w-1/2 flex flex-col bg-slate-50 flex-1 min-h-0">
           <div className="px-5 py-4 border-b border-slate-200 bg-white flex items-center gap-2">
             <span className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-sm">
               ✆

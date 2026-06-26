@@ -233,7 +233,7 @@ export default function LancamentosView() {
   const catsDoTipo = categorias.filter((c) => c.type === form.type);
 
   return (
-    <div className="flex-1 overflow-y-auto thin-scroll p-4 md:p-6 max-w-6xl space-y-6">
+    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 max-w-6xl space-y-4 md:space-y-6">
       <h1 className="text-lg font-semibold text-slate-800">Lançamentos</h1>
 
       {/* Cards de resumo */}
@@ -253,7 +253,7 @@ export default function LancamentosView() {
       </div>
 
       {/* Gráficos */}
-      <div className="grid sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <PieChart data={porCategoria.entradas} title="Entradas por categoria" />
         </div>
@@ -350,8 +350,8 @@ export default function LancamentosView() {
             </label>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="text-left px-4 py-2">Data</th>
