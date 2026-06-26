@@ -21,6 +21,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [messages, setMessages] = useState([]);
   const [parcelas, setParcelas] = useState([]);
   const [honorariosPct, setHonorariosPct] = useState(30);
+  const [multaPct, setMultaPct] = useState(50);
+  const [horaLimite, setHoraLimite] = useState("");
   const [form, setForm] = useState({});
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -35,6 +37,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [moveErr, setMoveErr] = useState("");
   const [templates, setTemplates] = useState([]);
   const [tplCopied, setTplCopied] = useState(false);
+  const [allTags, setAllTags] = useState([]);
+  const [contactTags, setContactTags] = useState([]);
+  const [cicloAtual, setCicloAtual] = useState(1);
+  const [showHistorico, setShowHistorico] = useState(false);
+  const [renovForm, setRenovForm] = useState({ valorCapital: "", pagamentoCapital: "" });
+  const [renovando, setRenovando] = useState(false);
   const chatEnd = useRef(null);
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
@@ -61,7 +69,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     });
     setMessages(data.messages || []);
     setParcelas(data.parcelas || []);
+    setContactTags((data.tags || []).map((t) => t.id));
+    setCicloAtual(data.cicloAtual || 1);
     if (cfg?.honorariosPct != null) setHonorariosPct(cfg.honorariosPct);
+    if (cfg?.multaPct != null) setMultaPct(cfg.multaPct);
+    setHoraLimite(cfg?.pagamentoHoraLimite || "");
   }, [contactId]);
 
   useEffect(() => {
@@ -77,6 +89,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       .catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
     fetch("/api/units").then((r) => r.json()).then(setUnidades).catch(() => {});
+    fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
   }, []);
 
   // Escolhe uma mensagem pronta: joga no campo de envio e copia pra área de transferência
@@ -244,6 +257,39 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     setRecording(false);
   }
 
+  async function renovar() {
+    if (!renovForm.valorCapital || !renovForm.pagamentoCapital) {
+      setCobrancaMsg("Preencha o capital e a data de pagamento da renovação.");
+      return;
+    }
+    setRenovando(true);
+    const res = await fetch(`/api/contacts/${contactId}/renovar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(renovForm),
+    });
+    setRenovando(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setCobrancaMsg(d.error || "Erro ao renovar.");
+      return;
+    }
+    setRenovForm({ valorCapital: "", pagamentoCapital: "" });
+    loadContact();
+    onChanged?.();
+  }
+
+  async function toggleTag(tagId) {
+    const has = contactTags.includes(tagId);
+    setContactTags((prev) => (has ? prev.filter((id) => id !== tagId) : [...prev, tagId]));
+    await fetch(`/api/contacts/${contactId}/tags`, {
+      method: has ? "DELETE" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tagId }),
+    });
+    onChanged?.();
+  }
+
   async function removeContact() {
     if (!confirm("Remover este contato e todo o histórico?")) return;
     await fetch(`/api/contacts/${contactId}`, { method: "DELETE" });
@@ -253,7 +299,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
   const isRecebimento = contact?.stage?.name === "Recebimento";
   const resumo = resumoCobranca(form.valorCapital, honorariosPct);
-  const totalPago = parcelas.filter((p) => p.paid).reduce((s, p) => s + p.amount, 0);
+  const multaOpts = { multaPct, horaLimite }; // multa por atraso + horário limite (config)
+  const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === cicloAtual);
+  const parcelasHistorico = parcelas.filter((p) => (p.ciclo || 1) < cicloAtual);
+  const totalPago = parcelasAtuais.filter((p) => p.paid).reduce((s, p) => s + p.amount, 0);
+  const todasPagas = parcelasAtuais.length > 0 && parcelasAtuais.every((p) => p.paid);
 
   function field(label, key, type = "text") {
     return (
@@ -373,6 +423,29 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </select>
             </label>
 
+            {/* Tags / Etiquetas */}
+            {allTags.length > 0 && (
+              <div>
+                <span className="text-xs text-slate-400">Etiquetas</span>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {allTags.map((t) => {
+                    const on = contactTags.includes(t.id);
+                    return (
+                      <button
+                        type="button"
+                        key={t.id}
+                        onClick={() => toggleTag(t.id)}
+                        className="text-[11px] font-medium rounded-full px-2 py-0.5 border transition-colors"
+                        style={on ? { backgroundColor: t.color, borderColor: t.color, color: "#fff" } : { borderColor: "#e2e8f0", color: "#64748b" }}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Dados financeiros do empréstimo */}
             <div className="border-t border-slate-100 pt-3 grid grid-cols-2 gap-3">
               <label className="block">
@@ -423,11 +496,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 </button>
                 {cobrancaMsg && <p className="text-xs text-red-500 mb-2">{cobrancaMsg}</p>}
 
-                {parcelas.length > 0 && (
+                {cicloAtual > 1 && (
+                  <p className="text-[11px] text-slate-400 mb-1">Ciclo atual: {cicloAtual} (renovação {cicloAtual - 1})</p>
+                )}
+                {parcelasAtuais.length > 0 && (
                   <>
                     <ul className="divide-y divide-emerald-100 text-xs">
-                      {parcelas.map((p) => {
-                        const atrasada = parcelaAtrasada(p);
+                      {parcelasAtuais.map((p) => {
+                        const atrasada = parcelaAtrasada(p, undefined, multaOpts);
                         return (
                         <li key={p.id} className="flex items-center justify-between py-1.5">
                           <label className="flex items-center gap-2 cursor-pointer">
@@ -442,12 +518,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                             </span>
                             {atrasada && (
                               <span className="text-[10px] font-semibold bg-red-500 text-white rounded-full px-1.5 py-0.5">
-                                +50%
+                                +{multaPct}%
                               </span>
                             )}
                           </label>
                           <span className={`font-medium ${p.paid ? "text-emerald-600" : atrasada ? "text-red-600" : "text-slate-700"}`}>
-                            {money(valorParcelaAtual(p))}
+                            {money(valorParcelaAtual(p, undefined, multaOpts))}
                           </span>
                         </li>
                         );
@@ -456,7 +532,65 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     <p className="text-xs text-slate-500 mt-2 text-right">
                       Recebido: <span className="font-semibold text-emerald-700">{money(totalPago)}</span> / {money(resumo.total)}
                     </p>
+
+                    {/* Renovação — aparece só quando todas as parcelas do ciclo estão pagas */}
+                    {todasPagas && (
+                      <div className="mt-3 pt-3 border-t border-emerald-100 space-y-2">
+                        <p className="text-xs font-medium text-emerald-700">Todas as parcelas foram pagas!</p>
+                        <p className="text-[11px] text-slate-500">Preencha os dados abaixo para iniciar uma <strong>renovação</strong>.</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="block">
+                            <span className="text-[11px] text-slate-400">Novo capital (R$)</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={renovForm.valorCapital}
+                              onChange={(e) => setRenovForm((f) => ({ ...f, valorCapital: e.target.value }))}
+                              className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-[11px] text-slate-400">Data de pagamento</span>
+                            <input
+                              type="date"
+                              value={renovForm.pagamentoCapital}
+                              onChange={(e) => setRenovForm((f) => ({ ...f, pagamentoCapital: e.target.value }))}
+                              className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400"
+                            />
+                          </label>
+                        </div>
+                        <button
+                          onClick={renovar}
+                          disabled={renovando}
+                          className="w-full text-xs bg-emerald-600 text-white rounded py-1.5 hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          {renovando ? "Renovando…" : "Renovar empréstimo"}
+                        </button>
+                      </div>
+                    )}
                   </>
+                )}
+
+                {/* Histórico de ciclos anteriores (minimizado) */}
+                {parcelasHistorico.length > 0 && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() => setShowHistorico((v) => !v)}
+                      className="text-[11px] text-slate-400 hover:text-slate-600"
+                    >
+                      {showHistorico ? "▼" : "▶"} Histórico ({parcelasHistorico.length} parcela(s) de {cicloAtual - 1} ciclo(s) anterior(es))
+                    </button>
+                    {showHistorico && (
+                      <ul className="mt-1 divide-y divide-slate-100 text-[11px] text-slate-400">
+                        {parcelasHistorico.map((p) => (
+                          <li key={p.id} className="flex justify-between py-1">
+                            <span>Ciclo {p.ciclo || 1} · {p.number}ª · {fmtDate(p.dueDate)}</span>
+                            <span className="text-emerald-600">{money(p.amount)} ✓</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 )}
               </div>
             )}

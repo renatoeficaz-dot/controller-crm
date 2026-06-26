@@ -68,6 +68,11 @@ export default function KanbanBoard() {
   const [respFiltro, setRespFiltro] = useState(""); // "" = todos; "__none__" = sem responsável
   const [usuarios, setUsuarios] = useState([]);
   const [unidades, setUnidades] = useState([]); // rutas/unidades para o seletor do card
+  const [tags, setTags] = useState([]);
+  const [tagFiltro, setTagFiltro] = useState(""); // "" = todas; tagId = só leads com essa tag
+  const [bulkAction, setBulkAction] = useState(""); // "", stage, responsavel, unit, delete
+  const [bulkValue, setBulkValue] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   function toggleFiltro(sit) {
     setFiltros((prev) =>
@@ -94,6 +99,7 @@ export default function KanbanBoard() {
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsuarios).catch(() => {});
     fetch("/api/units").then((r) => r.json()).then(setUnidades).catch(() => {});
+    fetch("/api/tags").then((r) => r.json()).then(setTags).catch(() => {});
   }, []);
 
   // Define a ruta (unidade) de uma lead direto pelo card
@@ -178,6 +184,54 @@ export default function KanbanBoard() {
     load();
   }
 
+  // Um lead passa pelo filtro atual (situação + responsável)?
+  function passaFiltro(c) {
+    if (filtros.length && !filtros.includes(situacaoContato(c))) return false;
+    if (respFiltro === "__none__" && c.responsavel) return false;
+    if (respFiltro && respFiltro !== "__none__" && c.responsavel !== respFiltro) return false;
+    if (tagFiltro && !(c.tags || []).some((t) => t.id === tagFiltro)) return false;
+    return true;
+  }
+
+  // Todos os leads visíveis no filtro (somando todas as colunas)
+  const leadsFiltrados = stages.flatMap((s) => s.contacts.filter(passaFiltro));
+
+  // Aplica a ação escolhida a TODOS os leads do filtro.
+  async function aplicarEmMassa() {
+    const ids = leadsFiltrados.map((c) => c.id);
+    if (!bulkAction || ids.length === 0) return;
+    if (bulkAction === "stage" && !bulkValue) {
+      flash("Escolha a coluna de destino.");
+      return;
+    }
+    const labelAcao = {
+      stage: "mover de coluna",
+      responsavel: "trocar o responsável",
+      unit: "trocar a ruta",
+      delete: "EXCLUIR",
+    }[bulkAction];
+    if (!confirm(`Confirmar: ${labelAcao} de ${ids.length} lead(s) do filtro?`)) return;
+
+    setBulkBusy(true);
+    const res = await fetch("/api/contacts/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, action: bulkAction, value: bulkValue || null }),
+    });
+    setBulkBusy(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      flash(data.error || "Falha na ação em massa.");
+      return;
+    }
+    if (data.skipped) {
+      flash(`${data.moved} movido(s); ${data.skipped} sem Valor do capital foram ignorados.`);
+    }
+    setBulkAction("");
+    setBulkValue("");
+    load();
+  }
+
   if (loading) {
     return <div className="p-6 text-slate-400">Carregando funil…</div>;
   }
@@ -236,18 +290,100 @@ export default function KanbanBoard() {
           ))}
           <option value="__none__">Sem responsável</option>
         </select>
+
+        {/* Filtro por tag */}
+        {tags.length > 0 && (
+          <>
+            <span className="text-xs text-slate-400 ml-2">Tag:</span>
+            <select
+              value={tagFiltro}
+              onChange={(e) => setTagFiltro(e.target.value)}
+              className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
+                tagFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
+              }`}
+            >
+              <option value="">Todas</option>
+              {tags.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </>
+        )}
+      </div>
+
+      {/* Ações em massa sobre os leads do filtro */}
+      <div className="flex items-center gap-2 px-4 pt-2 flex-wrap">
+        <span className="text-xs text-slate-400">Em massa:</span>
+        <select
+          value={bulkAction}
+          onChange={(e) => {
+            setBulkAction(e.target.value);
+            setBulkValue("");
+          }}
+          className="text-xs rounded-full px-3 py-1 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400"
+        >
+          <option value="">— escolher ação —</option>
+          <option value="stage">Mover de coluna</option>
+          <option value="responsavel">Trocar responsável</option>
+          <option value="unit">Trocar ruta</option>
+          <option value="delete">Excluir</option>
+        </select>
+
+        {bulkAction === "stage" && (
+          <select
+            value={bulkValue}
+            onChange={(e) => setBulkValue(e.target.value)}
+            className="text-xs rounded-full px-3 py-1 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400"
+          >
+            <option value="">— coluna destino —</option>
+            {stages.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        )}
+        {bulkAction === "responsavel" && (
+          <select
+            value={bulkValue}
+            onChange={(e) => setBulkValue(e.target.value)}
+            className="text-xs rounded-full px-3 py-1 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400"
+          >
+            <option value="">— Sem responsável —</option>
+            {usuarios.map((u) => (
+              <option key={u.id} value={u.name}>{u.name}</option>
+            ))}
+          </select>
+        )}
+        {bulkAction === "unit" && (
+          <select
+            value={bulkValue}
+            onChange={(e) => setBulkValue(e.target.value)}
+            className="text-xs rounded-full px-3 py-1 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400"
+          >
+            <option value="">— Sem ruta —</option>
+            {unidades.map((u) => (
+              <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
+            ))}
+          </select>
+        )}
+
+        {bulkAction && (
+          <button
+            onClick={aplicarEmMassa}
+            disabled={bulkBusy || leadsFiltrados.length === 0}
+            className={`text-xs rounded-full px-3 py-1 text-white transition-colors disabled:opacity-50 ${
+              bulkAction === "delete" ? "bg-red-500 hover:bg-red-600" : "bg-emerald-500 hover:bg-emerald-600"
+            }`}
+          >
+            {bulkBusy ? "Aplicando…" : `Aplicar a ${leadsFiltrados.length} lead(s)`}
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-x-auto thin-scroll p-4">
         <div className="flex gap-4 h-full items-start">
           {stages.map((stage) => {
             const isOver = overStage === stage.id;
-            const visiveis = stage.contacts.filter((c) => {
-              if (filtros.length && !filtros.includes(situacaoContato(c))) return false;
-              if (respFiltro === "__none__" && c.responsavel) return false;
-              if (respFiltro && respFiltro !== "__none__" && c.responsavel !== respFiltro) return false;
-              return true;
-            });
+            const visiveis = stage.contacts.filter(passaFiltro);
             return (
               <div
                 key={stage.id}
@@ -313,6 +449,19 @@ export default function KanbanBoard() {
                             </span>
                           )}
                         </div>
+                        {(c.tags || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {c.tags.map((t) => (
+                              <span
+                                key={t.id}
+                                className="text-[10px] font-medium rounded-full px-1.5 py-0.5 text-white"
+                                style={{ backgroundColor: t.color }}
+                              >
+                                {t.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {c.phone && (
                           <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
                             <span className="text-emerald-500">●</span> {c.phone}

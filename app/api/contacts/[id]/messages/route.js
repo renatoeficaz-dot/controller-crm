@@ -1,12 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { sendWhatsappText } from "@/lib/evolution";
+import { getCurrentUser, mensagensWhere } from "@/lib/session";
 
-// Lista mensagens do contato
+// Lista mensagens do contato (conforme os WhatsApp que o usuário pode ver)
 export async function GET(_req, { params }) {
   const { id } = await params;
+  const user = await getCurrentUser();
+  const extra = mensagensWhere(user);
   const messages = await prisma.message.findMany({
-    where: { contactId: id },
+    where: { contactId: id, ...(extra || {}) },
     orderBy: { createdAt: "asc" },
   });
   return NextResponse.json(messages);

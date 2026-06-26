@@ -15,6 +15,7 @@ model Stage {
   color     String    @default("#64748b")
   order     Int       @default(0)
   contacts  Contact[]
+  usuarios  User[]    @relation("UserKanbans") // usuários (não-admin) que enxergam esta coluna
   createdAt DateTime  @default(now())
 }
 
@@ -37,8 +38,11 @@ model Contact {
   responsavel      String?    // usuário responsável pela lead
   unit             Unit?      @relation(fields: [unitId], references: [id], onDelete: SetNull)
   unitId           String?    // ruta/unidade associada à lead
+  cicloAtual       Int        @default(1) // ciclo de empréstimo atual (renovações incrementam)
+  tags             Tag[]      @relation("ContactTags")
   parcelas         Parcela[]
   tasks            Task[]
+  lancamentos      Lancamento[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -54,6 +58,7 @@ model Parcela {
   amount    Float
   paid      Boolean   @default(false)
   paidAt    DateTime?
+  ciclo     Int       @default(1)     // 1 = primeiro empréstimo, 2 = 1ª renovação, etc.
   task      Task?
 }
 
@@ -81,33 +86,93 @@ model MessageTemplate {
 
 // Configurações globais do sistema (linha única)
 model Config {
-  id              String  @id @default("singleton")
-  honorariosPct   Float   @default(30) // % cobrado sobre o Valor do capital
-  evolutionUrl    String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
-  evolutionApiKey String? // API Key global da Evolution
+  id                  String  @id @default("singleton")
+  honorariosPct       Float   @default(30) // % cobrado sobre o Valor do capital
+  multaPct            Float   @default(50) // % de multa aplicado à parcela vencida (juros por atraso)
+  pagamentoHoraLimite String? // "HH:MM" — após esse horário, a parcela que vence hoje já conta como atrasada
+  evolutionUrl        String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
+  evolutionApiKey     String? // API Key global da Evolution
 }
 
-// Usuário do sistema (cadastro em Configurações)
+// Usuário do sistema (cadastro em Configurações) — também faz login no app.
 model User {
-  id           String           @id @default(cuid())
-  name         String
-  login        String           @unique
-  passwordHash String
-  numeros      WhatsappNumber[]
-  createdAt    DateTime         @default(now())
+  id              String           @id @default(cuid())
+  name            String
+  login           String           @unique
+  passwordHash    String
+  role            String           @default("vendedor") // admin | vendedor | cobrador
+  verTodosLeads   Boolean          @default(false)       // false = só leads onde é responsável
+  numeros         WhatsappNumber[] @relation("NumeroResponsavel")  // números atribuídos (ownership)
+  numerosVisiveis WhatsappNumber[] @relation("NumeroVisibilidade") // WhatsApp cujas mensagens pode ver
+  kanbansVisiveis Stage[]          @relation("UserKanbans")        // colunas do funil que pode ver
+  createdAt       DateTime         @default(now())
 }
 
 // Número de WhatsApp conectado (uma instância da Evolution), atribuível a um usuário
 model WhatsappNumber {
-  id        String   @id @default(cuid())
-  label     String   // nome amigável (ex.: "Comercial 1")
-  number    String   // número (ex.: 5511999998888)
-  instance  String   // nome da instância na Evolution
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  userId    String?
-  unit      Unit?    @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  unitId    String?  // ruta/unidade vinculada — leads novos por este número herdam esta ruta
+  id                 String   @id @default(cuid())
+  label              String   // nome amigável (ex.: "Comercial 1")
+  number             String   // número (ex.: 5511999998888)
+  instance           String   // nome da instância na Evolution
+  user               User?    @relation("NumeroResponsavel", fields: [userId], references: [id], onDelete: SetNull)
+  userId             String?
+  usuariosVisualizam User[]   @relation("NumeroVisibilidade") // usuários que podem ver as mensagens deste número
+  unit               Unit?    @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unitId             String?  // ruta/unidade vinculada — leads novos por este número herdam esta ruta
+  createdAt          DateTime @default(now())
+}
+
+// Etiqueta (tag) atribuível a leads
+model Tag {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  color    String    @default("#6366f1") // cor do badge
+  contacts Contact[] @relation("ContactTags")
+  rules    AutoTagRule[]
   createdAt DateTime @default(now())
+}
+
+// Regra de auto-tag: se a 1ª mensagem do cliente contém o texto, atribui a tag.
+model AutoTagRule {
+  id        String @id @default(cuid())
+  match     String // texto que a 1ª mensagem deve conter (case-insensitive)
+  tag       Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId     String
+  createdAt DateTime @default(now())
+}
+
+// Categoria de lançamento (entrada ou saída)
+model LancamentoCategoria {
+  id          String       @id @default(cuid())
+  name        String
+  type        String       // "entrada" | "saida"
+  lancamentos Lancamento[]
+  createdAt   DateTime     @default(now())
+}
+
+// Banco / conta financeira
+model Banco {
+  id          String       @id @default(cuid())
+  name        String
+  lancamentos Lancamento[]
+  createdAt   DateTime     @default(now())
+}
+
+// Lançamento financeiro (entrada ou saída). Pagamentos de parcelas geram lançamentos automáticos.
+model Lancamento {
+  id           String              @id @default(cuid())
+  type         String              // "entrada" | "saida"
+  amount       Float
+  description  String?
+  date         DateTime            @default(now())
+  categoria    LancamentoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  categoriaId  String?
+  banco        Banco?              @relation(fields: [bancoId], references: [id], onDelete: SetNull)
+  bancoId      String?
+  contact      Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId    String?
+  parcelaId    String?             // referência à parcela (se gerado automaticamente)
+  createdAt    DateTime            @default(now())
 }
 
 // Mensagem trocada com o contato pelo WhatsApp (Evolution API)
@@ -122,6 +187,7 @@ model Message {
   fileName  String?
   fromMe    Boolean  @default(true) // true = enviada por nós, false = recebida do cliente
   status    String   @default("sent")
+  instance  String?  // instância da Evolution que originou/enviou (controle de visibilidade por usuário)
   createdAt DateTime @default(now())
 }
 

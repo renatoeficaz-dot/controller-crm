@@ -29,6 +29,7 @@ const PRESETS = [
 export default function Relatorios() {
   const [stages, setStages] = useState([]);
   const [unidades, setUnidades] = useState([]);
+  const [cfg, setCfg] = useState(null);
   const [rutaFiltro, setRutaFiltro] = useState(""); // "" = todas as rutas
   const [loading, setLoading] = useState(true);
   const [preset, setPreset] = useState("mes");
@@ -45,7 +46,15 @@ export default function Relatorios() {
   }, [load]);
   useEffect(() => {
     fetch("/api/units").then((r) => r.json()).then(setUnidades).catch(() => {});
+    fetch("/api/config").then((r) => r.json()).then(setCfg).catch(() => {});
   }, []);
+
+  // Parâmetros de multa por atraso (vindos da config) para o cálculo "a receber".
+  const multaOpts = useMemo(
+    () => ({ multaPct: cfg?.multaPct, horaLimite: cfg?.pagamentoHoraLimite }),
+    [cfg]
+  );
+  const multaPct = cfg?.multaPct ?? 50;
 
   // Aplica o filtro de ruta: mantém só os contatos da ruta escolhida
   const stagesFiltrados = useMemo(() => {
@@ -63,7 +72,7 @@ export default function Relatorios() {
     setFim(b);
   }
 
-  const receber = useMemo(() => aReceber(stagesFiltrados), [stagesFiltrados]);
+  const receber = useMemo(() => aReceber(stagesFiltrados, multaOpts), [stagesFiltrados, multaOpts]);
   const recebido = useMemo(() => totalRecebido(stagesFiltrados, ini, fim), [stagesFiltrados, ini, fim]);
   const inad = useMemo(() => inadimplenciaCravo(stagesFiltrados), [stagesFiltrados]);
 
@@ -97,7 +106,7 @@ export default function Relatorios() {
           <Card titulo="Este mês" valor={receber.mes} cor="violet" />
         </div>
         <p className="text-xs text-slate-400 mt-1">
-          Parcelas em aberto que vencem de hoje até o fim de cada período (já com multa de 50% nas vencidas).
+          Parcelas em aberto que vencem de hoje até o fim de cada período (já com multa de {multaPct}% nas vencidas).
         </p>
       </section>
 

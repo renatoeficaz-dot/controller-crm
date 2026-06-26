@@ -29,10 +29,31 @@ export async function PATCH(req, { params }) {
     data.passwordHash = await bcrypt.hash(body.password, 10);
   }
 
+  const ROLES = ["admin", "vendedor", "cobrador"];
+  if ("role" in body && ROLES.includes(body.role)) data.role = body.role;
+  if ("verTodosLeads" in body) data.verTodosLeads = !!body.verTodosLeads;
+  // Admin sempre vê tudo (não faz sentido restringir)
+  if (data.role === "admin") data.verTodosLeads = true;
+  if ("kanbansVisiveis" in body) {
+    data.kanbansVisiveis = { set: (body.kanbansVisiveis || []).map((kid) => ({ id: kid })) };
+  }
+  if ("numerosVisiveis" in body) {
+    data.numerosVisiveis = { set: (body.numerosVisiveis || []).map((nid) => ({ id: nid })) };
+  }
+
   const user = await prisma.user.update({
     where: { id },
     data,
-    select: { id: true, name: true, login: true, createdAt: true },
+    select: {
+      id: true,
+      name: true,
+      login: true,
+      role: true,
+      verTodosLeads: true,
+      kanbansVisiveis: { select: { id: true } },
+      numerosVisiveis: { select: { id: true } },
+      createdAt: true,
+    },
   });
   return NextResponse.json(user);
 }

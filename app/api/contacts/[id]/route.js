@@ -1,15 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getCurrentUser, mensagensWhere } from "@/lib/session";
 
-// Busca um contato com suas mensagens e parcelas
+// Busca um contato com suas mensagens (conforme permissão de WhatsApp) e parcelas
 export async function GET(_req, { params }) {
   const { id } = await params;
+  const user = await getCurrentUser();
   const contact = await prisma.contact.findUnique({
     where: { id },
     include: {
-      messages: { orderBy: { createdAt: "asc" } },
+      messages: { where: mensagensWhere(user), orderBy: { createdAt: "asc" } },
       stage: true,
-      parcelas: { orderBy: { number: "asc" } },
+      parcelas: { orderBy: [{ ciclo: "asc" }, { number: "asc" }] },
+      tags: { select: { id: true, name: true, color: true } },
     },
   });
   if (!contact) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });

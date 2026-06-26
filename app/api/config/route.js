@@ -20,6 +20,8 @@ export async function PATCH(req) {
   await getConfig();
   const data = {};
   if ("honorariosPct" in body) data.honorariosPct = Number(body.honorariosPct) || 0;
+  if ("multaPct" in body) data.multaPct = Number(body.multaPct) || 0;
+  if ("pagamentoHoraLimite" in body) data.pagamentoHoraLimite = (body.pagamentoHoraLimite || "").trim() || null;
   if ("evolutionUrl" in body) data.evolutionUrl = (body.evolutionUrl || "").trim() || null;
   if ("evolutionApiKey" in body) data.evolutionApiKey = (body.evolutionApiKey || "").trim() || null;
   const config = await prisma.config.update({ where: { id: "singleton" }, data });

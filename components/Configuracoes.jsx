@@ -23,13 +23,16 @@ export default function Configuracoes() {
           Cadastro de Ruta
         </TabBtn>
         <TabBtn active={tab === "honorarios"} onClick={() => setTab("honorarios")}>
-          % de honorários
+          Honorários / Multa
         </TabBtn>
         <TabBtn active={tab === "usuarios"} onClick={() => setTab("usuarios")}>
           Usuários
         </TabBtn>
         <TabBtn active={tab === "numeros"} onClick={() => setTab("numeros")}>
           Números
+        </TabBtn>
+        <TabBtn active={tab === "tags"} onClick={() => setTab("tags")}>
+          Tags / Auto-tag
         </TabBtn>
         <TabBtn active={tab === "mensagens"} onClick={() => setTab("mensagens")}>
           Mensagens prontas
@@ -40,6 +43,7 @@ export default function Configuracoes() {
       {tab === "honorarios" && <Honorarios />}
       {tab === "usuarios" && <Usuarios />}
       {tab === "numeros" && <Numeros />}
+      {tab === "tags" && <TagsConfig />}
       {tab === "mensagens" && <MensagensProntas />}
     </div>
   );
@@ -61,42 +65,61 @@ function TabBtn({ active, onClick, children }) {
 }
 
 /* ---------------- Cadastro de Ruta (unidades) ---------------- */
+const EMPTY_RUTA = { name: "", cn: "/1/", location: "Brasil, São Paulo", caixaInicial: "" };
+
 function CadastroRuta() {
   const [units, setUnits] = useState([]);
-  const [form, setForm] = useState({ name: "", cn: "/1/", location: "Brasil, São Paulo", caixaInicial: "" });
+  const [form, setForm] = useState(EMPTY_RUTA);
+  const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  const editando = editId !== null;
 
   const load = useCallback(async () => {
     setUnits(await fetch("/api/units").then((r) => r.json()));
   }, []);
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  async function create(e) {
+  function startEdit(u) {
+    setEditId(u.id);
+    setForm({
+      name: u.name || "",
+      cn: u.cn || "/1/",
+      location: u.location || "Brasil, São Paulo",
+      caixaInicial: String(u.caixaInicial ?? ""),
+    });
+  }
+
+  function cancelEdit() {
+    setEditId(null);
+    setForm(EMPTY_RUTA);
+  }
+
+  async function save(e) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
-    await fetch("/api/units", {
-      method: "POST",
+    await fetch(editando ? `/api/units/${editId}` : "/api/units", {
+      method: editando ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, caixaInicial: Number(form.caixaInicial) || 0 }),
     });
-    setForm({ name: "", cn: "/1/", location: "Brasil, São Paulo", caixaInicial: "" });
     setSaving(false);
+    cancelEdit();
     load();
   }
 
   async function remove(id) {
     if (!confirm("Excluir esta ruta/unidade?")) return;
+    if (editId === id) cancelEdit();
     await fetch(`/api/units/${id}`, { method: "DELETE" });
     load();
   }
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      <form onSubmit={create} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
-        <h2 className="font-medium text-slate-800">Nova Ruta</h2>
+      <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
+        <h2 className="font-medium text-slate-800">{editando ? "Editar Ruta" : "Nova Ruta"}</h2>
         <Field label="Nome da unidade" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Crédito Express" />
         <Field label="CN" value={form.cn} onChange={(v) => setForm((f) => ({ ...f, cn: v }))} />
         <label className="block">
@@ -124,28 +147,40 @@ function CadastroRuta() {
             ))}
           </select>
         </label>
-        <button
-          disabled={saving}
-          className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
-        >
-          {saving ? "Salvando…" : "Cadastrar ruta"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            disabled={saving}
+            className="flex-1 bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
+          >
+            {saving ? "Salvando…" : editando ? "Salvar alterações" : "Cadastrar ruta"}
+          </button>
+          {editando && (
+            <button type="button" onClick={cancelEdit} className="px-3 text-sm text-slate-400 hover:text-slate-600">
+              Cancelar
+            </button>
+          )}
+        </div>
       </form>
 
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <h2 className="font-medium text-slate-800 mb-3">Rutas cadastradas ({units.length})</h2>
         <ul className="divide-y divide-slate-100">
           {units.map((u) => (
-            <li key={u.id} className="flex items-center justify-between py-2.5">
+            <li key={u.id} className={`flex items-center justify-between py-2.5 ${editId === u.id ? "bg-emerald-50/50 -mx-2 px-2 rounded" : ""}`}>
               <div>
                 <p className="text-sm font-medium text-slate-700">{u.number} - {u.name}</p>
                 <p className="text-xs text-slate-400">
                   {u.cn} · {u.location} · Capital: R$ {Number(u.caixaInicial || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
               </div>
-              <button onClick={() => remove(u.id)} className="text-xs text-red-400 hover:text-red-600">
-                Excluir
-              </button>
+              <div className="flex items-center gap-3">
+                <button onClick={() => startEdit(u)} className="text-xs text-emerald-600 hover:text-emerald-700">
+                  Editar
+                </button>
+                <button onClick={() => remove(u.id)} className="text-xs text-red-400 hover:text-red-600">
+                  Excluir
+                </button>
+              </div>
             </li>
           ))}
           {units.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma ruta ainda.</li>}
@@ -157,13 +192,19 @@ function CadastroRuta() {
 
 /* ---------------- % de honorários ---------------- */
 function Honorarios() {
-  const [pct, setPct] = useState("");
+  const [form, setForm] = useState({ honorariosPct: "", multaPct: "", pagamentoHoraLimite: "" });
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/config")
       .then((r) => r.json())
-      .then((c) => setPct(String(c.honorariosPct)));
+      .then((c) =>
+        setForm({
+          honorariosPct: String(c.honorariosPct ?? ""),
+          multaPct: String(c.multaPct ?? ""),
+          pagamentoHoraLimite: c.pagamentoHoraLimite || "",
+        })
+      );
   }, []);
 
   async function save(e) {
@@ -171,32 +212,77 @@ function Honorarios() {
     await fetch("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ honorariosPct: Number(pct) }),
+      body: JSON.stringify({
+        honorariosPct: Number(form.honorariosPct),
+        multaPct: Number(form.multaPct),
+        pagamentoHoraLimite: form.pagamentoHoraLimite,
+      }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
 
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
   return (
-    <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 max-w-md space-y-3">
-      <h2 className="font-medium text-slate-800">% de honorários</h2>
-      <p className="text-sm text-slate-500">
-        Percentual cobrado sobre o <strong>Valor do capital</strong> de cada empréstimo. Usado
-        para calcular as 10 parcelas na seção de Cobrança do contato.
-      </p>
-      <label className="block">
-        <span className="text-xs text-slate-400">Percentual (%)</span>
-        <div className="flex items-center gap-2 mt-0.5">
-          <input
-            type="number"
-            step="0.01"
-            value={pct}
-            onChange={(e) => setPct(e.target.value)}
-            className="w-32 text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
-          />
-          <span className="text-slate-500">%</span>
+    <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 max-w-md space-y-4">
+      <div>
+        <h2 className="font-medium text-slate-800">% de honorários</h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Percentual cobrado sobre o <strong>Valor do capital</strong> de cada empréstimo. Usado
+          para calcular as 10 parcelas na seção de Cobrança do contato.
+        </p>
+        <label className="block mt-2">
+          <span className="text-xs text-slate-400">Percentual (%)</span>
+          <div className="flex items-center gap-2 mt-0.5">
+            <input
+              type="number"
+              step="0.01"
+              value={form.honorariosPct}
+              onChange={set("honorariosPct")}
+              className="w-32 text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+            />
+            <span className="text-slate-500">%</span>
+          </div>
+        </label>
+      </div>
+
+      <div className="border-t border-slate-100 pt-4">
+        <h2 className="font-medium text-slate-800">Multa por atraso</h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Percentual adicionado a uma parcela <strong>vencida e não paga</strong>. A parcela que vence
+          hoje só passa a contar como atrasada depois do <strong>horário limite</strong> abaixo.
+        </p>
+        <div className="flex flex-wrap gap-4 mt-2">
+          <label className="block">
+            <span className="text-xs text-slate-400">Multa (%)</span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <input
+                type="number"
+                step="0.01"
+                value={form.multaPct}
+                onChange={set("multaPct")}
+                placeholder="50"
+                className="w-28 text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+              />
+              <span className="text-slate-500">%</span>
+            </div>
+          </label>
+          <label className="block">
+            <span className="text-xs text-slate-400">Horário limite de pagamento</span>
+            <input
+              type="time"
+              value={form.pagamentoHoraLimite}
+              onChange={set("pagamentoHoraLimite")}
+              className="mt-0.5 block w-32 text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+            />
+          </label>
         </div>
-      </label>
+        <p className="text-[11px] text-slate-400 mt-1">
+          Deixe o horário em branco para a parcela só vencer na virada do dia.
+        </p>
+      </div>
+
       <button className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600">
         {saved ? "Salvo ✓" : "Salvar"}
       </button>
@@ -205,10 +291,22 @@ function Honorarios() {
 }
 
 /* ---------------- Usuários ---------------- */
-const EMPTY_USER = { name: "", login: "", password: "" };
+const EMPTY_USER = {
+  name: "",
+  login: "",
+  password: "",
+  role: "vendedor",
+  verTodosLeads: false,
+  kanbansVisiveis: [],
+  numerosVisiveis: [],
+};
+
+const ROLE_LABEL = { admin: "Administrador", vendedor: "Vendedor", cobrador: "Cobrador" };
 
 function Usuarios() {
   const [users, setUsers] = useState([]);
+  const [stages, setStages] = useState([]);
+  const [numeros, setNumeros] = useState([]);
   const [form, setForm] = useState(EMPTY_USER);
   const [editId, setEditId] = useState(null); // null = criando; id = editando
   const [saving, setSaving] = useState(false);
@@ -221,11 +319,21 @@ function Usuarios() {
   }, []);
   useEffect(() => {
     load();
+    fetch("/api/stages").then((r) => r.json()).then((s) => setStages(Array.isArray(s) ? s : [])).catch(() => {});
+    fetch("/api/numbers").then((r) => r.json()).then((n) => setNumeros(Array.isArray(n) ? n : [])).catch(() => {});
   }, [load]);
 
   function startEdit(u) {
     setEditId(u.id);
-    setForm({ name: u.name, login: u.login, password: "" });
+    setForm({
+      name: u.name,
+      login: u.login,
+      password: "",
+      role: u.role || "vendedor",
+      verTodosLeads: !!u.verTodosLeads,
+      kanbansVisiveis: (u.kanbansVisiveis || []).map((k) => k.id),
+      numerosVisiveis: (u.numerosVisiveis || []).map((n) => n.id),
+    });
     setError("");
   }
 
@@ -233,6 +341,13 @@ function Usuarios() {
     setEditId(null);
     setForm(EMPTY_USER);
     setError("");
+  }
+
+  function toggleArr(key, id) {
+    setForm((f) => {
+      const arr = f[key] || [];
+      return { ...f, [key]: arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id] };
+    });
   }
 
   async function save(e) {
@@ -269,6 +384,8 @@ function Usuarios() {
     load();
   }
 
+  const isAdmin = form.role === "admin";
+
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
@@ -289,6 +406,79 @@ function Usuarios() {
             className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
           />
         </label>
+
+        <label className="block">
+          <span className="text-xs text-slate-400">Nível</span>
+          <select
+            value={form.role}
+            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+          >
+            <option value="admin">Administrador</option>
+            <option value="vendedor">Vendedor</option>
+            <option value="cobrador">Cobrador</option>
+          </select>
+        </label>
+
+        {isAdmin ? (
+          <p className="text-[11px] text-slate-400">
+            Administrador vê tudo: todos os kanbans, todos os leads, todos os WhatsApp e o menu de Lançamentos/Configurações.
+          </p>
+        ) : (
+          <>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.verTodosLeads}
+                onChange={(e) => setForm((f) => ({ ...f, verTodosLeads: e.target.checked }))}
+                className="accent-emerald-500"
+              />
+              <span className="text-xs text-slate-600">Pode ver leads de todos (desmarcado = só os dele)</span>
+            </label>
+
+            <div>
+              <span className="text-xs text-slate-400">Kanbans que pode ver</span>
+              <p className="text-[11px] text-slate-300 mb-1">Nenhum marcado = vê todas as colunas.</p>
+              <div className="flex flex-wrap gap-1.5">
+                {stages.map((s) => {
+                  const on = form.kanbansVisiveis.includes(s.id);
+                  return (
+                    <button
+                      type="button"
+                      key={s.id}
+                      onClick={() => toggleArr("kanbansVisiveis", s.id)}
+                      className={`text-[11px] rounded-full px-2 py-0.5 border ${on ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-slate-500 border-slate-200"}`}
+                    >
+                      {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <span className="text-xs text-slate-400">WhatsApp cujas mensagens pode ver</span>
+              <p className="text-[11px] text-slate-300 mb-1">Nenhum marcado = vê as mensagens de todos.</p>
+              <div className="flex flex-wrap gap-1.5">
+                {numeros.map((n) => {
+                  const on = form.numerosVisiveis.includes(n.id);
+                  return (
+                    <button
+                      type="button"
+                      key={n.id}
+                      onClick={() => toggleArr("numerosVisiveis", n.id)}
+                      className={`text-[11px] rounded-full px-2 py-0.5 border ${on ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-slate-500 border-slate-200"}`}
+                    >
+                      {n.label}
+                    </button>
+                  );
+                })}
+                {numeros.length === 0 && <span className="text-[11px] text-slate-300">Nenhum número cadastrado.</span>}
+              </div>
+            </div>
+          </>
+        )}
+
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex gap-2">
           <button
@@ -314,7 +504,12 @@ function Usuarios() {
               className={`flex items-center justify-between py-2.5 ${editId === u.id ? "bg-emerald-50/50 -mx-2 px-2 rounded" : ""}`}
             >
               <div>
-                <p className="text-sm font-medium text-slate-700">{u.name}</p>
+                <p className="text-sm font-medium text-slate-700">
+                  {u.name}
+                  <span className="ml-2 text-[10px] uppercase tracking-wide text-emerald-600 bg-emerald-50 rounded px-1.5 py-0.5">
+                    {ROLE_LABEL[u.role] || u.role}
+                  </span>
+                </p>
                 <p className="text-xs text-slate-400">login: {u.login}</p>
               </div>
               <div className="flex items-center gap-3">
@@ -597,6 +792,144 @@ function Numeros() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------------- Tags / Etiquetas + regras de auto-tag ---------------- */
+function TagsConfig() {
+  const [tags, setTags] = useState([]);
+  const [form, setForm] = useState({ name: "", color: "#6366f1" });
+  const [ruleForm, setRuleForm] = useState({ match: "", tagId: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setTags(await fetch("/api/tags").then((r) => r.json()).catch(() => []));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function createTag(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setSaving(true);
+    await fetch("/api/tags", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setForm({ name: "", color: "#6366f1" });
+    setSaving(false);
+    load();
+  }
+
+  async function removeTag(id) {
+    if (!confirm("Excluir esta tag e suas regras?")) return;
+    await fetch(`/api/tags/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  async function createRule(e) {
+    e.preventDefault();
+    if (!ruleForm.match.trim() || !ruleForm.tagId) return;
+    await fetch("/api/tags/rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ruleForm) });
+    setRuleForm({ match: "", tagId: "" });
+    load();
+  }
+
+  async function removeRule(id) {
+    await fetch(`/api/tags/rules/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Criar tag */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <form onSubmit={createTag} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
+          <h2 className="font-medium text-slate-800">Nova tag</h2>
+          <div className="flex gap-2">
+            <Field label="Nome" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Indicação" />
+            <label className="block shrink-0">
+              <span className="text-xs text-slate-400">Cor</span>
+              <input
+                type="color"
+                value={form.color}
+                onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+                className="mt-0.5 w-10 h-8 rounded cursor-pointer border border-slate-200"
+              />
+            </label>
+          </div>
+          <button disabled={saving} className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50">
+            {saving ? "Salvando…" : "Criar tag"}
+          </button>
+        </form>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h2 className="font-medium text-slate-800 mb-3">Tags cadastradas ({tags.length})</h2>
+          <ul className="divide-y divide-slate-100">
+            {tags.map((t) => (
+              <li key={t.id} className="flex items-center justify-between py-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color }} />
+                  <span className="text-sm text-slate-700">{t.name}</span>
+                </div>
+                <button onClick={() => removeTag(t.id)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
+              </li>
+            ))}
+            {tags.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma tag ainda.</li>}
+          </ul>
+        </div>
+      </div>
+
+      {/* Auto-tag */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+        <h2 className="font-medium text-slate-800">Auto-tag pela 1ª mensagem</h2>
+        <p className="text-sm text-slate-500">
+          Se a <strong>primeira mensagem</strong> que o cliente enviar contém o texto abaixo,
+          o sistema atribui automaticamente a etiqueta à lead.
+        </p>
+        <form onSubmit={createRule} className="flex flex-wrap items-end gap-3">
+          <label className="block flex-1 min-w-[180px]">
+            <span className="text-xs text-slate-400">Se a mensagem contém...</span>
+            <input
+              value={ruleForm.match}
+              onChange={(e) => setRuleForm((f) => ({ ...f, match: e.target.value }))}
+              placeholder="Ex.: indicação, promoção, crédito..."
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-slate-400">Atribuir etiqueta</span>
+            <select
+              value={ruleForm.tagId}
+              onChange={(e) => setRuleForm((f) => ({ ...f, tagId: e.target.value }))}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+            >
+              <option value="">— Escolher tag —</option>
+              {tags.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </label>
+          <button className="bg-slate-800 text-white rounded-lg px-4 py-2 text-sm hover:bg-slate-700">
+            Adicionar regra
+          </button>
+        </form>
+
+        {tags.some((t) => (t.rules || []).length > 0) && (
+          <ul className="divide-y divide-slate-100 mt-2">
+            {tags.flatMap((t) =>
+              (t.rules || []).map((r) => (
+                <li key={r.id} className="flex items-center justify-between py-2 text-xs">
+                  <div>
+                    <span className="text-slate-500">Se contém</span>{" "}
+                    <span className="font-medium text-slate-700">"{r.match}"</span>{" "}
+                    <span className="text-slate-500">→ atribui</span>{" "}
+                    <span className="font-medium rounded-full px-1.5 py-0.5 text-white" style={{ backgroundColor: t.color }}>{t.name}</span>
+                  </div>
+                  <button onClick={() => removeRule(r.id)} className="text-red-400 hover:text-red-600">Remover</button>
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

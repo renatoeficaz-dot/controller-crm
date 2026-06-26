@@ -52,10 +52,23 @@ export async function POST(req) {
         unitId: waNumber?.unitId || null,
       },
     });
+
+    // Auto-tag: se a 1ª mensagem conter um texto configurado, atribui a tag.
+    const msgText = (text || "").toLowerCase();
+    if (msgText) {
+      const rules = await prisma.autoTagRule.findMany({ include: { tag: true } });
+      const matched = rules.filter((r) => msgText.includes(r.match.toLowerCase()));
+      if (matched.length) {
+        await prisma.contact.update({
+          where: { id: contact.id },
+          data: { tags: { connect: matched.map((r) => ({ id: r.tagId })) } },
+        });
+      }
+    }
   }
 
   // Monta a mensagem (texto ou mídia)
-  const msg = { contactId: contact.id, fromMe: false, status: "recebido" };
+  const msg = { contactId: contact.id, fromMe: false, status: "recebido", instance };
   if (media) {
     const file = await fetchIncomingMediaBase64(instance, data.key);
     if (file?.base64) {
