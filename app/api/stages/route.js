@@ -20,11 +20,37 @@ export async function GET() {
         include: {
           parcelas: { orderBy: { number: "asc" } },
           tags: { select: { id: true, name: true, color: true } },
+          _count: { select: { messages: { where: { fromMe: false, readAt: null } } } },
+          messages: {
+            where: { fromMe: false, readAt: null },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+            select: { createdAt: true },
+          },
         },
       },
     },
   });
-  return NextResponse.json(stages);
+
+  // Enriquece com unreadCount e oldestUnread, e ordena por mensagem mais antiga não lida
+  const enriched = stages.map((s) => ({
+    ...s,
+    contacts: s.contacts
+      .map((c) => ({
+        ...c,
+        unreadCount: c._count?.messages || 0,
+        oldestUnread: c.messages?.[0]?.createdAt || null,
+        messages: undefined,
+        _count: undefined,
+      }))
+      .sort((a, b) => {
+        if (a.oldestUnread && !b.oldestUnread) return -1;
+        if (!a.oldestUnread && b.oldestUnread) return 1;
+        if (a.oldestUnread && b.oldestUnread) return new Date(a.oldestUnread) - new Date(b.oldestUnread);
+        return 0;
+      }),
+  }));
+  return NextResponse.json(enriched);
 }
 
 // Cria uma nova coluna

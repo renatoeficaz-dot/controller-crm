@@ -1,5 +1,5 @@
-import UnitsTable from "@/components/UnitsTable";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <UnitsTable />;
+  redirect("/contatos");
 }

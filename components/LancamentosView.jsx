@@ -15,6 +15,80 @@ function hojeStr() {
 
 const EMPTY_FORM = { type: "entrada", amount: "", description: "", date: hojeStr(), categoriaId: "", bancoId: "", contactId: "" };
 
+const PIE_COLORS = ["#10b981", "#f59e0b", "#6366f1", "#ef4444", "#3b82f6", "#ec4899", "#8b5cf6", "#14b8a6"];
+
+function PieChart({ data, title }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (!total) return <p className="text-xs text-slate-400 text-center py-4">Sem dados</p>;
+  let angle = 0;
+  const slices = data.map((d, i) => {
+    const pct = d.value / total;
+    const start = angle;
+    angle += pct * 360;
+    return { ...d, pct, start, end: angle, color: PIE_COLORS[i % PIE_COLORS.length] };
+  });
+  function arc(cx, cy, r, startDeg, endDeg) {
+    const s = ((startDeg - 90) * Math.PI) / 180;
+    const e = ((endDeg - 90) * Math.PI) / 180;
+    const large = endDeg - startDeg > 180 ? 1 : 0;
+    return `M ${cx} ${cy} L ${cx + r * Math.cos(s)} ${cy + r * Math.sin(s)} A ${r} ${r} 0 ${large} 1 ${cx + r * Math.cos(e)} ${cy + r * Math.sin(e)} Z`;
+  }
+  return (
+    <div>
+      <h3 className="text-xs font-semibold text-slate-700 mb-2 text-center">{title}</h3>
+      <svg viewBox="0 0 200 200" className="w-40 h-40 mx-auto">
+        {slices.map((s, i) =>
+          s.pct >= 0.999 ? (
+            <circle key={i} cx={100} cy={100} r={80} fill={s.color} />
+          ) : (
+            <path key={i} d={arc(100, 100, 80, s.start, s.end)} fill={s.color} />
+          )
+        )}
+      </svg>
+      <ul className="mt-2 space-y-0.5">
+        {slices.map((s, i) => (
+          <li key={i} className="flex items-center gap-2 text-[11px]">
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+            <span className="text-slate-600 truncate">{s.name}</span>
+            <span className="ml-auto text-slate-500">{(s.pct * 100).toFixed(0)}%</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function BarChart({ data, title }) {
+  const maxVal = Math.max(...data.map((d) => Math.max(d.aReceber || 0, d.aPagar || 0)), 1);
+  if (!data.length) return <p className="text-xs text-slate-400 text-center py-4">Sem dados</p>;
+  const barW = Math.min(40, 300 / data.length / 2 - 4);
+  const chartW = data.length * (barW * 2 + 20) + 40;
+  return (
+    <div>
+      <h3 className="text-xs font-semibold text-slate-700 mb-2 text-center">{title}</h3>
+      <svg viewBox={`0 0 ${chartW} 180`} className="w-full h-44">
+        {data.map((d, i) => {
+          const x = 20 + i * (barW * 2 + 20);
+          const hR = (d.aReceber / maxVal) * 130;
+          const hP = (d.aPagar / maxVal) * 130;
+          return (
+            <g key={i}>
+              <rect x={x} y={140 - hR} width={barW} height={hR} fill="#10b981" rx={3} />
+              <rect x={x + barW + 2} y={140 - hP} width={barW} height={hP} fill="#ef4444" rx={3} />
+              <text x={x + barW} y={156} textAnchor="middle" className="text-[8px]" fill="#64748b">{d.name}</text>
+            </g>
+          );
+        })}
+        <line x1={15} y1={140} x2={chartW - 5} y2={140} stroke="#e2e8f0" strokeWidth={1} />
+      </svg>
+      <div className="flex justify-center gap-4 text-[10px] text-slate-500">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-emerald-500" /> A receber</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-red-500" /> A pagar</span>
+      </div>
+    </div>
+  );
+}
+
 export default function LancamentosView() {
   const [lancamentos, setLancamentos] = useState([]);
   const [categorias, setCategorias] = useState([]);
@@ -34,6 +108,7 @@ export default function LancamentosView() {
   // Cadastro rápido de categoria / banco
   const [newCat, setNewCat] = useState({ name: "", type: "entrada" });
   const [newBanco, setNewBanco] = useState("");
+  const [rutaData, setRutaData] = useState([]);
 
   const loadLanc = useCallback(async () => {
     const q = new URLSearchParams();
@@ -59,7 +134,23 @@ export default function LancamentosView() {
   useEffect(() => { loadLanc(); }, [loadLanc]);
   useEffect(() => {
     fetch("/api/stages").then((r) => r.json()).then((s) => {
-      setContacts((s || []).flatMap((st) => (st.contacts || []).map((c) => ({ id: c.id, name: c.name }))));
+      const stgs = s || [];
+      setContacts(stgs.flatMap((st) => (st.contacts || []).map((c) => ({ id: c.id, name: c.name }))));
+      // Calcula A pagar x A receber por ruta
+      fetch("/api/units").then((r) => r.json()).then((units) => {
+        const allContacts = stgs.flatMap((st) => st.contacts || []);
+        const rd = (units || []).map((u) => {
+          const leads = allContacts.filter((c) => c.unitId === u.id);
+          let aReceber = 0, aPagar = 0;
+          for (const c of leads) {
+            for (const p of c.parcelas || []) {
+              if (!p.paid) aReceber += p.amount;
+            }
+          }
+          return { name: `${u.number}-${u.name}`, aReceber, aPagar: 0 };
+        });
+        setRutaData(rd);
+      }).catch(() => {});
     }).catch(() => {});
   }, []);
 
@@ -71,6 +162,22 @@ export default function LancamentosView() {
       else saidas += l.amount;
     }
     return { entradas, saidas, saldo: entradas - saidas };
+  }, [lancamentos]);
+
+  // Agrupamento por categoria (para gráficos de pizza)
+  const porCategoria = useMemo(() => {
+    const map = {};
+    for (const l of lancamentos) {
+      const cat = l.categoria?.name || "Sem categoria";
+      const key = `${l.type}:${cat}`;
+      map[key] = (map[key] || 0) + l.amount;
+    }
+    const entradas = [], saidas = [];
+    for (const [k, v] of Object.entries(map)) {
+      const [type, cat] = [k.split(":")[0], k.slice(k.indexOf(":") + 1)];
+      (type === "entrada" ? entradas : saidas).push({ name: cat, value: v });
+    }
+    return { entradas, saidas };
   }, [lancamentos]);
 
   async function createLanc(e) {
@@ -142,6 +249,19 @@ export default function LancamentosView() {
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <p className="text-xs text-slate-400">Saldo</p>
           <p className={`text-lg font-semibold ${resumo.saldo >= 0 ? "text-emerald-600" : "text-red-600"}`}>{money(resumo.saldo)}</p>
+        </div>
+      </div>
+
+      {/* Gráficos */}
+      <div className="grid sm:grid-cols-3 gap-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <PieChart data={porCategoria.entradas} title="Entradas por categoria" />
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <PieChart data={porCategoria.saidas} title="Saídas por categoria" />
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <BarChart data={rutaData} title="A receber por Ruta" />
         </div>
       </div>
 

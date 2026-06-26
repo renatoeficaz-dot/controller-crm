@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 
 // Itens base do menu. `admin: true` => só aparece para administradores.
 const links = [
-  { href: "/", label: "Rutas" },
   { href: "/contatos", label: "Contatos" },
+  { href: "/chat", label: "Chat" },
   { href: "/lancamentos", label: "Lançamentos", admin: true },
   { href: "/relatorios", label: "Relatórios" },
   { href: "/configuracoes", label: "Configurações", admin: true },

@@ -188,6 +188,7 @@ model Message {
   fromMe    Boolean  @default(true) // true = enviada por nós, false = recebida do cliente
   status    String   @default("sent")
   instance  String?  // instância da Evolution que originou/enviou (controle de visibilidade por usuário)
+  readAt    DateTime? // null = não visualizada pelo operador
   createdAt DateTime @default(now())
 }
 

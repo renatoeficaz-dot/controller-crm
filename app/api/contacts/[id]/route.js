@@ -16,6 +16,11 @@ export async function GET(_req, { params }) {
     },
   });
   if (!contact) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  // Marca as mensagens recebidas como lidas ao abrir o contato
+  await prisma.message.updateMany({
+    where: { contactId: id, fromMe: false, readAt: null },
+    data: { readAt: new Date() },
+  });
   return NextResponse.json(contact);
 }
 

@@ -76,6 +76,26 @@ export default function Relatorios() {
   const recebido = useMemo(() => totalRecebido(stagesFiltrados, ini, fim), [stagesFiltrados, ini, fim]);
   const inad = useMemo(() => inadimplenciaCravo(stagesFiltrados), [stagesFiltrados]);
 
+  // Novos indicadores
+  const caixaInicial = useMemo(() => {
+    if (rutaFiltro) {
+      const u = unidades.find((x) => x.id === rutaFiltro);
+      return u ? Number(u.caixaInicial || 0) : 0;
+    }
+    return unidades.reduce((s, u) => s + Number(u.caixaInicial || 0), 0);
+  }, [unidades, rutaFiltro]);
+
+  const { novasVendas, renovacoes } = useMemo(() => {
+    const all = stagesFiltrados.flatMap((s) => s.contacts || []);
+    const nv = all.filter((c) => {
+      if (!c.createdAt) return false;
+      const d = new Date(c.createdAt).toLocaleDateString("en-CA");
+      return d >= ini && d <= fim;
+    }).length;
+    const ren = all.filter((c) => (c.cicloAtual || 1) > 1).length;
+    return { novasVendas: nv, renovacoes: ren };
+  }, [stagesFiltrados, ini, fim]);
+
   if (loading) return <div className="p-6 text-slate-400">Carregando relatórios…</div>;
 
   return (
@@ -96,6 +116,22 @@ export default function Relatorios() {
           ))}
         </select>
       </div>
+
+      {/* Indicadores gerais */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">Visão geral</h2>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <Card titulo="Caixa inicial" valor={caixaInicial} cor="sky" />
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-xs text-slate-400">Novas vendas (período)</p>
+            <p className="text-2xl font-semibold mt-1 text-violet-600">{novasVendas}</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-xs text-slate-400">Renovações (leads com ciclo &gt; 1)</p>
+            <p className="text-2xl font-semibold mt-1 text-amber-600">{renovacoes}</p>
+          </div>
+        </div>
+      </section>
 
       {/* A receber */}
       <section>
