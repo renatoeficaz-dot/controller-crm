@@ -11,6 +11,7 @@ export async function GET(_req, { params }) {
     include: {
       messages: { where: mensagensWhere(user), orderBy: { createdAt: "asc" } },
       stage: true,
+      unit: { select: { id: true, name: true, number: true } },
       parcelas: { orderBy: [{ ciclo: "asc" }, { number: "asc" }] },
       tags: { select: { id: true, name: true, color: true } },
     },
