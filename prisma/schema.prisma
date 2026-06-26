@@ -105,6 +105,8 @@ model WhatsappNumber {
   instance  String   // nome da instância na Evolution
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   userId    String?
+  unit      Unit?    @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unitId    String?  // ruta/unidade vinculada — leads novos por este número herdam esta ruta
   createdAt DateTime @default(now())
 }
 
@@ -142,6 +144,7 @@ model Unit {
   appVersion   String?
 
   contacts     Contact[]                              // leads associadas a esta ruta
+  numeros      WhatsappNumber[]                       // números de WhatsApp vinculados a esta ruta
 
   // --- Dinheiro Atual (movimento do caixa) ---
   novasVendas       Float @default(0)

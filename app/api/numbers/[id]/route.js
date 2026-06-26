@@ -10,10 +10,14 @@ export async function PATCH(req, { params }) {
     if (f in body) data[f] = (body[f] || "").trim();
   }
   if ("userId" in body) data.userId = body.userId || null;
+  if ("unitId" in body) data.unitId = body.unitId || null;
   const updated = await prisma.whatsappNumber.update({
     where: { id },
     data,
-    include: { user: { select: { id: true, name: true } } },
+    include: {
+      user: { select: { id: true, name: true } },
+      unit: { select: { id: true, name: true, number: true } },
+    },
   });
   return NextResponse.json(updated);
 }

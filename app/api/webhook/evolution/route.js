@@ -40,11 +40,16 @@ export async function POST(req) {
   if (!contact) {
     const first = await prisma.stage.findFirst({ orderBy: { order: "asc" } });
     if (!first) return NextResponse.json({ ok: true });
+    // Herda a ruta vinculada ao número (instância) que recebeu a mensagem
+    const waNumber = instance
+      ? await prisma.whatsappNumber.findFirst({ where: { instance } })
+      : null;
     contact = await prisma.contact.create({
       data: {
         name: data.pushName || number,
         phone: number,
         stageId: first.id,
+        unitId: waNumber?.unitId || null,
       },
     });
   }

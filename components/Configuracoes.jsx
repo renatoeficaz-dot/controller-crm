@@ -338,7 +338,8 @@ function Usuarios() {
 function Numeros() {
   const [numeros, setNumeros] = useState([]);
   const [users, setUsers] = useState([]);
-  const [form, setForm] = useState({ label: "", number: "", instance: "", userId: "" });
+  const [units, setUnits] = useState([]);
+  const [form, setForm] = useState({ label: "", number: "", instance: "", userId: "", unitId: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [evo, setEvo] = useState({ evolutionUrl: "", evolutionApiKey: "" });
@@ -346,13 +347,15 @@ function Numeros() {
   const [qr, setQr] = useState(null); // { id, label, image, connected, error }
 
   const load = useCallback(async () => {
-    const [n, u, cfg] = await Promise.all([
+    const [n, u, un, cfg] = await Promise.all([
       fetch("/api/numbers").then((r) => r.json()),
       fetch("/api/users").then((r) => r.json()),
+      fetch("/api/units").then((r) => r.json()).catch(() => []),
       fetch("/api/config").then((r) => r.json()).catch(() => ({})),
     ]);
     setNumeros(n);
     setUsers(u);
+    setUnits(un);
     setEvo({ evolutionUrl: cfg?.evolutionUrl || "", evolutionApiKey: cfg?.evolutionApiKey || "" });
   }, []);
   useEffect(() => {
@@ -400,7 +403,7 @@ function Numeros() {
       return;
     }
     const novo = await res.json();
-    setForm({ label: "", number: "", instance: "", userId: "" });
+    setForm({ label: "", number: "", instance: "", userId: "", unitId: "" });
     load();
     conectar(novo); // já tenta gerar o QR do número recém-criado
   }
@@ -427,6 +430,15 @@ function Numeros() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId }),
+    });
+    load();
+  }
+
+  async function reassignUnit(id, unitId) {
+    await fetch(`/api/numbers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unitId }),
     });
     load();
   }
@@ -476,6 +488,22 @@ function Numeros() {
               ))}
             </select>
           </label>
+          <label className="block">
+            <span className="text-xs text-slate-400">Vincular a uma Ruta</span>
+            <select
+              value={form.unitId}
+              onChange={(e) => setForm((f) => ({ ...f, unitId: e.target.value }))}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+            >
+              <option value="">— Sem ruta —</option>
+              {units.map((u) => (
+                <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
+              ))}
+            </select>
+            <span className="text-[11px] text-slate-400 mt-1 block">
+              Leads que entrarem por este número serão vinculados automaticamente a esta ruta.
+            </span>
+          </label>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button
             disabled={saving}
@@ -504,19 +532,34 @@ function Numeros() {
                     </button>
                   </div>
                 </div>
-                <label className="flex items-center gap-2 mt-2">
-                  <span className="text-xs text-slate-400">Usuário:</span>
-                  <select
-                    value={n.userId || ""}
-                    onChange={(e) => reassign(n.id, e.target.value)}
-                    className="text-xs border border-slate-200 rounded px-2 py-1 bg-white outline-none focus:border-emerald-400"
-                  >
-                    <option value="">— Sem responsável —</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                </label>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+                  <label className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">Usuário:</span>
+                    <select
+                      value={n.userId || ""}
+                      onChange={(e) => reassign(n.id, e.target.value)}
+                      className="text-xs border border-slate-200 rounded px-2 py-1 bg-white outline-none focus:border-emerald-400"
+                    >
+                      <option value="">— Sem responsável —</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">Ruta:</span>
+                    <select
+                      value={n.unitId || ""}
+                      onChange={(e) => reassignUnit(n.id, e.target.value)}
+                      className="text-xs border border-slate-200 rounded px-2 py-1 bg-white outline-none focus:border-emerald-400"
+                    >
+                      <option value="">— Sem ruta —</option>
+                      {units.map((u) => (
+                        <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
               </li>
             ))}
             {numeros.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhum número conectado.</li>}
