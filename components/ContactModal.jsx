@@ -581,13 +581,23 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       {showHistorico ? "▼" : "▶"} Histórico ({parcelasHistorico.length} parcela(s) de {cicloAtual - 1} ciclo(s) anterior(es))
                     </button>
                     {showHistorico && (
-                      <ul className="mt-1 divide-y divide-slate-100 text-[11px] text-slate-400">
-                        {parcelasHistorico.map((p) => (
-                          <li key={p.id} className="flex justify-between py-1">
-                            <span>Ciclo {p.ciclo || 1} · {p.number}ª · {fmtDate(p.dueDate)}</span>
-                            <span className="text-emerald-600">{money(p.amount)} ✓</span>
-                          </li>
-                        ))}
+                      <ul className="mt-1 divide-y divide-slate-100 text-[11px]">
+                        {parcelasHistorico.map((p) => {
+                          const due = new Date(p.dueDate).toISOString().slice(0, 10);
+                          const paid = p.paidAt ? new Date(p.paidAt).toISOString().slice(0, 10) : null;
+                          const atrasado = paid && paid > due;
+                          return (
+                            <li key={p.id} className={`flex justify-between py-1 px-1.5 rounded ${atrasado ? "bg-red-50" : "bg-emerald-50"}`}>
+                              <span className={atrasado ? "text-red-600" : "text-emerald-700"}>
+                                Ciclo {p.ciclo || 1} · {p.number}ª · {fmtDate(p.dueDate)}
+                                {atrasado && <span className="ml-1 text-[9px] font-semibold">ATRASADO</span>}
+                              </span>
+                              <span className={atrasado ? "text-red-600" : "text-emerald-600"}>
+                                {money(p.amount)} {atrasado ? "⚠" : "✓"}
+                              </span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </div>
