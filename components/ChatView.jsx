@@ -54,13 +54,9 @@ export default function ChatView() {
     }).catch(() => {});
   }, []);
 
-  const loadMessages = useCallback(async () => {
+  const loadContact = useCallback(async () => {
     if (!selectedId) return;
-    const [msgs, ct] = await Promise.all([
-      fetch(`/api/contacts/${selectedId}/messages`).then((r) => r.json()).catch(() => []),
-      fetch(`/api/contacts/${selectedId}`).then((r) => r.json()).catch(() => null),
-    ]);
-    setMessages(Array.isArray(msgs) ? msgs : []);
+    const ct = await fetch(`/api/contacts/${selectedId}`).then((r) => r.json()).catch(() => null);
     if (ct && !ct.error) {
       setContact(ct);
       setForm({
@@ -77,15 +73,21 @@ export default function ChatView() {
       });
       setContactTags((ct.tags || []).map((t) => t.id));
     }
-    loadConversations();
-  }, [selectedId, loadConversations]);
+  }, [selectedId]);
+
+  const loadMessages = useCallback(async () => {
+    if (!selectedId) return;
+    const msgs = await fetch(`/api/contacts/${selectedId}/messages`).then((r) => r.json()).catch(() => []);
+    setMessages(Array.isArray(msgs) ? msgs : []);
+  }, [selectedId]);
 
   useEffect(() => {
+    loadContact();
     loadMessages();
     if (!selectedId) return;
     const t = setInterval(loadMessages, 4000);
     return () => clearInterval(t);
-  }, [loadMessages, selectedId]);
+  }, [loadContact, loadMessages, selectedId]);
 
   useEffect(() => {
     chatEnd.current?.scrollIntoView({ behavior: "smooth" });
@@ -94,15 +96,20 @@ export default function ChatView() {
   async function send(e) {
     e.preventDefault();
     if (!text.trim() || !selectedId) return;
+    const body = text;
+    setText("");
     setSending(true);
-    await fetch(`/api/contacts/${selectedId}/messages`, {
+    const res = await fetch(`/api/contacts/${selectedId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: text }),
+      body: JSON.stringify({ body }),
     });
-    setText("");
     setSending(false);
-    loadMessages();
+    if (res.ok) {
+      const { message: msg } = await res.json().catch(() => ({}));
+      if (msg) setMessages((prev) => [...prev, msg]);
+    }
+    loadConversations();
   }
 
   async function saveContact() {
@@ -127,7 +134,7 @@ export default function ChatView() {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
-    loadMessages();
+    loadContact();
   }
 
   async function toggleTag(tagId) {
