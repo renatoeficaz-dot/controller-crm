@@ -32,6 +32,8 @@ export default function ChatView() {
   const [contactTags, setContactTags] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [tplSent, setTplSent] = useState(false);
 
   const loadConversations = useCallback(async () => {
     const data = await fetch("/api/chat").then((r) => r.json()).catch(() => []);
@@ -52,6 +54,7 @@ export default function ChatView() {
     fetch("/api/stages").then((r) => r.json()).then((s) => {
       setStagesList(Array.isArray(s) ? s.map((st) => ({ id: st.id, name: st.name })) : []);
     }).catch(() => {});
+    fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
   }, []);
 
   const loadContact = useCallback(async () => {
@@ -110,6 +113,46 @@ export default function ChatView() {
       if (msg) setMessages((prev) => [...prev, msg]);
     }
     loadConversations();
+  }
+
+  async function pickTemplate(id) {
+    const t = templates.find((x) => x.id === id);
+    if (!t || !selectedId) return;
+
+    if (t.mediaType && t.mediaType !== "text") {
+      setSending(true);
+      const payload = { mediaType: t.mediaType };
+      if (t.mediaType === "contact") {
+        payload.contactName = t.contactName;
+        payload.contactPhone = t.contactPhone;
+      } else {
+        payload.mediaBase64 = t.mediaBase64;
+        payload.mediaMimetype = t.mediaMimetype;
+        payload.mediaFileName = t.mediaFileName;
+        payload.body = t.body || "";
+      }
+      const res = await fetch(`/api/contacts/${selectedId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setSending(false);
+      if (res.ok) {
+        const { message: msg } = await res.json().catch(() => ({}));
+        if (msg) setMessages((prev) => [...prev, msg]);
+        setTplSent(true);
+        setTimeout(() => setTplSent(false), 1500);
+      }
+      loadConversations();
+      return;
+    }
+
+    setText(t.body);
+    try {
+      await navigator.clipboard.writeText(t.body);
+      setTplSent(true);
+      setTimeout(() => setTplSent(false), 1500);
+    } catch { /* sem clipboard */ }
   }
 
   async function saveContact() {
@@ -256,20 +299,41 @@ export default function ChatView() {
               ))}
               <div ref={chatEnd} />
             </div>
-            <form onSubmit={send} className="px-4 py-3 bg-white border-t border-slate-200 flex gap-2 shrink-0">
-              <input
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Digite uma mensagem…"
-                className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
-              />
-              <button
-                disabled={sending || !text.trim()}
-                className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
-              >
-                Enviar
-              </button>
-            </form>
+            <div className="px-4 pt-2 pb-0 bg-white border-t border-slate-200 shrink-0">
+              {templates.length > 0 && (
+                <div className="flex items-center gap-2 mb-2">
+                  <select
+                    value=""
+                    onChange={(e) => { pickTemplate(e.target.value); e.target.value = ""; }}
+                    disabled={sending}
+                    className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400 disabled:opacity-50"
+                  >
+                    <option value="">— Mensagem pronta —</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.mediaType && t.mediaType !== "text" ? `[${t.mediaType === "contact" ? "Contato" : t.mediaType === "image" ? "Imagem" : t.mediaType === "audio" ? "Áudio" : "Doc"}] ` : ""}
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                  {tplSent && <span className="text-xs text-emerald-600 shrink-0">enviado ✓</span>}
+                </div>
+              )}
+              <form onSubmit={send} className="flex gap-2 pb-3">
+                <input
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Digite uma mensagem…"
+                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
+                />
+                <button
+                  disabled={sending || !text.trim()}
+                  className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
+                >
+                  Enviar
+                </button>
+              </form>
+            </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">

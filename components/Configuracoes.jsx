@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 // Estados do Brasil (UF)
 const ESTADOS_BR = [
@@ -935,46 +935,87 @@ function TagsConfig() {
 }
 
 /* ---------------- Mensagens prontas (templates) ---------------- */
+const MEDIA_TYPES = [
+  { value: "text", label: "Texto" },
+  { value: "image", label: "Imagem" },
+  { value: "audio", label: "Áudio" },
+  { value: "document", label: "Documento" },
+  { value: "contact", label: "Contato" },
+];
+
+const MEDIA_LABELS = { text: "Texto", image: "Imagem", audio: "Áudio", document: "Documento", contact: "Contato" };
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(",")[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
 function MensagensProntas() {
   const [templates, setTemplates] = useState([]);
-  const [form, setForm] = useState({ title: "", body: "" });
+  const emptyForm = { title: "", body: "", mediaType: "text", mediaBase64: null, mediaMimetype: null, mediaFileName: null, contactName: "", contactPhone: "" };
+  const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const fileRef = useRef(null);
 
   const editando = editId !== null;
 
   const load = useCallback(async () => {
     setTemplates(await fetch("/api/templates").then((r) => r.json()));
   }, []);
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   function startEdit(t) {
     setEditId(t.id);
-    setForm({ title: t.title, body: t.body });
+    setForm({
+      title: t.title,
+      body: t.body || "",
+      mediaType: t.mediaType || "text",
+      mediaBase64: t.mediaBase64 || null,
+      mediaMimetype: t.mediaMimetype || null,
+      mediaFileName: t.mediaFileName || null,
+      contactName: t.contactName || "",
+      contactPhone: t.contactPhone || "",
+    });
     setError("");
   }
 
   function cancelEdit() {
     setEditId(null);
-    setForm({ title: "", body: "" });
+    setForm(emptyForm);
     setError("");
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const base64 = await fileToBase64(file);
+    setForm((f) => ({ ...f, mediaBase64: base64, mediaMimetype: file.type, mediaFileName: file.name }));
   }
 
   async function save(e) {
     e.preventDefault();
     setError("");
-    if (!form.title.trim() || !form.body.trim()) {
-      setError("Preencha o título e a mensagem.");
-      return;
+    const mt = form.mediaType || "text";
+    if (!form.title.trim()) { setError("Preencha o título."); return; }
+    if (mt === "text" && !form.body.trim()) { setError("Preencha a mensagem."); return; }
+    if ((mt === "image" || mt === "audio" || mt === "document") && !form.mediaBase64) {
+      setError("Anexe um arquivo."); return;
+    }
+    if (mt === "contact" && (!form.contactName.trim() || !form.contactPhone.trim())) {
+      setError("Preencha nome e telefone do contato."); return;
     }
     setSaving(true);
     const res = await fetch(editando ? `/api/templates/${editId}` : "/api/templates", {
       method: editando ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, mediaType: mt === "text" ? null : mt }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -993,6 +1034,8 @@ function MensagensProntas() {
     load();
   }
 
+  const mt = form.mediaType || "text";
+
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
@@ -1005,16 +1048,82 @@ function MensagensProntas() {
           onChange={(v) => setForm((f) => ({ ...f, title: v }))}
           placeholder="Ex.: Saudação inicial"
         />
+
+        {/* Tipo */}
         <label className="block">
-          <span className="text-xs text-slate-400">Mensagem</span>
-          <textarea
-            value={form.body}
-            onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
-            rows={5}
-            placeholder="Ex.: Olá! Tudo bem? Aqui é da Controller…"
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400 resize-none"
-          />
+          <span className="text-xs text-slate-400">Tipo</span>
+          <select
+            value={mt}
+            onChange={(e) => setForm((f) => ({ ...f, mediaType: e.target.value, mediaBase64: null, mediaMimetype: null, mediaFileName: null }))}
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+          >
+            {MEDIA_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         </label>
+
+        {/* Texto */}
+        {mt === "text" && (
+          <label className="block">
+            <span className="text-xs text-slate-400">Mensagem</span>
+            <textarea
+              value={form.body}
+              onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
+              rows={5}
+              placeholder="Ex.: Olá! Tudo bem? Aqui é da Controller…"
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400 resize-none"
+            />
+          </label>
+        )}
+
+        {/* Imagem / Áudio / Documento */}
+        {(mt === "image" || mt === "audio" || mt === "document") && (
+          <div className="space-y-2">
+            <label className="block">
+              <span className="text-xs text-slate-400">
+                {mt === "image" ? "Arquivo de imagem" : mt === "audio" ? "Arquivo de áudio" : "Documento"}
+              </span>
+              <input
+                ref={fileRef}
+                type="file"
+                accept={mt === "image" ? "image/*" : mt === "audio" ? "audio/*" : "*/*"}
+                onChange={handleFile}
+                className="mt-0.5 w-full text-sm text-slate-500 file:mr-3 file:text-xs file:border-0 file:rounded file:bg-emerald-50 file:text-emerald-700 file:px-2 file:py-1 cursor-pointer"
+              />
+            </label>
+            {form.mediaFileName && (
+              <p className="text-xs text-emerald-600 truncate">{form.mediaFileName}</p>
+            )}
+            <label className="block">
+              <span className="text-xs text-slate-400">Legenda (opcional)</span>
+              <input
+                type="text"
+                value={form.body}
+                onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
+                placeholder="Legenda que acompanha o arquivo…"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+              />
+            </label>
+          </div>
+        )}
+
+        {/* Contato */}
+        {mt === "contact" && (
+          <div className="space-y-2">
+            <Field
+              label="Nome do contato"
+              value={form.contactName}
+              onChange={(v) => setForm((f) => ({ ...f, contactName: v }))}
+              placeholder="Ex.: Suporte Controller"
+            />
+            <Field
+              label="Telefone (ex.: 5511999998888)"
+              value={form.contactPhone}
+              onChange={(v) => setForm((f) => ({ ...f, contactPhone: v }))}
+              placeholder="5511999998888"
+            />
+          </div>
+        )}
+
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex gap-2">
           <button
@@ -1041,8 +1150,21 @@ function MensagensProntas() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-700">{t.title}</p>
-                  <p className="text-xs text-slate-400 whitespace-pre-wrap break-words line-clamp-3">{t.body}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-slate-700">{t.title}</p>
+                    {t.mediaType && (
+                      <span className="text-[10px] bg-slate-100 text-slate-500 rounded px-1.5 py-0.5 shrink-0">
+                        {MEDIA_LABELS[t.mediaType] || t.mediaType}
+                      </span>
+                    )}
+                  </div>
+                  {t.mediaType === "contact" ? (
+                    <p className="text-xs text-slate-400">{t.contactName} · {t.contactPhone}</p>
+                  ) : t.mediaFileName ? (
+                    <p className="text-xs text-slate-400 truncate">{t.mediaFileName}{t.body ? ` — ${t.body}` : ""}</p>
+                  ) : (
+                    <p className="text-xs text-slate-400 whitespace-pre-wrap break-words line-clamp-3">{t.body}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <button onClick={() => startEdit(t)} className="text-xs text-emerald-600 hover:text-emerald-700">

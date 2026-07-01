@@ -8,6 +8,12 @@ export async function PATCH(req, { params }) {
   const data = {};
   if ("title" in body) data.title = (body.title || "").trim();
   if ("body" in body) data.body = (body.body || "").trim();
+  if ("mediaType" in body) data.mediaType = body.mediaType || null;
+  if ("mediaBase64" in body) data.mediaBase64 = body.mediaBase64 || null;
+  if ("mediaMimetype" in body) data.mediaMimetype = body.mediaMimetype || null;
+  if ("mediaFileName" in body) data.mediaFileName = body.mediaFileName || null;
+  if ("contactName" in body) data.contactName = (body.contactName || "").trim() || null;
+  if ("contactPhone" in body) data.contactPhone = (body.contactPhone || "").trim() || null;
   const tpl = await prisma.messageTemplate.update({ where: { id }, data });
   return NextResponse.json(tpl);
 }

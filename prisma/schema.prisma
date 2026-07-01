@@ -75,13 +75,19 @@ model Task {
   createdAt DateTime  @default(now())
 }
 
-// Mensagem pronta (modelo de texto) para envio rápido aos contatos
+// Mensagem pronta (modelo de texto/mídia/contato) para envio rápido aos contatos
 model MessageTemplate {
-  id        String   @id @default(cuid())
-  title     String   // nome curto que aparece no seletor
-  body      String   // texto que vai para o campo de envio
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  title         String   // nome curto que aparece no seletor
+  body          String   @default("") // texto da mensagem (ou legenda para mídia)
+  mediaType     String?  // null/"text" | "image" | "audio" | "document" | "contact"
+  mediaBase64   String?  // conteúdo do arquivo em base64 (image/audio/document)
+  mediaMimetype String?
+  mediaFileName String?
+  contactName   String?  // para tipo "contact"
+  contactPhone  String?
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
 }
 
 // Configurações globais do sistema (linha única)

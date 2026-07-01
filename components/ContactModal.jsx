@@ -92,10 +92,40 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
   }, []);
 
-  // Escolhe uma mensagem pronta: joga no campo de envio e copia pra área de transferência
+  // Escolhe uma mensagem pronta: texto → campo de envio; mídia/contato → envia direto
   async function pickTemplate(id) {
     const t = templates.find((x) => x.id === id);
     if (!t) return;
+
+    // Templates de mídia ou contato: envia direto ao clicar
+    if (t.mediaType && t.mediaType !== "text") {
+      setSending(true);
+      setError("");
+      const payload = { mediaType: t.mediaType };
+      if (t.mediaType === "contact") {
+        payload.contactName = t.contactName;
+        payload.contactPhone = t.contactPhone;
+      } else {
+        payload.mediaBase64 = t.mediaBase64;
+        payload.mediaMimetype = t.mediaMimetype;
+        payload.mediaFileName = t.mediaFileName;
+        payload.body = t.body || "";
+      }
+      const res = await fetch(`/api/contacts/${contactId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      setSending(false);
+      if (!res.ok) { setError(data.error || "Falha ao enviar."); return; }
+      setMessages((m) => [...m, data.message]);
+      setTplCopied(true);
+      setTimeout(() => setTplCopied(false), 1500);
+      return;
+    }
+
+    // Template de texto: joga no campo de envio
     setText(t.body);
     try {
       await navigator.clipboard.writeText(t.body);
