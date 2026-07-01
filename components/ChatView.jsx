@@ -37,6 +37,13 @@ export default function ChatView() {
   const [saved, setSaved] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [tplSent, setTplSent] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [attachError, setAttachError] = useState("");
+  const fileInputRef = useRef(null);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const streamRef = useRef(null);
 
   const loadConversations = useCallback(async () => {
     const data = await fetch("/api/chat").then((r) => r.json()).catch(() => []);
@@ -166,6 +173,64 @@ export default function ChatView() {
       setTplSent(true);
       setTimeout(() => setTplSent(false), 1500);
     } catch { /* sem clipboard */ }
+  }
+
+  // Envia um arquivo (anexo escolhido ou áudio gravado) via WhatsApp
+  async function uploadMedia(file, kind, caption = "") {
+    if (!selectedId) return;
+    setUploading(true);
+    setAttachError("");
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("kind", kind);
+    fd.append("caption", caption);
+    const res = await fetch(`/api/contacts/${selectedId}/media`, { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    setUploading(false);
+    if (!res.ok) {
+      setAttachError(data.error || "Falha ao enviar o anexo.");
+      return;
+    }
+    if (data.message) setMessages((prev) => [...prev, data.message]);
+    loadConversations();
+  }
+
+  function onPickFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const kind = file.type.startsWith("image/")
+      ? "image"
+      : file.type.startsWith("audio/")
+      ? "audio"
+      : "document";
+    uploadMedia(file, kind);
+  }
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const rec = new MediaRecorder(stream);
+      rec.ondataavailable = (ev) => ev.data.size && chunksRef.current.push(ev.data);
+      rec.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const file = new File([blob], `audio-${Date.now()}.webm`, { type: "audio/webm" });
+        uploadMedia(file, "audio");
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+      };
+      rec.start();
+      recorderRef.current = rec;
+      setRecording(true);
+    } catch {
+      setAttachError("Não foi possível acessar o microfone.");
+    }
+  }
+
+  function stopRecording() {
+    recorderRef.current?.stop();
+    setRecording(false);
   }
 
   async function saveContact() {
@@ -326,13 +391,44 @@ export default function ChatView() {
                   {tplSent && <span className="text-xs text-emerald-600 shrink-0">enviado ✓</span>}
                 </div>
               )}
+              {attachError && <p className="text-xs text-red-500 pb-1">{attachError}</p>}
               <form onSubmit={send} className="flex gap-2 pb-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,audio/*,application/pdf"
+                  onChange={onPickFile}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || recording}
+                  title="Enviar anexo"
+                  className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 text-lg"
+                >
+                  📎
+                </button>
                 <input
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  placeholder="Digite uma mensagem…"
-                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
+                  placeholder={recording ? "Gravando áudio…" : uploading ? "Enviando anexo…" : "Digite uma mensagem…"}
+                  disabled={recording}
+                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 disabled:bg-slate-50"
                 />
+                <button
+                  type="button"
+                  onClick={recording ? stopRecording : startRecording}
+                  disabled={uploading}
+                  title={recording ? "Parar gravação" : "Gravar áudio"}
+                  className={`shrink-0 w-9 h-9 rounded-lg border text-lg disabled:opacity-40 ${
+                    recording
+                      ? "border-red-300 bg-red-50 text-red-600 animate-pulse"
+                      : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  {recording ? "⏹" : "🎙"}
+                </button>
                 <button
                   disabled={sending || !text.trim()}
                   className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
