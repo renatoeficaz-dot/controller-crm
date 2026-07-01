@@ -19,7 +19,7 @@ export async function POST(req) {
 
   const instance = payload.instance || "";
   const data = payload.data || {};
-  if (data.key?.fromMe) return NextResponse.json({ ok: true }); // ignora o eco das nossas mensagens
+  const fromMe = Boolean(data.key?.fromMe);
 
   const remoteJid = data.key?.remoteJid || "";
   if (remoteJid.endsWith("@g.us")) return NextResponse.json({ ok: true }); // ignora grupos
@@ -36,7 +36,11 @@ export async function POST(req) {
     where: { phone: { endsWith: tail } },
   });
 
-  // Se não existir, cria um lead novo na primeira coluna
+  // Mensagem enviada por nós direto pelo celular (fora do CRM): só registra se o
+  // contato já existir — não cria lead novo nem aplica auto-tag por isso.
+  if (fromMe && !contact) return NextResponse.json({ ok: true });
+
+  // Se não existir (mensagem recebida de um contato novo), cria um lead na primeira coluna
   if (!contact) {
     const first = await prisma.stage.findFirst({ orderBy: { order: "asc" } });
     if (!first) return NextResponse.json({ ok: true });
@@ -68,7 +72,9 @@ export async function POST(req) {
   }
 
   // Monta a mensagem (texto ou mídia)
-  const msg = { contactId: contact.id, fromMe: false, status: "recebido", instance };
+  const msg = fromMe
+    ? { contactId: contact.id, fromMe: true, status: "enviado", instance }
+    : { contactId: contact.id, fromMe: false, status: "recebido", instance };
   if (media) {
     const file = await fetchIncomingMediaBase64(instance, data.key);
     if (file?.base64) {
