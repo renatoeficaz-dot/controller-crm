@@ -540,6 +540,7 @@ function Numeros() {
   const [evo, setEvo] = useState({ evolutionUrl: "", evolutionApiKey: "" });
   const [evoSaved, setEvoSaved] = useState(false);
   const [qr, setQr] = useState(null); // { id, label, image, connected, error }
+  const [disconnecting, setDisconnecting] = useState(null); // id em andamento
 
   const load = useCallback(async () => {
     const [n, u, un, cfg] = await Promise.all([
@@ -638,8 +639,23 @@ function Numeros() {
     load();
   }
 
+  // Desconecta de verdade a sessão do WhatsApp na Evolution (logout).
+  // Sem isso, a instância continua ativa e recebendo mensagens mesmo removida do CRM.
+  async function disconnect(id) {
+    setDisconnecting(id);
+    const res = await fetch(`/api/numbers/${id}/disconnect`, { method: "POST" });
+    const d = await res.json().catch(() => ({}));
+    setDisconnecting(null);
+    if (!res.ok) {
+      alert(d.error || "Falha ao desconectar.");
+      return false;
+    }
+    return true;
+  }
+
   async function remove(id) {
-    if (!confirm("Remover este número?")) return;
+    if (!confirm("Remover este número? A sessão do WhatsApp também será desconectada.")) return;
+    await disconnect(id); // best-effort: mesmo se falhar, segue removendo do CRM
     await fetch(`/api/numbers/${id}`, { method: "DELETE" });
     load();
   }
@@ -721,6 +737,17 @@ function Numeros() {
                   <div className="flex items-center gap-3">
                     <button onClick={() => conectar(n)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
                       Conectar (QR)
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Desconectar ${n.label}? Encerra a sessão do WhatsApp (o número continua cadastrado).`)) return;
+                        const ok = await disconnect(n.id);
+                        if (ok) alert("Desconectado com sucesso.");
+                      }}
+                      disabled={disconnecting === n.id}
+                      className="text-xs text-amber-600 hover:text-amber-700 disabled:opacity-50"
+                    >
+                      {disconnecting === n.id ? "Desconectando…" : "Desconectar"}
                     </button>
                     <button onClick={() => remove(n.id)} className="text-xs text-red-400 hover:text-red-600">
                       Remover
