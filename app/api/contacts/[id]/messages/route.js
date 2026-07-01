@@ -54,7 +54,7 @@ export async function POST(req, { params }) {
       return NextResponse.json({ error: "Nome e telefone do contato são obrigatórios." }, { status: 400 });
     }
     result = await sendWhatsappContact(contact.phone, { name: contactName, contactPhone });
-    kind = "document";
+    kind = "contact";
   } else if (mediaType === "audio") {
     if (!mediaBase64) return NextResponse.json({ error: "Arquivo ausente." }, { status: 400 });
     result = await sendWhatsappAudio(contact.phone, mediaBase64);
