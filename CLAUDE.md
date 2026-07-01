@@ -99,7 +99,7 @@ lib/
 
 ## Regras importantes
 - O webhook `/api/webhook/evolution` DEVE ser público (sem auth) — é assim que a Evolution entrega msgs
-- Parcelas com `ciclo: null` (migradas) devem ser tratadas como `ciclo: 1`
+- `ciclo` é NOT NULL no schema (default 1) — nunca filtrar por `ciclo: null` no Prisma (o client rejeita a query com "Argument ciclo must not be null", mesmo sem nenhum dado nulo real no banco)
 - O `regenerarParcelas` deleta e recria do ciclo atual (não mexe em ciclos anteriores)
 - Pagamento de parcela gera lançamento automático de entrada
 - `custom_labels` do Traefik ficam em base64 no banco do Coolify (não basta mudar o fqdn)
