@@ -22,6 +22,8 @@ export default function ChatView() {
   const [sending, setSending] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const chatEnd = useRef(null);
+  const selectedIdRef = useRef(null);
+  useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
 
   // Dados pra edição do lead
   const [form, setForm] = useState({});
@@ -59,7 +61,9 @@ export default function ChatView() {
 
   const loadContact = useCallback(async () => {
     if (!selectedId) return;
-    const ct = await fetch(`/api/contacts/${selectedId}`).then((r) => r.json()).catch(() => null);
+    const requestedId = selectedId;
+    const ct = await fetch(`/api/contacts/${requestedId}`).then((r) => r.json()).catch(() => null);
+    if (requestedId !== selectedIdRef.current) return; // trocou de conversa enquanto isso — descarta
     if (ct && !ct.error) {
       setContact(ct);
       setForm({
@@ -80,7 +84,9 @@ export default function ChatView() {
 
   const loadMessages = useCallback(async () => {
     if (!selectedId) return;
-    const msgs = await fetch(`/api/contacts/${selectedId}/messages`).then((r) => r.json()).catch(() => []);
+    const requestedId = selectedId;
+    const msgs = await fetch(`/api/contacts/${requestedId}/messages`).then((r) => r.json()).catch(() => []);
+    if (requestedId !== selectedIdRef.current) return; // trocou de conversa enquanto isso — descarta
     setMessages(Array.isArray(msgs) ? msgs : []);
   }, [selectedId]);
 
@@ -211,7 +217,7 @@ export default function ChatView() {
           {conversations.map((c) => (
             <button
               key={c.id}
-              onClick={() => { setSelectedId(c.id); setContact(null); setShowInfo(false); }}
+              onClick={() => { setSelectedId(c.id); setContact(null); setMessages([]); setShowInfo(false); }}
               className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors ${
                 selectedId === c.id ? "bg-emerald-50" : ""
               }`}
