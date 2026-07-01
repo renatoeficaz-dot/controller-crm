@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { resumoCobranca, valorParcelaAtual, parcelaAtrasada } from "@/lib/finance";
+import MediaBubble from "./MediaBubble";
 
 function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -680,23 +681,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     : "self-start bg-white border border-slate-200 text-slate-700"
                 }`}
               >
-                {m.kind === "audio" && (
-                  <audio controls src={m.mediaUrl} className="max-w-[220px] h-9" />
-                )}
-                {m.kind === "image" && (
-                  <a href={m.mediaUrl} target="_blank" rel="noreferrer">
-                    <img src={m.mediaUrl} alt={m.fileName || "imagem"} className="rounded-md max-w-[220px] max-h-[220px] object-cover" />
-                  </a>
-                )}
-                {m.kind === "document" && (
-                  <a
-                    href={m.mediaUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`flex items-center gap-2 underline ${m.fromMe ? "text-white" : "text-emerald-700"}`}
-                  >
-                    📎 {m.fileName || "documento"}
-                  </a>
+                {(m.kind === "audio" || m.kind === "image" || m.kind === "document") && (
+                  <MediaBubble message={m} />
                 )}
                 {m.body && (
                   <p className="whitespace-pre-wrap break-words mt-1">{m.body}</p>

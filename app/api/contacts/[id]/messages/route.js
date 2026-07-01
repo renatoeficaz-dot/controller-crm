@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { sendWhatsappText, sendWhatsappMedia, sendWhatsappAudio, sendWhatsappContact } from "@/lib/evolution";
 import { getCurrentUser, mensagensWhere } from "@/lib/session";
 
-// Lista mensagens do contato (conforme os WhatsApp que o usuário pode ver)
+// Lista mensagens do contato (conforme os WhatsApp que o usuário pode ver).
+// Não traz o campo mediaUrl (base64) — mídia é carregada sob demanda via
+// /api/messages/[id]/media, pra não pesar o payload em conversas com áudio/imagem.
 export async function GET(_req, { params }) {
   const { id } = await params;
   const user = await getCurrentUser();
@@ -11,6 +13,19 @@ export async function GET(_req, { params }) {
   const messages = await prisma.message.findMany({
     where: { contactId: id, ...(extra || {}) },
     orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      contactId: true,
+      body: true,
+      kind: true,
+      mimeType: true,
+      fileName: true,
+      fromMe: true,
+      status: true,
+      instance: true,
+      readAt: true,
+      createdAt: true,
+    },
   });
   return NextResponse.json(messages);
 }

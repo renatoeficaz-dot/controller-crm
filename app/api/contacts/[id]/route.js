@@ -2,14 +2,31 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, mensagensWhere } from "@/lib/session";
 
-// Busca um contato com suas mensagens (conforme permissão de WhatsApp) e parcelas
+// Busca um contato com suas mensagens (conforme permissão de WhatsApp) e parcelas.
+// mediaUrl (base64) fica de fora — mídia é carregada sob demanda via /api/messages/[id]/media.
 export async function GET(_req, { params }) {
   const { id } = await params;
   const user = await getCurrentUser();
   const contact = await prisma.contact.findUnique({
     where: { id },
     include: {
-      messages: { where: mensagensWhere(user), orderBy: { createdAt: "asc" } },
+      messages: {
+        where: mensagensWhere(user),
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          contactId: true,
+          body: true,
+          kind: true,
+          mimeType: true,
+          fileName: true,
+          fromMe: true,
+          status: true,
+          instance: true,
+          readAt: true,
+          createdAt: true,
+        },
+      },
       stage: true,
       unit: { select: { id: true, name: true, number: true } },
       parcelas: { orderBy: [{ ciclo: "asc" }, { number: "asc" }] },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import MediaBubble from "./MediaBubble";
 
 function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -289,13 +290,7 @@ export default function ChatView() {
                         : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"
                     }`}
                   >
-                    {m.kind === "audio" && <audio controls src={m.mediaUrl} className="max-w-[200px] h-8" />}
-                    {m.kind === "image" && <img src={m.mediaUrl} alt="" className="rounded max-w-[200px] max-h-[200px] object-cover" />}
-                    {m.kind === "document" && (
-                      <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="underline text-xs">
-                        {m.fileName || "documento"}
-                      </a>
-                    )}
+                    {(m.kind === "audio" || m.kind === "image" || m.kind === "document") && <MediaBubble message={m} />}
                     {(m.kind === "text" || m.body) && <p>{m.body}</p>}
                     <p className={`text-[10px] mt-1 ${m.fromMe ? "text-emerald-200" : "text-slate-400"}`}>
                       {fmtTime(m.createdAt)}
