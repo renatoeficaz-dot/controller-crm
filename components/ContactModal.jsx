@@ -169,8 +169,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     return () => clearInterval(t);
   }, [contactId]);
 
+  const hasScrolledRef = useRef(false);
   useEffect(() => {
-    chatEnd.current?.scrollIntoView({ behavior: "smooth" });
+    if (!messages.length) return;
+    // Ao abrir o card, pula direto pro final (sem animação); mensagens novas rolam suave.
+    chatEnd.current?.scrollIntoView({ behavior: hasScrolledRef.current ? "smooth" : "auto" });
+    hasScrolledRef.current = true;
   }, [messages]);
 
   async function saveContact() {

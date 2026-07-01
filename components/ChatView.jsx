@@ -99,9 +99,15 @@ export default function ChatView() {
     return () => clearInterval(t);
   }, [loadContact, loadMessages, selectedId]);
 
+  const scrolledForRef = useRef(null);
   useEffect(() => {
-    chatEnd.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!messages.length) return;
+    // Ao abrir/trocar de conversa, pula direto pro final (sem animação).
+    // Em mensagens novas na mesma conversa, rola suave.
+    const firstLoad = scrolledForRef.current !== selectedId;
+    scrolledForRef.current = selectedId;
+    chatEnd.current?.scrollIntoView({ behavior: firstLoad ? "auto" : "smooth" });
+  }, [messages, selectedId]);
 
   async function send(e) {
     e.preventDefault();
