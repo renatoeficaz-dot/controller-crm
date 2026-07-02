@@ -1293,12 +1293,55 @@ const TTS_MODELS = [
   { value: "canopylabs/orpheus-3b-0.1-ft", label: "Orpheus 3B" },
 ];
 
+// Popup em tela grande pra escrever/editar o prompt da IA com mais espaço
+function PromptModal({ value, onChange, onClose }) {
+  const [draft, setDraft] = useState(value);
+
+  function apply() {
+    onChange(draft);
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl w-full max-w-3xl h-[80vh] flex flex-col shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between shrink-0">
+          <h3 className="font-medium text-slate-800">Prompt da IA</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          autoFocus
+          placeholder="Ex.: Você é a assistente virtual da Controller, uma empresa de microcrédito. Responda de forma educada e objetiva, tire dúvidas sobre empréstimos e parcelas, e nunca prometa valores ou prazos sem confirmar com um atendente humano…"
+          className="flex-1 w-full text-sm px-5 py-4 outline-none resize-none"
+        />
+        <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2 shrink-0">
+          <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-1.5">
+            Cancelar
+          </button>
+          <button
+            onClick={apply}
+            className="bg-emerald-500 text-white rounded-lg px-4 py-1.5 text-sm hover:bg-emerald-600"
+          >
+            Aplicar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function IaDeepInfra() {
   const [cfg, setCfg] = useState({
     deepinfraApiKey: "", deepinfraTextModel: "", deepinfraTtsModel: "", iaPrompt: "", iaAtivo: false, iaRespostaAudio: false,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/config").then((r) => r.json()).then((d) => {
@@ -1378,7 +1421,16 @@ function IaDeepInfra() {
           nenhum fluxo do <a href="/chatbot" className="underline text-emerald-600">construtor de chatbot</a>.
         </p>
         <label className="block">
-          <span className="text-xs text-slate-400">Prompt da IA (instruções de como ela deve atender)</span>
+          <span className="text-xs text-slate-400 flex items-center justify-between">
+            Prompt da IA (instruções de como ela deve atender)
+            <button
+              type="button"
+              onClick={() => setPromptModalOpen(true)}
+              className="text-emerald-600 hover:text-emerald-700 font-medium normal-case"
+            >
+              ⤢ Expandir
+            </button>
+          </span>
           <textarea
             value={cfg.iaPrompt}
             onChange={(e) => setCfg((c) => ({ ...c, iaPrompt: e.target.value }))}
@@ -1387,6 +1439,14 @@ function IaDeepInfra() {
             className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400 resize-none"
           />
         </label>
+
+        {promptModalOpen && (
+          <PromptModal
+            value={cfg.iaPrompt}
+            onChange={(v) => setCfg((c) => ({ ...c, iaPrompt: v }))}
+            onClose={() => setPromptModalOpen(false)}
+          />
+        )}
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
