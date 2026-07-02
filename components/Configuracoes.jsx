@@ -21,7 +21,7 @@ export default function Configuracoes() {
   }, []);
 
   return (
-    <div className="p-3 md:p-6 max-w-4xl">
+    <div className="p-3 md:p-6 max-w-4xl w-full overflow-y-auto thin-scroll">
       <h1 className="text-lg font-semibold text-slate-800 mb-4">Configurações</h1>
 
       <div className="flex gap-1 md:gap-2 mb-5 border-b border-slate-200 overflow-x-auto">
