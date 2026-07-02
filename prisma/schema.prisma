@@ -116,6 +116,11 @@ model Config {
   pagamentoHoraLimite String? // "HH:MM" — após esse horário, a parcela que vence hoje já conta como atrasada
   evolutionUrl        String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
   evolutionApiKey     String? // API Key global da Evolution
+
+  // IA (DeepInfra — hospeda os modelos Llama e também TTS/áudio com a mesma API key)
+  deepinfraApiKey    String? // token da conta em https://deepinfra.com/dash
+  deepinfraTextModel String? // modelo Llama usado para gerar texto (ex.: meta-llama/Meta-Llama-3.1-8B-Instruct)
+  deepinfraTtsModel  String? // modelo de geração de áudio/voz (ex.: hexgrad/Kokoro-82M)
 }
 
 // Usuário do sistema (cadastro em Configurações) — também faz login no app.

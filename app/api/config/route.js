@@ -24,6 +24,9 @@ export async function PATCH(req) {
   if ("pagamentoHoraLimite" in body) data.pagamentoHoraLimite = (body.pagamentoHoraLimite || "").trim() || null;
   if ("evolutionUrl" in body) data.evolutionUrl = (body.evolutionUrl || "").trim() || null;
   if ("evolutionApiKey" in body) data.evolutionApiKey = (body.evolutionApiKey || "").trim() || null;
+  if ("deepinfraApiKey" in body) data.deepinfraApiKey = (body.deepinfraApiKey || "").trim() || null;
+  if ("deepinfraTextModel" in body) data.deepinfraTextModel = (body.deepinfraTextModel || "").trim() || null;
+  if ("deepinfraTtsModel" in body) data.deepinfraTtsModel = (body.deepinfraTtsModel || "").trim() || null;
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }

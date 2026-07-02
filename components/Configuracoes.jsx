@@ -40,6 +40,9 @@ export default function Configuracoes() {
         <TabBtn active={tab === "automacao"} onClick={() => setTab("automacao")}>
           Automação
         </TabBtn>
+        <TabBtn active={tab === "ia"} onClick={() => setTab("ia")}>
+          IA (DeepInfra)
+        </TabBtn>
       </div>
 
       {tab === "ruta" && <CadastroRuta />}
@@ -49,6 +52,7 @@ export default function Configuracoes() {
       {tab === "tags" && <TagsConfig />}
       {tab === "mensagens" && <MensagensProntas />}
       {tab === "automacao" && <AutomacaoFunil />}
+      {tab === "ia" && <IaDeepInfra />}
     </div>
   );
 }
@@ -1273,6 +1277,94 @@ function AutomacaoFunil() {
         {stages.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma etapa cadastrada.</li>}
       </ul>
     </div>
+  );
+}
+
+/* ---------------- IA — DeepInfra (Llama + geração de áudio) ---------------- */
+// Modelos baratos disponíveis na DeepInfra (preço aproximado por milhão de tokens/segundos de áudio,
+// conferir sempre em https://deepinfra.com/models antes de usar em produção).
+const TEXT_MODELS = [
+  { value: "meta-llama/Meta-Llama-3.1-8B-Instruct", label: "Llama 3.1 8B Instruct (mais barato)" },
+  { value: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", label: "Llama 3.1 8B Instruct Turbo" },
+  { value: "meta-llama/Llama-3.3-70B-Instruct", label: "Llama 3.3 70B Instruct (mais forte)" },
+];
+const TTS_MODELS = [
+  { value: "hexgrad/Kokoro-82M", label: "Kokoro 82M (mais barato)" },
+  { value: "canopylabs/orpheus-3b-0.1-ft", label: "Orpheus 3B" },
+];
+
+function IaDeepInfra() {
+  const [cfg, setCfg] = useState({ deepinfraApiKey: "", deepinfraTextModel: "", deepinfraTtsModel: "" });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/config").then((r) => r.json()).then((d) => {
+      setCfg({
+        deepinfraApiKey: d?.deepinfraApiKey || "",
+        deepinfraTextModel: d?.deepinfraTextModel || TEXT_MODELS[0].value,
+        deepinfraTtsModel: d?.deepinfraTtsModel || TTS_MODELS[0].value,
+      });
+    }).catch(() => {});
+  }, []);
+
+  async function save(e) {
+    e.preventDefault();
+    setSaving(true);
+    await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cfg),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  return (
+    <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 max-w-lg space-y-3">
+      <h2 className="font-medium text-slate-800">DeepInfra</h2>
+      <p className="text-xs text-slate-400">
+        Uma única API key da <a href="https://deepinfra.com/dash" target="_blank" rel="noreferrer" className="underline text-emerald-600">DeepInfra</a> dá
+        acesso tanto aos modelos Llama (texto) quanto a modelos de geração de áudio/voz — mais barato do que manter provedores separados (ex.: Fish Audio).
+      </p>
+
+      <Field
+        label="API Key (token)"
+        value={cfg.deepinfraApiKey}
+        onChange={(v) => setCfg((c) => ({ ...c, deepinfraApiKey: v }))}
+        placeholder="di_..."
+      />
+
+      <label className="block">
+        <span className="text-xs text-slate-400">Modelo Llama (texto)</span>
+        <select
+          value={cfg.deepinfraTextModel}
+          onChange={(e) => setCfg((c) => ({ ...c, deepinfraTextModel: e.target.value }))}
+          className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+        >
+          {TEXT_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+        </select>
+      </label>
+
+      <label className="block">
+        <span className="text-xs text-slate-400">Modelo de áudio/voz (TTS)</span>
+        <select
+          value={cfg.deepinfraTtsModel}
+          onChange={(e) => setCfg((c) => ({ ...c, deepinfraTtsModel: e.target.value }))}
+          className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+        >
+          {TTS_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+        </select>
+      </label>
+
+      <button
+        disabled={saving}
+        className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
+      >
+        {saving ? "Salvando…" : saved ? "Salvo ✓" : "Salvar"}
+      </button>
+    </form>
   );
 }
 
