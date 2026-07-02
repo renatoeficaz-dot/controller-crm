@@ -80,6 +80,24 @@ export default function MediaBubble({ message }) {
     );
   }
 
+  if (message.kind === "location") {
+    // Localização não passa pelo carregamento sob demanda — o link já vem no corpo da mensagem
+    const match = /(https:\/\/www\.google\.com\/maps\?q=[^\s]+)/.exec(message.body || "");
+    const mapsUrl = match?.[1];
+    const label = (message.body || "").replace(mapsUrl || "", "").trim();
+    if (!mapsUrl) return <p>{message.body}</p>;
+    return (
+      <a
+        href={mapsUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center gap-1.5 underline text-sm"
+      >
+        📍 {label || "Ver localização no mapa"}
+      </a>
+    );
+  }
+
   if (message.kind === "document") {
     return url ? (
       <>

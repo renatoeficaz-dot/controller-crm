@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   extractIncomingText,
   detectIncomingMedia,
+  extractIncomingLocation,
   fetchIncomingMediaBase64,
   onlyDigits,
   sendWhatsappText,
@@ -33,7 +34,8 @@ export async function POST(req) {
 
   const text = extractIncomingText(data.message);
   const media = detectIncomingMedia(data.message); // áudio / imagem / documento / vídeo
-  if (!text && !media) return NextResponse.json({ ok: true }); // nada que saibamos exibir
+  const location = extractIncomingLocation(data.message); // 📍 localização (lat/long, sem arquivo)
+  if (!text && !media && !location) return NextResponse.json({ ok: true }); // nada que saibamos exibir
 
   // Acha o contato pelo telefone (últimos 8 dígitos batem, pra tolerar formatações)
   const tail = number.slice(-8);
@@ -98,6 +100,10 @@ export async function POST(req) {
       msg.kind = "text";
       msg.body = media.caption || `[${media.kind} recebido — não foi possível baixar o arquivo]`;
     }
+  } else if (location) {
+    // Localização não tem arquivo — guarda o link do Google Maps direto no corpo da mensagem
+    msg.kind = "location";
+    msg.body = location.label ? `${location.label}\n${location.url}` : location.url;
   } else {
     msg.kind = "text";
     msg.body = text;

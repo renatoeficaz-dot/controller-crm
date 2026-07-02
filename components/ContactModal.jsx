@@ -689,10 +689,10 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     : "self-start bg-white border border-slate-200 text-slate-700"
                 }`}
               >
-                {(m.kind === "audio" || m.kind === "image" || m.kind === "document") && (
+                {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && (
                   <MediaBubble message={m} />
                 )}
-                {m.body && (
+                {m.kind !== "location" && m.body && (
                   <p className="whitespace-pre-wrap break-words mt-1">{m.body}</p>
                 )}
                 <span

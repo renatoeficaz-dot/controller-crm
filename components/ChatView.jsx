@@ -390,8 +390,8 @@ export default function ChatView() {
                         : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"
                     }`}
                   >
-                    {(m.kind === "audio" || m.kind === "image" || m.kind === "document") && <MediaBubble message={m} />}
-                    {(m.kind === "text" || m.body) && <p>{m.body}</p>}
+                    {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && <MediaBubble message={m} />}
+                    {m.kind !== "location" && (m.kind === "text" || m.body) && <p>{m.body}</p>}
                     <p className={`text-[10px] mt-1 ${m.fromMe ? "text-emerald-200" : "text-slate-400"}`}>
                       {fmtTime(m.createdAt)}
                     </p>
