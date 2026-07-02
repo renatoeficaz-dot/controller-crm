@@ -1320,9 +1320,9 @@ function AutomacaoFunil() {
 // Modelos baratos disponíveis (preço aproximado por milhão de tokens/segundos de áudio,
 // conferir sempre em https://deepinfra.com/models antes de usar em produção).
 const TEXT_MODELS = [
-  { value: "meta-llama/Meta-Llama-3.1-8B-Instruct", label: "8B Instruct (mais barato)" },
-  { value: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", label: "8B Instruct Turbo" },
-  { value: "meta-llama/Llama-3.3-70B-Instruct", label: "70B Instruct (mais forte)" },
+  { value: "meta-llama/Meta-Llama-3.1-8B-Instruct", label: "8B Instruct (mais barato — não usa funções de forma confiável)" },
+  { value: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", label: "8B Instruct Turbo (recomendado — usa funções bem)" },
+  { value: "meta-llama/Llama-3.3-70B-Instruct", label: "70B Instruct (mais forte, usa funções bem)" },
 ];
 const TTS_MODELS = [
   { value: "ResembleAI/chatterbox-turbo", label: "Chatterbox Turbo (recomendado — fala português, rápido)" },
@@ -1442,7 +1442,7 @@ const TTS_PROVIDERS = [
 ];
 
 const emptyAgent = {
-  name: "", prompt: "", textModel: TEXT_MODELS[0].value,
+  name: "", prompt: "", textModel: TEXT_MODELS[1].value,
   ttsProvider: "deepinfra", ttsModel: TTS_MODELS[0].value, ttsVoice: KOKORO_VOICES[0].value,
   modoResposta: "espelho",
   toolSendContact: false, toolContactName: "", toolContactPhone: "",
@@ -1657,6 +1657,11 @@ function AgentesIa() {
 
           <div className="border-t border-slate-100 pt-3 space-y-3">
             <h3 className="text-sm font-medium text-slate-700">Funções (a IA decide sozinha quando usar)</h3>
+            {(form.toolSendContact || form.toolSendTemplate || form.toolMoveStage) && form.textModel === TEXT_MODELS[0].value && (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1.5">
+                ⚠️ O modelo "8B Instruct" (padrão) não chama funções de forma confiável — troque pro "8B Instruct Turbo" ou "70B Instruct" acima.
+              </p>
+            )}
 
             <div className="space-y-1.5">
               <label className="flex items-center gap-2">
