@@ -17,6 +17,7 @@ model Stage {
   autoResponsavel String?   // nome do usuário atribuído automaticamente quando um lead entra nesta etapa
   contacts        Contact[]
   usuarios        User[]    @relation("UserKanbans") // usuários (não-admin) que enxergam esta coluna
+  agentesQueParam IaAgent[] @relation("StopAtStage") // agentes de IA configurados pra parar de responder a partir desta etapa
   createdAt       DateTime  @default(now())
 }
 
@@ -143,6 +144,11 @@ model IaAgent {
   toolContactPhone String? // telefone do contato que a função "enviar contato" manda
   toolSendTemplate Boolean @default(false) // pode enviar uma das mensagens prontas (inclui áudios pré-gravados)
   toolMoveStage    Boolean @default(false) // pode mover o lead para outra etapa do funil
+
+  // A partir desta etapa (e qualquer etapa depois dela na ordem do funil), a IA
+  // para de responder — o atendimento passa a ser 100% humano. null = nunca para.
+  stopAtStage   Stage?  @relation("StopAtStage", fields: [stopAtStageId], references: [id], onDelete: SetNull)
+  stopAtStageId String?
 
   numeros      WhatsappNumber[]
   createdAt    DateTime         @default(now())

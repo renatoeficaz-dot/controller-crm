@@ -9,7 +9,7 @@ import {
   sendWhatsappAudio,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
-import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls } from "@/lib/ia";
+import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet } from "@/lib/ia";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -130,6 +130,11 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
   const agent = await getAgentForInstance(instance);
   if (!agent) return;
   const apiKey = cfg.deepinfraApiKey;
+
+  // A partir da etapa configurada (ex.: "Liberação pagamento"), o atendimento
+  // vira 100% humano — a IA para de responder esse lead.
+  const currentStage = await prisma.stage.findUnique({ where: { id: contact.stageId } });
+  if (agentShouldStayQuiet(agent, currentStage)) return;
 
   let userText = incomingMsg.body || "";
   const incomingWasAudio = incomingMsg.kind === "audio";

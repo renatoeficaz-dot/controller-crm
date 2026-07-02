@@ -25,6 +25,7 @@ export async function PATCH(req, { params }) {
   if ("toolContactPhone" in body) data.toolContactPhone = (body.toolContactPhone || "").trim() || null;
   if ("toolSendTemplate" in body) data.toolSendTemplate = !!body.toolSendTemplate;
   if ("toolMoveStage" in body) data.toolMoveStage = !!body.toolMoveStage;
+  if ("stopAtStageId" in body) data.stopAtStageId = body.stopAtStageId || null;
   const agent = await prisma.iaAgent.update({ where: { id }, data });
   return NextResponse.json(agent);
 }

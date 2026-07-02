@@ -1446,13 +1446,14 @@ const emptyAgent = {
   ttsProvider: "deepinfra", ttsModel: TTS_MODELS[0].value, ttsVoice: KOKORO_VOICES[0].value,
   modoResposta: "espelho",
   toolSendContact: false, toolContactName: "", toolContactPhone: "",
-  toolSendTemplate: false, toolMoveStage: false,
+  toolSendTemplate: false, toolMoveStage: false, stopAtStageId: "",
 };
 
 // Vários agentes de IA — cada um com prompt/modelos próprios. Cada número (aba
 // Números) escolhe qual agente atende, ou nenhum.
 function AgentesIa() {
   const [agents, setAgents] = useState([]);
+  const [stages, setStages] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(emptyAgent);
   const [saving, setSaving] = useState(false);
@@ -1461,8 +1462,12 @@ function AgentesIa() {
   const [newAgentModalOpen, setNewAgentModalOpen] = useState(false);
 
   const load = useCallback(async () => {
-    const list = await fetch("/api/ia/agents").then((r) => r.json()).catch(() => []);
+    const [list, st] = await Promise.all([
+      fetch("/api/ia/agents").then((r) => r.json()).catch(() => []),
+      fetch("/api/stages").then((r) => r.json()).catch(() => []),
+    ]);
     setAgents(Array.isArray(list) ? list : []);
+    setStages(Array.isArray(st) ? st.map((s) => ({ id: s.id, name: s.name })) : []);
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -1482,6 +1487,7 @@ function AgentesIa() {
       toolContactPhone: a.toolContactPhone || "",
       toolSendTemplate: !!a.toolSendTemplate,
       toolMoveStage: !!a.toolMoveStage,
+      stopAtStageId: a.stopAtStageId || "",
     });
   }
 
@@ -1707,6 +1713,23 @@ function AgentesIa() {
                 className="rounded"
               />
               <span className="text-sm text-slate-700">Mudar a etapa do lead no funil (Kanban)</span>
+            </label>
+
+            <label className="block">
+              <span className="text-xs text-slate-400">Parar de responder a partir de qual etapa</span>
+              <select
+                value={form.stopAtStageId}
+                onChange={(e) => setForm((f) => ({ ...f, stopAtStageId: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="">— Nunca parar (sempre responde) —</option>
+                {stages.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-400 mt-1">
+                Quando o lead entrar nesta etapa (ou qualquer etapa depois dela no funil), a IA para de responder — o atendimento vira 100% humano a partir daí.
+              </p>
             </label>
           </div>
 
