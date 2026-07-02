@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { sendWhatsappMedia, sendWhatsappAudio } from "@/lib/evolution";
+import { sendWhatsappMedia, sendWhatsappAudio, resolveInstanceForContact } from "@/lib/evolution";
 
 const EXT = {
   "audio/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/wav": "wav",
@@ -30,10 +30,13 @@ export async function POST(req, { params }) {
   const base64 = bytes.toString("base64");
   const mediaUrl = `data:${mimeType};base64,${base64}`;
 
+  // Responde sempre pelo mesmo número (instância) por onde a conversa está rolando
+  const instanceHint = await resolveInstanceForContact(id);
+
   // Envia pela Evolution (ou modo simulado)
   let result;
   if (kind === "audio") {
-    result = await sendWhatsappAudio(contact.phone, base64);
+    result = await sendWhatsappAudio(contact.phone, base64, instanceHint);
   } else {
     result = await sendWhatsappMedia(contact.phone, {
       base64,
@@ -41,7 +44,7 @@ export async function POST(req, { params }) {
       fileName,
       caption,
       mediatype: kind === "image" ? "image" : "document",
-    });
+    }, instanceHint);
   }
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 502 });
@@ -57,6 +60,7 @@ export async function POST(req, { params }) {
       fileName,
       fromMe: true,
       status: result.simulated ? "simulado" : "enviado",
+      instance: instanceHint || null,
     },
   });
 

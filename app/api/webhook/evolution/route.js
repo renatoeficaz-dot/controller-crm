@@ -106,7 +106,7 @@ export async function POST(req) {
 
   // Chatbot: só reage a mensagens recebidas do cliente (não a ecos do nosso próprio envio)
   if (!fromMe) {
-    const handled = await handleChatbotMessage(contact, text || "", isNewContact).catch(() => false);
+    const handled = await handleChatbotMessage(contact, text || "", isNewContact, instance).catch(() => false);
 
     // IA livre (DeepInfra/Llama): só entra se o fluxo por blocos não tratou a mensagem
     if (!handled) {
@@ -165,7 +165,7 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
   if (responderPorAudio) {
     const audio = await synthesizeSpeech(reply, agent, apiKey);
     if (audio) {
-      const result = await sendWhatsappAudio(contact.phone, audio.base64);
+      const result = await sendWhatsappAudio(contact.phone, audio.base64, instance);
       await prisma.message.create({
         data: {
           contactId: contact.id,
@@ -175,6 +175,7 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
           mimeType: audio.mimetype,
           fromMe: true,
           status: result.simulated ? "simulado" : "enviado",
+          instance,
         },
       });
       return;
@@ -182,7 +183,7 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
     // síntese falhou — segue pro fallback de texto abaixo
   }
 
-  const result = await sendWhatsappText(contact.phone, reply);
+  const result = await sendWhatsappText(contact.phone, reply, instance);
   await prisma.message.create({
     data: {
       contactId: contact.id,
@@ -190,6 +191,7 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
       fromMe: true,
       status: result.simulated ? "simulado" : "enviado",
       kind: "text",
+      instance,
     },
   });
 }

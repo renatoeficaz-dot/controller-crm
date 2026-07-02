@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { sendWhatsappText, sendWhatsappMedia, sendWhatsappAudio, sendWhatsappContact } from "@/lib/evolution";
+import { sendWhatsappText, sendWhatsappMedia, sendWhatsappAudio, sendWhatsappContact, resolveInstanceForContact } from "@/lib/evolution";
 import { getCurrentUser, mensagensWhere } from "@/lib/session";
 
 // Lista mensagens do contato (conforme os WhatsApp que o usuário pode ver).
@@ -44,6 +44,11 @@ export async function POST(req, { params }) {
   const contact = await prisma.contact.findUnique({ where: { id } });
   if (!contact) return NextResponse.json({ error: "Contato não encontrado" }, { status: 404 });
 
+  // Responde sempre pelo mesmo número (instância) por onde a conversa está
+  // rolando — sem isso, cai sempre no primeiro número conectado, podendo
+  // sair por um WhatsApp diferente do que o cliente está falando.
+  const instanceHint = await resolveInstanceForContact(id);
+
   let result;
   let kind = "text";
   let mimeType = null;
@@ -53,11 +58,11 @@ export async function POST(req, { params }) {
     if (!contactName || !contactPhone) {
       return NextResponse.json({ error: "Nome e telefone do contato são obrigatórios." }, { status: 400 });
     }
-    result = await sendWhatsappContact(contact.phone, { name: contactName, contactPhone });
+    result = await sendWhatsappContact(contact.phone, { name: contactName, contactPhone }, instanceHint);
     kind = "contact";
   } else if (mediaType === "audio") {
     if (!mediaBase64) return NextResponse.json({ error: "Arquivo ausente." }, { status: 400 });
-    result = await sendWhatsappAudio(contact.phone, mediaBase64);
+    result = await sendWhatsappAudio(contact.phone, mediaBase64, instanceHint);
     kind = "audio";
     mimeType = mediaMimetype || "audio/ogg";
   } else if (mediaType === "image" || mediaType === "document") {
@@ -68,13 +73,13 @@ export async function POST(req, { params }) {
       fileName: mediaFileName,
       caption: body,
       mediatype: mediaType,
-    });
+    }, instanceHint);
     kind = mediaType;
     mimeType = mediaMimetype || null;
     fileName = mediaFileName || null;
   } else {
     if (!body.trim()) return NextResponse.json({ error: "Mensagem vazia" }, { status: 400 });
-    result = await sendWhatsappText(contact.phone, body);
+    result = await sendWhatsappText(contact.phone, body, instanceHint);
   }
 
   if (!result.ok) {
@@ -94,6 +99,7 @@ export async function POST(req, { params }) {
       fileName,
       fromMe: true,
       status: result.simulated ? "simulado" : "enviado",
+      instance: instanceHint || null,
     },
   });
 
