@@ -11,7 +11,7 @@ import {
   sendPresence,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
-import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet } from "@/lib/ia";
+import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet, autoSendCobradorContact } from "@/lib/ia";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -242,6 +242,17 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
   }
 
   if (!reply) return; // não chamou função nenhuma e não sobrou texto pra responder — encerra aqui
+
+  // Rede de segurança extra: se a resposta MENCIONA que vai passar o cobrador
+  // mas a função de enviar contato nunca rodou de verdade nessa conversa, manda
+  // o contato agora — a IA às vezes só narra essa frase sem chamar a função,
+  // mesmo depois de perguntada diretamente sobre o contato.
+  if (/chamar o cobrador/i.test(reply)) {
+    const hasContact = await prisma.message.findFirst({ where: { contactId: contact.id, kind: "contact" } });
+    if (!hasContact) {
+      await autoSendCobradorContact(contact, instance).catch(() => {});
+    }
+  }
 
   const modo = agent.modoResposta || "espelho";
   const responderPorAudio = modo === "audio" || (modo === "espelho" && incomingWasAudio);
