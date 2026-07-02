@@ -170,19 +170,44 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
     .filter((m) => m.content.trim());
   history.push({ role: "user", content: userText });
 
-  const result_ia = await askIa(history, agent, apiKey);
-  if (!result_ia) return;
+  // Loop de function calling: a IA pode chamar uma função, ver o resultado e
+  // decidir chamar outra (ex.: enviar o contato do cobrador E mudar a etapa)
+  // antes de dar a resposta final em texto. Limite de rodadas evita loop infinito.
+  let reply = null;
+  const messages = history;
+  for (let round = 0; round < 4; round++) {
+    const result_ia = await askIa(messages, agent, apiKey);
+    if (!result_ia) return;
 
-  // Funções (function calling): a IA pode enviar contato, mensagem pronta ou
-  // mudar a etapa do lead antes/sem precisar de uma resposta em texto.
-  if (result_ia.toolCalls?.length) {
-    await executeToolCalls(result_ia.toolCalls, contact, agent, instance).catch((err) => {
+    if (!result_ia.toolCalls?.length) {
+      reply = result_ia.content;
+      break;
+    }
+
+    const toolResults = await executeToolCalls(result_ia.toolCalls, contact, agent, instance).catch((err) => {
       console.error("[IA function calling] erro ao executar:", err.message);
+      return [];
     });
+
+    // Alimenta a próxima rodada com o que foi chamado + o resultado, no formato OpenAI
+    messages.push({
+      role: "assistant",
+      content: result_ia.content || null,
+      tool_calls: result_ia.toolCalls,
+    });
+    for (const call of result_ia.toolCalls) {
+      const res = toolResults.find((r) => r.id === call.id) || { ok: false };
+      messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(res) });
+    }
+
+    if (result_ia.content) {
+      reply = result_ia.content;
+      break;
+    }
+    // sem conteúdo ainda — deixa rodar mais uma vez pra ver se a IA quer chamar outra função
   }
 
-  const reply = result_ia.content;
-  if (!reply) return; // só chamou função(ões), sem texto pra responder — encerra aqui
+  if (!reply) return; // só chamou função(ões) e não sobrou texto pra responder — encerra aqui
 
   const modo = agent.modoResposta || "espelho";
   const responderPorAudio = modo === "audio" || (modo === "espelho" && incomingWasAudio);
