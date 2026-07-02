@@ -40,7 +40,7 @@ export default function MediaBubble({ message }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (url || message.mediaUrl) return;
+    if (url || message.mediaUrl || message.kind === "location") return; // localização não tem arquivo pra carregar
     let cancelled = false;
     setLoading(true);
     fetch(`/api/messages/${message.id}/media`)
