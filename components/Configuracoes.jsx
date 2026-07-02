@@ -1325,7 +1325,9 @@ const TEXT_MODELS = [
   { value: "meta-llama/Llama-3.3-70B-Instruct", label: "70B Instruct (mais forte)" },
 ];
 const TTS_MODELS = [
-  { value: "hexgrad/Kokoro-82M", label: "Kokoro 82M (mais barato)" },
+  { value: "ResembleAI/chatterbox-turbo", label: "Chatterbox Turbo (recomendado — fala português, rápido)" },
+  { value: "ResembleAI/chatterbox-multilingual", label: "Chatterbox Multilingual (mais lento, ~18s)" },
+  { value: "hexgrad/Kokoro-82M", label: "Kokoro 82M (mais barato, só inglês)" },
   { value: "canopylabs/orpheus-3b-0.1-ft", label: "Orpheus 3B" },
 ];
 // Vozes do Kokoro (modelo majoritariamente treinado em inglês — a pronúncia em
