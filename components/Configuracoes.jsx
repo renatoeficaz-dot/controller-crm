@@ -1435,6 +1435,7 @@ function AgentesIa() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [promptModalOpen, setPromptModalOpen] = useState(false);
+  const [newAgentModalOpen, setNewAgentModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     const list = await fetch("/api/ia/agents").then((r) => r.json()).catch(() => []);
@@ -1455,9 +1456,7 @@ function AgentesIa() {
     });
   }
 
-  async function createAgent() {
-    const name = prompt("Nome do agente:", "Novo agente");
-    if (!name) return;
+  async function createAgent(name) {
     const a = await fetch("/api/ia/agents", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1494,7 +1493,7 @@ function AgentesIa() {
       <div className="bg-white rounded-xl border border-slate-200 p-3">
         <div className="flex items-center justify-between mb-2 px-1">
           <h2 className="font-medium text-slate-800 text-sm">Agentes</h2>
-          <button onClick={createAgent} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">+ Novo</button>
+          <button onClick={() => setNewAgentModalOpen(true)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">+ Novo</button>
         </div>
         <ul className="space-y-0.5">
           {agents.map((a) => (
@@ -1618,6 +1617,58 @@ function AgentesIa() {
           Selecione ou crie um agente para editar
         </div>
       )}
+
+      {newAgentModalOpen && (
+        <NewAgentModal
+          onCreate={(name) => { setNewAgentModalOpen(false); createAgent(name); }}
+          onClose={() => setNewAgentModalOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Popup pra dar nome a um agente novo (em vez do prompt() nativo do navegador)
+function NewAgentModal({ onCreate, onClose }) {
+  const [name, setName] = useState("");
+
+  function submit(e) {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onCreate(trimmed);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <form
+        onSubmit={submit}
+        className="bg-white rounded-xl w-full max-w-sm shadow-xl p-5 space-y-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="font-medium text-slate-800">Novo agente</h3>
+        <label className="block">
+          <span className="text-xs text-slate-400">Nome do agente</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+            placeholder="Ex.: Atendimento comercial"
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+          />
+        </label>
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-1.5">
+            Cancelar
+          </button>
+          <button
+            disabled={!name.trim()}
+            className="bg-emerald-500 text-white rounded-lg px-4 py-1.5 text-sm hover:bg-emerald-600 disabled:opacity-50"
+          >
+            Criar
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
