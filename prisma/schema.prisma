@@ -117,19 +117,24 @@ model Config {
   evolutionUrl        String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
   evolutionApiKey     String? // API Key global da Evolution
 
-  // IA (DeepInfra — hospeda os modelos Llama e também TTS/áudio com a mesma API key)
-  deepinfraApiKey String? // token da conta em https://deepinfra.com/dash, compartilhado por todos os agentes
+  // IA: DeepInfra hospeda texto (Llama) e transcrição (Whisper), compartilhados por
+  // todos os agentes. Cada agente pode escolher usar áudio da DeepInfra também, ou
+  // de um provedor de voz dedicado (Fish Audio / ElevenLabs) usando o token abaixo.
+  deepinfraApiKey  String? // token da conta em https://deepinfra.com/dash
+  fishAudioApiKey  String? // token da conta em https://fish.audio
+  elevenLabsApiKey String? // token da conta em https://elevenlabs.io
 }
 
 // Um "agente" de IA: prompt + modelos próprios. Cada número de WhatsApp escolhe
-// qual agente atende (ou nenhum). Todos usam a mesma API key da DeepInfra (Config).
+// qual agente atende (ou nenhum).
 model IaAgent {
   id           String           @id @default(cuid())
   name         String
   prompt       String? // instruções de como esse agente deve atender
-  textModel    String? // modelo de texto (ex.: meta-llama/Meta-Llama-3.1-8B-Instruct)
-  ttsModel     String? // modelo de áudio/voz (ex.: hexgrad/Kokoro-82M)
-  ttsVoice     String? // voz usada no modelo de áudio (ex.: af_bella) — depende do modelo escolhido
+  textModel    String? // modelo de texto na DeepInfra (ex.: meta-llama/Meta-Llama-3.1-8B-Instruct)
+  ttsProvider  String           @default("deepinfra") // "deepinfra" | "fishaudio" | "elevenlabs"
+  ttsModel     String? // modelo de áudio na DeepInfra (ex.: ResembleAI/chatterbox-turbo) — só quando ttsProvider = deepinfra
+  ttsVoice     String? // voz/referência: nome da voz (Kokoro), reference_id (Fish Audio) ou voice_id (ElevenLabs)
   modoResposta String           @default("espelho") // "espelho" (áudio→áudio, texto→texto) | "texto" | "audio"
   numeros      WhatsappNumber[]
   createdAt    DateTime         @default(now())

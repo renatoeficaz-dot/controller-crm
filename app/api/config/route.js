@@ -25,6 +25,8 @@ export async function PATCH(req) {
   if ("evolutionUrl" in body) data.evolutionUrl = (body.evolutionUrl || "").trim() || null;
   if ("evolutionApiKey" in body) data.evolutionApiKey = (body.evolutionApiKey || "").trim() || null;
   if ("deepinfraApiKey" in body) data.deepinfraApiKey = (body.deepinfraApiKey || "").trim() || null;
+  if ("fishAudioApiKey" in body) data.fishAudioApiKey = (body.fishAudioApiKey || "").trim() || null;
+  if ("elevenLabsApiKey" in body) data.elevenLabsApiKey = (body.elevenLabsApiKey || "").trim() || null;
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }

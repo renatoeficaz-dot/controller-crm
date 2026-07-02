@@ -1385,14 +1385,21 @@ function PromptModal({ value, onChange, onClose }) {
   );
 }
 
-// Token compartilhado da DeepInfra (usado por todos os agentes)
+// Tokens dos provedores de IA (texto/transcrição na DeepInfra; voz opcionalmente
+// em Fish Audio ou ElevenLabs — cada agente escolhe qual usar).
 function TokenDeepInfra() {
-  const [apiKey, setApiKey] = useState("");
+  const [tokens, setTokens] = useState({ deepinfraApiKey: "", fishAudioApiKey: "", elevenLabsApiKey: "" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    fetch("/api/config").then((r) => r.json()).then((d) => setApiKey(d?.deepinfraApiKey || "")).catch(() => {});
+    fetch("/api/config").then((r) => r.json()).then((d) => {
+      setTokens({
+        deepinfraApiKey: d?.deepinfraApiKey || "",
+        fishAudioApiKey: d?.fishAudioApiKey || "",
+        elevenLabsApiKey: d?.elevenLabsApiKey || "",
+      });
+    }).catch(() => {});
   }, []);
 
   async function save(e) {
@@ -1401,7 +1408,7 @@ function TokenDeepInfra() {
     await fetch("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deepinfraApiKey: apiKey }),
+      body: JSON.stringify(tokens),
     });
     setSaving(false);
     setSaved(true);
@@ -1410,12 +1417,14 @@ function TokenDeepInfra() {
 
   return (
     <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 max-w-lg space-y-3">
-      <h2 className="font-medium text-slate-800">Token</h2>
+      <h2 className="font-medium text-slate-800">Tokens</h2>
       <p className="text-xs text-slate-400">
-        Uma única API key (<a href="https://deepinfra.com/dash" target="_blank" rel="noreferrer" className="underline text-emerald-600">gerar aqui</a>) dá
-        acesso aos modelos de texto, transcrição e voz — compartilhada por todos os agentes abaixo.
+        A primeira chave (<a href="https://deepinfra.com/dash" target="_blank" rel="noreferrer" className="underline text-emerald-600">gerar aqui</a>) dá
+        acesso a texto e transcrição — sempre necessária. As outras duas são opcionais: cada agente escolhe qual usar pra gerar a voz.
       </p>
-      <Field label="API Key (token)" value={apiKey} onChange={setApiKey} placeholder="di_..." />
+      <Field label="API Key — texto/transcrição" value={tokens.deepinfraApiKey} onChange={(v) => setTokens((t) => ({ ...t, deepinfraApiKey: v }))} placeholder="di_..." />
+      <Field label="API Key — Fish Audio (voz, opcional)" value={tokens.fishAudioApiKey} onChange={(v) => setTokens((t) => ({ ...t, fishAudioApiKey: v }))} placeholder="fa-..." />
+      <Field label="API Key — ElevenLabs (voz, opcional)" value={tokens.elevenLabsApiKey} onChange={(v) => setTokens((t) => ({ ...t, elevenLabsApiKey: v }))} placeholder="sk_..." />
       <button
         disabled={saving}
         className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
@@ -1426,7 +1435,17 @@ function TokenDeepInfra() {
   );
 }
 
-const emptyAgent = { name: "", prompt: "", textModel: TEXT_MODELS[0].value, ttsModel: TTS_MODELS[0].value, ttsVoice: KOKORO_VOICES[0].value, modoResposta: "espelho" };
+const TTS_PROVIDERS = [
+  { value: "deepinfra", label: "DeepInfra (mesmo token de texto)" },
+  { value: "fishaudio", label: "Fish Audio" },
+  { value: "elevenlabs", label: "ElevenLabs" },
+];
+
+const emptyAgent = {
+  name: "", prompt: "", textModel: TEXT_MODELS[0].value,
+  ttsProvider: "deepinfra", ttsModel: TTS_MODELS[0].value, ttsVoice: KOKORO_VOICES[0].value,
+  modoResposta: "espelho",
+};
 
 // Vários agentes de IA — cada um com prompt/modelos próprios. Cada número (aba
 // Números) escolhe qual agente atende, ou nenhum.
@@ -1452,8 +1471,9 @@ function AgentesIa() {
       name: a.name || "",
       prompt: a.prompt || "",
       textModel: a.textModel || TEXT_MODELS[0].value,
+      ttsProvider: a.ttsProvider || "deepinfra",
       ttsModel: a.ttsModel || TTS_MODELS[0].value,
-      ttsVoice: a.ttsVoice || KOKORO_VOICES[0].value,
+      ttsVoice: a.ttsVoice || (a.ttsProvider === "deepinfra" || !a.ttsProvider ? KOKORO_VOICES[0].value : ""),
       modoResposta: a.modoResposta || "espelho",
     });
   }
@@ -1528,30 +1548,63 @@ function AgentesIa() {
           </label>
 
           <label className="block">
-            <span className="text-xs text-slate-400">Modelo de áudio/voz (TTS)</span>
+            <span className="text-xs text-slate-400">Provedor de voz (TTS)</span>
             <select
-              value={form.ttsModel}
-              onChange={(e) => setForm((f) => ({ ...f, ttsModel: e.target.value }))}
+              value={form.ttsProvider}
+              onChange={(e) => setForm((f) => ({ ...f, ttsProvider: e.target.value, ttsVoice: "" }))}
               className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
             >
-              {TTS_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              {TTS_PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </label>
 
-          {form.ttsModel === "hexgrad/Kokoro-82M" && (
-            <label className="block">
-              <span className="text-xs text-slate-400">Voz</span>
-              <select
-                value={form.ttsVoice}
-                onChange={(e) => setForm((f) => ({ ...f, ttsVoice: e.target.value }))}
-                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-              >
-                {KOKORO_VOICES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-              </select>
-              <p className="text-xs text-slate-400 mt-1">
-                Esse modelo é majoritariamente treinado em inglês — em português a pronúncia pode sair com sotaque. Teste e troque a voz se não gostar.
-              </p>
-            </label>
+          {form.ttsProvider === "deepinfra" && (
+            <>
+              <label className="block">
+                <span className="text-xs text-slate-400">Modelo de áudio/voz</span>
+                <select
+                  value={form.ttsModel}
+                  onChange={(e) => setForm((f) => ({ ...f, ttsModel: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  {TTS_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </label>
+
+              {form.ttsModel === "hexgrad/Kokoro-82M" && (
+                <label className="block">
+                  <span className="text-xs text-slate-400">Voz</span>
+                  <select
+                    value={form.ttsVoice}
+                    onChange={(e) => setForm((f) => ({ ...f, ttsVoice: e.target.value }))}
+                    className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  >
+                    {KOKORO_VOICES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                  </select>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Esse modelo é majoritariamente treinado em inglês — em português a pronúncia pode sair com sotaque. Teste e troque a voz se não gostar.
+                  </p>
+                </label>
+              )}
+            </>
+          )}
+
+          {form.ttsProvider === "fishaudio" && (
+            <Field
+              label="ID da voz (reference_id)"
+              value={form.ttsVoice}
+              onChange={(v) => setForm((f) => ({ ...f, ttsVoice: v }))}
+              placeholder="Copie da página do modelo de voz em fish.audio"
+            />
+          )}
+
+          {form.ttsProvider === "elevenlabs" && (
+            <Field
+              label="Voice ID"
+              value={form.ttsVoice}
+              onChange={(v) => setForm((f) => ({ ...f, ttsVoice: v }))}
+              placeholder="Copie da biblioteca de vozes em elevenlabs.io"
+            />
           )}
 
           <label className="block">

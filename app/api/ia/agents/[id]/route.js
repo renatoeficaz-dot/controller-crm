@@ -16,6 +16,7 @@ export async function PATCH(req, { params }) {
   if ("name" in body) data.name = (body.name || "").trim();
   if ("prompt" in body) data.prompt = (body.prompt || "").trim() || null;
   if ("textModel" in body) data.textModel = (body.textModel || "").trim() || null;
+  if ("ttsProvider" in body) data.ttsProvider = body.ttsProvider || "deepinfra";
   if ("ttsModel" in body) data.ttsModel = (body.ttsModel || "").trim() || null;
   if ("ttsVoice" in body) data.ttsVoice = (body.ttsVoice || "").trim() || null;
   if ("modoResposta" in body) data.modoResposta = body.modoResposta || "espelho";

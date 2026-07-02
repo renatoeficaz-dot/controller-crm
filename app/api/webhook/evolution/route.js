@@ -163,7 +163,7 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
   const responderPorAudio = modo === "audio" || (modo === "espelho" && incomingWasAudio);
 
   if (responderPorAudio) {
-    const audio = await synthesizeSpeech(reply, agent, apiKey);
+    const audio = await synthesizeSpeech(reply, agent, cfg);
     if (audio) {
       const result = await sendWhatsappAudio(contact.phone, audio.base64, instance);
       await prisma.message.create({
