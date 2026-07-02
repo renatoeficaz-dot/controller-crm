@@ -47,7 +47,7 @@ export default function Configuracoes() {
           Automação
         </TabBtn>
         <TabBtn active={tab === "ia"} onClick={() => setTab("ia")}>
-          IA (DeepInfra)
+          IA
         </TabBtn>
       </div>
 
@@ -1395,7 +1395,7 @@ function IaDeepInfra() {
 
   return (
     <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 max-w-lg space-y-3">
-      <h2 className="font-medium text-slate-800">DeepInfra</h2>
+      <h2 className="font-medium text-slate-800">IA</h2>
       <p className="text-xs text-slate-400">
         Uma única API key da <a href="https://deepinfra.com/dash" target="_blank" rel="noreferrer" className="underline text-emerald-600">DeepInfra</a> dá
         acesso tanto aos modelos Llama (texto) quanto a modelos de geração de áudio/voz — mais barato do que manter provedores separados (ex.: Fish Audio).
