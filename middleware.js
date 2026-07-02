@@ -21,7 +21,7 @@ export async function middleware(req) {
   const session = token ? await verifySession(token) : null;
   if (session) {
     // Páginas exclusivas de administrador
-    const adminPages = ["/configuracoes", "/lancamentos"];
+    const adminPages = ["/configuracoes", "/lancamentos", "/chatbot"];
     const isAdminPage = adminPages.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (isAdminPage && session.role !== "admin") {
       return NextResponse.redirect(new URL("/", req.url));

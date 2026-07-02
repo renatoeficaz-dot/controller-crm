@@ -36,6 +36,12 @@ export async function PATCH(req, { params }) {
 
   const data = { stageId, order: (last?.order ?? -1) + 1 };
 
+  // Automação: se a etapa de destino tem um responsável automático configurado,
+  // atribui o lead a ele (só ao trocar de etapa de fato)
+  if (stage.autoResponsavel && contact.stageId !== stageId) {
+    data.responsavel = stage.autoResponsavel;
+  }
+
   // Ao ENTRAR em Recebimento: define o pagamento de capital como hoje
   // (data em que passou para cá) e gera parcelas/tarefas automaticamente.
   const entrandoRecebimento = stage.name === "Recebimento" && contact.stageId !== stageId;

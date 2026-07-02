@@ -6,6 +6,7 @@ import {
   fetchIncomingMediaBase64,
   onlyDigits,
 } from "@/lib/evolution";
+import { handleChatbotMessage } from "@/lib/chatbot";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -40,8 +41,10 @@ export async function POST(req) {
   // contato já existir — não cria lead novo nem aplica auto-tag por isso.
   if (fromMe && !contact) return NextResponse.json({ ok: true });
 
+  let isNewContact = false;
   // Se não existir (mensagem recebida de um contato novo), cria um lead na primeira coluna
   if (!contact) {
+    isNewContact = true;
     const first = await prisma.stage.findFirst({ orderBy: { order: "asc" } });
     if (!first) return NextResponse.json({ ok: true });
     // Herda a ruta vinculada ao número (instância) que recebeu a mensagem
@@ -95,5 +98,11 @@ export async function POST(req) {
   }
 
   await prisma.message.create({ data: msg });
+
+  // Chatbot: só reage a mensagens recebidas do cliente (não a ecos do nosso próprio envio)
+  if (!fromMe) {
+    await handleChatbotMessage(contact, text || "", isNewContact).catch(() => {});
+  }
+
   return NextResponse.json({ ok: true });
 }

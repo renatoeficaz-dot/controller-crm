@@ -37,6 +37,9 @@ export default function Configuracoes() {
         <TabBtn active={tab === "mensagens"} onClick={() => setTab("mensagens")}>
           Mensagens prontas
         </TabBtn>
+        <TabBtn active={tab === "automacao"} onClick={() => setTab("automacao")}>
+          Automação
+        </TabBtn>
       </div>
 
       {tab === "ruta" && <CadastroRuta />}
@@ -45,6 +48,7 @@ export default function Configuracoes() {
       {tab === "numeros" && <Numeros />}
       {tab === "tags" && <TagsConfig />}
       {tab === "mensagens" && <MensagensProntas />}
+      {tab === "automacao" && <AutomacaoFunil />}
     </div>
   );
 }
@@ -1207,6 +1211,67 @@ function MensagensProntas() {
           {templates.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma mensagem ainda.</li>}
         </ul>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Automação do funil (responsável por etapa) ---------------- */
+function AutomacaoFunil() {
+  const [stages, setStages] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [savedId, setSavedId] = useState(null);
+
+  const load = useCallback(async () => {
+    const [s, u] = await Promise.all([
+      fetch("/api/stages").then((r) => r.json()),
+      fetch("/api/users").then((r) => r.json()),
+    ]);
+    setStages(Array.isArray(s) ? s : []);
+    setUsers(Array.isArray(u) ? u : []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function setAuto(stageId, autoResponsavel) {
+    setStages((prev) => prev.map((s) => (s.id === stageId ? { ...s, autoResponsavel } : s)));
+    await fetch(`/api/stages/${stageId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ autoResponsavel }),
+    });
+    setSavedId(stageId);
+    setTimeout(() => setSavedId(null), 1200);
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5 max-w-xl">
+      <h2 className="font-medium text-slate-800 mb-1">Responsável automático por etapa</h2>
+      <p className="text-xs text-slate-400 mb-4">
+        Quando um lead entra numa etapa, ele é atribuído automaticamente ao usuário escolhido aqui (deixe em branco para não automatizar).
+      </p>
+      <ul className="divide-y divide-slate-100">
+        {stages.map((s) => (
+          <li key={s.id} className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+              <span className="text-sm text-slate-700 truncate">{s.name}</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {savedId === s.id && <span className="text-xs text-emerald-600">salvo ✓</span>}
+              <select
+                value={s.autoResponsavel || ""}
+                onChange={(e) => setAuto(s.id, e.target.value)}
+                className="text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="">— Nenhum —</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.name}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+          </li>
+        ))}
+        {stages.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma etapa cadastrada.</li>}
+      </ul>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import MediaBubble from "./MediaBubble";
+import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
 
 function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -37,6 +38,7 @@ export default function ChatView() {
   const [saved, setSaved] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [tplSent, setTplSent] = useState(false);
+  const [resumo, setResumo] = useState(null); // { dia, semana, mes, pendenteTotal, clientes }
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [attachError, setAttachError] = useState("");
@@ -62,7 +64,11 @@ export default function ChatView() {
     fetch("/api/units").then((r) => r.json()).then(setUnits).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
     fetch("/api/stages").then((r) => r.json()).then((s) => {
-      setStagesList(Array.isArray(s) ? s.map((st) => ({ id: st.id, name: st.name })) : []);
+      const list = Array.isArray(s) ? s : [];
+      setStagesList(list.map((st) => ({ id: st.id, name: st.name })));
+      const receber = aReceber(list);
+      const inad = inadimplenciaCravo(list);
+      setResumo({ ...receber, pendenteTotal: inad.pendenteTotal, clientes: inad.clientes });
     }).catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
   }, []);
@@ -279,7 +285,26 @@ export default function ChatView() {
   const selectCls = inputCls + " bg-white";
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Resumo financeiro geral (a receber / inadimplência) */}
+      {resumo && (
+        <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+          <span className="text-slate-400">
+            A receber hoje: <strong className="text-slate-700">{money(resumo.dia)}</strong>
+          </span>
+          <span className="text-slate-400">
+            Semana: <strong className="text-slate-700">{money(resumo.semana)}</strong>
+          </span>
+          <span className="text-slate-400">
+            Mês: <strong className="text-slate-700">{money(resumo.mes)}</strong>
+          </span>
+          <span className="text-slate-400">
+            Inadimplência (Cravo): <strong className="text-red-600">{money(resumo.pendenteTotal)}</strong>
+            {resumo.clientes > 0 && <span className="text-slate-400"> ({resumo.clientes} cliente{resumo.clientes > 1 ? "s" : ""})</span>}
+          </span>
+        </div>
+      )}
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
       {/* Lista de conversas */}
       <div className={`${selectedId ? "hidden md:flex" : "flex"} w-full md:w-80 shrink-0 border-r border-slate-200 bg-white flex-col min-h-0`}>
         <div className="px-4 py-3 border-b border-slate-200 shrink-0">
@@ -588,6 +613,7 @@ export default function ChatView() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

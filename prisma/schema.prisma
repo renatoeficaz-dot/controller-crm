@@ -10,13 +10,14 @@ datasource db {
 
 // Coluna do Kanban (ex.: Novo, Em conversa, Negociando, Fechado)
 model Stage {
-  id        String    @id @default(cuid())
-  name      String
-  color     String    @default("#64748b")
-  order     Int       @default(0)
-  contacts  Contact[]
-  usuarios  User[]    @relation("UserKanbans") // usuários (não-admin) que enxergam esta coluna
-  createdAt DateTime  @default(now())
+  id              String    @id @default(cuid())
+  name            String
+  color           String    @default("#64748b")
+  order           Int       @default(0)
+  autoResponsavel String?   // nome do usuário atribuído automaticamente quando um lead entra nesta etapa
+  contacts        Contact[]
+  usuarios        User[]    @relation("UserKanbans") // usuários (não-admin) que enxergam esta coluna
+  createdAt       DateTime  @default(now())
 }
 
 // Contato / lead
@@ -43,6 +44,10 @@ model Contact {
   parcelas         Parcela[]
   tasks            Task[]
   lancamentos      Lancamento[]
+
+  // Chatbot: sessão atual do lead num fluxo (null = nenhum bot em andamento)
+  botFlowId String?
+  botNodeId String?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -88,6 +93,19 @@ model MessageTemplate {
   contactPhone  String?
   order         Int      @default(0)
   createdAt     DateTime @default(now())
+}
+
+// Fluxo de chatbot (editor visual por blocos). nodesJson/edgesJson guardam o
+// grafo do React Flow serializado (array de nós/arestas em JSON).
+model ChatbotFlow {
+  id             String   @id @default(cuid())
+  name           String
+  active         Boolean  @default(false) // só um fluxo ativo por vez é usado no webhook
+  triggerKeyword String?  // texto que a 1ª mensagem do contato deve conter pra iniciar o fluxo (vazio = qualquer 1ª msg)
+  nodesJson      String   @default("[]")
+  edgesJson      String   @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 // Configurações globais do sistema (linha única)
