@@ -7,8 +7,8 @@ import {
   onlyDigits,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
-import { askIa } from "@/lib/ia";
-import { sendWhatsappText } from "@/lib/evolution";
+import { askIa, synthesizeSpeech, getIaConfig } from "@/lib/ia";
+import { sendWhatsappText, sendWhatsappAudio } from "@/lib/evolution";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -115,8 +115,12 @@ export async function POST(req) {
 }
 
 // Gera e envia a resposta da IA usando o histórico recente da conversa.
+// Se iaRespostaAudio estiver ligado, converte a resposta em voz (TTS) e manda
+// como áudio; se a síntese falhar por qualquer motivo, cai pra texto normal.
 async function respondWithIa(contact, text) {
   if (!text.trim()) return;
+  const cfg = await getIaConfig();
+
   const recentMessages = await prisma.message.findMany({
     where: { contactId: contact.id, kind: "text" },
     orderBy: { createdAt: "desc" },
@@ -127,8 +131,28 @@ async function respondWithIa(contact, text) {
     .map((m) => ({ role: m.fromMe ? "assistant" : "user", content: m.body || "" }))
     .filter((m) => m.content.trim());
 
-  const reply = await askIa(history);
+  const reply = await askIa(history, cfg);
   if (!reply) return;
+
+  if (cfg?.iaRespostaAudio) {
+    const audio = await synthesizeSpeech(reply, cfg);
+    if (audio) {
+      const result = await sendWhatsappAudio(contact.phone, audio.base64);
+      await prisma.message.create({
+        data: {
+          contactId: contact.id,
+          body: reply,
+          kind: "audio",
+          mediaUrl: `data:${audio.mimetype};base64,${audio.base64}`,
+          mimeType: audio.mimetype,
+          fromMe: true,
+          status: result.simulated ? "simulado" : "enviado",
+        },
+      });
+      return;
+    }
+    // síntese falhou — segue pro fallback de texto abaixo
+  }
 
   const result = await sendWhatsappText(contact.phone, reply);
   await prisma.message.create({

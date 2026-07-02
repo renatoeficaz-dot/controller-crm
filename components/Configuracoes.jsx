@@ -1295,7 +1295,7 @@ const TTS_MODELS = [
 
 function IaDeepInfra() {
   const [cfg, setCfg] = useState({
-    deepinfraApiKey: "", deepinfraTextModel: "", deepinfraTtsModel: "", iaPrompt: "", iaAtivo: false,
+    deepinfraApiKey: "", deepinfraTextModel: "", deepinfraTtsModel: "", iaPrompt: "", iaAtivo: false, iaRespostaAudio: false,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -1308,6 +1308,7 @@ function IaDeepInfra() {
         deepinfraTtsModel: d?.deepinfraTtsModel || TTS_MODELS[0].value,
         iaPrompt: d?.iaPrompt || "",
         iaAtivo: !!d?.iaAtivo,
+        iaRespostaAudio: !!d?.iaRespostaAudio,
       });
     }).catch(() => {});
   }, []);
@@ -1386,6 +1387,18 @@ function IaDeepInfra() {
             className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400 resize-none"
           />
         </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={cfg.iaRespostaAudio}
+            onChange={(e) => setCfg((c) => ({ ...c, iaRespostaAudio: e.target.checked }))}
+            className="rounded"
+          />
+          <span className="text-sm text-slate-700">Responder por áudio (voz) em vez de texto</span>
+        </label>
+        <p className="text-xs text-slate-400">
+          Usa o modelo de áudio escolhido acima (ex.: Kokoro 82M) pra transformar a resposta da IA em voz antes de enviar. Se a geração de áudio falhar, cai automaticamente pra texto.
+        </p>
       </div>
 
       <button

@@ -123,6 +123,7 @@ model Config {
   deepinfraTtsModel  String? // modelo de geração de áudio/voz (ex.: hexgrad/Kokoro-82M)
   iaPrompt           String? // prompt/instruções da IA que atende automaticamente pelo WhatsApp
   iaAtivo            Boolean @default(false) // liga/desliga o atendimento automático por IA
+  iaRespostaAudio    Boolean @default(false) // se true, a IA responde por áudio (TTS) em vez de texto
 }
 
 // Usuário do sistema (cadastro em Configurações) — também faz login no app.
