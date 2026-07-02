@@ -7,6 +7,7 @@ import {
   onlyDigits,
   sendWhatsappText,
   sendWhatsappAudio,
+  sendPresence,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
 import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet } from "@/lib/ia";
@@ -158,6 +159,10 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
   }
 
   if (!userText.trim()) return;
+
+  // Mostra "digitando…" pro cliente enquanto a IA processa — modelos maiores (70B)
+  // podem levar dezenas de segundos, isso evita parecer que travou.
+  sendPresence(contact.phone, instance).catch(() => {});
 
   const recentMessages = await prisma.message.findMany({
     where: { contactId: contact.id, id: { not: incomingMsg.id } },
