@@ -127,8 +127,9 @@ model IaAgent {
   id           String           @id @default(cuid())
   name         String
   prompt       String? // instruções de como esse agente deve atender
-  textModel    String? // modelo Llama (ex.: meta-llama/Meta-Llama-3.1-8B-Instruct)
+  textModel    String? // modelo de texto (ex.: meta-llama/Meta-Llama-3.1-8B-Instruct)
   ttsModel     String? // modelo de áudio/voz (ex.: hexgrad/Kokoro-82M)
+  ttsVoice     String? // voz usada no modelo de áudio (ex.: af_bella) — depende do modelo escolhido
   modoResposta String           @default("espelho") // "espelho" (áudio→áudio, texto→texto) | "texto" | "audio"
   numeros      WhatsappNumber[]
   createdAt    DateTime         @default(now())

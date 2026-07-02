@@ -17,6 +17,7 @@ export async function PATCH(req, { params }) {
   if ("prompt" in body) data.prompt = (body.prompt || "").trim() || null;
   if ("textModel" in body) data.textModel = (body.textModel || "").trim() || null;
   if ("ttsModel" in body) data.ttsModel = (body.ttsModel || "").trim() || null;
+  if ("ttsVoice" in body) data.ttsVoice = (body.ttsVoice || "").trim() || null;
   if ("modoResposta" in body) data.modoResposta = body.modoResposta || "espelho";
   const agent = await prisma.iaAgent.update({ where: { id }, data });
   return NextResponse.json(agent);

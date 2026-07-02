@@ -1316,17 +1316,29 @@ function AutomacaoFunil() {
   );
 }
 
-/* ---------------- IA — DeepInfra (Llama + geração de áudio) ---------------- */
-// Modelos baratos disponíveis na DeepInfra (preço aproximado por milhão de tokens/segundos de áudio,
+/* ---------------- IA (texto + geração de áudio) ---------------- */
+// Modelos baratos disponíveis (preço aproximado por milhão de tokens/segundos de áudio,
 // conferir sempre em https://deepinfra.com/models antes de usar em produção).
 const TEXT_MODELS = [
-  { value: "meta-llama/Meta-Llama-3.1-8B-Instruct", label: "Llama 3.1 8B Instruct (mais barato)" },
-  { value: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", label: "Llama 3.1 8B Instruct Turbo" },
-  { value: "meta-llama/Llama-3.3-70B-Instruct", label: "Llama 3.3 70B Instruct (mais forte)" },
+  { value: "meta-llama/Meta-Llama-3.1-8B-Instruct", label: "8B Instruct (mais barato)" },
+  { value: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", label: "8B Instruct Turbo" },
+  { value: "meta-llama/Llama-3.3-70B-Instruct", label: "70B Instruct (mais forte)" },
 ];
 const TTS_MODELS = [
   { value: "hexgrad/Kokoro-82M", label: "Kokoro 82M (mais barato)" },
   { value: "canopylabs/orpheus-3b-0.1-ft", label: "Orpheus 3B" },
+];
+// Vozes do Kokoro (modelo majoritariamente treinado em inglês — a pronúncia em
+// português pode sair com sotaque. Teste e troque se não gostar do resultado.)
+const KOKORO_VOICES = [
+  { value: "af_bella", label: "Bella (feminina)" },
+  { value: "af_nicole", label: "Nicole (feminina)" },
+  { value: "af_sarah", label: "Sarah (feminina)" },
+  { value: "af_sky", label: "Sky (feminina)" },
+  { value: "am_adam", label: "Adam (masculina)" },
+  { value: "am_michael", label: "Michael (masculina)" },
+  { value: "bf_emma", label: "Emma (feminina, sotaque britânico)" },
+  { value: "bm_george", label: "George (masculina, sotaque britânico)" },
 ];
 
 // Popup em tela grande pra escrever/editar o prompt da IA com mais espaço
@@ -1398,8 +1410,8 @@ function TokenDeepInfra() {
     <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 max-w-lg space-y-3">
       <h2 className="font-medium text-slate-800">Token</h2>
       <p className="text-xs text-slate-400">
-        Uma única API key da <a href="https://deepinfra.com/dash" target="_blank" rel="noreferrer" className="underline text-emerald-600">DeepInfra</a> dá
-        acesso aos modelos Llama (texto), Whisper (transcrição) e Kokoro (voz) — compartilhada por todos os agentes abaixo.
+        Uma única API key (<a href="https://deepinfra.com/dash" target="_blank" rel="noreferrer" className="underline text-emerald-600">gerar aqui</a>) dá
+        acesso aos modelos de texto, transcrição e voz — compartilhada por todos os agentes abaixo.
       </p>
       <Field label="API Key (token)" value={apiKey} onChange={setApiKey} placeholder="di_..." />
       <button
@@ -1412,7 +1424,7 @@ function TokenDeepInfra() {
   );
 }
 
-const emptyAgent = { name: "", prompt: "", textModel: TEXT_MODELS[0].value, ttsModel: TTS_MODELS[0].value, modoResposta: "espelho" };
+const emptyAgent = { name: "", prompt: "", textModel: TEXT_MODELS[0].value, ttsModel: TTS_MODELS[0].value, ttsVoice: KOKORO_VOICES[0].value, modoResposta: "espelho" };
 
 // Vários agentes de IA — cada um com prompt/modelos próprios. Cada número (aba
 // Números) escolhe qual agente atende, ou nenhum.
@@ -1438,6 +1450,7 @@ function AgentesIa() {
       prompt: a.prompt || "",
       textModel: a.textModel || TEXT_MODELS[0].value,
       ttsModel: a.ttsModel || TTS_MODELS[0].value,
+      ttsVoice: a.ttsVoice || KOKORO_VOICES[0].value,
       modoResposta: a.modoResposta || "espelho",
     });
   }
@@ -1523,6 +1536,22 @@ function AgentesIa() {
               {TTS_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
           </label>
+
+          {form.ttsModel === "hexgrad/Kokoro-82M" && (
+            <label className="block">
+              <span className="text-xs text-slate-400">Voz</span>
+              <select
+                value={form.ttsVoice}
+                onChange={(e) => setForm((f) => ({ ...f, ttsVoice: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              >
+                {KOKORO_VOICES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+              </select>
+              <p className="text-xs text-slate-400 mt-1">
+                Esse modelo é majoritariamente treinado em inglês — em português a pronúncia pode sair com sotaque. Teste e troque a voz se não gostar.
+              </p>
+            </label>
+          )}
 
           <label className="block">
             <span className="text-xs text-slate-400 flex items-center justify-between">
