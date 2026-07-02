@@ -425,7 +425,7 @@ export default function ChatView() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*,audio/*,application/pdf"
+                  accept="image/*,audio/*,application/pdf,.zip,.rar,.doc,.docx,.xls,.xlsx"
                   onChange={onPickFile}
                   className="hidden"
                 />
