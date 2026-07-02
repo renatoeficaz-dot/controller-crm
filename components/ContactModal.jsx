@@ -170,11 +170,15 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   }, [contactId]);
 
   const hasScrolledRef = useRef(false);
+  const lastMsgIdRef = useRef(null);
   useEffect(() => {
     if (!messages.length) return;
+    const lastId = messages[messages.length - 1].id;
+    if (hasScrolledRef.current && lastId === lastMsgIdRef.current) return; // polling sem mensagem nova — não mexe no scroll
     // Ao abrir o card, pula direto pro final (sem animação); mensagens novas rolam suave.
     chatEnd.current?.scrollIntoView({ behavior: hasScrolledRef.current ? "smooth" : "auto" });
     hasScrolledRef.current = true;
+    lastMsgIdRef.current = lastId;
   }, [messages]);
 
   async function saveContact() {

@@ -113,12 +113,16 @@ export default function ChatView() {
   }, [loadContact, loadMessages, selectedId]);
 
   const scrolledForRef = useRef(null);
+  const lastMsgIdRef = useRef(null);
   useEffect(() => {
     if (!messages.length) return;
+    const lastId = messages[messages.length - 1].id;
+    const firstLoad = scrolledForRef.current !== selectedId;
+    if (!firstLoad && lastId === lastMsgIdRef.current) return; // polling sem mensagem nova — não mexe no scroll
     // Ao abrir/trocar de conversa, pula direto pro final (sem animação).
     // Em mensagens novas na mesma conversa, rola suave.
-    const firstLoad = scrolledForRef.current !== selectedId;
     scrolledForRef.current = selectedId;
+    lastMsgIdRef.current = lastId;
     chatEnd.current?.scrollIntoView({ behavior: firstLoad ? "auto" : "smooth" });
   }, [messages, selectedId]);
 
