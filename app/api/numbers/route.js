@@ -8,6 +8,7 @@ export async function GET() {
     include: {
       user: { select: { id: true, name: true } },
       unit: { select: { id: true, name: true, number: true } },
+      agent: { select: { id: true, name: true } },
     },
   });
   return NextResponse.json(numbers);
@@ -27,6 +28,7 @@ export async function POST(req) {
     include: {
       user: { select: { id: true, name: true } },
       unit: { select: { id: true, name: true, number: true } },
+      agent: { select: { id: true, name: true } },
     },
   });
   return NextResponse.json(created);

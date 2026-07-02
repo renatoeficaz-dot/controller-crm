@@ -58,7 +58,12 @@ export default function Configuracoes() {
       {tab === "tags" && <TagsConfig />}
       {tab === "mensagens" && <MensagensProntas />}
       {tab === "automacao" && <AutomacaoFunil />}
-      {tab === "ia" && <IaDeepInfra />}
+      {tab === "ia" && (
+        <div className="space-y-6">
+          <TokenDeepInfra />
+          <AgentesIa />
+        </div>
+      )}
     </div>
   );
 }
@@ -548,6 +553,7 @@ function Numeros() {
   const [numeros, setNumeros] = useState([]);
   const [users, setUsers] = useState([]);
   const [units, setUnits] = useState([]);
+  const [agents, setAgents] = useState([]);
   const [form, setForm] = useState({ label: "", number: "", instance: "", userId: "", unitId: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -557,16 +563,18 @@ function Numeros() {
   const [disconnecting, setDisconnecting] = useState(null); // id em andamento
 
   const load = useCallback(async () => {
-    const [n, u, un, cfg] = await Promise.all([
+    const [n, u, un, cfg, ag] = await Promise.all([
       fetch("/api/numbers").then((r) => r.json()),
       fetch("/api/users").then((r) => r.json()),
       fetch("/api/units").then((r) => r.json()).catch(() => []),
       fetch("/api/config").then((r) => r.json()).catch(() => ({})),
+      fetch("/api/ia/agents").then((r) => r.json()).catch(() => []),
     ]);
     setNumeros(n);
     setUsers(u);
     setUnits(un);
     setEvo({ evolutionUrl: cfg?.evolutionUrl || "", evolutionApiKey: cfg?.evolutionApiKey || "" });
+    setAgents(Array.isArray(ag) ? ag : []);
   }, []);
   useEffect(() => {
     load();
@@ -653,12 +661,12 @@ function Numeros() {
     load();
   }
 
-  async function toggleIa(id, iaAtiva) {
-    setNumeros((prev) => prev.map((n) => (n.id === id ? { ...n, iaAtiva } : n)));
+  async function setAgent(id, agentId) {
+    setNumeros((prev) => prev.map((n) => (n.id === id ? { ...n, agentId } : n)));
     await fetch(`/api/numbers/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ iaAtiva }),
+      body: JSON.stringify({ agentId }),
     });
   }
 
@@ -804,14 +812,18 @@ function Numeros() {
                       ))}
                     </select>
                   </label>
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={!!n.iaAtiva}
-                      onChange={(e) => toggleIa(n.id, e.target.checked)}
-                      className="rounded"
-                    />
-                    <span className="text-xs text-slate-500">IA ativa neste número</span>
+                  <label className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">Agente de IA:</span>
+                    <select
+                      value={n.agentId || ""}
+                      onChange={(e) => setAgent(n.id, e.target.value)}
+                      className="text-xs border border-slate-200 rounded px-2 py-1 bg-white outline-none focus:border-emerald-400"
+                    >
+                      <option value="">— Sem IA —</option>
+                      {agents.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
                   </label>
                 </div>
               </li>
@@ -1359,25 +1371,14 @@ function PromptModal({ value, onChange, onClose }) {
   );
 }
 
-function IaDeepInfra() {
-  const [cfg, setCfg] = useState({
-    deepinfraApiKey: "", deepinfraTextModel: "", deepinfraTtsModel: "", iaPrompt: "", iaAtivo: false, iaModoResposta: "espelho",
-  });
+// Token compartilhado da DeepInfra (usado por todos os agentes)
+function TokenDeepInfra() {
+  const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [promptModalOpen, setPromptModalOpen] = useState(false);
 
   useEffect(() => {
-    fetch("/api/config").then((r) => r.json()).then((d) => {
-      setCfg({
-        deepinfraApiKey: d?.deepinfraApiKey || "",
-        deepinfraTextModel: d?.deepinfraTextModel || TEXT_MODELS[0].value,
-        deepinfraTtsModel: d?.deepinfraTtsModel || TTS_MODELS[0].value,
-        iaPrompt: d?.iaPrompt || "",
-        iaAtivo: !!d?.iaAtivo,
-        iaModoResposta: d?.iaModoResposta || "espelho",
-      });
-    }).catch(() => {});
+    fetch("/api/config").then((r) => r.json()).then((d) => setApiKey(d?.deepinfraApiKey || "")).catch(() => {});
   }, []);
 
   async function save(e) {
@@ -1386,7 +1387,7 @@ function IaDeepInfra() {
     await fetch("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cfg),
+      body: JSON.stringify({ deepinfraApiKey: apiKey }),
     });
     setSaving(false);
     setSaved(true);
@@ -1395,103 +1396,12 @@ function IaDeepInfra() {
 
   return (
     <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 max-w-lg space-y-3">
-      <h2 className="font-medium text-slate-800">IA</h2>
+      <h2 className="font-medium text-slate-800">Token</h2>
       <p className="text-xs text-slate-400">
         Uma única API key da <a href="https://deepinfra.com/dash" target="_blank" rel="noreferrer" className="underline text-emerald-600">DeepInfra</a> dá
-        acesso tanto aos modelos Llama (texto) quanto a modelos de geração de áudio/voz — mais barato do que manter provedores separados (ex.: Fish Audio).
+        acesso aos modelos Llama (texto), Whisper (transcrição) e Kokoro (voz) — compartilhada por todos os agentes abaixo.
       </p>
-
-      <Field
-        label="API Key (token)"
-        value={cfg.deepinfraApiKey}
-        onChange={(v) => setCfg((c) => ({ ...c, deepinfraApiKey: v }))}
-        placeholder="di_..."
-      />
-
-      <label className="block">
-        <span className="text-xs text-slate-400">Modelo Llama (texto)</span>
-        <select
-          value={cfg.deepinfraTextModel}
-          onChange={(e) => setCfg((c) => ({ ...c, deepinfraTextModel: e.target.value }))}
-          className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-        >
-          {TEXT_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </select>
-      </label>
-
-      <label className="block">
-        <span className="text-xs text-slate-400">Modelo de áudio/voz (TTS)</span>
-        <select
-          value={cfg.deepinfraTtsModel}
-          onChange={(e) => setCfg((c) => ({ ...c, deepinfraTtsModel: e.target.value }))}
-          className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-        >
-          {TTS_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </select>
-      </label>
-
-      <div className="border-t border-slate-100 pt-3 space-y-2">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={cfg.iaAtivo}
-            onChange={(e) => setCfg((c) => ({ ...c, iaAtivo: e.target.checked }))}
-            className="rounded"
-          />
-          <span className="text-sm text-slate-700 font-medium">Ativar atendimento automático por IA no WhatsApp</span>
-        </label>
-        <p className="text-xs text-slate-400">
-          Quando ativado, a IA responde automaticamente as mensagens recebidas pela Evolution que não caírem em
-          nenhum fluxo do <a href="/chatbot" className="underline text-emerald-600">construtor de chatbot</a>.
-        </p>
-        <label className="block">
-          <span className="text-xs text-slate-400 flex items-center justify-between">
-            Prompt da IA (instruções de como ela deve atender)
-            <button
-              type="button"
-              onClick={() => setPromptModalOpen(true)}
-              className="text-emerald-600 hover:text-emerald-700 font-medium normal-case"
-            >
-              ⤢ Expandir
-            </button>
-          </span>
-          <textarea
-            value={cfg.iaPrompt}
-            onChange={(e) => setCfg((c) => ({ ...c, iaPrompt: e.target.value }))}
-            rows={6}
-            placeholder="Ex.: Você é a assistente virtual da Controller, uma empresa de microcrédito. Responda de forma educada e objetiva, tire dúvidas sobre empréstimos e parcelas, e nunca prometa valores ou prazos sem confirmar com um atendente humano…"
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400 resize-none"
-          />
-        </label>
-
-        {promptModalOpen && (
-          <PromptModal
-            value={cfg.iaPrompt}
-            onChange={(v) => setCfg((c) => ({ ...c, iaPrompt: v }))}
-            onClose={() => setPromptModalOpen(false)}
-          />
-        )}
-        <label className="block">
-          <span className="text-xs text-slate-400">Formato da resposta</span>
-          <select
-            value={cfg.iaModoResposta}
-            onChange={(e) => setCfg((c) => ({ ...c, iaModoResposta: e.target.value }))}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-          >
-            <option value="espelho">Espelhar o cliente (áudio → áudio, texto → texto)</option>
-            <option value="texto">Sempre responder por texto</option>
-            <option value="audio">Sempre responder por áudio</option>
-          </select>
-          <p className="text-xs text-slate-400 mt-1">
-            No modo espelho, um áudio recebido é transcrito (Whisper) pra IA entender e a resposta sai em áudio (Kokoro); mensagens de texto continuam em texto. Se a geração de áudio falhar, cai pra texto.
-          </p>
-        </label>
-
-        <p className="text-xs text-slate-400 border-t border-slate-100 pt-3">
-          Escolha em quais números a IA vai atender na aba <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("configuracoes:tab", { detail: "numeros" }))} className="underline text-emerald-600">Números</button> — cada número tem um checkbox "IA ativa".
-        </p>
-      </div>
-
+      <Field label="API Key (token)" value={apiKey} onChange={setApiKey} placeholder="di_..." />
       <button
         disabled={saving}
         className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
@@ -1499,6 +1409,187 @@ function IaDeepInfra() {
         {saving ? "Salvando…" : saved ? "Salvo ✓" : "Salvar"}
       </button>
     </form>
+  );
+}
+
+const emptyAgent = { name: "", prompt: "", textModel: TEXT_MODELS[0].value, ttsModel: TTS_MODELS[0].value, modoResposta: "espelho" };
+
+// Vários agentes de IA — cada um com prompt/modelos próprios. Cada número (aba
+// Números) escolhe qual agente atende, ou nenhum.
+function AgentesIa() {
+  const [agents, setAgents] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [form, setForm] = useState(emptyAgent);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    const list = await fetch("/api/ia/agents").then((r) => r.json()).catch(() => []);
+    setAgents(Array.isArray(list) ? list : []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function selectAgent(id) {
+    setSelectedId(id);
+    const a = await fetch(`/api/ia/agents/${id}`).then((r) => r.json());
+    setForm({
+      name: a.name || "",
+      prompt: a.prompt || "",
+      textModel: a.textModel || TEXT_MODELS[0].value,
+      ttsModel: a.ttsModel || TTS_MODELS[0].value,
+      modoResposta: a.modoResposta || "espelho",
+    });
+  }
+
+  async function createAgent() {
+    const name = prompt("Nome do agente:", "Novo agente");
+    if (!name) return;
+    const a = await fetch("/api/ia/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).then((r) => r.json());
+    await load();
+    selectAgent(a.id);
+  }
+
+  async function removeAgent(id) {
+    if (!confirm("Excluir este agente? Números que o usam ficarão sem IA.")) return;
+    await fetch(`/api/ia/agents/${id}`, { method: "DELETE" });
+    if (selectedId === id) { setSelectedId(null); setForm(emptyAgent); }
+    load();
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    if (!selectedId) return;
+    setSaving(true);
+    await fetch(`/api/ia/agents/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+    load();
+  }
+
+  return (
+    <div className="grid md:grid-cols-[220px_1fr] gap-6">
+      <div className="bg-white rounded-xl border border-slate-200 p-3">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <h2 className="font-medium text-slate-800 text-sm">Agentes</h2>
+          <button onClick={createAgent} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">+ Novo</button>
+        </div>
+        <ul className="space-y-0.5">
+          {agents.map((a) => (
+            <li key={a.id}>
+              <button
+                onClick={() => selectAgent(a.id)}
+                className={`w-full text-left px-2 py-2 rounded text-sm truncate ${selectedId === a.id ? "bg-emerald-50 text-emerald-700" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                {a.name}
+              </button>
+            </li>
+          ))}
+          {agents.length === 0 && <li className="text-xs text-slate-400 px-2 py-2">Nenhum agente ainda.</li>}
+        </ul>
+      </div>
+
+      {selectedId ? (
+        <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+          <Field label="Nome do agente" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Atendimento comercial" />
+
+          <label className="block">
+            <span className="text-xs text-slate-400">Modelo Llama (texto)</span>
+            <select
+              value={form.textModel}
+              onChange={(e) => setForm((f) => ({ ...f, textModel: e.target.value }))}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+            >
+              {TEXT_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="text-xs text-slate-400">Modelo de áudio/voz (TTS)</span>
+            <select
+              value={form.ttsModel}
+              onChange={(e) => setForm((f) => ({ ...f, ttsModel: e.target.value }))}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+            >
+              {TTS_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="text-xs text-slate-400 flex items-center justify-between">
+              Prompt (instruções de como este agente deve atender)
+              <button
+                type="button"
+                onClick={() => setPromptModalOpen(true)}
+                className="text-emerald-600 hover:text-emerald-700 font-medium normal-case"
+              >
+                ⤢ Expandir
+              </button>
+            </span>
+            <textarea
+              value={form.prompt}
+              onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))}
+              rows={6}
+              placeholder="Ex.: Você é a assistente virtual da Controller, uma empresa de microcrédito. Responda de forma educada e objetiva…"
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400 resize-none"
+            />
+          </label>
+
+          {promptModalOpen && (
+            <PromptModal
+              value={form.prompt}
+              onChange={(v) => setForm((f) => ({ ...f, prompt: v }))}
+              onClose={() => setPromptModalOpen(false)}
+            />
+          )}
+
+          <label className="block">
+            <span className="text-xs text-slate-400">Formato da resposta</span>
+            <select
+              value={form.modoResposta}
+              onChange={(e) => setForm((f) => ({ ...f, modoResposta: e.target.value }))}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+            >
+              <option value="espelho">Espelhar o cliente (áudio → áudio, texto → texto)</option>
+              <option value="texto">Sempre responder por texto</option>
+              <option value="audio">Sempre responder por áudio</option>
+            </select>
+          </label>
+
+          <p className="text-xs text-slate-400 border-t border-slate-100 pt-3">
+            Escolha em quais números este (ou outro) agente vai atender na aba{" "}
+            <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("configuracoes:tab", { detail: "numeros" }))} className="underline text-emerald-600">
+              Números
+            </button>.
+          </p>
+
+          <div className="flex gap-2">
+            <button
+              disabled={saving}
+              className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
+            >
+              {saving ? "Salvando…" : saved ? "Salvo ✓" : "Salvar"}
+            </button>
+            <button type="button" onClick={() => removeAgent(selectedId)} className="text-sm text-red-400 hover:text-red-600 px-3">
+              Excluir agente
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="bg-white rounded-xl border border-slate-200 p-5 flex items-center justify-center text-sm text-slate-400">
+          Selecione ou crie um agente para editar
+        </div>
+      )}
+    </div>
   );
 }
 

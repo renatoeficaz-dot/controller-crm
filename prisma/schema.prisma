@@ -118,12 +118,21 @@ model Config {
   evolutionApiKey     String? // API Key global da Evolution
 
   // IA (DeepInfra — hospeda os modelos Llama e também TTS/áudio com a mesma API key)
-  deepinfraApiKey    String? // token da conta em https://deepinfra.com/dash
-  deepinfraTextModel String? // modelo Llama usado para gerar texto (ex.: meta-llama/Meta-Llama-3.1-8B-Instruct)
-  deepinfraTtsModel  String? // modelo de geração de áudio/voz (ex.: hexgrad/Kokoro-82M)
-  iaPrompt           String? // prompt/instruções da IA que atende automaticamente pelo WhatsApp
-  iaAtivo            Boolean @default(false) // liga/desliga o atendimento automático por IA
-  iaModoResposta     String  @default("espelho") // "espelho" (áudio→áudio, texto→texto) | "texto" | "audio"
+  deepinfraApiKey String? // token da conta em https://deepinfra.com/dash, compartilhado por todos os agentes
+}
+
+// Um "agente" de IA: prompt + modelos próprios. Cada número de WhatsApp escolhe
+// qual agente atende (ou nenhum). Todos usam a mesma API key da DeepInfra (Config).
+model IaAgent {
+  id           String           @id @default(cuid())
+  name         String
+  prompt       String? // instruções de como esse agente deve atender
+  textModel    String? // modelo Llama (ex.: meta-llama/Meta-Llama-3.1-8B-Instruct)
+  ttsModel     String? // modelo de áudio/voz (ex.: hexgrad/Kokoro-82M)
+  modoResposta String           @default("espelho") // "espelho" (áudio→áudio, texto→texto) | "texto" | "audio"
+  numeros      WhatsappNumber[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 }
 
 // Usuário do sistema (cadastro em Configurações) — também faz login no app.
@@ -151,7 +160,8 @@ model WhatsappNumber {
   usuariosVisualizam User[]   @relation("NumeroVisibilidade") // usuários que podem ver as mensagens deste número
   unit               Unit?    @relation(fields: [unitId], references: [id], onDelete: SetNull)
   unitId             String?  // ruta/unidade vinculada — leads novos por este número herdam esta ruta
-  iaAtiva            Boolean  @default(false) // atendimento automático por IA ligado para este número
+  agent              IaAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  agentId            String?  // agente de IA que atende neste número (null = IA desligada aqui)
   createdAt          DateTime @default(now())
 }
 
