@@ -117,6 +117,15 @@ export async function POST(req) {
   return NextResponse.json({ ok: true });
 }
 
+// true se o texto parece uma lista/checklist (várias linhas com ✅, número
+// ou marcador) — nesses casos manda o texto além do áudio, pra não obrigar
+// o cliente a decorar uma lista só de ouvido.
+function isListLike(text) {
+  const lines = (text || "").split("\n");
+  const listLines = lines.filter((l) => /^\s*(✅|[-*•]|\d+[.)])\s/.test(l));
+  return listLines.length >= 2;
+}
+
 // Gera e envia a resposta da IA usando o histórico recente da conversa.
 // - Só roda se o número (instância) que recebeu a mensagem tiver um agente atribuído.
 // - Se a mensagem recebida for um áudio, transcreve (Whisper) pra IA entender.
@@ -194,6 +203,21 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
           instance,
         },
       });
+      // Listas/checklists (documentos, passos numerados etc.) são difíceis de
+      // acompanhar só de ouvido — manda o texto também, mesmo no modo áudio.
+      if (isListLike(reply)) {
+        const textResult = await sendWhatsappText(contact.phone, reply, instance);
+        await prisma.message.create({
+          data: {
+            contactId: contact.id,
+            body: reply,
+            fromMe: true,
+            status: textResult.simulated ? "simulado" : "enviado",
+            kind: "text",
+            instance,
+          },
+        });
+      }
       return;
     }
     // síntese falhou — segue pro fallback de texto abaixo
