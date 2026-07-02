@@ -179,8 +179,9 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
   // decidir chamar outra (ex.: enviar o contato do cobrador E mudar a etapa)
   // antes de dar a resposta final em texto. Limite de rodadas evita loop infinito.
   let reply = null;
+  let anyToolRan = false;
   const messages = history;
-  for (let round = 0; round < 4; round++) {
+  for (let round = 0; round < 5; round++) {
     const result_ia = await askIa(messages, agent, apiKey);
     if (!result_ia) return;
 
@@ -188,6 +189,7 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
       reply = result_ia.content;
       break;
     }
+    anyToolRan = true;
 
     const toolResults = await executeToolCalls(result_ia.toolCalls, contact, agent, instance).catch((err) => {
       console.error("[IA function calling] erro ao executar:", err.message);
@@ -212,7 +214,16 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
     // sem conteúdo ainda — deixa rodar mais uma vez pra ver se a IA quer chamar outra função
   }
 
-  if (!reply) return; // só chamou função(ões) e não sobrou texto pra responder — encerra aqui
+  // O loop esgotou as rodadas chamando função atrás de função sem nunca dar uma
+  // resposta em texto — força mais uma chamada SEM ferramentas, só pra garantir
+  // que o cliente recebe alguma confirmação (nunca fica em silêncio total).
+  if (!reply && anyToolRan) {
+    messages.push({ role: "user", content: "(Confirme rapidamente o que foi feito, em uma mensagem curta.)" });
+    const finalTry = await askIa(messages, agent, apiKey, { noTools: true });
+    reply = finalTry?.content || null;
+  }
+
+  if (!reply) return; // não chamou função nenhuma e não sobrou texto pra responder — encerra aqui
 
   const modo = agent.modoResposta || "espelho";
   const responderPorAudio = modo === "audio" || (modo === "espelho" && incomingWasAudio);
