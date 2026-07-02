@@ -29,7 +29,7 @@ export async function PATCH(req) {
   if ("deepinfraTtsModel" in body) data.deepinfraTtsModel = (body.deepinfraTtsModel || "").trim() || null;
   if ("iaPrompt" in body) data.iaPrompt = (body.iaPrompt || "").trim() || null;
   if ("iaAtivo" in body) data.iaAtivo = !!body.iaAtivo;
-  if ("iaRespostaAudio" in body) data.iaRespostaAudio = !!body.iaRespostaAudio;
+  if ("iaModoResposta" in body) data.iaModoResposta = body.iaModoResposta || "espelho";
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }

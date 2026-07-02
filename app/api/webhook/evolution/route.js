@@ -5,10 +5,11 @@ import {
   detectIncomingMedia,
   fetchIncomingMediaBase64,
   onlyDigits,
+  sendWhatsappText,
+  sendWhatsappAudio,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
-import { askIa, synthesizeSpeech, getIaConfig } from "@/lib/ia";
-import { sendWhatsappText, sendWhatsappAudio } from "@/lib/evolution";
+import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig } from "@/lib/ia";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -80,6 +81,7 @@ export async function POST(req) {
   const msg = fromMe
     ? { contactId: contact.id, fromMe: true, status: "enviado", instance }
     : { contactId: contact.id, fromMe: false, status: "recebido", instance };
+  let incomingAudio = null; // { base64, mimetype } — guardado pra transcrever depois, se for o caso
   if (media) {
     const file = await fetchIncomingMediaBase64(instance, data.key);
     if (file?.base64) {
@@ -89,6 +91,7 @@ export async function POST(req) {
       msg.mediaUrl = `data:${mime};base64,${file.base64}`;
       msg.mimeType = mime;
       msg.fileName = file.fileName || media.fileName || null;
+      if (media.kind === "audio") incomingAudio = { base64: file.base64, mimetype: mime };
     } else {
       // Não conseguiu baixar o arquivo: registra um aviso pra não perder a mensagem
       msg.kind = "text";
@@ -99,7 +102,7 @@ export async function POST(req) {
     msg.body = text;
   }
 
-  await prisma.message.create({ data: msg });
+  const saved = await prisma.message.create({ data: msg });
 
   // Chatbot: só reage a mensagens recebidas do cliente (não a ecos do nosso próprio envio)
   if (!fromMe) {
@@ -107,7 +110,7 @@ export async function POST(req) {
 
     // IA livre (DeepInfra/Llama): só entra se o fluxo por blocos não tratou a mensagem
     if (!handled) {
-      await respondWithIa(contact, text || "").catch(() => {});
+      await respondWithIa(contact, saved, instance, incomingAudio).catch(() => {});
     }
   }
 
@@ -115,14 +118,34 @@ export async function POST(req) {
 }
 
 // Gera e envia a resposta da IA usando o histórico recente da conversa.
-// Se iaRespostaAudio estiver ligado, converte a resposta em voz (TTS) e manda
-// como áudio; se a síntese falhar por qualquer motivo, cai pra texto normal.
-async function respondWithIa(contact, text) {
-  if (!text.trim()) return;
+// - Só roda se o número (instância) que recebeu a mensagem tiver a IA ativada.
+// - Se a mensagem recebida for um áudio, transcreve (Whisper) pra IA entender.
+// - O formato da resposta (texto ou áudio) segue Config.iaModoResposta:
+//   "espelho" (acompanha o que o cliente mandou), "texto" ou "audio" (sempre).
+async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
   const cfg = await getIaConfig();
+  if (!cfg?.iaAtivo || !cfg.deepinfraApiKey) return;
+
+  // Filtro por número: só responde se a instância que recebeu tiver IA ativada
+  const waNumber = instance ? await prisma.whatsappNumber.findFirst({ where: { instance } }) : null;
+  if (!waNumber?.iaAtiva) return;
+
+  let userText = incomingMsg.body || "";
+  const incomingWasAudio = incomingMsg.kind === "audio";
+
+  // Transcreve o áudio recebido (se houver) pra IA saber o que o cliente falou
+  if (incomingWasAudio && incomingAudio) {
+    const transcript = await transcribeAudio(incomingAudio.base64, incomingAudio.mimetype, cfg);
+    if (!transcript) return; // não deu pra entender o áudio — não responde às cegas
+    userText = transcript;
+    // guarda a transcrição no histórico (aparece como legenda do áudio no chat)
+    await prisma.message.update({ where: { id: incomingMsg.id }, data: { body: transcript } });
+  }
+
+  if (!userText.trim()) return;
 
   const recentMessages = await prisma.message.findMany({
-    where: { contactId: contact.id, kind: "text" },
+    where: { contactId: contact.id, id: { not: incomingMsg.id } },
     orderBy: { createdAt: "desc" },
     take: 12,
   });
@@ -130,11 +153,15 @@ async function respondWithIa(contact, text) {
     .reverse()
     .map((m) => ({ role: m.fromMe ? "assistant" : "user", content: m.body || "" }))
     .filter((m) => m.content.trim());
+  history.push({ role: "user", content: userText });
 
   const reply = await askIa(history, cfg);
   if (!reply) return;
 
-  if (cfg?.iaRespostaAudio) {
+  const modo = cfg.iaModoResposta || "espelho";
+  const responderPorAudio = modo === "audio" || (modo === "espelho" && incomingWasAudio);
+
+  if (responderPorAudio) {
     const audio = await synthesizeSpeech(reply, cfg);
     if (audio) {
       const result = await sendWhatsappAudio(contact.phone, audio.base64);

@@ -11,6 +11,7 @@ export async function PATCH(req, { params }) {
   }
   if ("userId" in body) data.userId = body.userId || null;
   if ("unitId" in body) data.unitId = body.unitId || null;
+  if ("iaAtiva" in body) data.iaAtiva = !!body.iaAtiva;
   const updated = await prisma.whatsappNumber.update({
     where: { id },
     data,

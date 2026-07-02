@@ -14,6 +14,12 @@ const ESTADOS_BR = [
 export default function Configuracoes() {
   const [tab, setTab] = useState("ruta");
 
+  useEffect(() => {
+    const onTab = (e) => setTab(e.detail);
+    window.addEventListener("configuracoes:tab", onTab);
+    return () => window.removeEventListener("configuracoes:tab", onTab);
+  }, []);
+
   return (
     <div className="p-3 md:p-6 max-w-4xl">
       <h1 className="text-lg font-semibold text-slate-800 mb-4">Configurações</h1>
@@ -647,6 +653,15 @@ function Numeros() {
     load();
   }
 
+  async function toggleIa(id, iaAtiva) {
+    setNumeros((prev) => prev.map((n) => (n.id === id ? { ...n, iaAtiva } : n)));
+    await fetch(`/api/numbers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ iaAtiva }),
+    });
+  }
+
   // Desconecta de verdade a sessão do WhatsApp na Evolution (logout).
   // Sem isso, a instância continua ativa e recebendo mensagens mesmo removida do CRM.
   async function disconnect(id) {
@@ -788,6 +803,15 @@ function Numeros() {
                         <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
                       ))}
                     </select>
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      checked={!!n.iaAtiva}
+                      onChange={(e) => toggleIa(n.id, e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs text-slate-500">IA ativa neste número</span>
                   </label>
                 </div>
               </li>
@@ -1337,7 +1361,7 @@ function PromptModal({ value, onChange, onClose }) {
 
 function IaDeepInfra() {
   const [cfg, setCfg] = useState({
-    deepinfraApiKey: "", deepinfraTextModel: "", deepinfraTtsModel: "", iaPrompt: "", iaAtivo: false, iaRespostaAudio: false,
+    deepinfraApiKey: "", deepinfraTextModel: "", deepinfraTtsModel: "", iaPrompt: "", iaAtivo: false, iaModoResposta: "espelho",
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -1351,7 +1375,7 @@ function IaDeepInfra() {
         deepinfraTtsModel: d?.deepinfraTtsModel || TTS_MODELS[0].value,
         iaPrompt: d?.iaPrompt || "",
         iaAtivo: !!d?.iaAtivo,
-        iaRespostaAudio: !!d?.iaRespostaAudio,
+        iaModoResposta: d?.iaModoResposta || "espelho",
       });
     }).catch(() => {});
   }, []);
@@ -1447,17 +1471,24 @@ function IaDeepInfra() {
             onClose={() => setPromptModalOpen(false)}
           />
         )}
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={cfg.iaRespostaAudio}
-            onChange={(e) => setCfg((c) => ({ ...c, iaRespostaAudio: e.target.checked }))}
-            className="rounded"
-          />
-          <span className="text-sm text-slate-700">Responder por áudio (voz) em vez de texto</span>
+        <label className="block">
+          <span className="text-xs text-slate-400">Formato da resposta</span>
+          <select
+            value={cfg.iaModoResposta}
+            onChange={(e) => setCfg((c) => ({ ...c, iaModoResposta: e.target.value }))}
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+          >
+            <option value="espelho">Espelhar o cliente (áudio → áudio, texto → texto)</option>
+            <option value="texto">Sempre responder por texto</option>
+            <option value="audio">Sempre responder por áudio</option>
+          </select>
+          <p className="text-xs text-slate-400 mt-1">
+            No modo espelho, um áudio recebido é transcrito (Whisper) pra IA entender e a resposta sai em áudio (Kokoro); mensagens de texto continuam em texto. Se a geração de áudio falhar, cai pra texto.
+          </p>
         </label>
-        <p className="text-xs text-slate-400">
-          Usa o modelo de áudio escolhido acima (ex.: Kokoro 82M) pra transformar a resposta da IA em voz antes de enviar. Se a geração de áudio falhar, cai automaticamente pra texto.
+
+        <p className="text-xs text-slate-400 border-t border-slate-100 pt-3">
+          Escolha em quais números a IA vai atender na aba <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("configuracoes:tab", { detail: "numeros" }))} className="underline text-emerald-600">Números</button> — cada número tem um checkbox "IA ativa".
         </p>
       </div>
 
