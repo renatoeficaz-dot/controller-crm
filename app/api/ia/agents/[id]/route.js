@@ -20,6 +20,11 @@ export async function PATCH(req, { params }) {
   if ("ttsModel" in body) data.ttsModel = (body.ttsModel || "").trim() || null;
   if ("ttsVoice" in body) data.ttsVoice = (body.ttsVoice || "").trim() || null;
   if ("modoResposta" in body) data.modoResposta = body.modoResposta || "espelho";
+  if ("toolSendContact" in body) data.toolSendContact = !!body.toolSendContact;
+  if ("toolContactName" in body) data.toolContactName = (body.toolContactName || "").trim() || null;
+  if ("toolContactPhone" in body) data.toolContactPhone = (body.toolContactPhone || "").trim() || null;
+  if ("toolSendTemplate" in body) data.toolSendTemplate = !!body.toolSendTemplate;
+  if ("toolMoveStage" in body) data.toolMoveStage = !!body.toolMoveStage;
   const agent = await prisma.iaAgent.update({ where: { id }, data });
   return NextResponse.json(agent);
 }

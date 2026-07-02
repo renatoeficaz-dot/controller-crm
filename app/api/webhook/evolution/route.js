@@ -9,7 +9,7 @@ import {
   sendWhatsappAudio,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
-import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance } from "@/lib/ia";
+import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls } from "@/lib/ia";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -156,8 +156,19 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
     .filter((m) => m.content.trim());
   history.push({ role: "user", content: userText });
 
-  const reply = await askIa(history, agent, apiKey);
-  if (!reply) return;
+  const result_ia = await askIa(history, agent, apiKey);
+  if (!result_ia) return;
+
+  // Funções (function calling): a IA pode enviar contato, mensagem pronta ou
+  // mudar a etapa do lead antes/sem precisar de uma resposta em texto.
+  if (result_ia.toolCalls?.length) {
+    await executeToolCalls(result_ia.toolCalls, contact, agent, instance).catch((err) => {
+      console.error("[IA function calling] erro ao executar:", err.message);
+    });
+  }
+
+  const reply = result_ia.content;
+  if (!reply) return; // só chamou função(ões), sem texto pra responder — encerra aqui
 
   const modo = agent.modoResposta || "espelho";
   const responderPorAudio = modo === "audio" || (modo === "espelho" && incomingWasAudio);

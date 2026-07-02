@@ -1445,6 +1445,8 @@ const emptyAgent = {
   name: "", prompt: "", textModel: TEXT_MODELS[0].value,
   ttsProvider: "deepinfra", ttsModel: TTS_MODELS[0].value, ttsVoice: KOKORO_VOICES[0].value,
   modoResposta: "espelho",
+  toolSendContact: false, toolContactName: "", toolContactPhone: "",
+  toolSendTemplate: false, toolMoveStage: false,
 };
 
 // Vários agentes de IA — cada um com prompt/modelos próprios. Cada número (aba
@@ -1475,6 +1477,11 @@ function AgentesIa() {
       ttsModel: a.ttsModel || TTS_MODELS[0].value,
       ttsVoice: a.ttsVoice || (a.ttsProvider === "deepinfra" || !a.ttsProvider ? KOKORO_VOICES[0].value : ""),
       modoResposta: a.modoResposta || "espelho",
+      toolSendContact: !!a.toolSendContact,
+      toolContactName: a.toolContactName || "",
+      toolContactPhone: a.toolContactPhone || "",
+      toolSendTemplate: !!a.toolSendTemplate,
+      toolMoveStage: !!a.toolMoveStage,
     });
   }
 
@@ -1647,6 +1654,56 @@ function AgentesIa() {
               <option value="audio">Sempre responder por áudio</option>
             </select>
           </label>
+
+          <div className="border-t border-slate-100 pt-3 space-y-3">
+            <h3 className="text-sm font-medium text-slate-700">Funções (a IA decide sozinha quando usar)</h3>
+
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.toolSendContact}
+                  onChange={(e) => setForm((f) => ({ ...f, toolSendContact: e.target.checked }))}
+                  className="rounded"
+                />
+                <span className="text-sm text-slate-700">Enviar contato (vCard)</span>
+              </label>
+              {form.toolSendContact && (
+                <div className="pl-6 grid grid-cols-2 gap-2">
+                  <Field label="Nome do contato" value={form.toolContactName} onChange={(v) => setForm((f) => ({ ...f, toolContactName: v }))} placeholder="Ex.: Suporte" />
+                  <Field label="Telefone" value={form.toolContactPhone} onChange={(v) => setForm((f) => ({ ...f, toolContactPhone: v }))} placeholder="5511999998888" />
+                </div>
+              )}
+            </div>
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.toolSendTemplate}
+                onChange={(e) => setForm((f) => ({ ...f, toolSendTemplate: e.target.checked }))}
+                className="rounded"
+              />
+              <span className="text-sm text-slate-700">Enviar mensagem pronta (inclui áudios pré-gravados)</span>
+            </label>
+            {form.toolSendTemplate && (
+              <p className="text-xs text-slate-400 pl-6 -mt-1">
+                A IA escolhe pelo título exato cadastrado em{" "}
+                <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("configuracoes:tab", { detail: "mensagens" }))} className="underline text-emerald-600">
+                  Mensagens prontas
+                </button>. Dê títulos claros pra ela escolher certo (ex.: "Áudio explicando taxas").
+              </p>
+            )}
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.toolMoveStage}
+                onChange={(e) => setForm((f) => ({ ...f, toolMoveStage: e.target.checked }))}
+                className="rounded"
+              />
+              <span className="text-sm text-slate-700">Mudar a etapa do lead no funil (Kanban)</span>
+            </label>
+          </div>
 
           <p className="text-xs text-slate-400 border-t border-slate-100 pt-3">
             Escolha em quais números este (ou outro) agente vai atender na aba{" "}

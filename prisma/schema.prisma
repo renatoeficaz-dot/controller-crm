@@ -136,6 +136,14 @@ model IaAgent {
   ttsModel     String? // modelo de áudio na DeepInfra (ex.: ResembleAI/chatterbox-turbo) — só quando ttsProvider = deepinfra
   ttsVoice     String? // voz/referência: nome da voz (Kokoro), reference_id (Fish Audio) ou voice_id (ElevenLabs)
   modoResposta String           @default("espelho") // "espelho" (áudio→áudio, texto→texto) | "texto" | "audio"
+
+  // Funções que a IA pode chamar sozinha durante a conversa (function calling)
+  toolSendContact  Boolean @default(false) // pode enviar um contato (vCard) configurado abaixo
+  toolContactName  String? // nome do contato que a função "enviar contato" manda
+  toolContactPhone String? // telefone do contato que a função "enviar contato" manda
+  toolSendTemplate Boolean @default(false) // pode enviar uma das mensagens prontas (inclui áudios pré-gravados)
+  toolMoveStage    Boolean @default(false) // pode mover o lead para outra etapa do funil
+
   numeros      WhatsappNumber[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
