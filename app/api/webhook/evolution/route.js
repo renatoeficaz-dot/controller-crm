@@ -179,6 +179,18 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
     .reverse()
     .map((m) => ({ role: m.fromMe ? "assistant" : "user", content: m.body || "" }))
     .filter((m) => m.content.trim());
+
+  // Dá pra IA o telefone/DDD do lead atual — sem isso ela não tem como saber
+  // qual contato regional (ex.: "Cobrador SP") enviar, só adivinhando pelo texto.
+  const digits = onlyDigits(contact.phone || "");
+  const ddd = digits.startsWith("55") ? digits.slice(2, 4) : digits.slice(0, 2);
+  if (ddd) {
+    history.unshift({
+      role: "system",
+      content: `Dados do lead atual nesta conversa: telefone ${contact.phone}, DDD ${ddd}.`,
+    });
+  }
+
   history.push({ role: "user", content: userText });
 
   // Loop de function calling: a IA pode chamar uma função, ver o resultado e
