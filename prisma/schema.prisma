@@ -121,6 +121,8 @@ model Config {
   deepinfraApiKey    String? // token da conta em https://deepinfra.com/dash
   deepinfraTextModel String? // modelo Llama usado para gerar texto (ex.: meta-llama/Meta-Llama-3.1-8B-Instruct)
   deepinfraTtsModel  String? // modelo de geração de áudio/voz (ex.: hexgrad/Kokoro-82M)
+  iaPrompt           String? // prompt/instruções da IA que atende automaticamente pelo WhatsApp
+  iaAtivo            Boolean @default(false) // liga/desliga o atendimento automático por IA
 }
 
 // Usuário do sistema (cadastro em Configurações) — também faz login no app.

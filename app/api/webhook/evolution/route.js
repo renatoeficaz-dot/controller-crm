@@ -7,6 +7,8 @@ import {
   onlyDigits,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
+import { askIa } from "@/lib/ia";
+import { sendWhatsappText } from "@/lib/evolution";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -101,8 +103,41 @@ export async function POST(req) {
 
   // Chatbot: só reage a mensagens recebidas do cliente (não a ecos do nosso próprio envio)
   if (!fromMe) {
-    await handleChatbotMessage(contact, text || "", isNewContact).catch(() => {});
+    const handled = await handleChatbotMessage(contact, text || "", isNewContact).catch(() => false);
+
+    // IA livre (DeepInfra/Llama): só entra se o fluxo por blocos não tratou a mensagem
+    if (!handled) {
+      await respondWithIa(contact, text || "").catch(() => {});
+    }
   }
 
   return NextResponse.json({ ok: true });
+}
+
+// Gera e envia a resposta da IA usando o histórico recente da conversa.
+async function respondWithIa(contact, text) {
+  if (!text.trim()) return;
+  const recentMessages = await prisma.message.findMany({
+    where: { contactId: contact.id, kind: "text" },
+    orderBy: { createdAt: "desc" },
+    take: 12,
+  });
+  const history = recentMessages
+    .reverse()
+    .map((m) => ({ role: m.fromMe ? "assistant" : "user", content: m.body || "" }))
+    .filter((m) => m.content.trim());
+
+  const reply = await askIa(history);
+  if (!reply) return;
+
+  const result = await sendWhatsappText(contact.phone, reply);
+  await prisma.message.create({
+    data: {
+      contactId: contact.id,
+      body: reply,
+      fromMe: true,
+      status: result.simulated ? "simulado" : "enviado",
+      kind: "text",
+    },
+  });
 }

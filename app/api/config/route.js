@@ -27,6 +27,8 @@ export async function PATCH(req) {
   if ("deepinfraApiKey" in body) data.deepinfraApiKey = (body.deepinfraApiKey || "").trim() || null;
   if ("deepinfraTextModel" in body) data.deepinfraTextModel = (body.deepinfraTextModel || "").trim() || null;
   if ("deepinfraTtsModel" in body) data.deepinfraTtsModel = (body.deepinfraTtsModel || "").trim() || null;
+  if ("iaPrompt" in body) data.iaPrompt = (body.iaPrompt || "").trim() || null;
+  if ("iaAtivo" in body) data.iaAtivo = !!body.iaAtivo;
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }

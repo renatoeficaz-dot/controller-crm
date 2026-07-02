@@ -1294,7 +1294,9 @@ const TTS_MODELS = [
 ];
 
 function IaDeepInfra() {
-  const [cfg, setCfg] = useState({ deepinfraApiKey: "", deepinfraTextModel: "", deepinfraTtsModel: "" });
+  const [cfg, setCfg] = useState({
+    deepinfraApiKey: "", deepinfraTextModel: "", deepinfraTtsModel: "", iaPrompt: "", iaAtivo: false,
+  });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -1304,6 +1306,8 @@ function IaDeepInfra() {
         deepinfraApiKey: d?.deepinfraApiKey || "",
         deepinfraTextModel: d?.deepinfraTextModel || TEXT_MODELS[0].value,
         deepinfraTtsModel: d?.deepinfraTtsModel || TTS_MODELS[0].value,
+        iaPrompt: d?.iaPrompt || "",
+        iaAtivo: !!d?.iaAtivo,
       });
     }).catch(() => {});
   }, []);
@@ -1357,6 +1361,32 @@ function IaDeepInfra() {
           {TTS_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
       </label>
+
+      <div className="border-t border-slate-100 pt-3 space-y-2">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={cfg.iaAtivo}
+            onChange={(e) => setCfg((c) => ({ ...c, iaAtivo: e.target.checked }))}
+            className="rounded"
+          />
+          <span className="text-sm text-slate-700 font-medium">Ativar atendimento automático por IA no WhatsApp</span>
+        </label>
+        <p className="text-xs text-slate-400">
+          Quando ativado, a IA responde automaticamente as mensagens recebidas pela Evolution que não caírem em
+          nenhum fluxo do <a href="/chatbot" className="underline text-emerald-600">construtor de chatbot</a>.
+        </p>
+        <label className="block">
+          <span className="text-xs text-slate-400">Prompt da IA (instruções de como ela deve atender)</span>
+          <textarea
+            value={cfg.iaPrompt}
+            onChange={(e) => setCfg((c) => ({ ...c, iaPrompt: e.target.value }))}
+            rows={6}
+            placeholder="Ex.: Você é a assistente virtual da Controller, uma empresa de microcrédito. Responda de forma educada e objetiva, tire dúvidas sobre empréstimos e parcelas, e nunca prometa valores ou prazos sem confirmar com um atendente humano…"
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400 resize-none"
+          />
+        </label>
+      </div>
 
       <button
         disabled={saving}
