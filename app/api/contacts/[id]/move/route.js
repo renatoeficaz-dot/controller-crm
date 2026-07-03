@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { regenerarParcelas } from "@/lib/cobranca";
+import { sendRecebimentoNotice } from "@/lib/ia";
 
 // Data local de hoje como UTC-midnight (evita drift de fuso nas parcelas)
 function hojeUTC() {
@@ -54,6 +55,10 @@ export async function PATCH(req, { params }) {
 
   if (entrandoRecebimento && updated.valorCapital && updated.pagamentoCapital && aindaSemPlano) {
     await regenerarParcelas(id);
+  }
+
+  if (entrandoRecebimento) {
+    await sendRecebimentoNotice(updated).catch(() => {});
   }
 
   return NextResponse.json(updated);
