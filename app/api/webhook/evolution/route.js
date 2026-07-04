@@ -11,7 +11,7 @@ import {
   sendPresence,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
-import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet, autoSendCobradorContact } from "@/lib/ia";
+import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet, autoSendCobradorContact, analyzeDocumentImage } from "@/lib/ia";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -164,7 +164,18 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
     await prisma.message.update({ where: { id: incomingMsg.id }, data: { body: transcript } });
   }
 
-  if (!userText.trim()) return;
+  // Documento/imagem recebido: analisa com modelo de visão pra IA saber se o
+  // arquivo parece o documento certo e legível, antes de decidir a resposta.
+  const isImageDoc =
+    incomingMsg.kind === "image" ||
+    (incomingMsg.kind === "document" && (incomingMsg.mimeType || "").startsWith("image/"));
+  let docAnalysis = null;
+  if (isImageDoc && incomingMsg.mediaUrl) {
+    const base64 = incomingMsg.mediaUrl.split(",")[1];
+    docAnalysis = await analyzeDocumentImage(base64, incomingMsg.mimeType, incomingMsg.body, apiKey).catch(() => null);
+  }
+
+  if (!userText.trim() && !docAnalysis) return;
 
   // Mostra "digitando…" pro cliente enquanto a IA processa — modelos maiores (70B)
   // podem levar dezenas de segundos, isso evita parecer que travou.
@@ -191,7 +202,15 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
     });
   }
 
-  history.push({ role: "user", content: userText });
+  history.push({ role: "user", content: userText || "[Enviou uma imagem/documento]" });
+  if (docAnalysis) {
+    history.push({
+      role: "system",
+      content:
+        `Análise automática do arquivo que o cliente acabou de enviar: ${docAnalysis}\n` +
+        `Se a análise indicar que o documento está errado, ilegível ou incompleto, avise o cliente e peça pra reenviar corretamente. Se estiver ok, siga o fluxo normalmente.`,
+    });
+  }
 
   // Loop de function calling: a IA pode chamar uma função, ver o resultado e
   // decidir chamar outra (ex.: enviar o contato do cobrador E mudar a etapa)
