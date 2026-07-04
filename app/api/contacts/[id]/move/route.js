@@ -58,7 +58,9 @@ export async function PATCH(req, { params }) {
   }
 
   if (entrandoRecebimento) {
-    await sendRecebimentoNotice(updated).catch(() => {});
+    await sendRecebimentoNotice(updated).catch((err) => {
+      console.error("[sendRecebimentoNotice] erro:", err.message, err.stack);
+    });
   }
 
   return NextResponse.json(updated);
