@@ -11,7 +11,7 @@ import {
   sendPresence,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
-import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet, autoSendCobradorContact, analyzeDocumentImage } from "@/lib/ia";
+import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet, autoSendCobradorContact, analyzeDocumentImage, hasReceivedRealDocuments } from "@/lib/ia";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -261,6 +261,15 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
   }
 
   if (!reply) return; // não chamou função nenhuma e não sobrou texto pra responder — encerra aqui
+
+  // Rede de segurança: a IA às vezes CONFIRMA em texto que os documentos estão
+  // corretos/aprovados mesmo sem ter recebido nenhum arquivo real na conversa
+  // (o cliente só disse "enviado" por texto). Troca a resposta por um aviso
+  // pedindo o anexo de verdade, em vez de deixar a confirmação falsa passar.
+  const pareceConfirmarDocumentos = /aprovad|confirm\w*\s+(a\s+)?documenta[cç][ãa]o|documenta[cç][ãa]o\s+(est[áa]\s+)?(completa|correta|em ordem|certa|confirmada)/i.test(reply);
+  if (pareceConfirmarDocumentos && !(await hasReceivedRealDocuments(contact.id))) {
+    reply = "Ainda não recebi nenhum documento de verdade nesta conversa — preciso que você anexe os documentos como foto ou arquivo (não só escrever que enviou) pra eu poder confirmar e continuar.";
+  }
 
   // Rede de segurança extra: se a resposta MENCIONA que vai passar o cobrador
   // mas a função de enviar contato nunca rodou de verdade nessa conversa, manda
