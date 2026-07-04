@@ -7,7 +7,16 @@ import { getCurrentUser, kanbansVisiveis, veTodosLeads } from "@/lib/session";
 // - leads: só os dele (responsável) quando não tem permissão de ver todos
 export async function GET() {
   const user = await getCurrentUser();
-  const colunas = kanbansVisiveis(user); // null = todas
+  let colunas = kanbansVisiveis(user); // null = todas
+
+  // Cobrador precisa sempre enxergar "Recebimento" pra poder dar baixa nas
+  // parcelas, mesmo que a configuração de colunas visíveis dele não inclua —
+  // é o trabalho dele, não deveria depender de configuração manual.
+  if (user?.role === "cobrador" && colunas) {
+    const recebimento = await prisma.stage.findFirst({ where: { name: "Recebimento" } });
+    if (recebimento && !colunas.includes(recebimento.id)) colunas = [...colunas, recebimento.id];
+  }
+
   const contactWhere = veTodosLeads(user) ? {} : { responsavel: user?.name || "__none__" };
 
   const stages = await prisma.stage.findMany({
