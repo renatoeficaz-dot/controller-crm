@@ -11,7 +11,7 @@ import {
   sendPresence,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
-import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet, autoSendCobradorContact, analyzeDocumentImage, hasReceivedRealDocuments } from "@/lib/ia";
+import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet, autoSendCobradorContact, analyzeDocumentImage, hasReceivedRealDocuments, hasReceivedVideoAndLocation } from "@/lib/ia";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -277,7 +277,7 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
   // mesmo depois de perguntada diretamente sobre o contato.
   if (/chamar o cobrador/i.test(reply)) {
     const hasContact = await prisma.message.findFirst({ where: { contactId: contact.id, kind: "contact" } });
-    if (!hasContact) {
+    if (!hasContact && (await hasReceivedRealDocuments(contact.id)) && (await hasReceivedVideoAndLocation(contact.id))) {
       await autoSendCobradorContact(contact, instance).catch(() => {});
     }
   }
