@@ -34,7 +34,6 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [uploading, setUploading] = useState(false);
   const [users, setUsers] = useState([]);
   const [stagesList, setStagesList] = useState([]);
-  const [unidades, setUnidades] = useState([]);
   const [moveErr, setMoveErr] = useState("");
   const [templates, setTemplates] = useState([]);
   const [tplCopied, setTplCopied] = useState(false);
@@ -66,7 +65,6 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       valorCapital: data.valorCapital ?? "",
       pagamentoCapital: toDateInput(data.pagamentoCapital),
       responsavel: data.responsavel || "",
-      unitId: data.unitId || "",
     });
     setMessages(data.messages || []);
     setParcelas(data.parcelas || []);
@@ -89,7 +87,6 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       .then((d) => setStagesList(d.map((s) => ({ id: s.id, name: s.name }))))
       .catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
-    fetch("/api/units").then((r) => r.json()).then(setUnidades).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
   }, []);
 
@@ -444,21 +441,6 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 {form.responsavel && !users.some((u) => u.name === form.responsavel) && (
                   <option value={form.responsavel}>{form.responsavel}</option>
                 )}
-              </select>
-            </label>
-
-            {/* Ruta (unidade) da lead */}
-            <label className="block">
-              <span className="text-xs text-slate-400">Ruta</span>
-              <select
-                value={form.unitId ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, unitId: e.target.value }))}
-                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-              >
-                <option value="">— Ruta —</option>
-                {unidades.map((u) => (
-                  <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
-                ))}
               </select>
             </label>
 

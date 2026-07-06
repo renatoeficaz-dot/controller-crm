@@ -67,7 +67,6 @@ export default function KanbanBoard() {
   const [filtros, setFiltros] = useState([]); // situações selecionadas; vazio = todos
   const [respFiltro, setRespFiltro] = useState(""); // "" = todos; "__none__" = sem responsável
   const [usuarios, setUsuarios] = useState([]);
-  const [unidades, setUnidades] = useState([]); // rutas/unidades para o seletor do card
   const [tags, setTags] = useState([]);
   const [tagFiltro, setTagFiltro] = useState(""); // "" = todas; tagId = só leads com essa tag
   const [bulkAction, setBulkAction] = useState(""); // "", stage, responsavel, unit, delete
@@ -98,24 +97,8 @@ export default function KanbanBoard() {
 
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsuarios).catch(() => {});
-    fetch("/api/units").then((r) => r.json()).then(setUnidades).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then(setTags).catch(() => {});
   }, []);
-
-  // Define a ruta (unidade) de uma lead direto pelo card
-  async function setUnit(contactId, unitId) {
-    setStages((prev) =>
-      prev.map((s) => ({
-        ...s,
-        contacts: s.contacts.map((c) => (c.id === contactId ? { ...c, unitId: unitId || null } : c)),
-      }))
-    );
-    await fetch(`/api/contacts/${contactId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unitId: unitId || null }),
-    }).catch(() => {});
-  }
 
   async function moveContact(contactId, toStageId) {
     // Atualização otimista
@@ -207,7 +190,6 @@ export default function KanbanBoard() {
     const labelAcao = {
       stage: "mover de coluna",
       responsavel: "trocar o responsável",
-      unit: "trocar a ruta",
       delete: "EXCLUIR",
     }[bulkAction];
     if (!confirm(`Confirmar: ${labelAcao} de ${ids.length} lead(s) do filtro?`)) return;
@@ -325,7 +307,6 @@ export default function KanbanBoard() {
           <option value="">— escolher ação —</option>
           <option value="stage">Mover de coluna</option>
           <option value="responsavel">Trocar responsável</option>
-          <option value="unit">Trocar ruta</option>
           <option value="delete">Excluir</option>
         </select>
 
@@ -353,19 +334,6 @@ export default function KanbanBoard() {
             ))}
           </select>
         )}
-        {bulkAction === "unit" && (
-          <select
-            value={bulkValue}
-            onChange={(e) => setBulkValue(e.target.value)}
-            className="text-xs rounded-full px-3 py-1 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400"
-          >
-            <option value="">— Sem ruta —</option>
-            {unidades.map((u) => (
-              <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
-            ))}
-          </select>
-        )}
-
         {bulkAction && (
           <button
             onClick={aplicarEmMassa}

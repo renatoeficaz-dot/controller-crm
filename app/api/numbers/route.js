@@ -1,13 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-// Lista os números conectados (com o usuário e a ruta atribuídos)
+// Lista os números conectados (com o usuário atribuído)
 export async function GET() {
   const numbers = await prisma.whatsappNumber.findMany({
     orderBy: { createdAt: "asc" },
     include: {
       user: { select: { id: true, name: true } },
-      unit: { select: { id: true, name: true, number: true } },
       agent: { select: { id: true, name: true } },
     },
   });
@@ -24,10 +23,9 @@ export async function POST(req) {
     return NextResponse.json({ error: "Preencha nome, número e instância." }, { status: 400 });
   }
   const created = await prisma.whatsappNumber.create({
-    data: { label, number, instance, userId: body.userId || null, unitId: body.unitId || null },
+    data: { label, number, instance, userId: body.userId || null },
     include: {
       user: { select: { id: true, name: true } },
-      unit: { select: { id: true, name: true, number: true } },
       agent: { select: { id: true, name: true } },
     },
   });

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 // Ações em massa sobre um conjunto de leads (os que estão no filtro do funil).
-// body: { ids: string[], action: "stage" | "responsavel" | "unit" | "delete", value?: string }
+// body: { ids: string[], action: "stage" | "responsavel" | "delete", value?: string }
 export async function POST(req) {
   const { ids, action, value } = await req.json().catch(() => ({}));
   if (!Array.isArray(ids) || ids.length === 0) {
@@ -12,11 +12,6 @@ export async function POST(req) {
 
   if (action === "responsavel") {
     const r = await prisma.contact.updateMany({ where, data: { responsavel: value || null } });
-    return NextResponse.json({ ok: true, updated: r.count });
-  }
-
-  if (action === "unit") {
-    const r = await prisma.contact.updateMany({ where, data: { unitId: value || null } });
     return NextResponse.json({ ok: true, updated: r.count });
   }
 

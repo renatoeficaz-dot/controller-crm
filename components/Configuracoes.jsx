@@ -26,7 +26,7 @@ const UF_LIST = [
 ];
 
 export default function Configuracoes() {
-  const [tab, setTab] = useState("ruta");
+  const [tab, setTab] = useState("honorarios");
 
   useEffect(() => {
     const onTab = (e) => setTab(e.detail);
@@ -39,9 +39,6 @@ export default function Configuracoes() {
       <h1 className="text-lg font-semibold text-slate-800 mb-4">Configurações</h1>
 
       <div className="flex gap-1 md:gap-2 mb-5 border-b border-slate-200 overflow-x-auto">
-        <TabBtn active={tab === "ruta"} onClick={() => setTab("ruta")}>
-          Cadastro de Ruta
-        </TabBtn>
         <TabBtn active={tab === "honorarios"} onClick={() => setTab("honorarios")}>
           Honorários / Multa
         </TabBtn>
@@ -65,7 +62,6 @@ export default function Configuracoes() {
         </TabBtn>
       </div>
 
-      {tab === "ruta" && <CadastroRuta />}
       {tab === "honorarios" && <Honorarios />}
       {tab === "usuarios" && <Usuarios />}
       {tab === "numeros" && <Numeros />}
@@ -97,131 +93,6 @@ function TabBtn({ active, onClick, children }) {
   );
 }
 
-/* ---------------- Cadastro de Ruta (unidades) ---------------- */
-const EMPTY_RUTA = { name: "", cn: "/1/", location: "Brasil, São Paulo", caixaInicial: "" };
-
-function CadastroRuta() {
-  const [units, setUnits] = useState([]);
-  const [form, setForm] = useState(EMPTY_RUTA);
-  const [editId, setEditId] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  const editando = editId !== null;
-
-  const load = useCallback(async () => {
-    setUnits(await fetch("/api/units").then((r) => r.json()));
-  }, []);
-  useEffect(() => { load(); }, [load]);
-
-  function startEdit(u) {
-    setEditId(u.id);
-    setForm({
-      name: u.name || "",
-      cn: u.cn || "/1/",
-      location: u.location || "Brasil, São Paulo",
-      caixaInicial: String(u.caixaInicial ?? ""),
-    });
-  }
-
-  function cancelEdit() {
-    setEditId(null);
-    setForm(EMPTY_RUTA);
-  }
-
-  async function save(e) {
-    e.preventDefault();
-    if (!form.name.trim()) return;
-    setSaving(true);
-    await fetch(editando ? `/api/units/${editId}` : "/api/units", {
-      method: editando ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, caixaInicial: Number(form.caixaInicial) || 0 }),
-    });
-    setSaving(false);
-    cancelEdit();
-    load();
-  }
-
-  async function remove(id) {
-    if (!confirm("Excluir esta ruta/unidade?")) return;
-    if (editId === id) cancelEdit();
-    await fetch(`/api/units/${id}`, { method: "DELETE" });
-    load();
-  }
-
-  return (
-    <div className="grid md:grid-cols-2 gap-6">
-      <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
-        <h2 className="font-medium text-slate-800">{editando ? "Editar Ruta" : "Nova Ruta"}</h2>
-        <Field label="Nome da unidade" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Crédito Express" />
-        <Field label="CN" value={form.cn} onChange={(v) => setForm((f) => ({ ...f, cn: v }))} />
-        <label className="block">
-          <span className="text-xs text-slate-400">Capital inicial (R$)</span>
-          <input
-            type="number"
-            step="0.01"
-            value={form.caixaInicial}
-            onChange={(e) => setForm((f) => ({ ...f, caixaInicial: e.target.value }))}
-            placeholder="0,00"
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
-          />
-        </label>
-        <label className="block">
-          <span className="text-xs text-slate-400">Localização (estado)</span>
-          <select
-            value={form.location}
-            onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-          >
-            {ESTADOS_BR.map((uf) => (
-              <option key={uf} value={`Brasil, ${uf}`}>
-                {uf}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex gap-2">
-          <button
-            disabled={saving}
-            className="flex-1 bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
-          >
-            {saving ? "Salvando…" : editando ? "Salvar alterações" : "Cadastrar ruta"}
-          </button>
-          {editando && (
-            <button type="button" onClick={cancelEdit} className="px-3 text-sm text-slate-400 hover:text-slate-600">
-              Cancelar
-            </button>
-          )}
-        </div>
-      </form>
-
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <h2 className="font-medium text-slate-800 mb-3">Rutas cadastradas ({units.length})</h2>
-        <ul className="divide-y divide-slate-100">
-          {units.map((u) => (
-            <li key={u.id} className={`flex items-center justify-between py-2.5 ${editId === u.id ? "bg-emerald-50/50 -mx-2 px-2 rounded" : ""}`}>
-              <div>
-                <p className="text-sm font-medium text-slate-700">{u.number} - {u.name}</p>
-                <p className="text-xs text-slate-400">
-                  {u.cn} · {u.location} · Capital: R$ {Number(u.caixaInicial || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => startEdit(u)} className="text-xs text-emerald-600 hover:text-emerald-700">
-                  Editar
-                </button>
-                <button onClick={() => remove(u.id)} className="text-xs text-red-400 hover:text-red-600">
-                  Excluir
-                </button>
-              </div>
-            </li>
-          ))}
-          {units.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma ruta ainda.</li>}
-        </ul>
-      </div>
-    </div>
-  );
-}
 
 /* ---------------- % de honorários ---------------- */
 function Honorarios() {
@@ -571,9 +442,8 @@ function Usuarios() {
 function Numeros() {
   const [numeros, setNumeros] = useState([]);
   const [users, setUsers] = useState([]);
-  const [units, setUnits] = useState([]);
   const [agents, setAgents] = useState([]);
-  const [form, setForm] = useState({ label: "", number: "", instance: "", userId: "", unitId: "" });
+  const [form, setForm] = useState({ label: "", number: "", instance: "", userId: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [evo, setEvo] = useState({ evolutionUrl: "", evolutionApiKey: "" });
@@ -582,16 +452,14 @@ function Numeros() {
   const [disconnecting, setDisconnecting] = useState(null); // id em andamento
 
   const load = useCallback(async () => {
-    const [n, u, un, cfg, ag] = await Promise.all([
+    const [n, u, cfg, ag] = await Promise.all([
       fetch("/api/numbers").then((r) => r.json()),
       fetch("/api/users").then((r) => r.json()),
-      fetch("/api/units").then((r) => r.json()).catch(() => []),
       fetch("/api/config").then((r) => r.json()).catch(() => ({})),
       fetch("/api/ia/agents").then((r) => r.json()).catch(() => []),
     ]);
     setNumeros(n);
     setUsers(u);
-    setUnits(un);
     setEvo({ evolutionUrl: cfg?.evolutionUrl || "", evolutionApiKey: cfg?.evolutionApiKey || "" });
     setAgents(Array.isArray(ag) ? ag : []);
   }, []);
@@ -640,7 +508,7 @@ function Numeros() {
       return;
     }
     const novo = await res.json();
-    setForm({ label: "", number: "", instance: "", userId: "", unitId: "" });
+    setForm({ label: "", number: "", instance: "", userId: "" });
     load();
     conectar(novo); // já tenta gerar o QR do número recém-criado
   }
@@ -667,15 +535,6 @@ function Numeros() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId }),
-    });
-    load();
-  }
-
-  async function reassignUnit(id, unitId) {
-    await fetch(`/api/numbers/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unitId }),
     });
     load();
   }
@@ -758,22 +617,6 @@ function Numeros() {
               ))}
             </select>
           </label>
-          <label className="block">
-            <span className="text-xs text-slate-400">Vincular a uma Ruta</span>
-            <select
-              value={form.unitId}
-              onChange={(e) => setForm((f) => ({ ...f, unitId: e.target.value }))}
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-            >
-              <option value="">— Sem ruta —</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
-              ))}
-            </select>
-            <span className="text-[11px] text-slate-400 mt-1 block">
-              Leads que entrarem por este número serão vinculados automaticamente a esta ruta.
-            </span>
-          </label>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button
             disabled={saving}
@@ -824,19 +667,6 @@ function Numeros() {
                       <option value="">— Sem responsável —</option>
                       {users.map((u) => (
                         <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400">Ruta:</span>
-                    <select
-                      value={n.unitId || ""}
-                      onChange={(e) => reassignUnit(n.id, e.target.value)}
-                      className="text-xs border border-slate-200 rounded px-2 py-1 bg-white outline-none focus:border-emerald-400"
-                    >
-                      <option value="">— Sem ruta —</option>
-                      {units.map((u) => (
-                        <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
                       ))}
                     </select>
                   </label>

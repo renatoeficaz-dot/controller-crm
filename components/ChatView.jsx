@@ -30,7 +30,6 @@ export default function ChatView() {
   // Dados pra edição do lead
   const [form, setForm] = useState({});
   const [users, setUsers] = useState([]);
-  const [units, setUnits] = useState([]);
   const [stagesList, setStagesList] = useState([]);
   const [allTags, setAllTags] = useState([]);
   const [contactTags, setContactTags] = useState([]);
@@ -61,7 +60,6 @@ export default function ChatView() {
   // Carrega listas auxiliares (uma vez)
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsers).catch(() => {});
-    fetch("/api/units").then((r) => r.json()).then(setUnits).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
     fetch("/api/stages").then((r) => r.json()).then((s) => {
       const list = Array.isArray(s) ? s : [];
@@ -87,7 +85,6 @@ export default function ChatView() {
         company: ct.company || "",
         notes: ct.notes || "",
         responsavel: ct.responsavel || "",
-        unitId: ct.unitId || "",
         stageId: ct.stageId || "",
         valorCapital: ct.valorCapital ?? "",
         pagamentoCapital: ct.pagamentoCapital ? new Date(ct.pagamentoCapital).toISOString().slice(0, 10) : "",
@@ -517,17 +514,6 @@ export default function ChatView() {
                 <option value="">— Sem responsável —</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.name}>{u.name}</option>
-                ))}
-              </select>
-            </label>
-
-            {/* Ruta */}
-            <label className="block">
-              <span className="text-[11px] text-slate-400">Ruta</span>
-              <select value={form.unitId || ""} onChange={set("unitId")} className={selectCls}>
-                <option value="">— Sem ruta —</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
                 ))}
               </select>
             </label>

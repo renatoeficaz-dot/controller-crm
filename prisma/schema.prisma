@@ -38,8 +38,6 @@ model Contact {
   valorCapital     Float?     // valor do empréstimo (base do cálculo dos honorários)
   pagamentoCapital DateTime?  // data da entrega do capital; 1ª cobrança = +1 dia
   responsavel      String?    // usuário responsável pela lead
-  unit             Unit?      @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  unitId           String?    // ruta/unidade associada à lead
   cicloAtual       Int        @default(1) // ciclo de empréstimo atual (renovações incrementam)
   tags             Tag[]      @relation("ContactTags")
   parcelas         Parcela[]
@@ -188,8 +186,6 @@ model WhatsappNumber {
   user               User?    @relation("NumeroResponsavel", fields: [userId], references: [id], onDelete: SetNull)
   userId             String?
   usuariosVisualizam User[]   @relation("NumeroVisibilidade") // usuários que podem ver as mensagens deste número
-  unit               Unit?    @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  unitId             String?  // ruta/unidade vinculada — leads novos por este número herdam esta ruta
   agent              IaAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
   agentId            String?  // agente de IA que atende neste número (null = IA desligada aqui)
 
@@ -284,60 +280,3 @@ model Message {
   createdAt DateTime @default(now())
 }
 
-// Empresa / Unidade (a tela "onde gerenciamos as empresas")
-model Unit {
-  id           String    @id @default(cuid())
-  number       Int                                   // índice mostrado antes do nome (1, 2, 3...)
-  name         String
-  cn           String    @default("/1/")
-  location     String    @default("Brasil, São Paulo")
-  status       String    @default("open")            // open | closed
-  score        String    @default("N")               // Pontuação
-  caixa        Int?                                    // número da caixa
-  caixaDate    DateTime?
-  caixaInicial Float     @default(0)
-  caixaFinal   Float     @default(0)
-  progresso    Int       @default(0)                  // %
-  ultimaSync   DateTime?
-  pin          String?
-  appVersion   String?
-
-  contacts     Contact[]                              // leads associadas a esta ruta
-  numeros      WhatsappNumber[]                       // números de WhatsApp vinculados a esta ruta
-
-  // --- Dinheiro Atual (movimento do caixa) ---
-  novasVendas       Float @default(0)
-  vendasRenovadas   Float @default(0)
-  colecao           Float @default(0)   // total recebido dos clientes
-  renda             Float @default(0)   // dinheiro adicionado ao caixa
-  contas            Float @default(0)   // despesas
-  retiradas         Float @default(0)
-
-  // --- Desempenho (carteira / coleção) ---
-  pastaInicial         Float @default(0) // carteira no início
-  alegadamente         Float @default(0) // valor a coletar no dia
-  clientesParaColetar  Int   @default(0)
-  receitaAdicional     Float @default(0)
-  receitaExtra         Float @default(0)
-  clientesSemAgendamento Int @default(0)
-
-  // --- Informação (caixa atual) ---
-  trabalhador      String?
-  dataAbertura     DateTime?
-  dataDispositivo  DateTime?
-  dataEncerramento DateTime?
-
-  // Créditos
-  credParaAumentar Int @default(0)
-  credSemHorario   Int @default(0)
-  credNovo         Int @default(0)
-  credCancelado    Int @default(0)
-  credAtivos       Int @default(0)
-
-  // Movimento de crédito
-  movPagamentos   Int @default(0)
-  movEuNaoPago    Int @default(0)
-  movSincronizado Int @default(0)
-
-  createdAt    DateTime  @default(now())
-}

@@ -58,36 +58,6 @@ function PieChart({ data, title }) {
   );
 }
 
-function BarChart({ data, title }) {
-  const maxVal = Math.max(...data.map((d) => Math.max(d.aReceber || 0, d.aPagar || 0)), 1);
-  if (!data.length) return <p className="text-xs text-slate-400 text-center py-4">Sem dados</p>;
-  const barW = Math.min(40, 300 / data.length / 2 - 4);
-  const chartW = data.length * (barW * 2 + 20) + 40;
-  return (
-    <div>
-      <h3 className="text-xs font-semibold text-slate-700 mb-2 text-center">{title}</h3>
-      <svg viewBox={`0 0 ${chartW} 180`} className="w-full h-44">
-        {data.map((d, i) => {
-          const x = 20 + i * (barW * 2 + 20);
-          const hR = (d.aReceber / maxVal) * 130;
-          const hP = (d.aPagar / maxVal) * 130;
-          return (
-            <g key={i}>
-              <rect x={x} y={140 - hR} width={barW} height={hR} fill="#10b981" rx={3} />
-              <rect x={x + barW + 2} y={140 - hP} width={barW} height={hP} fill="#ef4444" rx={3} />
-              <text x={x + barW} y={156} textAnchor="middle" className="text-[8px]" fill="#64748b">{d.name}</text>
-            </g>
-          );
-        })}
-        <line x1={15} y1={140} x2={chartW - 5} y2={140} stroke="#e2e8f0" strokeWidth={1} />
-      </svg>
-      <div className="flex justify-center gap-4 text-[10px] text-slate-500">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-emerald-500" /> A receber</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-red-500" /> A pagar</span>
-      </div>
-    </div>
-  );
-}
 
 export default function LancamentosView() {
   const [lancamentos, setLancamentos] = useState([]);
@@ -108,7 +78,6 @@ export default function LancamentosView() {
   // Cadastro rápido de categoria / banco
   const [newCat, setNewCat] = useState({ name: "", type: "entrada" });
   const [newBanco, setNewBanco] = useState("");
-  const [rutaData, setRutaData] = useState([]);
   const [saldoAtual, setSaldoAtual] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [config, setConfig] = useState(null);
@@ -162,21 +131,6 @@ export default function LancamentosView() {
     fetch("/api/stages").then((r) => r.json()).then((s) => {
       const stgs = s || [];
       setContacts(stgs.flatMap((st) => (st.contacts || []).map((c) => ({ id: c.id, name: c.name }))));
-      // Calcula A pagar x A receber por ruta
-      fetch("/api/units").then((r) => r.json()).then((units) => {
-        const allContacts = stgs.flatMap((st) => st.contacts || []);
-        const rd = (units || []).map((u) => {
-          const leads = allContacts.filter((c) => c.unitId === u.id);
-          let aReceber = 0, aPagar = 0;
-          for (const c of leads) {
-            for (const p of c.parcelas || []) {
-              if (!p.paid) aReceber += p.amount;
-            }
-          }
-          return { name: `${u.number}-${u.name}`, aReceber, aPagar: 0 };
-        });
-        setRutaData(rd);
-      }).catch(() => {});
     }).catch(() => {});
   }, []);
 
@@ -311,15 +265,12 @@ export default function LancamentosView() {
       </div>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <PieChart data={porCategoria.entradas} title="Entradas por categoria" />
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <PieChart data={porCategoria.saidas} title="Saídas por categoria" />
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <BarChart data={rutaData} title="A receber por Ruta" />
         </div>
       </div>
 

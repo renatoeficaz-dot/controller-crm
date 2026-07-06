@@ -10,7 +10,6 @@ export async function PATCH(req, { params }) {
     if (f in body) data[f] = (body[f] || "").trim();
   }
   if ("userId" in body) data.userId = body.userId || null;
-  if ("unitId" in body) data.unitId = body.unitId || null;
   if ("agentId" in body) data.agentId = body.agentId || null;
   if ("estadosCobranca" in body) data.estadosCobranca = (body.estadosCobranca || "").trim() || null;
   if ("mensagemCobranca" in body) data.mensagemCobranca = (body.mensagemCobranca || "").trim() || null;
@@ -19,7 +18,6 @@ export async function PATCH(req, { params }) {
     data,
     include: {
       user: { select: { id: true, name: true } },
-      unit: { select: { id: true, name: true, number: true } },
     },
   });
   return NextResponse.json(updated);

@@ -28,9 +28,7 @@ const PRESETS = [
 
 export default function Relatorios() {
   const [stages, setStages] = useState([]);
-  const [unidades, setUnidades] = useState([]);
   const [cfg, setCfg] = useState(null);
-  const [rutaFiltro, setRutaFiltro] = useState(""); // "" = todas as rutas
   const [loading, setLoading] = useState(true);
   const [preset, setPreset] = useState("mes");
   const [ini, setIni] = useState(inicioMesStr());
@@ -45,7 +43,6 @@ export default function Relatorios() {
     load();
   }, [load]);
   useEffect(() => {
-    fetch("/api/units").then((r) => r.json()).then(setUnidades).catch(() => {});
     fetch("/api/config").then((r) => r.json()).then(setCfg).catch(() => {});
   }, []);
 
@@ -56,14 +53,7 @@ export default function Relatorios() {
   );
   const multaPct = cfg?.multaPct ?? 50;
 
-  // Aplica o filtro de ruta: mantém só os contatos da ruta escolhida
-  const stagesFiltrados = useMemo(() => {
-    if (!rutaFiltro) return stages;
-    return stages.map((s) => ({
-      ...s,
-      contacts: (s.contacts || []).filter((c) => c.unitId === rutaFiltro),
-    }));
-  }, [stages, rutaFiltro]);
+  const stagesFiltrados = stages;
 
   function aplicarPreset(p) {
     setPreset(p.key);
@@ -77,14 +67,6 @@ export default function Relatorios() {
   const inad = useMemo(() => inadimplenciaCravo(stagesFiltrados), [stagesFiltrados]);
 
   // Novos indicadores
-  const caixaInicial = useMemo(() => {
-    if (rutaFiltro) {
-      const u = unidades.find((x) => x.id === rutaFiltro);
-      return u ? Number(u.caixaInicial || 0) : 0;
-    }
-    return unidades.reduce((s, u) => s + Number(u.caixaInicial || 0), 0);
-  }, [unidades, rutaFiltro]);
-
   const { novasVendas, renovacoes } = useMemo(() => {
     const all = stagesFiltrados.flatMap((s) => s.contacts || []);
     const nv = all.filter((c) => {
@@ -100,28 +82,10 @@ export default function Relatorios() {
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 space-y-4 md:space-y-6 max-w-5xl">
-      {/* Filtro por ruta */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-400">Ruta:</span>
-        <select
-          value={rutaFiltro}
-          onChange={(e) => setRutaFiltro(e.target.value)}
-          className={`text-sm rounded-lg px-3 py-1.5 border bg-white outline-none transition-colors ${
-            rutaFiltro ? "border-emerald-400 text-slate-800" : "border-slate-200 text-slate-600"
-          }`}
-        >
-          <option value="">Todas as rutas</option>
-          {unidades.map((u) => (
-            <option key={u.id} value={u.id}>{u.number} - {u.name}</option>
-          ))}
-        </select>
-      </div>
-
       {/* Indicadores gerais */}
       <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Visão geral</h2>
-        <div className="grid sm:grid-cols-3 gap-4">
-          <Card titulo="Caixa inicial" valor={caixaInicial} cor="sky" />
+        <div className="grid sm:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-slate-200 p-5">
             <p className="text-xs text-slate-400">Novas vendas (período)</p>
             <p className="text-2xl font-semibold mt-1 text-violet-600">{novasVendas}</p>
