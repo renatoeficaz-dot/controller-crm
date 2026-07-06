@@ -11,6 +11,20 @@ const ESTADOS_BR = [
   "Roraima", "Santa Catarina", "São Paulo", "Sergipe", "Tocantins",
 ];
 
+// Estados do Brasil com sigla (UF) — usado no seletor de cobrança por DDD,
+// que precisa da sigla (bate com o mapa DDD->UF em lib/ddd.js).
+const UF_LIST = [
+  { uf: "AC", name: "Acre" }, { uf: "AL", name: "Alagoas" }, { uf: "AP", name: "Amapá" },
+  { uf: "AM", name: "Amazonas" }, { uf: "BA", name: "Bahia" }, { uf: "CE", name: "Ceará" },
+  { uf: "DF", name: "Distrito Federal" }, { uf: "ES", name: "Espírito Santo" }, { uf: "GO", name: "Goiás" },
+  { uf: "MA", name: "Maranhão" }, { uf: "MT", name: "Mato Grosso" }, { uf: "MS", name: "Mato Grosso do Sul" },
+  { uf: "MG", name: "Minas Gerais" }, { uf: "PA", name: "Pará" }, { uf: "PB", name: "Paraíba" },
+  { uf: "PR", name: "Paraná" }, { uf: "PE", name: "Pernambuco" }, { uf: "PI", name: "Piauí" },
+  { uf: "RJ", name: "Rio de Janeiro" }, { uf: "RN", name: "Rio Grande do Norte" }, { uf: "RS", name: "Rio Grande do Sul" },
+  { uf: "RO", name: "Rondônia" }, { uf: "RR", name: "Roraima" }, { uf: "SC", name: "Santa Catarina" },
+  { uf: "SP", name: "São Paulo" }, { uf: "SE", name: "Sergipe" }, { uf: "TO", name: "Tocantins" },
+];
+
 export default function Configuracoes() {
   const [tab, setTab] = useState("ruta");
 
@@ -844,15 +858,13 @@ function Numeros() {
                   <p className="text-[11px] font-medium text-slate-500">
                     Cobrança automática (lembrete diário 1h30 antes do horário limite):
                   </p>
-                  <label className="flex items-center gap-2">
+                  <div>
                     <span className="text-xs text-slate-400 shrink-0">Estados (UF) que atende:</span>
-                    <input
-                      defaultValue={n.estadosCobranca || ""}
-                      onBlur={(e) => setCobranca(n.id, "estadosCobranca", e.target.value)}
-                      placeholder="Ex.: SP,MG"
-                      className="text-xs border border-slate-200 rounded px-2 py-1 w-full outline-none focus:border-emerald-400"
+                    <EstadosSeletor
+                      value={n.estadosCobranca || ""}
+                      onChange={(v) => setCobranca(n.id, "estadosCobranca", v)}
                     />
-                  </label>
+                  </div>
                   <label className="block">
                     <span className="text-xs text-slate-400">Mensagem de cobrança:</span>
                     <textarea
@@ -1862,5 +1874,71 @@ function Field({ label, value, onChange, placeholder }) {
         className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
       />
     </label>
+  );
+}
+
+// Seletor com todos os estados do Brasil (checkbox múltiplo, pra um número
+// poder atender mais de um estado). Armazena/recebe como string "SP,MG".
+function EstadosSeletor({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const saveTimer = useRef(null);
+  // Estado local (não só derivado de `value`): cliques em sequência rápida
+  // não podem se basear na prop antiga, senão o clique seguinte sobrescreve
+  // o anterior antes do componente pai re-renderizar.
+  const [selecionados, setSelecionados] = useState(() =>
+    (value || "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+  );
+
+  useEffect(() => {
+    setSelecionados((value || "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean));
+  }, [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickFora(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickFora);
+    return () => document.removeEventListener("mousedown", onClickFora);
+  }, [open]);
+
+  // Debounce: cliques rápidos em sequência só disparam 1 PATCH no final —
+  // evita que 2 requisições concorrentes cheguem fora de ordem e uma
+  // sobrescreva a outra no banco.
+  function toggle(uf) {
+    setSelecionados((atual) => {
+      const novo = atual.includes(uf) ? atual.filter((s) => s !== uf) : [...atual, uf];
+      clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => onChange(novo.join(",")), 500);
+      return novo;
+    });
+  }
+
+  return (
+    <div className="relative mt-0.5" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full text-xs text-left border border-slate-200 rounded px-2 py-1 bg-white outline-none focus:border-emerald-400 truncate"
+      >
+        {selecionados.length ? selecionados.join(", ") : <span className="text-slate-400">Selecionar estados…</span>}
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-56 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg p-1.5 grid grid-cols-2 gap-x-2">
+          {UF_LIST.map(({ uf, name }) => (
+            <label key={uf} className="flex items-center gap-1.5 text-xs py-0.5 cursor-pointer hover:bg-slate-50 rounded px-1">
+              <input
+                type="checkbox"
+                checked={selecionados.includes(uf)}
+                onChange={() => toggle(uf)}
+                className="accent-emerald-500"
+              />
+              <span className="truncate" title={name}>{uf}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
