@@ -12,6 +12,8 @@ export async function PATCH(req, { params }) {
   if ("userId" in body) data.userId = body.userId || null;
   if ("unitId" in body) data.unitId = body.unitId || null;
   if ("agentId" in body) data.agentId = body.agentId || null;
+  if ("estadosCobranca" in body) data.estadosCobranca = (body.estadosCobranca || "").trim() || null;
+  if ("mensagemCobranca" in body) data.mensagemCobranca = (body.mensagemCobranca || "").trim() || null;
   const updated = await prisma.whatsappNumber.update({
     where: { id },
     data,

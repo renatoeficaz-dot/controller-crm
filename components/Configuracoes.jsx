@@ -675,6 +675,15 @@ function Numeros() {
     });
   }
 
+  async function setCobranca(id, campo, valor) {
+    setNumeros((prev) => prev.map((n) => (n.id === id ? { ...n, [campo]: valor } : n)));
+    await fetch(`/api/numbers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [campo]: valor }),
+    });
+  }
+
   // Desconecta de verdade a sessão do WhatsApp na Evolution (logout).
   // Sem isso, a instância continua ativa e recebendo mensagens mesmo removida do CRM.
   async function disconnect(id) {
@@ -829,6 +838,30 @@ function Numeros() {
                         <option key={a.id} value={a.id}>{a.name}</option>
                       ))}
                     </select>
+                  </label>
+                </div>
+                <div className="mt-2 bg-slate-50 rounded-lg p-2 space-y-1.5">
+                  <p className="text-[11px] font-medium text-slate-500">
+                    Cobrança automática (lembrete diário 1h30 antes do horário limite):
+                  </p>
+                  <label className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 shrink-0">Estados (UF) que atende:</span>
+                    <input
+                      defaultValue={n.estadosCobranca || ""}
+                      onBlur={(e) => setCobranca(n.id, "estadosCobranca", e.target.value)}
+                      placeholder="Ex.: SP,MG"
+                      className="text-xs border border-slate-200 rounded px-2 py-1 w-full outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-slate-400">Mensagem de cobrança:</span>
+                    <textarea
+                      defaultValue={n.mensagemCobranca || ""}
+                      onBlur={(e) => setCobranca(n.id, "mensagemCobranca", e.target.value)}
+                      placeholder="Ex.: Oi! Passando pra lembrar que sua parcela de hoje vence às 10h. Já pode fazer o pagamento?"
+                      rows={2}
+                      className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                    />
                   </label>
                 </div>
               </li>

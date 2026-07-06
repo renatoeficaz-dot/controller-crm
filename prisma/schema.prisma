@@ -192,7 +192,24 @@ model WhatsappNumber {
   unitId             String?  // ruta/unidade vinculada — leads novos por este número herdam esta ruta
   agent              IaAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
   agentId            String?  // agente de IA que atende neste número (null = IA desligada aqui)
+
+  // Cobrança automática: estados (UF) que este número atende, pelo DDD do
+  // cliente (ex.: "SP,MG"), e a mensagem enviada diariamente antes do horário
+  // limite de pagamento pra quem está em "Recebimento".
+  estadosCobranca    String?
+  mensagemCobranca   String?
+
   createdAt          DateTime @default(now())
+}
+
+// Log de lembretes de cobrança já enviados (evita mandar 2x no mesmo dia).
+model LembreteCobrancaLog {
+  id        String   @id @default(cuid())
+  contactId String
+  dia       DateTime // meia-noite UTC do dia do lembrete
+  createdAt DateTime @default(now())
+
+  @@unique([contactId, dia])
 }
 
 // Etiqueta (tag) atribuível a leads
