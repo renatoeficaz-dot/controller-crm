@@ -109,6 +109,12 @@ export default function LancamentosView() {
   const [newCat, setNewCat] = useState({ name: "", type: "entrada" });
   const [newBanco, setNewBanco] = useState("");
   const [rutaData, setRutaData] = useState([]);
+  const [saldoAtual, setSaldoAtual] = useState(null);
+
+  const loadSaldo = useCallback(async () => {
+    const data = await fetch("/api/lancamentos/saldo").then((r) => r.json()).catch(() => null);
+    setSaldoAtual(data);
+  }, []);
 
   const loadLanc = useCallback(async () => {
     const q = new URLSearchParams();
@@ -132,6 +138,7 @@ export default function LancamentosView() {
 
   useEffect(() => { loadMeta(); }, [loadMeta]);
   useEffect(() => { loadLanc(); }, [loadLanc]);
+  useEffect(() => { loadSaldo(); }, [loadSaldo]);
   useEffect(() => {
     fetch("/api/stages").then((r) => r.json()).then((s) => {
       const stgs = s || [];
@@ -194,12 +201,14 @@ export default function LancamentosView() {
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error || "Erro."); return; }
     setForm(EMPTY_FORM);
     loadLanc();
+    loadSaldo();
   }
 
   async function removeLanc(id) {
     if (!confirm("Excluir este lançamento?")) return;
     await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
     loadLanc();
+    loadSaldo();
   }
 
   async function addCat(e) {
@@ -236,7 +245,15 @@ export default function LancamentosView() {
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 max-w-6xl space-y-4 md:space-y-6">
       <h1 className="text-lg font-semibold text-slate-800">Lançamentos</h1>
 
-      {/* Cards de resumo */}
+      {/* Saldo atual real da conta — soma de TODOS os lançamentos, não muda com os filtros abaixo */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <p className="text-xs text-slate-400">Saldo atual da conta</p>
+        <p className={`text-2xl font-bold ${(saldoAtual?.saldo ?? 0) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+          {saldoAtual ? money(saldoAtual.saldo) : "—"}
+        </p>
+      </div>
+
+      {/* Cards de resumo (do período filtrado abaixo) */}
       <div className="grid sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <p className="text-xs text-slate-400">Entradas</p>
@@ -247,7 +264,7 @@ export default function LancamentosView() {
           <p className="text-lg font-semibold text-red-600">{money(resumo.saidas)}</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-400">Saldo</p>
+          <p className="text-xs text-slate-400">Saldo do período</p>
           <p className={`text-lg font-semibold ${resumo.saldo >= 0 ? "text-emerald-600" : "text-red-600"}`}>{money(resumo.saldo)}</p>
         </div>
       </div>
