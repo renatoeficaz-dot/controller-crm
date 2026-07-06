@@ -16,6 +16,7 @@ export async function PATCH(req, { params }) {
 
   // Gera/remove lançamento financeiro automático
   if (paid) {
+    const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
     await prisma.lancamento.create({
       data: {
         type: "entrada",
@@ -23,6 +24,7 @@ export async function PATCH(req, { params }) {
         description: `Parcela ${parcela.number}ª — ${parcela.contact?.name || ""}`.trim(),
         contactId: parcela.contactId,
         parcelaId: parcela.id,
+        bancoId: cfg?.contaRecebimentoId || null,
       },
     });
   } else {

@@ -111,6 +111,23 @@ export default function LancamentosView() {
   const [rutaData, setRutaData] = useState([]);
   const [saldoAtual, setSaldoAtual] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [config, setConfig] = useState(null);
+
+  const loadConfig = useCallback(async () => {
+    const data = await fetch("/api/config").then((r) => r.json()).catch(() => null);
+    setConfig(data);
+  }, []);
+
+  async function setContaEspecial(campo, bancoId) {
+    // clicar de novo no mesmo banco desmarca (volta pra "nenhuma")
+    const novoValor = config?.[campo] === bancoId ? "" : bancoId;
+    const res = await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [campo]: novoValor }),
+    });
+    setConfig(await res.json());
+  }
 
   const loadSaldo = useCallback(async () => {
     const data = await fetch("/api/lancamentos/saldo").then((r) => r.json()).catch(() => null);
@@ -140,6 +157,7 @@ export default function LancamentosView() {
   useEffect(() => { loadMeta(); }, [loadMeta]);
   useEffect(() => { loadLanc(); }, [loadLanc]);
   useEffect(() => { loadSaldo(); }, [loadSaldo]);
+  useEffect(() => { loadConfig(); }, [loadConfig]);
   useEffect(() => {
     fetch("/api/stages").then((r) => r.json()).then((s) => {
       const stgs = s || [];
@@ -469,13 +487,45 @@ export default function LancamentosView() {
             <input value={newBanco} onChange={(e) => setNewBanco(e.target.value)} placeholder="Novo banco" className="flex-1 text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400" />
             <button className="bg-emerald-500 text-white text-sm rounded px-3 py-1.5 hover:bg-emerald-600">+</button>
           </form>
+          <p className="text-[11px] text-slate-400">
+            Marque qual conta recebe o débito automático ao liberar capital e qual recebe o
+            crédito automático das parcelas pagas.
+          </p>
           <ul className="divide-y divide-slate-100 text-sm">
-            {bancos.map((b) => (
-              <li key={b.id} className="flex items-center justify-between py-1.5">
-                <span className="text-slate-700">{b.name}</span>
-                <button onClick={() => removeBanco(b.id)} className="text-xs text-red-400 hover:text-red-600">×</button>
-              </li>
-            ))}
+            {bancos.map((b) => {
+              const isLiberacao = config?.contaLiberacaoId === b.id;
+              const isRecebimento = config?.contaRecebimentoId === b.id;
+              return (
+                <li key={b.id} className="flex items-center justify-between py-1.5 gap-2">
+                  <span className="text-slate-700 truncate">{b.name}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => setContaEspecial("contaLiberacaoId", b.id)}
+                      title="Conta de liberação (débito automático ao liberar capital)"
+                      className={`text-[10px] rounded px-1.5 py-0.5 border ${
+                        isLiberacao
+                          ? "bg-red-500 text-white border-red-500"
+                          : "text-slate-400 border-slate-200 hover:border-red-300 hover:text-red-500"
+                      }`}
+                    >
+                      Liberação
+                    </button>
+                    <button
+                      onClick={() => setContaEspecial("contaRecebimentoId", b.id)}
+                      title="Conta de recebimento (crédito automático das parcelas pagas)"
+                      className={`text-[10px] rounded px-1.5 py-0.5 border ${
+                        isRecebimento
+                          ? "bg-emerald-500 text-white border-emerald-500"
+                          : "text-slate-400 border-slate-200 hover:border-emerald-300 hover:text-emerald-500"
+                      }`}
+                    >
+                      Recebimento
+                    </button>
+                    <button onClick={() => removeBanco(b.id)} className="text-xs text-red-400 hover:text-red-600">×</button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </div>

@@ -127,8 +127,13 @@ model Config {
 
   // Conta de onde sai o dinheiro do capital liberado ao lead (débito automático
   // em Lançamentos ao entrar em "Recebimento"). Configurável pois pode mudar.
-  contaLiberacao   Banco?  @relation(fields: [contaLiberacaoId], references: [id], onDelete: SetNull)
+  contaLiberacao   Banco?  @relation("ContaLiberacao", fields: [contaLiberacaoId], references: [id], onDelete: SetNull)
   contaLiberacaoId String?
+
+  // Conta onde entra o dinheiro das parcelas pagas pelo cobrador (crédito
+  // automático em Lançamentos ao dar baixa numa parcela).
+  contaRecebimento   Banco?  @relation("ContaRecebimento", fields: [contaRecebimentoId], references: [id], onDelete: SetNull)
+  contaRecebimentoId String?
 }
 
 // Um "agente" de IA: prompt + modelos próprios. Cada número de WhatsApp escolhe
@@ -220,11 +225,12 @@ model LancamentoCategoria {
 
 // Banco / conta financeira
 model Banco {
-  id             String       @id @default(cuid())
-  name           String
-  lancamentos    Lancamento[]
-  configsLibera  Config[]
-  createdAt      DateTime     @default(now())
+  id              String       @id @default(cuid())
+  name            String
+  lancamentos     Lancamento[]
+  configsLibera   Config[]     @relation("ContaLiberacao")
+  configsRecebe   Config[]     @relation("ContaRecebimento")
+  createdAt       DateTime     @default(now())
 }
 
 // Lançamento financeiro (entrada ou saída). Pagamentos de parcelas geram lançamentos automáticos.
