@@ -110,6 +110,7 @@ export default function LancamentosView() {
   const [newBanco, setNewBanco] = useState("");
   const [rutaData, setRutaData] = useState([]);
   const [saldoAtual, setSaldoAtual] = useState(null);
+  const [editingId, setEditingId] = useState(null);
 
   const loadSaldo = useCallback(async () => {
     const data = await fetch("/api/lancamentos/saldo").then((r) => r.json()).catch(() => null);
@@ -192,21 +193,43 @@ export default function LancamentosView() {
     setError("");
     if (!form.amount || Number(form.amount) <= 0) { setError("Valor obrigatório."); return; }
     setSaving(true);
-    const res = await fetch("/api/lancamentos", {
-      method: "POST",
+    const url = editingId ? `/api/lancamentos/${editingId}` : "/api/lancamentos";
+    const res = await fetch(url, {
+      method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, amount: Number(form.amount) }),
     });
     setSaving(false);
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error || "Erro."); return; }
     setForm(EMPTY_FORM);
+    setEditingId(null);
     loadLanc();
     loadSaldo();
+  }
+
+  function startEdit(l) {
+    setEditingId(l.id);
+    setForm({
+      type: l.type,
+      amount: String(l.amount),
+      description: l.description || "",
+      date: new Date(l.date).toLocaleDateString("en-CA"),
+      categoriaId: l.categoriaId || "",
+      bancoId: l.bancoId || "",
+      contactId: l.contactId || "",
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setError("");
   }
 
   async function removeLanc(id) {
     if (!confirm("Excluir este lançamento?")) return;
     await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
+    if (editingId === id) cancelEdit();
     loadLanc();
     loadSaldo();
   }
@@ -285,7 +308,7 @@ export default function LancamentosView() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Formulário de lançamento */}
         <form onSubmit={createLanc} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit lg:col-span-1">
-          <h2 className="font-medium text-slate-800">Novo lançamento</h2>
+          <h2 className="font-medium text-slate-800">{editingId ? "Editar lançamento" : "Novo lançamento"}</h2>
           <label className="block">
             <span className="text-xs text-slate-400">Tipo</span>
             <select value={form.type} onChange={set("type")} className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400">
@@ -328,8 +351,13 @@ export default function LancamentosView() {
           </label>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button disabled={saving} className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50">
-            {saving ? "Salvando…" : "Lançar"}
+            {saving ? "Salvando…" : editingId ? "Salvar alterações" : "Lançar"}
           </button>
+          {editingId && (
+            <button type="button" onClick={cancelEdit} className="w-full text-xs text-slate-400 hover:text-slate-600">
+              Cancelar edição
+            </button>
+          )}
         </form>
 
         {/* Listagem + filtros */}
@@ -398,7 +426,10 @@ export default function LancamentosView() {
                       {l.type === "saida" ? "- " : ""}{money(l.amount)}
                     </td>
                     <td className="px-2">
-                      <button onClick={() => removeLanc(l.id)} className="text-xs text-red-400 hover:text-red-600">×</button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => startEdit(l)} title="Editar" className="text-xs text-slate-400 hover:text-emerald-600">✎</button>
+                        <button onClick={() => removeLanc(l.id)} title="Excluir" className="text-xs text-red-400 hover:text-red-600">×</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
