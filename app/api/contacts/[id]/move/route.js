@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { regenerarParcelas } from "@/lib/cobranca";
+import { regenerarParcelas, lancarLiberacaoCapital } from "@/lib/cobranca";
 import { sendRecebimentoNotice } from "@/lib/ia";
 
 // Data local de hoje como UTC-midnight (evita drift de fuso nas parcelas)
@@ -59,6 +59,7 @@ export async function PATCH(req, { params }) {
 
   if (entrandoRecebimento) {
     await sendRecebimentoNotice(updated).catch(() => {});
+    await lancarLiberacaoCapital(updated).catch(() => {});
   }
 
   return NextResponse.json(updated);

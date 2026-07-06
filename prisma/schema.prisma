@@ -124,6 +124,11 @@ model Config {
   deepinfraApiKey  String? // token da conta em https://deepinfra.com/dash
   fishAudioApiKey  String? // token da conta em https://fish.audio
   elevenLabsApiKey String? // token da conta em https://elevenlabs.io
+
+  // Conta de onde sai o dinheiro do capital liberado ao lead (débito automático
+  // em Lançamentos ao entrar em "Recebimento"). Configurável pois pode mudar.
+  contaLiberacao   Banco?  @relation(fields: [contaLiberacaoId], references: [id], onDelete: SetNull)
+  contaLiberacaoId String?
 }
 
 // Um "agente" de IA: prompt + modelos próprios. Cada número de WhatsApp escolhe
@@ -215,10 +220,11 @@ model LancamentoCategoria {
 
 // Banco / conta financeira
 model Banco {
-  id          String       @id @default(cuid())
-  name        String
-  lancamentos Lancamento[]
-  createdAt   DateTime     @default(now())
+  id             String       @id @default(cuid())
+  name           String
+  lancamentos    Lancamento[]
+  configsLibera  Config[]
+  createdAt      DateTime     @default(now())
 }
 
 // Lançamento financeiro (entrada ou saída). Pagamentos de parcelas geram lançamentos automáticos.

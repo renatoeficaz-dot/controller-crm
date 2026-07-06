@@ -211,7 +211,8 @@ function CadastroRuta() {
 
 /* ---------------- % de honorários ---------------- */
 function Honorarios() {
-  const [form, setForm] = useState({ honorariosPct: "", multaPct: "", pagamentoHoraLimite: "" });
+  const [form, setForm] = useState({ honorariosPct: "", multaPct: "", pagamentoHoraLimite: "", contaLiberacaoId: "" });
+  const [bancos, setBancos] = useState([]);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -222,8 +223,10 @@ function Honorarios() {
           honorariosPct: String(c.honorariosPct ?? ""),
           multaPct: String(c.multaPct ?? ""),
           pagamentoHoraLimite: c.pagamentoHoraLimite || "",
+          contaLiberacaoId: c.contaLiberacaoId || "",
         })
       );
+    fetch("/api/lancamentos/bancos").then((r) => r.json()).then(setBancos).catch(() => {});
   }, []);
 
   async function save(e) {
@@ -235,6 +238,7 @@ function Honorarios() {
         honorariosPct: Number(form.honorariosPct),
         multaPct: Number(form.multaPct),
         pagamentoHoraLimite: form.pagamentoHoraLimite,
+        contaLiberacaoId: form.contaLiberacaoId,
       }),
     });
     setSaved(true);
@@ -300,6 +304,26 @@ function Honorarios() {
         <p className="text-[11px] text-slate-400 mt-1">
           Deixe o horário em branco para a parcela só vencer na virada do dia.
         </p>
+      </div>
+
+      <div className="border-t border-slate-100 pt-4">
+        <h2 className="font-medium text-slate-800">Conta de liberação</h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Conta de onde sai o dinheiro do <strong>capital liberado</strong>. Sempre que um lead
+          cair em &quot;Recebimento&quot;, o sistema lança automaticamente uma saída nesse valor
+          nessa conta, em Lançamentos.
+        </p>
+        <label className="block mt-2">
+          <span className="text-xs text-slate-400">Conta</span>
+          <select
+            value={form.contaLiberacaoId}
+            onChange={set("contaLiberacaoId")}
+            className="mt-0.5 w-full max-w-xs text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+          >
+            <option value="">— Nenhuma (não lançar automaticamente) —</option>
+            {bancos.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+          </select>
+        </label>
       </div>
 
       <button className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600">
