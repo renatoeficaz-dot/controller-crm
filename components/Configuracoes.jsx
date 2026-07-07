@@ -2,6 +2,19 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 
+// Corrige a digitação de um telefone BR (tira espaço/traço/parênteses, completa
+// o DDI 55 se faltar) e valida o formato — retorna só dígitos (12 ou 13, com
+// DDI) ou null se não bater com um celular/fixo BR válido.
+function normalizeBrPhone(raw) {
+  let digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return null;
+  if (!digits.startsWith("55") || digits.length < 12) {
+    // sem DDI (ex.: "11948528114", 11 dígitos) — completa com 55
+    if (digits.length === 10 || digits.length === 11) digits = "55" + digits;
+  }
+  return digits.length === 12 || digits.length === 13 ? digits : null;
+}
+
 // Estados do Brasil (UF)
 const ESTADOS_BR = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -962,11 +975,22 @@ function MensagensProntas() {
     if (mt === "contact" && (!form.contactName.trim() || !form.contactPhone.trim())) {
       setError("Preencha nome e telefone do contato."); return;
     }
+    let contactPhone = form.contactPhone;
+    if (mt === "contact") {
+      // Corrige a digitação sozinho (tira espaço/traço/parênteses, completa o
+      // DDI 55 se faltar) — evita contato do cobrador salvo com número quebrado.
+      const normalized = normalizeBrPhone(form.contactPhone);
+      if (!normalized) {
+        setError('Telefone do contato inválido — use DDD + número (ex.: 11948528114 ou 5511948528114).');
+        return;
+      }
+      contactPhone = normalized;
+    }
     setSaving(true);
     const res = await fetch(editando ? `/api/templates/${editId}` : "/api/templates", {
       method: editando ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, mediaType: mt === "text" ? null : mt }),
+      body: JSON.stringify({ ...form, contactPhone, mediaType: mt === "text" ? null : mt }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -1354,6 +1378,7 @@ function AgentesIa() {
   const [form, setForm] = useState(emptyAgent);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [agentError, setAgentError] = useState("");
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [newAgentModalOpen, setNewAgentModalOpen] = useState(false);
 
@@ -1407,11 +1432,22 @@ function AgentesIa() {
   async function save(e) {
     e.preventDefault();
     if (!selectedId) return;
+    setAgentError("");
+    let body = form;
+    if (form.toolSendContact && form.toolContactPhone.trim()) {
+      // Corrige a digitação sozinho, igual às mensagens prontas de contato.
+      const normalized = normalizeBrPhone(form.toolContactPhone);
+      if (!normalized) {
+        setAgentError('Telefone do contato inválido — use DDD + número (ex.: 11948528114 ou 5511948528114).');
+        return;
+      }
+      body = { ...form, toolContactPhone: normalized };
+    }
     setSaving(true);
     await fetch(`/api/ia/agents/${selectedId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(body),
     });
     setSaving(false);
     setSaved(true);
@@ -1636,6 +1672,7 @@ function AgentesIa() {
             </button>.
           </p>
 
+          {agentError && <p className="text-xs text-red-500">{agentError}</p>}
           <div className="flex gap-2">
             <button
               disabled={saving}
