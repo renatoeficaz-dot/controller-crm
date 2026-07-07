@@ -14,6 +14,12 @@ const money = (n) =>
 const fmtDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }) : "—";
 
+function numberLabel(instance, numbers) {
+  if (!instance) return null;
+  const n = numbers.find((x) => x.instance === instance);
+  return n ? n.label : instance;
+}
+
 // DateTime ISO -> "YYYY-MM-DD" (para <input type=date>)
 const toDateInput = (iso) => (iso ? new Date(iso).toISOString().slice(0, 10) : "");
 
@@ -39,6 +45,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [tplCopied, setTplCopied] = useState(false);
   const [allTags, setAllTags] = useState([]);
   const [contactTags, setContactTags] = useState([]);
+  const [numbers, setNumbers] = useState([]);
+  const [selectedInstance, setSelectedInstance] = useState("");
   const [cicloAtual, setCicloAtual] = useState(1);
   const [showHistorico, setShowHistorico] = useState(false);
   const [renovForm, setRenovForm] = useState({ valorCapital: "", pagamentoCapital: "" });
@@ -88,7 +96,22 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       .catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
+    fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
   }, []);
+
+  // Número (instância) sugerido pro próximo envio: o último usado nesta
+  // conversa — mas só define uma vez por contato aberto, pra não atrapalhar
+  // se o usuário trocar manualmente enquanto o polling atualiza as mensagens.
+  const instanceDefaultedForRef = useRef(null);
+  useEffect(() => {
+    instanceDefaultedForRef.current = null;
+  }, [contactId]);
+  useEffect(() => {
+    if (instanceDefaultedForRef.current === contactId) return;
+    const lastWithInstance = [...messages].reverse().find((m) => m.instance);
+    setSelectedInstance(lastWithInstance?.instance || numbers[0]?.instance || "");
+    if (messages.length > 0 || numbers.length > 0) instanceDefaultedForRef.current = contactId;
+  }, [messages, contactId, numbers]);
 
   // Escolhe uma mensagem pronta: texto → campo de envio; mídia/contato → envia direto
   async function pickTemplate(id) {
@@ -99,7 +122,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     if (t.mediaType && t.mediaType !== "text") {
       setSending(true);
       setError("");
-      const payload = { mediaType: t.mediaType };
+      const payload = { mediaType: t.mediaType, instance: selectedInstance };
       if (t.mediaType === "contact") {
         payload.contactName = t.contactName;
         payload.contactPhone = t.contactPhone;
@@ -223,7 +246,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     const res = await fetch(`/api/contacts/${contactId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, instance: selectedInstance }),
     });
     const data = await res.json();
     setSending(false);
@@ -243,6 +266,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     fd.append("file", file);
     fd.append("kind", kind);
     fd.append("caption", caption);
+    fd.append("instance", selectedInstance || "");
     const res = await fetch(`/api/contacts/${contactId}/media`, { method: "POST", body: fd });
     const data = await res.json().catch(() => ({}));
     setUploading(false);
@@ -671,6 +695,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     : "self-start bg-white border border-slate-200 text-slate-700"
                 }`}
               >
+                {!m.fromMe && m.instance && numbers.length > 1 && (
+                  <p className="text-[10px] text-slate-400 mb-0.5">📱 {numberLabel(m.instance, numbers)}</p>
+                )}
                 {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && (
                   <MediaBubble message={m} />
                 )}
@@ -691,6 +718,22 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
           {error && (
             <p className="px-4 text-xs text-red-500 pb-1">{error}</p>
+          )}
+
+          {numbers.length > 1 && (
+            <div className="px-3 pt-2 bg-white flex items-center gap-2">
+              <span className="text-xs text-slate-400 shrink-0">Enviar por:</span>
+              <select
+                value={selectedInstance}
+                onChange={(e) => setSelectedInstance(e.target.value)}
+                disabled={sending || uploading}
+                className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400 disabled:opacity-50"
+              >
+                {numbers.map((n) => (
+                  <option key={n.id} value={n.instance}>{n.label} ({n.number})</option>
+                ))}
+              </select>
+            </div>
           )}
 
           <div className="p-3 border-t border-slate-200 bg-white flex items-end gap-2">
