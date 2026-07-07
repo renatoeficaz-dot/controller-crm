@@ -695,8 +695,10 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     : "self-start bg-white border border-slate-200 text-slate-700"
                 }`}
               >
-                {!m.fromMe && m.instance && numbers.length > 1 && (
-                  <p className="text-[10px] text-slate-400 mb-0.5">📱 {numberLabel(m.instance, numbers)}</p>
+                {m.instance && numbers.length > 1 && (
+                  <p className={`text-[10px] mb-0.5 ${m.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
+                    📱 {numberLabel(m.instance, numbers)}
+                  </p>
                 )}
                 {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && (
                   <MediaBubble message={m} />
