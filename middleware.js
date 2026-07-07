@@ -3,7 +3,7 @@ import { SESSION_COOKIE, verifySession } from "@/lib/auth";
 
 // Rotas públicas (não exigem login).
 // /api/webhook precisa ficar aberto para a Evolution entregar mensagens.
-const PUBLIC_PREFIXES = ["/api/auth/login", "/api/auth/logout", "/api/webhook", "/login"];
+const PUBLIC_PREFIXES = ["/api/auth/login", "/api/auth/logout", "/api/webhook", "/login", "/api/admin/nudge"];
 
 export async function middleware(req) {
   const { pathname } = req.nextUrl;

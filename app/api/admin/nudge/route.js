@@ -5,8 +5,11 @@ import { respondWithIa } from "@/app/api/webhook/evolution/route";
 // Endpoint temporário: reprocessa a última mensagem recebida de um contato
 // (uso único, pra destravar conversas que ficaram sem resposta por causa do
 // bug do documento sem legenda, corrigido antes deste deploy). Remover depois.
+const SECRET = "nudge-temp-7f3a9c2e";
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
+  if (searchParams.get("secret") !== SECRET) return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   const phone = searchParams.get("phone");
   if (!phone) return NextResponse.json({ error: "informe ?phone=" }, { status: 400 });
 
