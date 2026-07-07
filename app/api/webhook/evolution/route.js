@@ -133,7 +133,7 @@ function isListLike(text) {
 // - Se a mensagem recebida for um áudio, transcreve (Whisper) pra IA entender.
 // - O formato da resposta (texto ou áudio) segue o modo do agente:
 //   "espelho" (acompanha o que o cliente mandou), "texto" ou "audio" (sempre).
-async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
+export async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
   const cfg = await getIaConfig();
   if (!cfg?.deepinfraApiKey) return;
 
