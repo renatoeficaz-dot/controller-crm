@@ -11,7 +11,7 @@ import {
   sendPresence,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
-import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet, autoSendCobradorContact, analyzeDocumentImage, hasReceivedRealDocuments, hasReceivedVideoAndLocation } from "@/lib/ia";
+import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet, autoSendCobradorContact, analyzeDocumentImage, hasReceivedRealDocuments, hasReceivedVideo } from "@/lib/ia";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -266,13 +266,13 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
     reply = "Ainda não recebi nenhum documento de verdade nesta conversa — preciso que você anexe os documentos como foto ou arquivo (não só escrever que enviou) pra eu poder confirmar e continuar.";
   }
 
-  // Rede de segurança extra: se a resposta MENCIONA que vai passar o cobrador
-  // mas a função de enviar contato nunca rodou de verdade nessa conversa, manda
-  // o contato agora — a IA às vezes só narra essa frase sem chamar a função,
-  // mesmo depois de perguntada diretamente sobre o contato.
-  if (/chamar o cobrador/i.test(reply)) {
+  // Rede de segurança extra: se a resposta MENCIONA o cobrador (ex.: a mensagem
+  // fixa de handoff) mas a função de enviar contato nunca rodou de verdade
+  // nessa conversa, manda o contato agora — a IA às vezes só narra essa frase
+  // sem chamar a função, mesmo depois de perguntada diretamente sobre o contato.
+  if (/cobrador/i.test(reply)) {
     const hasContact = await prisma.message.findFirst({ where: { contactId: contact.id, kind: "contact" } });
-    if (!hasContact && (await hasReceivedRealDocuments(contact.id)) && (await hasReceivedVideoAndLocation(contact.id))) {
+    if (!hasContact && (await hasReceivedRealDocuments(contact.id)) && (await hasReceivedVideo(contact.id))) {
       await autoSendCobradorContact(contact, instance).catch(() => {});
     }
   }
