@@ -19,6 +19,7 @@ export async function POST(req, { params }) {
   const file = form.get("file");
   const kind = form.get("kind") || "document"; // audio | image | document
   const caption = form.get("caption") || "";
+  const instanceOverride = form.get("instance") || "";
   if (!file || typeof file === "string") {
     return NextResponse.json({ error: "Arquivo ausente." }, { status: 400 });
   }
@@ -30,8 +31,9 @@ export async function POST(req, { params }) {
   const base64 = bytes.toString("base64");
   const mediaUrl = `data:${mimeType};base64,${base64}`;
 
-  // Responde sempre pelo mesmo número (instância) por onde a conversa está rolando
-  const instanceHint = await resolveInstanceForContact(id);
+  // Por padrão responde pelo mesmo número (instância) por onde a conversa está
+  // rolando — o usuário pode escolher outro número no seletor do chat.
+  const instanceHint = instanceOverride || (await resolveInstanceForContact(id));
 
   // Envia pela Evolution (ou modo simulado)
   let result;

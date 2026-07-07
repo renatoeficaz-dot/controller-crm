@@ -5,6 +5,18 @@ import { NextResponse } from "next/server";
 export async function POST(req) {
   const body = await req.json();
 
+  // Evita duplicar lead: se já existe um contato com o mesmo telefone (últimos
+  // 8 dígitos, tolerando formatação/DDI diferentes — mesma regra do webhook do
+  // WhatsApp), reaproveita o card existente em vez de criar um novo.
+  const phoneDigits = (body.phone || "").replace(/\D/g, "");
+  if (phoneDigits) {
+    const tail = phoneDigits.slice(-8);
+    const existing = await prisma.contact.findFirst({ where: { phone: { endsWith: tail } } });
+    if (existing) {
+      return NextResponse.json({ existing: true, contact: existing });
+    }
+  }
+
   let stageId = body.stageId;
   if (!stageId) {
     const first = await prisma.stage.findFirst({ orderBy: { order: "asc" } });

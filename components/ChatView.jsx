@@ -37,6 +37,8 @@ export default function ChatView() {
   const [saved, setSaved] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [tplSent, setTplSent] = useState(false);
+  const [numbers, setNumbers] = useState([]);
+  const [selectedInstance, setSelectedInstance] = useState("");
   const [resumo, setResumo] = useState(null); // { dia, semana, mes, pendenteTotal, clientes }
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -69,6 +71,7 @@ export default function ChatView() {
       setResumo({ ...receber, pendenteTotal: inad.pendenteTotal, clientes: inad.clientes });
     }).catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
+    fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
   }, []);
 
   const loadContact = useCallback(async () => {
@@ -109,6 +112,21 @@ export default function ChatView() {
     return () => clearInterval(t);
   }, [loadContact, loadMessages, selectedId]);
 
+  // Número (instância) de onde a próxima mensagem vai sair. Ao trocar de
+  // conversa, sugere automaticamente o último número usado nela (mesma regra
+  // do backend) — mas só uma vez por conversa, pra não atrapalhar se o
+  // usuário trocar manualmente enquanto o polling atualiza as mensagens.
+  const instanceDefaultedForRef = useRef(null);
+  useEffect(() => {
+    instanceDefaultedForRef.current = null;
+  }, [selectedId]);
+  useEffect(() => {
+    if (!selectedId || instanceDefaultedForRef.current === selectedId) return;
+    const lastWithInstance = [...messages].reverse().find((m) => m.instance);
+    setSelectedInstance(lastWithInstance?.instance || numbers[0]?.instance || "");
+    if (messages.length > 0 || numbers.length > 0) instanceDefaultedForRef.current = selectedId;
+  }, [messages, selectedId, numbers]);
+
   const scrolledForRef = useRef(null);
   const lastMsgIdRef = useRef(null);
   useEffect(() => {
@@ -132,7 +150,7 @@ export default function ChatView() {
     const res = await fetch(`/api/contacts/${selectedId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, instance: selectedInstance }),
     });
     setSending(false);
     if (res.ok) {
@@ -148,7 +166,7 @@ export default function ChatView() {
 
     if (t.mediaType && t.mediaType !== "text") {
       setSending(true);
-      const payload = { mediaType: t.mediaType };
+      const payload = { mediaType: t.mediaType, instance: selectedInstance };
       if (t.mediaType === "contact") {
         payload.contactName = t.contactName;
         payload.contactPhone = t.contactPhone;
@@ -191,6 +209,7 @@ export default function ChatView() {
     fd.append("file", file);
     fd.append("kind", kind);
     fd.append("caption", caption);
+    fd.append("instance", selectedInstance || "");
     const res = await fetch(`/api/contacts/${selectedId}/media`, { method: "POST", body: fd });
     const data = await res.json().catch(() => ({}));
     setUploading(false);
@@ -398,6 +417,21 @@ export default function ChatView() {
               <div ref={chatEnd} />
             </div>
             <div className="px-4 pt-2 pb-0 bg-white border-t border-slate-200 shrink-0">
+              {numbers.length > 1 && (
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs text-slate-400 shrink-0">Enviar por:</span>
+                  <select
+                    value={selectedInstance}
+                    onChange={(e) => setSelectedInstance(e.target.value)}
+                    disabled={sending || uploading}
+                    className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400 disabled:opacity-50"
+                  >
+                    {numbers.map((n) => (
+                      <option key={n.id} value={n.instance}>{n.label} ({n.number})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {templates.length > 0 && (
                 <div className="flex items-center gap-2 mb-2">
                   <select

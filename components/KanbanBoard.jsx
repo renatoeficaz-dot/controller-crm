@@ -156,14 +156,19 @@ export default function KanbanBoard() {
 
   async function createContact(stageId) {
     if (!newName.trim()) return;
-    await fetch("/api/contacts", {
+    const res = await fetch("/api/contacts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: newName, phone: newPhone, stageId }),
     });
+    const data = await res.json().catch(() => ({}));
     setNewName("");
     setNewPhone("");
     setAdding(null);
+    if (data.existing) {
+      flash(`Esse telefone já é o lead "${data.contact.name}" — abrindo o card existente em vez de duplicar.`);
+      setOpenId(data.contact.id);
+    }
     load();
   }
 

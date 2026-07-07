@@ -44,10 +44,11 @@ export async function POST(req, { params }) {
   const contact = await prisma.contact.findUnique({ where: { id } });
   if (!contact) return NextResponse.json({ error: "Contato não encontrado" }, { status: 404 });
 
-  // Responde sempre pelo mesmo número (instância) por onde a conversa está
-  // rolando — sem isso, cai sempre no primeiro número conectado, podendo
-  // sair por um WhatsApp diferente do que o cliente está falando.
-  const instanceHint = await resolveInstanceForContact(id);
+  // Por padrão responde pelo mesmo número (instância) por onde a conversa está
+  // rolando — sem isso, cai sempre no primeiro número conectado, podendo sair
+  // por um WhatsApp diferente do que o cliente está falando. O usuário pode
+  // escolher outro número no seletor do chat (payload.instance).
+  const instanceHint = payload.instance || (await resolveInstanceForContact(id));
 
   let result;
   let kind = "text";
