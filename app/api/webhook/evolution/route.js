@@ -170,7 +170,13 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
     docAnalysis = await analyzeDocumentImage(base64, incomingMsg.mimeType, incomingMsg.body, apiKey).catch(() => null);
   }
 
-  if (!userText.trim() && !docAnalysis) return;
+  // Documento sem legenda (ex.: CNH em PDF, contrato de locação) não tem texto
+  // nem análise de visão (essa só roda pra imagem) — mas ainda é um anexo de
+  // verdade, então a IA precisa responder mesmo assim (confirmar recebimento e
+  // pedir o próximo item). Só corta se não veio NADA de verdade (nem texto,
+  // nem mídia, nem localização).
+  const hasMedia = ["image", "document", "location"].includes(incomingMsg.kind);
+  if (!userText.trim() && !docAnalysis && !hasMedia) return;
 
   // Mostra "digitando…" pro cliente enquanto a IA processa — modelos maiores (70B)
   // podem levar dezenas de segundos, isso evita parecer que travou.
