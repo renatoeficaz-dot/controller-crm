@@ -11,6 +11,12 @@ function fmtTime(iso) {
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+function numberLabel(instance, numbers) {
+  if (!instance) return null;
+  const n = numbers.find((x) => x.instance === instance);
+  return n ? n.label : instance;
+}
+
 function initials(name) {
   return (name || "?").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
 }
@@ -406,6 +412,9 @@ export default function ChatView() {
                         : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"
                     }`}
                   >
+                    {!m.fromMe && m.instance && numbers.length > 1 && (
+                      <p className="text-[10px] text-slate-400 mb-0.5">📱 {numberLabel(m.instance, numbers)}</p>
+                    )}
                     {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && <MediaBubble message={m} />}
                     {m.kind !== "location" && (m.kind === "text" || m.body) && <p>{m.body}</p>}
                     <p className={`text-[10px] mt-1 ${m.fromMe ? "text-emerald-200" : "text-slate-400"}`}>
