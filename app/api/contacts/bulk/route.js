@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+// Data local de hoje como UTC-midnight (evita drift de fuso nas parcelas)
+function hojeUTC() {
+  const hoje = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
+  return new Date(hoje + "T00:00:00.000Z");
+}
+
 // Ações em massa sobre um conjunto de leads (os que estão no filtro do funil).
 // body: { ids: string[], action: "stage" | "responsavel" | "delete", value?: string }
 export async function POST(req) {
@@ -36,6 +42,39 @@ export async function POST(req) {
       alvo = validos.map((v) => v.id);
       skipped = ids.length - alvo.length;
     }
+
+    // "Recebimento" tem efeitos colaterais por contato (aviso fixo pro cliente
+    // pelo número de Vendas, gerar parcelas, lançar a liberação de capital) —
+    // não dá pra fazer com um updateMany só. Processa um a um, igual ao PATCH
+    // de mover individual (senão o bulk pulava tudo isso, como já aconteceu:
+    // lead ia pra Recebimento sem avisar o cliente).
+    if (stage.name === "Recebimento") {
+      const { regenerarParcelas, lancarLiberacaoCapital } = await import("@/lib/cobranca");
+      const { sendRecebimentoNotice } = await import("@/lib/ia");
+      const hoje = hojeUTC();
+      let moved = 0;
+      for (const id of alvo) {
+        const contact = await prisma.contact.findUnique({ where: { id }, include: { parcelas: true } });
+        if (!contact || contact.stageId === value) continue;
+
+        const last = await prisma.contact.findFirst({ where: { stageId: value }, orderBy: { order: "desc" } });
+        const data = { stageId: value, order: (last?.order ?? -1) + 1 };
+        const aindaSemPlano = contact.parcelas.length === 0;
+        if (contact.valorCapital && aindaSemPlano && !contact.pagamentoCapital) {
+          data.pagamentoCapital = hoje;
+        }
+
+        const updated = await prisma.contact.update({ where: { id }, data });
+        if (updated.valorCapital && updated.pagamentoCapital && aindaSemPlano) {
+          await regenerarParcelas(id);
+        }
+        await sendRecebimentoNotice(updated).catch(() => {});
+        await lancarLiberacaoCapital(updated).catch(() => {});
+        moved++;
+      }
+      return NextResponse.json({ ok: true, moved, skipped });
+    }
+
     const r = await prisma.contact.updateMany({ where: { id: { in: alvo } }, data: { stageId: value } });
     return NextResponse.json({ ok: true, moved: r.count, skipped });
   }
