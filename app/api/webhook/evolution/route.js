@@ -8,7 +8,7 @@ import {
   onlyDigits,
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
-import { respondWithIa } from "@/lib/ia";
+import { respondWithIa, moveContactStage } from "@/lib/ia";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
@@ -104,6 +104,23 @@ export async function POST(req) {
   }
 
   const saved = await prisma.message.create({ data: msg });
+
+  // Cliente mandando mensagem pra um número de cobrança (sem agente de IA
+  // atribuído — atendido por humano) já está em contato direto com o
+  // cobrador de verdade: move automaticamente pra "Liberação pagamento".
+  // Só avança (nunca move pra trás quem já passou dessa etapa).
+  if (!fromMe) {
+    const numero = await prisma.whatsappNumber.findFirst({ where: { instance } });
+    if (numero && !numero.agentId) {
+      const [currentStage, liberacao] = await Promise.all([
+        prisma.stage.findUnique({ where: { id: contact.stageId } }),
+        prisma.stage.findFirst({ where: { name: "Liberação pagamento" } }),
+      ]);
+      if (liberacao && currentStage && currentStage.order < liberacao.order) {
+        await moveContactStage(contact.id, "Liberação pagamento", instance).catch(() => {});
+      }
+    }
+  }
 
   // Chatbot: só reage a mensagens recebidas do cliente (não a ecos do nosso próprio envio)
   if (!fromMe) {
