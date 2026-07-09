@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
+import { normalizeBrPhone } from "@/lib/evolution";
 
 // Edita uma mensagem pronta
 export async function PATCH(req, { params }) {
@@ -20,7 +21,30 @@ export async function PATCH(req, { params }) {
   if ("mediaMimetype" in body) data.mediaMimetype = body.mediaMimetype || null;
   if ("mediaFileName" in body) data.mediaFileName = body.mediaFileName || null;
   if ("contactName" in body) data.contactName = (body.contactName || "").trim() || null;
-  if ("contactPhone" in body) data.contactPhone = (body.contactPhone || "").trim() || null;
+
+  const existing = await prisma.messageTemplate.findUnique({ where: { id } });
+  if (!existing) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  const effectiveMediaType = "mediaType" in body ? data.mediaType : existing.mediaType;
+
+  if ("contactPhone" in body) {
+    if (effectiveMediaType === "contact") {
+      const normalized = normalizeBrPhone(body.contactPhone);
+      if (!normalized) {
+        return NextResponse.json(
+          { error: "Telefone do contato inválido — use DDD + número (ex.: 11948528114 ou 5511948528114)." },
+          { status: 400 }
+        );
+      }
+      data.contactPhone = normalized;
+    } else {
+      data.contactPhone = (body.contactPhone || "").trim() || null;
+    }
+  } else if (effectiveMediaType === "contact" && existing.contactPhone) {
+    // Blinda contra registros antigos com telefone em formato não normalizado.
+    const normalized = normalizeBrPhone(existing.contactPhone);
+    if (normalized && normalized !== existing.contactPhone) data.contactPhone = normalized;
+  }
+
   const tpl = await prisma.messageTemplate.update({ where: { id }, data });
   return NextResponse.json(tpl);
 }

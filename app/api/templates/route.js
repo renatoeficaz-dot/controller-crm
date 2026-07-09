@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
+import { normalizeBrPhone } from "@/lib/evolution";
 
 // Lista as mensagens prontas (ordenadas)
 export async function GET() {
@@ -27,6 +28,12 @@ export async function POST(req) {
     if (!(data.contactName || "").trim() || !(data.contactPhone || "").trim()) {
       return NextResponse.json({ error: "Preencha nome e telefone do contato." }, { status: 400 });
     }
+    if (!normalizeBrPhone(data.contactPhone)) {
+      return NextResponse.json(
+        { error: "Telefone do contato inválido — use DDD + número (ex.: 11948528114 ou 5511948528114)." },
+        { status: 400 }
+      );
+    }
   } else {
     if (!data.mediaBase64) {
       return NextResponse.json({ error: "Anexe um arquivo." }, { status: 400 });
@@ -49,7 +56,7 @@ export async function POST(req) {
       mediaMimetype: data.mediaMimetype || null,
       mediaFileName: data.mediaFileName || null,
       contactName: (data.contactName || "").trim() || null,
-      contactPhone: (data.contactPhone || "").trim() || null,
+      contactPhone: mediaType === "contact" ? normalizeBrPhone(data.contactPhone) : (data.contactPhone || "").trim() || null,
       order: (last?.order ?? -1) + 1,
     },
   });
