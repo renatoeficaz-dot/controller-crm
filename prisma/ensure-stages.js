@@ -7,11 +7,13 @@ const prisma = new PrismaClient();
 const DEFAULT_STAGES = [
   { name: "Novo", color: "#3b82f6" },
   { name: "Em conversa", color: "#f59e0b" },
+  { name: "Documentação", color: "#06b6d4" },
   { name: "Análise", color: "#8b5cf6" },
   { name: "Liberação pagamento", color: "#0ea5e9" },
   { name: "Recebimento", color: "#10b981" },
   { name: "Pago", color: "#22c55e" },
   { name: "Cravo", color: "#ef4444" },
+  { name: "Venda perdida", color: "#f43f5e" },
   { name: "Aguardando Cobrador", color: "#64748b" },
 ];
 

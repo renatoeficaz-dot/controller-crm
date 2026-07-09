@@ -5,7 +5,10 @@ import MediaBubble from "./MediaBubble";
 import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
 
 function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const d = new Date(iso);
+  const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${data} ${hora}`;
 }
 
 const money = (n) =>

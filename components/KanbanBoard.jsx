@@ -79,6 +79,7 @@ export default function KanbanBoard() {
   const [notify, setNotify] = useState("");
   const [filtros, setFiltros] = useState([]); // situações selecionadas; vazio = todos
   const [busca, setBusca] = useState(""); // nome ou telefone
+  const [ordem, setOrdem] = useState("recentes"); // "recentes" | "antigas" — ordenação dos cards por última mensagem
   const [respFiltro, setRespFiltro] = useState(""); // "" = todos; "__none__" = sem responsável
   const [usuarios, setUsuarios] = useState([]);
   const [tags, setTags] = useState([]);
@@ -352,6 +353,17 @@ export default function KanbanBoard() {
             </select>
           </>
         )}
+
+        {/* Ordenação dos cards por última mensagem */}
+        <span className="text-xs text-slate-400 ml-2">Ordenar:</span>
+        <select
+          value={ordem}
+          onChange={(e) => setOrdem(e.target.value)}
+          className="text-xs rounded-full px-3 py-1 border bg-white border-slate-200 text-slate-600 outline-none transition-colors"
+        >
+          <option value="recentes">Mais recentes</option>
+          <option value="antigas">Mais antigas</option>
+        </select>
       </div>
 
       {/* Ações em massa sobre os leads do filtro */}
@@ -412,7 +424,11 @@ export default function KanbanBoard() {
         <div className="flex gap-3 md:gap-4 h-full items-start">
           {stages.map((stage) => {
             const isOver = overStage === stage.id;
-            const visiveis = stage.contacts.filter(passaFiltro);
+            const visiveis = stage.contacts.filter(passaFiltro).sort((a, b) => {
+              const da = new Date(a.lastMessageAt || 0);
+              const db = new Date(b.lastMessageAt || 0);
+              return ordem === "recentes" ? db - da : da - db;
+            });
             return (
               <div
                 key={stage.id}

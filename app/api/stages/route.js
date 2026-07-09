@@ -31,8 +31,7 @@ export async function GET() {
           tags: { select: { id: true, name: true, color: true } },
           _count: { select: { messages: { where: { fromMe: false, readAt: null } } } },
           messages: {
-            where: { fromMe: false, readAt: null },
-            orderBy: { createdAt: "asc" },
+            orderBy: { createdAt: "desc" },
             take: 1,
             select: { createdAt: true },
           },
@@ -41,23 +40,18 @@ export async function GET() {
     },
   });
 
-  // Enriquece com unreadCount e oldestUnread, e ordena por mensagem mais antiga não lida
+  // Enriquece com unreadCount e o horário da última mensagem (de qualquer
+  // direção) — o front ordena os cards por isso (mais recente ou mais antiga
+  // primeiro, conforme o filtro escolhido).
   const enriched = stages.map((s) => ({
     ...s,
-    contacts: s.contacts
-      .map((c) => ({
-        ...c,
-        unreadCount: c._count?.messages || 0,
-        oldestUnread: c.messages?.[0]?.createdAt || null,
-        messages: undefined,
-        _count: undefined,
-      }))
-      .sort((a, b) => {
-        if (a.oldestUnread && !b.oldestUnread) return -1;
-        if (!a.oldestUnread && b.oldestUnread) return 1;
-        if (a.oldestUnread && b.oldestUnread) return new Date(a.oldestUnread) - new Date(b.oldestUnread);
-        return 0;
-      }),
+    contacts: s.contacts.map((c) => ({
+      ...c,
+      unreadCount: c._count?.messages || 0,
+      lastMessageAt: c.messages?.[0]?.createdAt || c.createdAt,
+      messages: undefined,
+      _count: undefined,
+    })),
   }));
   return NextResponse.json(enriched);
 }
