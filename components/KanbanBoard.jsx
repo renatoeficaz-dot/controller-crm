@@ -18,6 +18,18 @@ function todayStr() {
   return new Date().toLocaleDateString("en-CA");
 }
 
+const money = (n) =>
+  "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Soma das parcelas do ciclo atual que ainda não foram marcadas como pagas
+// (o valor que falta receber desse lead).
+function valorAReceber(contact) {
+  const ciclo = contact.cicloAtual || 1;
+  return (contact.parcelas || [])
+    .filter((p) => (p.ciclo || 1) === ciclo && !p.paid)
+    .reduce((sum, p) => sum + p.amount, 0);
+}
+
 // Situação de cobrança do contato:
 //  "atrasado" = tem parcela vencida e não baixada
 //  "hoje"     = tem parcela que vence hoje e não baixada
@@ -485,6 +497,11 @@ export default function KanbanBoard() {
                         {c.phone && (
                           <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
                             <span className="text-emerald-500">●</span> {c.phone}
+                          </p>
+                        )}
+                        {stage.name === "Recebimento" && (
+                          <p className="mt-1 text-xs font-medium text-emerald-700">
+                            A receber: {money(valorAReceber(c))}
                           </p>
                         )}
                       </div>
