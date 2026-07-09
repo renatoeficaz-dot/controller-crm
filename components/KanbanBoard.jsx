@@ -57,6 +57,7 @@ const FILTRO_OPCOES = [
 export default function KanbanBoard() {
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [dragging, setDragging] = useState(null); // { contactId, fromStageId }
   const [overStage, setOverStage] = useState(null);
   const [openId, setOpenId] = useState(null); // contato aberto no modal
@@ -85,10 +86,19 @@ export default function KanbanBoard() {
   }
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/stages");
-    const data = await res.json();
-    setStages(data);
-    setLoading(false);
+    setLoadError(false);
+    try {
+      const res = await fetch("/api/stages");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setStages(data);
+    } catch {
+      // Sem isso, uma falha de rede/sessão deixava a tela presa em
+      // "Carregando funil…" pra sempre, sem nenhum aviso ou jeito de tentar de novo.
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -221,6 +231,20 @@ export default function KanbanBoard() {
 
   if (loading) {
     return <div className="p-6 text-slate-400">Carregando funil…</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-6 text-slate-500">
+        <p className="mb-2">Não foi possível carregar o funil.</p>
+        <button
+          onClick={() => { setLoading(true); load(); }}
+          className="text-sm bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600"
+        >
+          Tentar de novo
+        </button>
+      </div>
+    );
   }
 
   return (
