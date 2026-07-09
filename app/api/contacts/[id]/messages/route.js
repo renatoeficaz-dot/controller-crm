@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { sendWhatsappText, sendWhatsappMedia, sendWhatsappAudio, sendWhatsappContact, resolveInstanceForContact } from "@/lib/evolution";
 import { getCurrentUser, mensagensWhere } from "@/lib/session";
+import { readMediaAsBase64 } from "@/lib/mediaStorage";
 
 // Lista mensagens do contato (conforme os WhatsApp que o usuário pode ver).
 // Não traz o campo mediaUrl (base64) — mídia é carregada sob demanda via
@@ -33,12 +34,14 @@ export async function GET(_req, { params }) {
 // Envia mensagem pelo WhatsApp (Evolution API) e salva no histórico
 // Aceita:
 //   { body } — texto simples
-//   { mediaType: "image"|"audio"|"document", mediaBase64, mediaMimetype, mediaFileName, body } — mídia
+//   { mediaType: "image"|"audio"|"document", mediaUrl, mediaMimetype, mediaFileName, body } — mídia
+//     (mediaUrl é o caminho /uploads/... de uma mensagem pronta — resolvido pra
+//     base64 aqui só pra mandar pra Evolution, sem duplicar o arquivo no banco)
 //   { mediaType: "contact", contactName, contactPhone } — contato vCard
 export async function POST(req, { params }) {
   const { id } = await params;
   const payload = await req.json();
-  const { mediaType, mediaBase64, mediaMimetype, mediaFileName, contactName, contactPhone } = payload;
+  const { mediaType, mediaUrl: mediaUrlIn, mediaMimetype, mediaFileName, contactName, contactPhone } = payload;
   const body = payload.body || "";
 
   const contact = await prisma.contact.findUnique({ where: { id } });
@@ -54,6 +57,7 @@ export async function POST(req, { params }) {
   let kind = "text";
   let mimeType = null;
   let fileName = null;
+  let mediaUrl = null;
 
   if (mediaType === "contact") {
     if (!contactName || !contactPhone) {
@@ -62,14 +66,17 @@ export async function POST(req, { params }) {
     result = await sendWhatsappContact(contact.phone, { name: contactName, contactPhone }, instanceHint);
     kind = "contact";
   } else if (mediaType === "audio") {
-    if (!mediaBase64) return NextResponse.json({ error: "Arquivo ausente." }, { status: 400 });
-    result = await sendWhatsappAudio(contact.phone, mediaBase64, instanceHint);
+    const base64 = await readMediaAsBase64(mediaUrlIn);
+    if (!base64) return NextResponse.json({ error: "Arquivo ausente." }, { status: 400 });
+    result = await sendWhatsappAudio(contact.phone, base64, instanceHint);
     kind = "audio";
     mimeType = mediaMimetype || "audio/ogg";
+    mediaUrl = mediaUrlIn;
   } else if (mediaType === "image" || mediaType === "document") {
-    if (!mediaBase64) return NextResponse.json({ error: "Arquivo ausente." }, { status: 400 });
+    const base64 = await readMediaAsBase64(mediaUrlIn);
+    if (!base64) return NextResponse.json({ error: "Arquivo ausente." }, { status: 400 });
     result = await sendWhatsappMedia(contact.phone, {
-      base64: mediaBase64,
+      base64,
       mimetype: mediaMimetype,
       fileName: mediaFileName,
       caption: body,
@@ -78,6 +85,7 @@ export async function POST(req, { params }) {
     kind = mediaType;
     mimeType = mediaMimetype || null;
     fileName = mediaFileName || null;
+    mediaUrl = mediaUrlIn;
   } else {
     if (!body.trim()) return NextResponse.json({ error: "Mensagem vazia" }, { status: 400 });
     result = await sendWhatsappText(contact.phone, body, instanceHint);
@@ -96,6 +104,7 @@ export async function POST(req, { params }) {
       contactId: id,
       body: displayBody,
       kind,
+      mediaUrl,
       mimeType,
       fileName,
       fromMe: true,

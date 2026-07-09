@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { sendWhatsappMedia, sendWhatsappAudio, resolveInstanceForContact } from "@/lib/evolution";
+import { saveMediaBuffer } from "@/lib/mediaStorage";
 
 const EXT = {
   "audio/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/wav": "wav",
@@ -9,7 +10,7 @@ const EXT = {
 };
 
 // Envia mídia (áudio gravado / imagem / documento) pelo WhatsApp e salva no histórico.
-// A mídia é guardada como data URL no próprio banco (sem disco) — funciona em serverless (Vercel).
+// A mídia fica em arquivo (volume /app/public/uploads), só o caminho vai pro banco.
 export async function POST(req, { params }) {
   const { id } = await params;
   const contact = await prisma.contact.findUnique({ where: { id } });
@@ -29,7 +30,7 @@ export async function POST(req, { params }) {
   const ext = EXT[mimeType] || (file.name?.split(".").pop() || "bin");
   const fileName = file.name || `${kind}.${ext}`;
   const base64 = bytes.toString("base64");
-  const mediaUrl = `data:${mimeType};base64,${base64}`;
+  const mediaUrl = await saveMediaBuffer(bytes, mimeType, fileName);
 
   // Por padrão responde pelo mesmo número (instância) por onde a conversa está
   // rolando — o usuário pode escolher outro número no seletor do chat.

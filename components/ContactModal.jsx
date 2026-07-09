@@ -127,7 +127,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
         payload.contactName = t.contactName;
         payload.contactPhone = t.contactPhone;
       } else {
-        payload.mediaBase64 = t.mediaBase64;
+        payload.mediaUrl = t.mediaUrl;
         payload.mediaMimetype = t.mediaMimetype;
         payload.mediaFileName = t.mediaFileName;
         payload.body = t.body || "";

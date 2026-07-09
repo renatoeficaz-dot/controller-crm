@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { saveMediaBase64 } from "@/lib/mediaStorage";
 
 // Lista as mensagens prontas (ordenadas)
 export async function GET() {
@@ -32,13 +33,19 @@ export async function POST(req) {
     }
   }
 
+  // Novo template sempre vem de um upload fresco (base64 do navegador) — salva
+  // como arquivo em disco, só o caminho vai pro banco.
+  const mediaUrl = data.mediaBase64
+    ? await saveMediaBase64(data.mediaBase64, data.mediaMimetype, data.mediaFileName)
+    : null;
+
   const last = await prisma.messageTemplate.findFirst({ orderBy: { order: "desc" } });
   const tpl = await prisma.messageTemplate.create({
     data: {
       title,
       body: (data.body || "").trim(),
       mediaType: mediaType || null,
-      mediaBase64: data.mediaBase64 || null,
+      mediaUrl,
       mediaMimetype: data.mediaMimetype || null,
       mediaFileName: data.mediaFileName || null,
       contactName: (data.contactName || "").trim() || null,

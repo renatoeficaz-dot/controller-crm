@@ -12,6 +12,7 @@ import {
 } from "@/lib/evolution";
 import { handleChatbotMessage } from "@/lib/chatbot";
 import { askIa, synthesizeSpeech, transcribeAudio, getIaConfig, getAgentForInstance, executeToolCalls, agentShouldStayQuiet, autoSendCobradorContact, analyzeDocumentImage, hasReceivedRealDocuments, hasReceivedVideoAndLocation } from "@/lib/ia";
+import { saveMediaBase64, readMediaAsBase64 } from "@/lib/mediaStorage";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
@@ -84,11 +85,12 @@ export async function POST(req) {
     const file = await fetchIncomingMediaBase64(instance, data.key);
     if (file?.base64) {
       const mime = file.mimetype || media.mimetype;
+      const fileName = file.fileName || media.fileName || null;
       msg.kind = media.kind;
       msg.body = media.caption || "";
-      msg.mediaUrl = `data:${mime};base64,${file.base64}`;
+      msg.mediaUrl = await saveMediaBase64(file.base64, mime, fileName);
       msg.mimeType = mime;
-      msg.fileName = file.fileName || media.fileName || null;
+      msg.fileName = fileName;
       if (media.kind === "audio") incomingAudio = { base64: file.base64, mimetype: mime };
     } else {
       // Não conseguiu baixar o arquivo: registra um aviso pra não perder a mensagem
@@ -166,8 +168,8 @@ async function respondWithIa(contact, incomingMsg, instance, incomingAudio) {
     (incomingMsg.kind === "document" && (incomingMsg.mimeType || "").startsWith("image/"));
   let docAnalysis = null;
   if (isImageDoc && incomingMsg.mediaUrl) {
-    const base64 = incomingMsg.mediaUrl.split(",")[1];
-    docAnalysis = await analyzeDocumentImage(base64, incomingMsg.mimeType, incomingMsg.body, apiKey).catch(() => null);
+    const base64 = await readMediaAsBase64(incomingMsg.mediaUrl);
+    if (base64) docAnalysis = await analyzeDocumentImage(base64, incomingMsg.mimeType, incomingMsg.body, apiKey).catch(() => null);
   }
 
   // Documento sem legenda (ex.: CNH em PDF, contrato de locação) não tem texto

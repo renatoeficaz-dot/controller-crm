@@ -940,7 +940,7 @@ function MensagensProntas() {
       title: t.title,
       body: t.body || "",
       mediaType: t.mediaType || "text",
-      mediaBase64: t.mediaBase64 || null,
+      mediaBase64: t.mediaUrl || null,
       mediaMimetype: t.mediaMimetype || null,
       mediaFileName: t.mediaFileName || null,
       contactName: t.contactName || "",
