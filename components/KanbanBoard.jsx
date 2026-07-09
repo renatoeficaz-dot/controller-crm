@@ -66,6 +66,7 @@ export default function KanbanBoard() {
   const [newPhone, setNewPhone] = useState("");
   const [notify, setNotify] = useState("");
   const [filtros, setFiltros] = useState([]); // situações selecionadas; vazio = todos
+  const [busca, setBusca] = useState(""); // nome ou telefone
   const [respFiltro, setRespFiltro] = useState(""); // "" = todos; "__none__" = sem responsável
   const [usuarios, setUsuarios] = useState([]);
   const [tags, setTags] = useState([]);
@@ -182,12 +183,21 @@ export default function KanbanBoard() {
     load();
   }
 
-  // Um lead passa pelo filtro atual (situação + responsável)?
+  // Um lead passa pelo filtro atual (situação + responsável + busca)?
   function passaFiltro(c) {
     if (filtros.length && !filtros.includes(situacaoContato(c))) return false;
     if (respFiltro === "__none__" && c.responsavel) return false;
     if (respFiltro && respFiltro !== "__none__" && c.responsavel !== respFiltro) return false;
     if (tagFiltro && !(c.tags || []).some((t) => t.id === tagFiltro)) return false;
+    if (busca.trim()) {
+      const termo = busca.trim().toLowerCase();
+      const nomeBate = (c.name || "").toLowerCase().includes(termo);
+      // Telefone: compara só os dígitos, pra achar mesmo se a busca ou o
+      // número cadastrado tiver espaço/traço/parênteses/DDI diferente.
+      const digitosTermo = termo.replace(/\D/g, "");
+      const telefoneBate = digitosTermo && (c.phone || "").replace(/\D/g, "").includes(digitosTermo);
+      if (!nomeBate && !telefoneBate) return false;
+    }
     return true;
   }
 
@@ -254,6 +264,16 @@ export default function KanbanBoard() {
           ⚠️ {notify}
         </div>
       )}
+
+      {/* Busca por nome ou telefone */}
+      <div className="px-3 md:px-4 pt-3">
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por nome ou telefone…"
+          className="w-full max-w-xs text-sm border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-emerald-400"
+        />
+      </div>
 
       {/* Filtro por situação de cobrança (multi-seleção) */}
       <div className="flex items-center gap-2 px-3 md:px-4 pt-3 flex-wrap overflow-x-auto">
