@@ -429,6 +429,12 @@ export default function KanbanBoard() {
               const db = new Date(b.lastMessageAt || 0);
               return ordem === "recentes" ? db - da : da - db;
             });
+            // Soma do que ainda falta receber (parcelas do ciclo atual não baixadas)
+            // dos leads visíveis nesta coluna — só faz sentido em "Recebimento".
+            const totalAReceber =
+              stage.name === "Recebimento"
+                ? visiveis.reduce((sum, c) => sum + valorAReceber(c), 0)
+                : 0;
             return (
               <div
                 key={stage.id}
@@ -443,17 +449,24 @@ export default function KanbanBoard() {
                 }`}
               >
                 {/* Cabeçalho da coluna */}
-                <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ background: stage.color }}
-                    />
-                    <span className="font-medium text-sm text-slate-700">{stage.name}</span>
-                    <span className="text-xs text-slate-400 bg-slate-200 rounded-full px-1.5">
-                      {visiveis.length}
-                    </span>
+                <div className="flex flex-col gap-0.5 px-3 py-2.5 border-b border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ background: stage.color }}
+                      />
+                      <span className="font-medium text-sm text-slate-700">{stage.name}</span>
+                      <span className="text-xs text-slate-400 bg-slate-200 rounded-full px-1.5">
+                        {visiveis.length}
+                      </span>
+                    </div>
                   </div>
+                  {stage.name === "Recebimento" && (
+                    <p className="text-xs text-emerald-700 font-medium pl-[18px]">
+                      A receber: {money(totalAReceber)}
+                    </p>
+                  )}
                 </div>
 
                 {/* Cartões */}
