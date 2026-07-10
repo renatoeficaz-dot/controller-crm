@@ -105,6 +105,19 @@ export async function POST(req) {
 
   const saved = await prisma.message.create({ data: msg });
 
+  // Cliente mandou o primeiro documento/foto de verdade nesta conversa: move
+  // automaticamente pra "Documentação". Só avança (nunca move pra trás quem
+  // já passou dessa etapa, ex.: já está em Análise ou depois).
+  if (!fromMe && (msg.kind === "image" || msg.kind === "document")) {
+    const [currentStage, documentacao] = await Promise.all([
+      prisma.stage.findUnique({ where: { id: contact.stageId } }),
+      prisma.stage.findFirst({ where: { name: "Documentação" } }),
+    ]);
+    if (documentacao && currentStage && currentStage.order < documentacao.order) {
+      await moveContactStage(contact.id, "Documentação", instance).catch(() => {});
+    }
+  }
+
   // Cliente mandando mensagem pra um número de cobrança (sem agente de IA
   // atribuído — atendido por humano) já está em contato direto com o
   // cobrador de verdade: move automaticamente pra "Liberação pagamento".
