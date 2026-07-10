@@ -463,6 +463,7 @@ function Numeros() {
   const [evoSaved, setEvoSaved] = useState(false);
   const [qr, setQr] = useState(null); // { id, label, image, connected, error }
   const [disconnecting, setDisconnecting] = useState(null); // id em andamento
+  const [status, setStatus] = useState([]); // [{ id, label, number, state }] — estado real na Evolution
 
   const load = useCallback(async () => {
     const [n, u, cfg, ag] = await Promise.all([
@@ -479,6 +480,18 @@ function Numeros() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Estado de conexão (verde = conectado, vermelho = desconectado) de cada
+  // número — atualiza sozinho pra refletir quando reconecta ou cai.
+  const loadStatus = useCallback(async () => {
+    const s = await fetch("/api/numbers/status").then((r) => r.json()).catch(() => []);
+    setStatus(Array.isArray(s) ? s : []);
+  }, []);
+  useEffect(() => {
+    loadStatus();
+    const t = setInterval(loadStatus, 10000);
+    return () => clearInterval(t);
+  }, [loadStatus]);
 
   // Enquanto o QR estiver aberto e não conectado, verifica o estado a cada 3s
   useEffect(() => {
@@ -642,11 +655,19 @@ function Numeros() {
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h2 className="font-medium text-slate-800 mb-3">Números conectados ({numeros.length})</h2>
           <ul className="divide-y divide-slate-100">
-            {numeros.map((n) => (
+            {numeros.map((n) => {
+              const conectado = status.find((s) => s.id === n.id)?.state === "open";
+              return (
               <li key={n.id} className="py-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-700">{n.label}</p>
+                    <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${conectado ? "bg-emerald-500" : "bg-red-500"}`}
+                        title={conectado ? "Conectado" : "Desconectado"}
+                      />
+                      {n.label}
+                    </p>
                     <p className="text-xs text-slate-400">{n.number} · instância: {n.instance}</p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -720,7 +741,8 @@ function Numeros() {
                   </label>
                 </div>
               </li>
-            ))}
+              );
+            })}
             {numeros.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhum número conectado.</li>}
           </ul>
         </div>
