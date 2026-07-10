@@ -75,7 +75,9 @@ export async function POST(req) {
       return NextResponse.json({ ok: true, moved, skipped });
     }
 
-    const r = await prisma.contact.updateMany({ where: { id: { in: alvo } }, data: { stageId: value } });
+    // Ao entrar em "Cravo" (perda/inadimplência), a IA para automaticamente.
+    const bulkData = stage.name === "Cravo" ? { stageId: value, iaPausada: true } : { stageId: value };
+    const r = await prisma.contact.updateMany({ where: { id: { in: alvo } }, data: bulkData });
     return NextResponse.json({ ok: true, moved: r.count, skipped });
   }
 

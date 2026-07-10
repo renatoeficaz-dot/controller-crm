@@ -122,8 +122,9 @@ export async function POST(req) {
     }
   }
 
-  // Chatbot: só reage a mensagens recebidas do cliente (não a ecos do nosso próprio envio)
-  if (!fromMe) {
+  // Chatbot: só reage a mensagens recebidas do cliente (não a ecos do nosso próprio envio).
+  // Atendimento manual (iaPausada) desliga tanto o chatbot em blocos quanto a IA livre.
+  if (!fromMe && !contact.iaPausada) {
     const handled = await handleChatbotMessage(contact, text || "", isNewContact, instance).catch(() => false);
 
     // IA livre (DeepInfra/Llama): só entra se o fluxo por blocos não tratou a mensagem

@@ -360,6 +360,18 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     onClose();
   }
 
+  // Liga/desliga a IA pra este lead — atendimento manual assume a conversa.
+  async function toggleIaPausada() {
+    const iaPausada = !contact.iaPausada;
+    setContact((c) => ({ ...c, iaPausada }));
+    await fetch(`/api/contacts/${contactId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ iaPausada }),
+    });
+    onChanged?.();
+  }
+
   const isRecebimento = contact?.stage?.name === "Recebimento";
   const resumo = resumoCobranca(form.valorCapital, honorariosPct);
   const multaOpts = { multaPct, horaLimite }; // multa por atraso + horário limite (config)
@@ -675,12 +687,23 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             <span className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-sm">
               ✆
             </span>
-            <div>
+            <div className="flex-1 min-w-0">
               <h2 className="font-semibold text-slate-800 text-sm leading-tight">WhatsApp</h2>
               <p className="text-xs text-slate-400 leading-tight">
                 {form.phone ? form.phone : "sem telefone cadastrado"}
               </p>
             </div>
+            <button
+              onClick={toggleIaPausada}
+              title={contact?.iaPausada ? "IA desligada — clique para religar" : "IA ligada — clique para desligar (atendimento manual)"}
+              className={`shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border ${
+                contact?.iaPausada
+                  ? "bg-red-50 text-red-600 border-red-200"
+                  : "bg-emerald-50 text-emerald-600 border-emerald-200"
+              }`}
+            >
+              {contact?.iaPausada ? "🤖 IA desligada" : "🤖 IA ligada"}
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto thin-scroll p-4 flex flex-col gap-2">

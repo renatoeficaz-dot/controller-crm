@@ -43,6 +43,12 @@ export async function PATCH(req, { params }) {
     data.responsavel = stage.autoResponsavel;
   }
 
+  // Ao entrar em "Cravo" (perda/inadimplência), a IA para automaticamente —
+  // esse lead passa a ser tratado manualmente.
+  if (stage.name === "Cravo" && contact.stageId !== stageId) {
+    data.iaPausada = true;
+  }
+
   // Ao ENTRAR em Recebimento: define o pagamento de capital como hoje
   // (data em que passou para cá) e gera parcelas/tarefas automaticamente.
   const entrandoRecebimento = stage.name === "Recebimento" && contact.stageId !== stageId;

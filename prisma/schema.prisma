@@ -48,6 +48,12 @@ model Contact {
   botFlowId String?
   botNodeId String?
 
+  // Atendimento manual: enquanto true, a IA não responde esse lead (nem por
+  // texto livre nem pelo chatbot em blocos) — o humano assumiu a conversa.
+  // É ligado automaticamente ao mover o lead pra "Cravo", e pode ser
+  // ligado/desligado manualmente pelo botão no chat/popup do lead.
+  iaPausada Boolean @default(false)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }

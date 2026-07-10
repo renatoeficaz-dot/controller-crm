@@ -55,6 +55,7 @@ export async function PATCH(req, { params }) {
   if ("pagamentoCapital" in body) {
     data.pagamentoCapital = body.pagamentoCapital ? new Date(body.pagamentoCapital) : null;
   }
+  if ("iaPausada" in body) data.iaPausada = !!body.iaPausada;
   const contact = await prisma.contact.update({ where: { id }, data });
   return NextResponse.json(contact);
 }

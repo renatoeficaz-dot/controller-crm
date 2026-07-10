@@ -303,6 +303,18 @@ export default function ChatView() {
     });
   }
 
+  // Liga/desliga a IA pra este lead — atendimento manual assume a conversa.
+  async function toggleIaPausada() {
+    if (!selectedId || !contact) return;
+    const iaPausada = !contact.iaPausada;
+    setContact((c) => ({ ...c, iaPausada }));
+    await fetch(`/api/contacts/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ iaPausada }),
+    });
+  }
+
   const selected = conversations.find((c) => c.id === selectedId);
   const parcelas = contact?.parcelas || [];
   const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === (contact?.cicloAtual || 1));
@@ -398,6 +410,19 @@ export default function ChatView() {
                 <p className="text-sm font-medium text-slate-800 truncate">{selected.name}</p>
                 {selected.phone && <p className="text-xs text-slate-400">{selected.phone}</p>}
               </div>
+              {contact && (
+                <button
+                  onClick={toggleIaPausada}
+                  title={contact.iaPausada ? "IA desligada — clique para religar" : "IA ligada — clique para desligar (atendimento manual)"}
+                  className={`shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border ${
+                    contact.iaPausada
+                      ? "bg-red-50 text-red-600 border-red-200"
+                      : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                  }`}
+                >
+                  {contact.iaPausada ? "🤖 IA desligada" : "🤖 IA ligada"}
+                </button>
+              )}
               <button
                 onClick={() => setShowInfo((v) => !v)}
                 className="text-xs text-emerald-600 hover:text-emerald-700 border border-emerald-200 rounded-lg px-2.5 py-1 shrink-0"

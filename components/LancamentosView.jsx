@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import ContactModal from "./ContactModal";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -81,6 +82,7 @@ export default function LancamentosView() {
   const [saldoAtual, setSaldoAtual] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [config, setConfig] = useState(null);
+  const [openContactId, setOpenContactId] = useState(null);
 
   const loadConfig = useCallback(async () => {
     const data = await fetch("/api/config").then((r) => r.json()).catch(() => null);
@@ -313,10 +315,22 @@ export default function LancamentosView() {
           </label>
           <label className="block">
             <span className="text-xs text-slate-400">Lead (opcional)</span>
-            <select value={form.contactId} onChange={set("contactId")} className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400">
-              <option value="">— Nenhum —</option>
-              {contacts.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-            </select>
+            <div className="flex gap-1.5 mt-0.5">
+              <select value={form.contactId} onChange={set("contactId")} className="flex-1 text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400">
+                <option value="">— Nenhum —</option>
+                {contacts.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              {form.contactId && (
+                <button
+                  type="button"
+                  onClick={() => setOpenContactId(form.contactId)}
+                  title="Ver conversa deste lead"
+                  className="shrink-0 text-sm border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:bg-slate-50"
+                >
+                  💬
+                </button>
+              )}
+            </div>
           </label>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button disabled={saving} className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50">
@@ -390,7 +404,19 @@ export default function LancamentosView() {
                     <td className="px-4 py-2 text-slate-700 max-w-[200px] truncate">{l.description || "—"}</td>
                     <td className="px-4 py-2 text-xs text-slate-500">{l.categoria?.name || "—"}</td>
                     <td className="px-4 py-2 text-xs text-slate-500">{l.banco?.name || "—"}</td>
-                    <td className="px-4 py-2 text-xs text-slate-500">{l.contact?.name || "—"}</td>
+                    <td className="px-4 py-2 text-xs text-slate-500">
+                      {l.contact ? (
+                        <button
+                          onClick={() => setOpenContactId(l.contactId)}
+                          title="Ver conversa deste lead"
+                          className="text-emerald-600 hover:text-emerald-700 hover:underline"
+                        >
+                          {l.contact.name}
+                        </button>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className={`px-4 py-2 text-right font-medium ${l.type === "entrada" ? "text-emerald-600" : "text-red-600"}`}>
                       {l.type === "saida" ? "- " : ""}{money(l.amount)}
                     </td>
@@ -480,6 +506,14 @@ export default function LancamentosView() {
           </ul>
         </div>
       </div>
+
+      {openContactId && (
+        <ContactModal
+          contactId={openContactId}
+          onClose={() => setOpenContactId(null)}
+          onChanged={() => {}}
+        />
+      )}
     </div>
   );
 }
