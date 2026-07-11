@@ -2131,6 +2131,7 @@ function AgentesIa() {
   const [agentError, setAgentError] = useState("");
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [newAgentModalOpen, setNewAgentModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     const [list, st] = await Promise.all([
@@ -2144,6 +2145,7 @@ function AgentesIa() {
 
   async function selectAgent(id) {
     setSelectedId(id);
+    setEditModalOpen(true);
     const a = await fetch(`/api/ia/agents/${id}`).then((r) => r.json());
     setForm({
       name: a.name || "",
@@ -2206,29 +2208,85 @@ function AgentesIa() {
   }
 
   return (
-    <div className="grid md:grid-cols-[220px_1fr] gap-6">
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-3">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h2 className="font-medium text-slate-800 text-sm">Agentes</h2>
-          <button onClick={() => setNewAgentModalOpen(true)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">+ Novo</button>
+    <>
+      {/* Lista compacta — clicar num agente abre o modal de edição */}
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <SectionHeader icon="🤖" title="Agentes" />
+          <button onClick={() => setNewAgentModalOpen(true)} className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5">
+            + Novo
+          </button>
         </div>
-        <ul className="space-y-0.5">
+        <ul className="space-y-2">
           {agents.map((a) => (
             <li key={a.id}>
               <button
                 onClick={() => selectAgent(a.id)}
-                className={`w-full text-left px-2 py-2 rounded text-sm truncate ${selectedId === a.id ? "bg-emerald-50 text-emerald-700" : "text-slate-600 hover:bg-slate-50"}`}
+                className="w-full flex items-center gap-3 p-3 text-left rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-colors"
               >
-                {a.name}
+                <span className="w-9 h-9 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-base shrink-0">🤖</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-700 truncate">{a.name}</p>
+                  <span className="text-[11px] text-emerald-600">Ativo</span>
+                </div>
+                <span className="text-slate-300 shrink-0">›</span>
               </button>
             </li>
           ))}
-          {agents.length === 0 && <li className="text-xs text-slate-400 px-2 py-2">Nenhum agente ainda.</li>}
+          {agents.length === 0 && (
+            <li className="py-8 text-center text-sm text-slate-400">
+              <p className="text-3xl mb-2">🤖</p>
+              Nenhum agente ainda. Crie um pra automatizar o atendimento.
+            </li>
+          )}
         </ul>
       </div>
 
-      {selectedId ? (
-        <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
+      {newAgentModalOpen && (
+        <NewAgentModal
+          onCreate={(name) => { setNewAgentModalOpen(false); createAgent(name); }}
+          onClose={() => setNewAgentModalOpen(false)}
+        />
+      )}
+
+      {/* Modal de edição do agente */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEditModalOpen(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[88vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🤖</span>
+                <h3 className="font-semibold text-slate-800">Editar agente</h3>
+              </div>
+              <button onClick={() => setEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+
+            <div className="grid md:grid-cols-[220px_1fr] gap-0 overflow-y-auto thin-scroll">
+              <div className="border-r border-slate-100 p-3">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <h4 className="font-medium text-slate-800 text-sm">Agentes</h4>
+                  <button onClick={() => setNewAgentModalOpen(true)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">+ Novo</button>
+                </div>
+                <ul className="space-y-0.5">
+                  {agents.map((a) => (
+                    <li key={a.id}>
+                      <button
+                        onClick={() => selectAgent(a.id)}
+                        className={`w-full text-left px-2 py-2 rounded text-sm truncate ${selectedId === a.id ? "bg-emerald-50 text-emerald-700" : "text-slate-600 hover:bg-slate-50"}`}
+                      >
+                        {a.name}
+                      </button>
+                    </li>
+                  ))}
+                  {agents.length === 0 && <li className="text-xs text-slate-400 px-2 py-2">Nenhum agente ainda.</li>}
+                </ul>
+              </div>
+
+              {selectedId ? (
+        <form onSubmit={save} className="p-5 space-y-3">
           <Field label="Nome do agente" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Atendimento comercial" />
 
           <label className="block">
@@ -2435,19 +2493,16 @@ function AgentesIa() {
             </button>
           </div>
         </form>
-      ) : (
-        <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 flex items-center justify-center text-sm text-slate-400">
-          Selecione ou crie um agente para editar
+              ) : (
+                <div className="p-5 flex items-center justify-center text-sm text-slate-400">
+                  Selecione ou crie um agente para editar
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
-
-      {newAgentModalOpen && (
-        <NewAgentModal
-          onCreate={(name) => { setNewAgentModalOpen(false); createAgent(name); }}
-          onClose={() => setNewAgentModalOpen(false)}
-        />
-      )}
-    </div>
+    </>
   );
 }
 

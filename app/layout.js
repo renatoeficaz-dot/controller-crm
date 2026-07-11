@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import TopNav from "@/components/TopNav";
+import SideNav from "@/components/SideNav";
 import ConnectionStatusBanner from "@/components/ConnectionStatusBanner";
 
 const geistSans = Geist({
@@ -26,7 +27,10 @@ export default function RootLayout({ children }) {
     >
       <body className="h-full flex flex-col overflow-hidden">
         <TopNav />
-        <main className="flex-1 flex flex-col min-h-0 overflow-hidden">{children}</main>
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          <SideNav />
+          <main className="flex-1 flex flex-col min-h-0 overflow-hidden">{children}</main>
+        </div>
         <ConnectionStatusBanner />
       </body>
     </html>
