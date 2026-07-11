@@ -849,29 +849,38 @@ function Numeros() {
   return (
     <div className="space-y-6">
       {/* Servidor Evolution */}
-      <form onSubmit={saveEvolution} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 grid md:grid-cols-3 gap-3 items-end">
-        <Field label="URL do servidor Evolution" value={evo.evolutionUrl} onChange={(v) => setEvo((s) => ({ ...s, evolutionUrl: v }))} placeholder="https://evo.exemplo.com" />
-        <label className="block">
-          <span className="text-xs text-slate-400">API Key (global)</span>
-          <input
-            type="password"
-            value={evo.evolutionApiKey}
-            onChange={(e) => setEvo((s) => ({ ...s, evolutionApiKey: e.target.value }))}
-            placeholder="sua-api-key"
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
-          />
-        </label>
-        <button className="bg-slate-800 text-white rounded-lg py-2 text-sm hover:bg-slate-700">
-          {evoSaved ? "Salvo ✓" : "Salvar servidor"}
-        </button>
+      <form onSubmit={saveEvolution} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+        <SectionHeader icon="🔗" title="URL do servidor Evolution" subtitle="Informe a URL e a API Key do seu servidor Evolution para integração." />
+        <div className="grid md:grid-cols-3 gap-3 items-end mt-4">
+          <Field label="URL do servidor Evolution" value={evo.evolutionUrl} onChange={(v) => setEvo((s) => ({ ...s, evolutionUrl: v }))} placeholder="https://evo.exemplo.com" />
+          <label className="block">
+            <span className="text-xs text-slate-400">API Key (global)</span>
+            <input
+              type="password"
+              value={evo.evolutionApiKey}
+              onChange={(e) => setEvo((s) => ({ ...s, evolutionApiKey: e.target.value }))}
+              placeholder="sua-api-key"
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+            />
+          </label>
+          <button className="bg-slate-800 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-slate-700 transition-colors">
+            {evoSaved ? "Salvo ✓" : "Salvar servidor"}
+          </button>
+        </div>
       </form>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
-          <h2 className="font-semibold text-slate-800">Conectar número</h2>
+      <div className="grid md:grid-cols-2 gap-6 items-start">
+        <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3.5">
+          <SectionHeader icon="📞" title="Conectar número" subtitle="Preencha os dados abaixo para conectar um novo número." />
           <Field label="Nome da conexão" value={form.label} onChange={(v) => setForm((f) => ({ ...f, label: v }))} placeholder="Ex.: Comercial 1" />
-          <Field label="Número (com DDI)" value={form.number} onChange={(v) => setForm((f) => ({ ...f, number: v }))} placeholder="5511999998888" />
-          <Field label="Instância (Evolution)" value={form.instance} onChange={(v) => setForm((f) => ({ ...f, instance: v }))} placeholder="ex.: comercial1" />
+          <div>
+            <Field label="Número (com DDI)" value={form.number} onChange={(v) => setForm((f) => ({ ...f, number: v }))} placeholder="5511999998888" />
+            <p className="text-[11px] text-slate-400 mt-1">Inclua o código do país. Ex.: 5511999998888</p>
+          </div>
+          <div>
+            <Field label="Instância (Evolution)" value={form.instance} onChange={(v) => setForm((f) => ({ ...f, instance: v }))} placeholder="ex.: comercial1" />
+            <p className="text-[11px] text-slate-400 mt-1">Informe a instância criada no servidor Evolution.</p>
+          </div>
           <label className="block">
             <span className="text-xs text-slate-400">Atribuir a um usuário</span>
             <select
@@ -884,19 +893,23 @@ function Numeros() {
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>
+            <p className="text-[11px] text-slate-400 mt-1">O número ficará disponível para toda a equipe.</p>
           </label>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button
             disabled={saving}
-            className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
           >
-            {saving ? "Conectando…" : "Conectar número (gera QR)"}
+            <span>💬</span> {saving ? "Conectando…" : "Conectar número (gera QR)"}
           </button>
+          <p className="flex items-start gap-2 text-[11px] text-sky-700 bg-sky-50 rounded-lg p-2.5">
+            <span>ℹ️</span> Após conectar, um QR Code será gerado para autenticação do número no WhatsApp.
+          </p>
         </form>
 
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
-          <h2 className="font-medium text-slate-800 mb-3">Números conectados ({numeros.length})</h2>
-          <ul className="divide-y divide-slate-100">
+          <SectionHeader icon="📶" title={`Números conectados (${numeros.length})`} subtitle="Lista de números WhatsApp já conectados ao sistema." />
+          <ul className="mt-4 space-y-2">
             {numeros.map((n) => {
               const conectado = status.find((s) => s.id === n.id)?.state === "open";
               return (
@@ -904,18 +917,25 @@ function Numeros() {
                   <button
                     type="button"
                     onClick={() => setConfiguringId(n.id)}
-                    className="w-full flex items-center justify-between gap-3 py-3 text-left rounded-lg px-1.5 -mx-1.5 hover:bg-slate-50 transition-colors"
+                    className="w-full flex items-center gap-3 p-3 text-left rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-colors"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span
-                        className={`w-2 h-2 rounded-full shrink-0 ${conectado ? "bg-emerald-500" : "bg-red-500"}`}
-                        title={conectado ? "Conectado" : "Desconectado"}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-700 truncate">{n.label}</p>
-                        <p className="text-xs text-slate-400 truncate">{n.number}</p>
-                      </div>
+                    <span className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center text-base shrink-0">💬</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-700 truncate flex items-center gap-1.5">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${conectado ? "bg-emerald-500" : "bg-red-500"}`}
+                        />
+                        {n.label}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">{n.number}</p>
                     </div>
+                    <span
+                      className={`text-[11px] font-medium rounded-full px-2 py-1 shrink-0 ${
+                        conectado ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
+                      }`}
+                    >
+                      {conectado ? "Online" : "Offline"}
+                    </span>
                     <span className="text-slate-300 shrink-0">›</span>
                   </button>
                 </li>
@@ -2048,6 +2068,21 @@ function NewAgentModal({ onCreate, onClose }) {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// Cabeçalho padrão de card: ícone em caixa colorida + título + subtítulo
+function SectionHeader({ icon, title, subtitle }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base shrink-0">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <h2 className="font-semibold text-slate-800 truncate">{title}</h2>
+        {subtitle && <p className="text-xs text-slate-400 truncate">{subtitle}</p>}
+      </div>
     </div>
   );
 }
