@@ -44,6 +44,9 @@ function fmtTime(iso) {
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const fmtDate = (iso) =>
+  iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }) : "—";
+
 function numberLabel(instance, numbers) {
   if (!instance) return null;
   const n = numbers.find((x) => x.instance === instance);
@@ -388,6 +391,19 @@ export default function ChatView() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ iaPausada }),
+    });
+  }
+
+  // Marca/desmarca uma parcela como paga direto pelo painel do chat.
+  async function togglePaid(p) {
+    setContact((c) => ({
+      ...c,
+      parcelas: (c.parcelas || []).map((x) => (x.id === p.id ? { ...x, paid: !x.paid } : x)),
+    }));
+    await fetch(`/api/parcelas/${p.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paid: !p.paid }),
     });
   }
 
@@ -781,10 +797,18 @@ export default function ChatView() {
                   </div>
                   <ul className="space-y-0.5 max-h-32 overflow-y-auto text-xs">
                     {parcelasAtuais.map((p) => (
-                      <li key={p.id} className="flex justify-between">
-                        <span className={p.paid ? "line-through text-slate-400" : "text-slate-600"}>
-                          {p.number}ª
-                        </span>
+                      <li key={p.id} className="flex items-center justify-between py-0.5">
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={p.paid}
+                            onChange={() => togglePaid(p)}
+                            className="accent-emerald-500"
+                          />
+                          <span className={p.paid ? "line-through text-slate-400" : "text-slate-600"}>
+                            {p.number}ª · {fmtDate(p.dueDate)}
+                          </span>
+                        </label>
                         <span className={p.paid ? "text-emerald-600" : "text-slate-700"}>
                           {money(p.amount)} {p.paid ? "✓" : ""}
                         </span>
