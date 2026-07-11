@@ -13,6 +13,15 @@ export async function PATCH(req, { params }) {
   if ("agentId" in body) data.agentId = body.agentId || null;
   if ("estadosCobranca" in body) data.estadosCobranca = (body.estadosCobranca || "").trim() || null;
   if ("mensagemCobranca" in body) data.mensagemCobranca = (body.mensagemCobranca || "").trim() || null;
+
+  // Só um número pode ser "padrão" por vez — desmarca os outros antes.
+  if (body.padrao === true) {
+    await prisma.whatsappNumber.updateMany({ where: { padrao: true }, data: { padrao: false } });
+    data.padrao = true;
+  } else if (body.padrao === false) {
+    data.padrao = false;
+  }
+
   const updated = await prisma.whatsappNumber.update({
     where: { id },
     data,

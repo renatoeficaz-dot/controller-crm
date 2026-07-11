@@ -201,7 +201,25 @@ model WhatsappNumber {
   estadosCobranca    String?
   mensagemCobranca   String?
 
+  // Número padrão (só um por vez) — destacado na lista.
+  padrao         Boolean   @default(false)
+  // Rastreamento de conexão: usado pra mostrar "Conectado em ..." /
+  // "Desconectado em ..." e alimentar o histórico (ConexaoLog).
+  ultimoEstado   String?   // último estado conhecido na Evolution ("open" | "close" | "connecting")
+  conectadoEm    DateTime?
+  desconectadoEm DateTime?
+  logs           ConexaoLog[]
+
   createdAt          DateTime @default(now())
+}
+
+// Histórico de conexão/desconexão de cada número (pra tela "Ver histórico de conexões").
+model ConexaoLog {
+  id        String         @id @default(cuid())
+  numero    WhatsappNumber @relation(fields: [numeroId], references: [id], onDelete: Cascade)
+  numeroId  String
+  evento    String         // "conectado" | "desconectado"
+  createdAt DateTime       @default(now())
 }
 
 // Log de lembretes de cobrança já enviados (evita mandar 2x no mesmo dia).

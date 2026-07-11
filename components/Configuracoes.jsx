@@ -697,15 +697,20 @@ function Numeros() {
   const [numeros, setNumeros] = useState([]);
   const [users, setUsers] = useState([]);
   const [agents, setAgents] = useState([]);
-  const [form, setForm] = useState({ label: "", number: "", instance: "", userId: "" });
+  const [form, setForm] = useState({ ddi: "55", label: "", number: "", instance: "", userId: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [evo, setEvo] = useState({ evolutionUrl: "", evolutionApiKey: "" });
   const [evoSaved, setEvoSaved] = useState(false);
+  const [editingEvo, setEditingEvo] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null); // { ok, error, totalInstances }
   const [qr, setQr] = useState(null); // { id, label, image, connected, error }
   const [disconnecting, setDisconnecting] = useState(null); // id em andamento
   const [status, setStatus] = useState([]); // [{ id, label, number, state }] — estado real na Evolution
   const [configuringId, setConfiguringId] = useState(null); // número aberto no modal de configuração
+  const [menuId, setMenuId] = useState(null); // número com o menu de ações (⋮) aberto
+  const [history, setHistory] = useState(null); // array de logs quando o painel de histórico está aberto
 
   const load = useCallback(async () => {
     const [n, u, cfg, ag] = await Promise.all([
@@ -753,7 +758,17 @@ function Numeros() {
       body: JSON.stringify(evo),
     });
     setEvoSaved(true);
+    setTestResult(null);
     setTimeout(() => setEvoSaved(false), 1500);
+    setEditingEvo(false);
+  }
+
+  async function testConnection() {
+    setTesting(true);
+    setTestResult(null);
+    const r = await fetch("/api/config/test-connection", { method: "POST" }).then((r) => r.json()).catch((e) => ({ ok: false, error: e.message }));
+    setTesting(false);
+    setTestResult(r);
   }
 
   async function create(e) {
@@ -767,7 +782,7 @@ function Numeros() {
     const res = await fetch("/api/numbers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, number: onlyDigits(form.ddi + form.number) }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -776,9 +791,33 @@ function Numeros() {
       return;
     }
     const novo = await res.json();
-    setForm({ label: "", number: "", instance: "", userId: "" });
+    setForm({ ddi: "55", label: "", number: "", instance: "", userId: "" });
     load();
     conectar(novo); // já tenta gerar o QR do número recém-criado
+  }
+
+  function onlyDigits(s) {
+    return (s || "").replace(/\D/g, "");
+  }
+
+  async function setPadrao(id, padrao) {
+    setNumeros((prev) => prev.map((n) => ({ ...n, padrao: n.id === id ? padrao : padrao ? false : n.padrao })));
+    await fetch(`/api/numbers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ padrao }),
+    });
+    load();
+  }
+
+  async function openHistory() {
+    const logs = await fetch("/api/numbers/history").then((r) => r.json()).catch(() => []);
+    setHistory(Array.isArray(logs) ? logs : []);
+  }
+
+  function fmtData(d) {
+    if (!d) return null;
+    return new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
   // Conecta o número: pede o QR à Evolution e abre o modal
@@ -849,33 +888,89 @@ function Numeros() {
   return (
     <div className="space-y-6">
       {/* Servidor Evolution */}
-      <form onSubmit={saveEvolution} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
-        <SectionHeader icon="🔗" title="URL do servidor Evolution" subtitle="Informe a URL e a API Key do seu servidor Evolution para integração." />
-        <div className="grid md:grid-cols-3 gap-3 items-end mt-4">
-          <Field label="URL do servidor Evolution" value={evo.evolutionUrl} onChange={(v) => setEvo((s) => ({ ...s, evolutionUrl: v }))} placeholder="https://evo.exemplo.com" />
-          <label className="block">
-            <span className="text-xs text-slate-400">API Key (global)</span>
-            <input
-              type="password"
-              value={evo.evolutionApiKey}
-              onChange={(e) => setEvo((s) => ({ ...s, evolutionApiKey: e.target.value }))}
-              placeholder="sua-api-key"
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+        {!editingEvo ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SectionHeader
+              icon="🔗"
+              title="Servidor Evolution"
+              subtitle={evo.evolutionUrl ? "URL e API Key configurados e ativos" : "Nenhum servidor configurado ainda"}
             />
-          </label>
-          <button className="bg-slate-800 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-slate-700 transition-colors">
-            {evoSaved ? "Salvo ✓" : "Salvar servidor"}
-          </button>
-        </div>
-      </form>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="text-right mr-2">
+                <p className="text-[11px] text-slate-400">Status do servidor</p>
+                <p className={`text-xs font-medium flex items-center gap-1.5 justify-end ${testResult?.ok ? "text-emerald-600" : evo.evolutionUrl ? "text-slate-500" : "text-red-500"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${testResult?.ok ? "bg-emerald-500" : evo.evolutionUrl ? "bg-slate-300" : "bg-red-500"}`} />
+                  {testResult?.ok ? "Online" : evo.evolutionUrl ? "Não testado" : "Sem servidor"}
+                </p>
+              </div>
+              <button type="button" onClick={() => setEditingEvo(true)} className="text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors">
+                Editar servidor
+              </button>
+              <button type="button" onClick={testConnection} disabled={testing} className="text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
+                {testing ? "Testando…" : "📶 Testar conexão"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={saveEvolution}>
+            <SectionHeader icon="🔗" title="URL do servidor Evolution" subtitle="Informe a URL e a API Key do seu servidor Evolution para integração." />
+            <div className="grid md:grid-cols-3 gap-3 items-end mt-4">
+              <Field label="URL do servidor Evolution" value={evo.evolutionUrl} onChange={(v) => setEvo((s) => ({ ...s, evolutionUrl: v }))} placeholder="https://evo.exemplo.com" />
+              <label className="block">
+                <span className="text-xs text-slate-400">API Key (global)</span>
+                <input
+                  type="password"
+                  value={evo.evolutionApiKey}
+                  onChange={(e) => setEvo((s) => ({ ...s, evolutionApiKey: e.target.value }))}
+                  placeholder="sua-api-key"
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                />
+              </label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setEditingEvo(false)} className="flex-1 border border-slate-200 text-slate-600 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50 transition-colors">
+                  Cancelar
+                </button>
+                <button className="flex-1 bg-slate-800 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-slate-700 transition-colors">
+                  {evoSaved ? "Salvo ✓" : "Salvar"}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+        {testResult && (
+          <p className={`mt-3 text-xs rounded-lg p-2.5 ${testResult.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+            {testResult.ok
+              ? `✓ Conectado com sucesso${testResult.totalInstances != null ? ` — ${testResult.totalInstances} instância(s) na conta` : ""}.`
+              : `✗ ${testResult.error || "Falha ao conectar."}`}
+          </p>
+        )}
+      </div>
 
       <div className="grid md:grid-cols-2 gap-6 items-start">
         <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3.5">
-          <SectionHeader icon="📞" title="Conectar número" subtitle="Preencha os dados abaixo para conectar um novo número." />
+          <SectionHeader icon="📞" title="Conectar novo número" subtitle="Informe os dados do número WhatsApp para conectar ao sistema." />
           <Field label="Nome da conexão" value={form.label} onChange={(v) => setForm((f) => ({ ...f, label: v }))} placeholder="Ex.: Comercial 1" />
           <div>
-            <Field label="Número (com DDI)" value={form.number} onChange={(v) => setForm((f) => ({ ...f, number: v }))} placeholder="5511999998888" />
-            <p className="text-[11px] text-slate-400 mt-1">Inclua o código do país. Ex.: 5511999998888</p>
+            <span className="text-xs text-slate-400">Número (com DDI)</span>
+            <div className="flex gap-2 mt-0.5">
+              <select
+                value={form.ddi}
+                onChange={(e) => setForm((f) => ({ ...f, ddi: e.target.value }))}
+                className="w-20 text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow shrink-0"
+              >
+                <option value="55">🇧🇷 55</option>
+                <option value="1">🇺🇸 1</option>
+                <option value="351">🇵🇹 351</option>
+              </select>
+              <input
+                value={form.number}
+                onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))}
+                placeholder="11 99999-8888"
+                className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Inclua o DDD. Ex.: 11 99999-8888</p>
           </div>
           <div>
             <Field label="Instância (Evolution)" value={form.instance} onChange={(v) => setForm((f) => ({ ...f, instance: v }))} placeholder="ex.: comercial1" />
@@ -908,12 +1003,13 @@ function Numeros() {
         </form>
 
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
-          <SectionHeader icon="📶" title={`Números conectados (${numeros.length})`} subtitle="Lista de números WhatsApp já conectados ao sistema." />
+          <SectionHeader icon="📶" title={`Números conectados (${numeros.length})`} subtitle="Gerencie os números já conectados ao sistema." />
           <ul className="mt-4 space-y-2">
             {numeros.map((n) => {
               const conectado = status.find((s) => s.id === n.id)?.state === "open";
+              const quando = conectado ? fmtData(n.conectadoEm) : fmtData(n.desconectadoEm);
               return (
-                <li key={n.id}>
+                <li key={n.id} className="relative">
                   <button
                     type="button"
                     onClick={() => setConfiguringId(n.id)}
@@ -922,29 +1018,103 @@ function Numeros() {
                     <span className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center text-base shrink-0">💬</span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-slate-700 truncate flex items-center gap-1.5">
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${conectado ? "bg-emerald-500" : "bg-red-500"}`}
-                        />
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${conectado ? "bg-emerald-500" : "bg-red-500"}`} />
                         {n.label}
+                        {n.padrao && (
+                          <span className="text-[10px] font-medium bg-violet-50 text-violet-600 rounded-full px-1.5 py-0.5">Padrão</span>
+                        )}
                       </p>
                       <p className="text-xs text-slate-400 truncate">{n.number}</p>
                     </div>
+                    <div className="text-right shrink-0">
+                      <span
+                        className={`inline-block text-[11px] font-medium rounded-full px-2 py-1 ${
+                          conectado ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
+                        }`}
+                      >
+                        {conectado ? "Online" : "Offline"}
+                      </span>
+                      {quando && (
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {conectado ? "Conectado em " : "Desconectado em "}{quando}
+                        </p>
+                      )}
+                    </div>
                     <span
-                      className={`text-[11px] font-medium rounded-full px-2 py-1 shrink-0 ${
-                        conectado ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
-                      }`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); setMenuId((m) => (m === n.id ? null : n.id)); }}
+                      className="shrink-0 text-slate-400 hover:text-slate-600 px-1.5 py-1 rounded hover:bg-slate-100"
                     >
-                      {conectado ? "Online" : "Offline"}
+                      ⋮
                     </span>
                     <span className="text-slate-300 shrink-0">›</span>
                   </button>
+
+                  {menuId === n.id && (
+                    <div
+                      className="absolute right-10 top-14 z-10 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-44 text-sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button onClick={() => { setMenuId(null); conectar(n); }} className="w-full text-left px-3 py-2 text-emerald-600 hover:bg-slate-50">Conectar (QR)</button>
+                      <button
+                        onClick={async () => {
+                          setMenuId(null);
+                          if (!confirm(`Desconectar ${n.label}?`)) return;
+                          const ok = await disconnect(n.id);
+                          if (ok) load();
+                        }}
+                        className="w-full text-left px-3 py-2 text-amber-600 hover:bg-slate-50"
+                      >
+                        Desconectar
+                      </button>
+                      <button onClick={() => { setMenuId(null); setPadrao(n.id, !n.padrao); }} className="w-full text-left px-3 py-2 text-slate-600 hover:bg-slate-50">
+                        {n.padrao ? "Remover como padrão" : "Marcar como padrão"}
+                      </button>
+                      <button onClick={() => { setMenuId(null); remove(n.id); }} className="w-full text-left px-3 py-2 text-red-500 hover:bg-slate-50">Remover</button>
+                    </div>
+                  )}
                 </li>
               );
             })}
             {numeros.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhum número conectado.</li>}
           </ul>
+          <button
+            type="button"
+            onClick={openHistory}
+            className="w-full flex items-center justify-between text-xs text-slate-500 hover:text-slate-700 border-t border-slate-100 mt-4 pt-3"
+          >
+            <span className="flex items-center gap-1.5">🕓 Ver histórico de conexões</span>
+            <span>›</span>
+          </button>
         </div>
       </div>
+
+      {/* Painel de histórico de conexões */}
+      {history && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setHistory(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto thin-scroll" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-semibold text-slate-800">Histórico de conexões</h3>
+              <button onClick={() => setHistory(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <ul className="p-3 divide-y divide-slate-50">
+              {history.map((h) => (
+                <li key={h.id} className="flex items-center gap-3 py-2.5 px-2">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${h.evento === "conectado" ? "bg-emerald-500" : "bg-red-500"}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-slate-700 truncate">
+                      {h.numero?.label || "Número removido"} <span className="text-slate-400">{h.evento === "conectado" ? "conectou" : "desconectou"}</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400">{fmtData(h.createdAt)}</p>
+                  </div>
+                </li>
+              ))}
+              {history.length === 0 && <li className="py-8 text-center text-sm text-slate-400">Nenhum evento registrado ainda.</li>}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* Modal de configuração do número */}
       {configuringId && (() => {
