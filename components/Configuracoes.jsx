@@ -187,6 +187,42 @@ export default function Configuracoes() {
 }
 
 
+// Card de seção reutilizável: título + descrição em tom neutro + conteúdo.
+// Dá consistência visual entre as várias sub-telas de Configurações.
+function SectionCard({ title, desc, children }) {
+  return (
+    <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+      <h2 className="font-semibold text-slate-800">{title}</h2>
+      {desc && <p className="text-sm text-slate-500 mt-1 leading-relaxed max-w-lg">{desc}</p>}
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+// Input numérico com sufixo de unidade (%, R$, etc.) alinhado.
+function NumberField({ label, value, onChange, suffix, placeholder, width = "w-28" }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-slate-500">{label}</span>
+      <div className={`relative mt-1 ${width}`}>
+        <input
+          type="number"
+          step="0.01"
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className="w-full text-sm border border-slate-200 rounded-lg pl-2.5 pr-7 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+        />
+        {suffix && (
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">
+            {suffix}
+          </span>
+        )}
+      </div>
+    </label>
+  );
+}
+
 /* ---------------- % de honorários ---------------- */
 function Honorarios() {
   const [form, setForm] = useState({ honorariosPct: "", multaPct: "", pagamentoHoraLimite: "" });
@@ -222,70 +258,47 @@ function Honorarios() {
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-md space-y-4">
-      <div>
-        <h2 className="font-medium text-slate-800">% de honorários</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Percentual cobrado sobre o <strong>Valor do capital</strong> de cada empréstimo. Usado
-          para calcular as 10 parcelas na seção de Cobrança do contato.
-        </p>
-        <label className="block mt-2">
-          <span className="text-xs text-slate-400">Percentual (%)</span>
-          <div className="flex items-center gap-2 mt-0.5">
-            <input
-              type="number"
-              step="0.01"
-              value={form.honorariosPct}
-              onChange={set("honorariosPct")}
-              className="w-32 text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
-            />
-            <span className="text-slate-500">%</span>
-          </div>
-        </label>
-      </div>
+    <form onSubmit={save} className="max-w-xl space-y-5">
+      <SectionCard
+        title="% de honorários"
+        desc={<>Percentual cobrado sobre o <strong className="text-slate-600">Valor do capital</strong> de cada empréstimo. Usado para calcular as 10 parcelas na seção de Cobrança do contato.</>}
+      >
+        <NumberField label="Percentual" value={form.honorariosPct} onChange={set("honorariosPct")} suffix="%" width="w-28" />
+      </SectionCard>
 
-      <div className="border-t border-slate-100 pt-4">
-        <h2 className="font-medium text-slate-800">Multa por atraso</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Percentual adicionado a uma parcela <strong>vencida e não paga</strong>. A parcela que vence
-          hoje só passa a contar como atrasada depois do <strong>horário limite</strong> abaixo.
-        </p>
-        <div className="flex flex-wrap gap-4 mt-2">
+      <SectionCard
+        title="Multa por atraso"
+        desc={<>Percentual adicionado a uma parcela <strong className="text-slate-600">vencida e não paga</strong>. A parcela que vence hoje só passa a contar como atrasada depois do horário limite abaixo.</>}
+      >
+        <div className="flex flex-wrap gap-4">
+          <NumberField label="Multa" value={form.multaPct} onChange={set("multaPct")} suffix="%" placeholder="50" width="w-24" />
           <label className="block">
-            <span className="text-xs text-slate-400">Multa (%)</span>
-            <div className="flex items-center gap-2 mt-0.5">
-              <input
-                type="number"
-                step="0.01"
-                value={form.multaPct}
-                onChange={set("multaPct")}
-                placeholder="50"
-                className="w-28 text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
-              />
-              <span className="text-slate-500">%</span>
-            </div>
-          </label>
-          <label className="block">
-            <span className="text-xs text-slate-400">Horário limite de pagamento</span>
+            <span className="text-xs font-medium text-slate-500">Horário limite de pagamento</span>
             <input
               type="time"
               value={form.pagamentoHoraLimite}
               onChange={set("pagamentoHoraLimite")}
-              className="mt-0.5 block w-32 text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+              className="mt-1 block w-36 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
             />
           </label>
         </div>
-        <p className="text-[11px] text-slate-400 mt-1">
+        <p className="text-[11px] text-slate-400 mt-3">
           Deixe o horário em branco para a parcela só vencer na virada do dia.
+        </p>
+      </SectionCard>
+
+      <div className="flex items-center gap-3 rounded-xl bg-sky-50/60 border border-sky-100 px-4 py-3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4 text-sky-500 shrink-0">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 16v-4M12 8h.01" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <p className="text-xs text-sky-700">
+          A conta de liberação e a conta de recebimento agora são marcadas direto na lista de
+          Bancos/Contas, em Lançamentos.
         </p>
       </div>
 
-      <p className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
-        A conta de liberação e a conta de recebimento agora são marcadas direto na lista de
-        Bancos/Contas, em Lançamentos.
-      </p>
-
-      <button className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600">
+      <button className="bg-emerald-500 text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm">
         {saved ? "Salvo ✓" : "Salvar"}
       </button>
     </form>
@@ -391,7 +404,7 @@ function Usuarios() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
-        <h2 className="font-medium text-slate-800">
+        <h2 className="font-semibold text-slate-800">
           {editando ? "Editar usuário" : "Novo usuário"}
         </h2>
         <Field label="Nome" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Pedro Henrique" />
@@ -405,7 +418,7 @@ function Usuarios() {
             value={form.password}
             onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
             placeholder={editando ? "••••••" : ""}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
           />
         </label>
 
@@ -414,7 +427,7 @@ function Usuarios() {
           <select
             value={form.role}
             onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
           >
             <option value="admin">Administrador</option>
             <option value="vendedor">Vendedor</option>
@@ -696,7 +709,7 @@ function Numeros() {
             value={evo.evolutionApiKey}
             onChange={(e) => setEvo((s) => ({ ...s, evolutionApiKey: e.target.value }))}
             placeholder="sua-api-key"
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
           />
         </label>
         <button className="bg-slate-800 text-white rounded-lg py-2 text-sm hover:bg-slate-700">
@@ -706,7 +719,7 @@ function Numeros() {
 
       <div className="grid md:grid-cols-2 gap-6">
         <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
-          <h2 className="font-medium text-slate-800">Conectar número</h2>
+          <h2 className="font-semibold text-slate-800">Conectar número</h2>
           <Field label="Nome da conexão" value={form.label} onChange={(v) => setForm((f) => ({ ...f, label: v }))} placeholder="Ex.: Comercial 1" />
           <Field label="Número (com DDI)" value={form.number} onChange={(v) => setForm((f) => ({ ...f, number: v }))} placeholder="5511999998888" />
           <Field label="Instância (Evolution)" value={form.instance} onChange={(v) => setForm((f) => ({ ...f, instance: v }))} placeholder="ex.: comercial1" />
@@ -715,7 +728,7 @@ function Numeros() {
             <select
               value={form.userId}
               onChange={(e) => setForm((f) => ({ ...f, userId: e.target.value }))}
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
             >
               <option value="">— Sem responsável —</option>
               {users.map((u) => (
@@ -816,7 +829,7 @@ function Numeros() {
                       onBlur={(e) => setCobranca(n.id, "mensagemCobranca", e.target.value)}
                       placeholder="Ex.: Oi! Passando pra lembrar que sua parcela de hoje vence às 10h. Já pode fazer o pagamento?"
                       rows={2}
-                      className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                      className="mt-0.5 w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
                     />
                   </label>
                 </div>
@@ -908,7 +921,7 @@ function TagsConfig() {
       {/* Criar tag */}
       <div className="grid md:grid-cols-2 gap-6">
         <form onSubmit={createTag} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
-          <h2 className="font-medium text-slate-800">Nova tag</h2>
+          <h2 className="font-semibold text-slate-800">Nova tag</h2>
           <div className="flex gap-2">
             <Field label="Nome" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Indicação" />
             <label className="block shrink-0">
@@ -945,7 +958,7 @@ function TagsConfig() {
 
       {/* Auto-tag */}
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
-        <h2 className="font-medium text-slate-800">Auto-tag pela 1ª mensagem</h2>
+        <h2 className="font-semibold text-slate-800">Auto-tag pela 1ª mensagem</h2>
         <p className="text-sm text-slate-500">
           Se a <strong>primeira mensagem</strong> que o cliente enviar contém o texto abaixo,
           o sistema atribui automaticamente a etiqueta à lead.
@@ -957,7 +970,7 @@ function TagsConfig() {
               value={ruleForm.match}
               onChange={(e) => setRuleForm((f) => ({ ...f, match: e.target.value }))}
               placeholder="Ex.: indicação, promoção, crédito..."
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
             />
           </label>
           <label className="block">
@@ -965,7 +978,7 @@ function TagsConfig() {
             <select
               value={ruleForm.tagId}
               onChange={(e) => setRuleForm((f) => ({ ...f, tagId: e.target.value }))}
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
             >
               <option value="">— Escolher tag —</option>
               {tags.map((t) => (
@@ -1116,7 +1129,7 @@ function MensagensProntas() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
-        <h2 className="font-medium text-slate-800">
+        <h2 className="font-semibold text-slate-800">
           {editando ? "Editar mensagem" : "Nova mensagem pronta"}
         </h2>
         <Field
@@ -1132,7 +1145,7 @@ function MensagensProntas() {
           <select
             value={mt}
             onChange={(e) => setForm((f) => ({ ...f, mediaType: e.target.value, mediaBase64: null, mediaMimetype: null, mediaFileName: null }))}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
           >
             {MEDIA_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -1177,7 +1190,7 @@ function MensagensProntas() {
                 value={form.body}
                 onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
                 placeholder="Legenda que acompanha o arquivo…"
-                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
               />
             </label>
           </div>
@@ -1306,7 +1319,7 @@ function AutomacaoFunil() {
               <select
                 value={s.autoResponsavel || ""}
                 onChange={(e) => setAuto(s.id, e.target.value)}
-                className="text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                className="text-xs border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
               >
                 <option value="">— Nenhum —</option>
                 {users.map((u) => (
@@ -1381,7 +1394,7 @@ function PromptModal({ value, onChange, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <h3 className="font-medium text-slate-800">Prompt da IA</h3>
+          <h3 className="font-semibold text-slate-800">Prompt da IA</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
         </div>
         <textarea
@@ -1439,7 +1452,7 @@ function TokenDeepInfra() {
 
   return (
     <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-lg space-y-3">
-      <h2 className="font-medium text-slate-800">Tokens</h2>
+      <h2 className="font-semibold text-slate-800">Tokens</h2>
       <p className="text-xs text-slate-400">
         A primeira chave (<a href="https://deepinfra.com/dash" target="_blank" rel="noreferrer" className="underline text-emerald-600">gerar aqui</a>) dá
         acesso a texto e transcrição — sempre necessária. As outras duas são opcionais: cada agente escolhe qual usar pra gerar a voz.
@@ -1588,7 +1601,7 @@ function AgentesIa() {
             <select
               value={form.textModel}
               onChange={(e) => setForm((f) => ({ ...f, textModel: e.target.value }))}
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
             >
               {TEXT_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
@@ -1599,7 +1612,7 @@ function AgentesIa() {
             <select
               value={form.ttsProvider}
               onChange={(e) => setForm((f) => ({ ...f, ttsProvider: e.target.value, ttsVoice: "" }))}
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
             >
               {TTS_PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
@@ -1612,7 +1625,7 @@ function AgentesIa() {
                 <select
                   value={form.ttsModel}
                   onChange={(e) => setForm((f) => ({ ...f, ttsModel: e.target.value }))}
-                  className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
                 >
                   {TTS_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
@@ -1624,7 +1637,7 @@ function AgentesIa() {
                   <select
                     value={form.ttsVoice}
                     onChange={(e) => setForm((f) => ({ ...f, ttsVoice: e.target.value }))}
-                    className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                    className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
                   >
                     {KOKORO_VOICES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
                   </select>
@@ -1687,7 +1700,7 @@ function AgentesIa() {
             <select
               value={form.modoResposta}
               onChange={(e) => setForm((f) => ({ ...f, modoResposta: e.target.value }))}
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
             >
               <option value="espelho">Espelhar o cliente (áudio → áudio, texto → texto)</option>
               <option value="texto">Sempre responder por texto</option>
@@ -1754,7 +1767,7 @@ function AgentesIa() {
               <select
                 value={form.stopAtStageId}
                 onChange={(e) => setForm((f) => ({ ...f, stopAtStageId: e.target.value }))}
-                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
               >
                 <option value="">— Nunca parar (sempre responde) —</option>
                 {stages.map((s) => (
@@ -1821,7 +1834,7 @@ function NewAgentModal({ onCreate, onClose }) {
         className="bg-white rounded-xl w-full max-w-sm shadow-xl p-5 space-y-3"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="font-medium text-slate-800">Novo agente</h3>
+        <h3 className="font-semibold text-slate-800">Novo agente</h3>
         <label className="block">
           <span className="text-xs text-slate-400">Nome do agente</span>
           <input
@@ -1829,7 +1842,7 @@ function NewAgentModal({ onCreate, onClose }) {
             onChange={(e) => setName(e.target.value)}
             autoFocus
             placeholder="Ex.: Atendimento comercial"
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
           />
         </label>
         <div className="flex justify-end gap-2 pt-1">
@@ -1851,12 +1864,12 @@ function NewAgentModal({ onCreate, onClose }) {
 function Field({ label, value, onChange, placeholder }) {
   return (
     <label className="block">
-      <span className="text-xs text-slate-400">{label}</span>
+      <span className="text-xs font-medium text-slate-500">{label}</span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+        className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
       />
     </label>
   );
