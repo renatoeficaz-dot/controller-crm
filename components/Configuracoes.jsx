@@ -557,6 +557,7 @@ function Numeros() {
   const [qr, setQr] = useState(null); // { id, label, image, connected, error }
   const [disconnecting, setDisconnecting] = useState(null); // id em andamento
   const [status, setStatus] = useState([]); // [{ id, label, number, state }] — estado real na Evolution
+  const [configuringId, setConfiguringId] = useState(null); // número aberto no modal de configuração
 
   const load = useCallback(async () => {
     const [n, u, cfg, ag] = await Promise.all([
@@ -751,45 +752,88 @@ function Numeros() {
             {numeros.map((n) => {
               const conectado = status.find((s) => s.id === n.id)?.state === "open";
               return (
-              <li key={n.id} className="py-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                <li key={n.id}>
+                  <button
+                    type="button"
+                    onClick={() => setConfiguringId(n.id)}
+                    className="w-full flex items-center justify-between gap-3 py-3 text-left rounded-lg px-1.5 -mx-1.5 hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <span
                         className={`w-2 h-2 rounded-full shrink-0 ${conectado ? "bg-emerald-500" : "bg-red-500"}`}
                         title={conectado ? "Conectado" : "Desconectado"}
                       />
-                      {n.label}
-                    </p>
-                    <p className="text-xs text-slate-400">{n.number} · instância: {n.instance}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => conectar(n)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                      Conectar (QR)
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!confirm(`Desconectar ${n.label}? Encerra a sessão do WhatsApp (o número continua cadastrado).`)) return;
-                        const ok = await disconnect(n.id);
-                        if (ok) alert("Desconectado com sucesso.");
-                      }}
-                      disabled={disconnecting === n.id}
-                      className="text-xs text-amber-600 hover:text-amber-700 disabled:opacity-50"
-                    >
-                      {disconnecting === n.id ? "Desconectando…" : "Desconectar"}
-                    </button>
-                    <button onClick={() => remove(n.id)} className="text-xs text-red-400 hover:text-red-600">
-                      Remover
-                    </button>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-700 truncate">{n.label}</p>
+                        <p className="text-xs text-slate-400 truncate">{n.number}</p>
+                      </div>
+                    </div>
+                    <span className="text-slate-300 shrink-0">›</span>
+                  </button>
+                </li>
+              );
+            })}
+            {numeros.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhum número conectado.</li>}
+          </ul>
+        </div>
+      </div>
+
+      {/* Modal de configuração do número */}
+      {configuringId && (() => {
+        const n = numeros.find((x) => x.id === configuringId);
+        if (!n) return null;
+        const conectado = status.find((s) => s.id === n.id)?.state === "open";
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setConfiguringId(null)}>
+            <div
+              className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto thin-scroll"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${conectado ? "bg-emerald-500" : "bg-red-500"}`}
+                    title={conectado ? "Conectado" : "Desconectado"}
+                  />
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-slate-800 truncate">{n.label}</h3>
+                    <p className="text-xs text-slate-400 truncate">{n.number} · instância: {n.instance}</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-                  <label className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400">Usuário:</span>
+                <button onClick={() => setConfiguringId(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none shrink-0 pl-3">×</button>
+              </div>
+
+              <div className="p-5 space-y-5">
+                <div className="flex items-center gap-4 text-xs">
+                  <button onClick={() => conectar(n)} className="text-emerald-600 hover:text-emerald-700 font-medium">
+                    Conectar (QR)
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Desconectar ${n.label}? Encerra a sessão do WhatsApp (o número continua cadastrado).`)) return;
+                      const ok = await disconnect(n.id);
+                      if (ok) alert("Desconectado com sucesso.");
+                    }}
+                    disabled={disconnecting === n.id}
+                    className="text-amber-600 hover:text-amber-700 disabled:opacity-50"
+                  >
+                    {disconnecting === n.id ? "Desconectando…" : "Desconectar"}
+                  </button>
+                  <button
+                    onClick={() => { remove(n.id); setConfiguringId(null); }}
+                    className="text-red-400 hover:text-red-600"
+                  >
+                    Remover
+                  </button>
+                </div>
+
+                <div className="grid gap-3">
+                  <label className="block">
+                    <span className="text-xs text-slate-400">Usuário responsável</span>
                     <select
                       value={n.userId || ""}
                       onChange={(e) => reassign(n.id, e.target.value)}
-                      className="text-xs border border-slate-200 rounded px-2 py-1 bg-white outline-none focus:border-emerald-400"
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
                     >
                       <option value="">— Sem responsável —</option>
                       {users.map((u) => (
@@ -797,12 +841,12 @@ function Numeros() {
                       ))}
                     </select>
                   </label>
-                  <label className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400">Agente de IA:</span>
+                  <label className="block">
+                    <span className="text-xs text-slate-400">Agente de IA</span>
                     <select
                       value={n.agentId || ""}
                       onChange={(e) => setAgent(n.id, e.target.value)}
-                      className="text-xs border border-slate-200 rounded px-2 py-1 bg-white outline-none focus:border-emerald-400"
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
                     >
                       <option value="">— Sem IA —</option>
                       {agents.map((a) => (
@@ -811,19 +855,20 @@ function Numeros() {
                     </select>
                   </label>
                 </div>
-                <div className="mt-2 bg-slate-50 rounded-lg p-2 space-y-1.5">
-                  <p className="text-[11px] font-medium text-slate-500">
-                    Cobrança automática (lembrete diário 1h30 antes do horário limite):
+
+                <div className="bg-slate-50 rounded-xl p-3.5 space-y-3">
+                  <p className="text-xs font-medium text-slate-500">
+                    Cobrança automática — lembrete diário 1h30 antes do horário limite
                   </p>
-                  <div>
-                    <span className="text-xs text-slate-400 shrink-0">Estados (UF) que atende:</span>
+                  <label className="block">
+                    <span className="text-xs text-slate-400">Estados (UF) que atende</span>
                     <EstadosSeletor
                       value={n.estadosCobranca || ""}
                       onChange={(v) => setCobranca(n.id, "estadosCobranca", v)}
                     />
-                  </div>
+                  </label>
                   <label className="block">
-                    <span className="text-xs text-slate-400">Mensagem de cobrança:</span>
+                    <span className="text-xs text-slate-400">Mensagem de cobrança</span>
                     <textarea
                       defaultValue={n.mensagemCobranca || ""}
                       onBlur={(e) => setCobranca(n.id, "mensagemCobranca", e.target.value)}
@@ -833,13 +878,11 @@ function Numeros() {
                     />
                   </label>
                 </div>
-              </li>
-              );
-            })}
-            {numeros.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhum número conectado.</li>}
-          </ul>
-        </div>
-      </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal do QR Code */}
       {qr && (
