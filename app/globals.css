@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
 :root {
   --background: #f2f3f8;
   --foreground: #0f172a;

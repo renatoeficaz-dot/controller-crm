@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 
 // Corrige a digitação de um telefone BR (tira espaço/traço/parênteses, completa
 // o DDI 55 se faltar) e valida o formato — retorna só dígitos (12 ou 13, com
@@ -317,15 +317,28 @@ const EMPTY_USER = {
 };
 
 const ROLE_LABEL = { admin: "Administrador", vendedor: "Vendedor", cobrador: "Cobrador" };
+const ROLE_OPTIONS = [
+  { value: "admin", label: "Administrador", icon: "🛡️" },
+  { value: "vendedor", label: "Vendedor", icon: "🧑‍💼" },
+  { value: "cobrador", label: "Cobrador", icon: "💰" },
+];
+
+function initials(name) {
+  return (name || "?").trim().slice(0, 1).toUpperCase();
+}
 
 function Usuarios() {
   const [users, setUsers] = useState([]);
   const [stages, setStages] = useState([]);
   const [numeros, setNumeros] = useState([]);
   const [form, setForm] = useState(EMPTY_USER);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [editId, setEditId] = useState(null); // null = criando; id = editando
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [filtroNivel, setFiltroNivel] = useState("");
 
   const editando = editId !== null;
 
@@ -350,11 +363,20 @@ function Usuarios() {
       numerosVisiveis: (u.numerosVisiveis || []).map((n) => n.id),
     });
     setError("");
+    setShowPassword(false);
+    setPanelOpen(true);
   }
 
-  function cancelEdit() {
+  function startNew() {
     setEditId(null);
     setForm(EMPTY_USER);
+    setError("");
+    setShowPassword(false);
+    setPanelOpen(true);
+  }
+
+  function closePanel() {
+    setPanelOpen(false);
     setError("");
   }
 
@@ -388,158 +410,284 @@ function Usuarios() {
       setError(d.error || "Erro ao salvar usuário.");
       return;
     }
-    cancelEdit();
+    closePanel();
     load();
   }
 
   async function remove(id) {
     if (!confirm("Excluir este usuário?")) return;
-    if (editId === id) cancelEdit();
+    if (editId === id) closePanel();
     await fetch(`/api/users/${id}`, { method: "DELETE" });
     load();
   }
 
   const isAdmin = form.role === "admin";
 
+  const stats = useMemo(() => ({
+    total: users.length,
+    admins: users.filter((u) => u.role === "admin").length,
+    vendedores: users.filter((u) => u.role === "vendedor").length,
+    cobradores: users.filter((u) => u.role === "cobrador").length,
+  }), [users]);
+
+  const usersFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return users.filter((u) => {
+      if (filtroNivel && u.role !== filtroNivel) return false;
+      if (q && !u.name.toLowerCase().includes(q) && !u.login.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [users, busca, filtroNivel]);
+
   return (
-    <div className="grid md:grid-cols-2 gap-6">
-      <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
-        <h2 className="font-semibold text-slate-800">
-          {editando ? "Editar usuário" : "Novo usuário"}
-        </h2>
-        <Field label="Nome" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Pedro Henrique" />
-        <Field label="Login" value={form.login} onChange={(v) => setForm((f) => ({ ...f, login: v }))} placeholder="ex.: pedro" />
-        <label className="block">
-          <span className="text-xs text-slate-400">
-            Senha {editando && <span className="text-slate-300">(deixe em branco para manter)</span>}
-          </span>
-          <input
-            type="password"
-            value={form.password}
-            onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-            placeholder={editando ? "••••••" : ""}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-xs text-slate-400">Nível</span>
-          <select
-            value={form.role}
-            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
-          >
-            <option value="admin">Administrador</option>
-            <option value="vendedor">Vendedor</option>
-            <option value="cobrador">Cobrador</option>
-          </select>
-        </label>
-
-        {isAdmin ? (
-          <p className="text-[11px] text-slate-400">
-            Administrador vê tudo: todos os kanbans, todos os leads, todos os WhatsApp e o menu de Lançamentos/Configurações.
-          </p>
-        ) : (
-          <>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.verTodosLeads}
-                onChange={(e) => setForm((f) => ({ ...f, verTodosLeads: e.target.checked }))}
-                className="accent-emerald-500"
-              />
-              <span className="text-xs text-slate-600">Pode ver leads de todos (desmarcado = só os dele)</span>
-            </label>
-
-            <div>
-              <span className="text-xs text-slate-400">Kanbans que pode ver</span>
-              <p className="text-[11px] text-slate-300 mb-1">Nenhum marcado = vê todas as colunas.</p>
-              <div className="flex flex-wrap gap-1.5">
-                {stages.map((s) => {
-                  const on = form.kanbansVisiveis.includes(s.id);
-                  return (
-                    <button
-                      type="button"
-                      key={s.id}
-                      onClick={() => toggleArr("kanbansVisiveis", s.id)}
-                      className={`text-[11px] rounded-full px-2 py-0.5 border ${on ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-slate-500 border-slate-200"}`}
-                    >
-                      {s.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <span className="text-xs text-slate-400">WhatsApp cujas mensagens pode ver</span>
-              <p className="text-[11px] text-slate-300 mb-1">Nenhum marcado = vê as mensagens de todos.</p>
-              <div className="flex flex-wrap gap-1.5">
-                {numeros.map((n) => {
-                  const on = form.numerosVisiveis.includes(n.id);
-                  return (
-                    <button
-                      type="button"
-                      key={n.id}
-                      onClick={() => toggleArr("numerosVisiveis", n.id)}
-                      className={`text-[11px] rounded-full px-2 py-0.5 border ${on ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-slate-500 border-slate-200"}`}
-                    >
-                      {n.label}
-                    </button>
-                  );
-                })}
-                {numeros.length === 0 && <span className="text-[11px] text-slate-300">Nenhum número cadastrado.</span>}
-              </div>
-            </div>
-          </>
-        )}
-
-        {error && <p className="text-xs text-red-500">{error}</p>}
-        <div className="flex gap-2">
-          <button
-            disabled={saving}
-            className="flex-1 bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
-          >
-            {saving ? "Salvando…" : editando ? "Salvar alterações" : "Cadastrar usuário"}
-          </button>
-          {editando && (
-            <button type="button" onClick={cancelEdit} className="px-3 text-sm text-slate-400 hover:text-slate-600">
-              Cancelar
-            </button>
-          )}
-        </div>
-      </form>
-
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
-        <h2 className="font-medium text-slate-800 mb-3">Usuários ({users.length})</h2>
-        <ul className="divide-y divide-slate-100">
-          {users.map((u) => (
-            <li
-              key={u.id}
-              className={`flex items-center justify-between py-2.5 ${editId === u.id ? "bg-emerald-50/50 -mx-2 px-2 rounded" : ""}`}
-            >
-              <div>
-                <p className="text-sm font-medium text-slate-700">
-                  {u.name}
-                  <span className="ml-2 text-[10px] uppercase tracking-wide text-emerald-600 bg-emerald-50 rounded px-1.5 py-0.5">
-                    {ROLE_LABEL[u.role] || u.role}
-                  </span>
-                </p>
-                <p className="text-xs text-slate-400">login: {u.login}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => startEdit(u)} className="text-xs text-emerald-600 hover:text-emerald-700">
-                  Editar
-                </button>
-                <button onClick={() => remove(u.id)} className="text-xs text-red-400 hover:text-red-600">
-                  Excluir
-                </button>
-              </div>
-            </li>
-          ))}
-          {users.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhum usuário ainda.</li>}
-        </ul>
+    <div className="space-y-5">
+      {/* Cards de resumo */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard icon="👥" value={stats.total} label="Total de usuários" hint="Todos os usuários cadastrados" />
+        <StatCard icon="🛡️" value={stats.admins} label="Administradores" hint="Acesso total ao sistema" tint="violet" />
+        <StatCard icon="🧑‍💼" value={stats.vendedores} label="Vendedores" hint="Acesso limitado" tint="sky" />
+        <StatCard icon="💰" value={stats.cobradores} label="Cobradores" hint="Cobrança e recebimento" tint="amber" />
       </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
+        {/* Cabeçalho: título + botão novo */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-1">
+          <h2 className="font-semibold text-slate-800">Usuários</h2>
+          <button
+            onClick={startNew}
+            className="flex items-center gap-1.5 bg-emerald-500 text-white rounded-lg px-3.5 py-2 text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
+          >
+            <span className="text-base leading-none">+</span> Novo usuário
+          </button>
+        </div>
+
+        {/* Busca + filtro */}
+        <div className="flex flex-wrap items-center gap-2.5 px-5 py-4">
+          <div className="relative flex-1 min-w-[180px]">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-sm">🔍</span>
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar usuário…"
+              className="w-full text-sm border border-slate-200 rounded-lg pl-8 pr-3 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+            />
+          </div>
+          <select
+            value={filtroNivel}
+            onChange={(e) => setFiltroNivel(e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 transition-shadow"
+          >
+            <option value="">Todos os níveis</option>
+            {ROLE_OPTIONS.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
+          </select>
+        </div>
+
+        {/* Tabela */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[560px]">
+            <thead>
+              <tr className="text-xs text-slate-400 border-y border-slate-100 bg-slate-50/60">
+                <th className="text-left font-medium px-5 py-2.5">Usuário</th>
+                <th className="text-left font-medium px-3 py-2.5">Login</th>
+                <th className="px-5 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {usersFiltrados.map((u) => (
+                <tr
+                  key={u.id}
+                  onClick={() => startEdit(u)}
+                  className={`border-b border-slate-50 last:border-0 cursor-pointer transition-colors hover:bg-slate-50 ${editId === u.id && panelOpen ? "bg-emerald-50/60" : ""}`}
+                >
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center shrink-0">
+                        {initials(u.name)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-700 truncate">{u.name}</p>
+                        <span className="text-[10px] uppercase tracking-wide text-slate-400">{ROLE_LABEL[u.role] || u.role}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-slate-500">{u.login}</td>
+                  <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => startEdit(u)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium mr-3">
+                      Editar
+                    </button>
+                    <button onClick={() => remove(u.id)} className="text-xs text-red-400 hover:text-red-600">
+                      Excluir
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {usersFiltrados.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-400">
+                    {users.length === 0 ? "Nenhum usuário ainda." : "Nenhum usuário encontrado."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <p className="px-5 py-3 text-[11px] text-slate-400 border-t border-slate-100">
+          Mostrando {usersFiltrados.length} de {users.length} usuário(s)
+        </p>
+      </div>
+
+      {/* Painel lateral de detalhes/edição */}
+      {panelOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-slate-900/30" onClick={closePanel} />
+          <form
+            onSubmit={save}
+            className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col animate-[slideIn_.18s_ease-out]"
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+              <h3 className="font-semibold text-slate-800">
+                {editando ? "Detalhes do usuário" : "Novo usuário"}
+              </h3>
+              <button type="button" onClick={closePanel} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto thin-scroll px-5 py-4 space-y-4">
+              <Field label="Nome completo" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Pedro Henrique" />
+              <Field label="Login" value={form.login} onChange={(v) => setForm((f) => ({ ...f, login: v }))} placeholder="ex.: pedro" />
+
+              <label className="block">
+                <span className="text-xs text-slate-400">
+                  Senha {editando && <span className="text-slate-300">(deixe em branco para manter)</span>}
+                </span>
+                <div className="relative mt-0.5">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                    placeholder={editando ? "••••••" : ""}
+                    className="w-full text-sm border border-slate-200 rounded-lg pl-2.5 pr-9 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 text-xs"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
+              </label>
+
+              <div>
+                <span className="text-xs text-slate-400">Nível de acesso</span>
+                <div className="grid grid-cols-3 gap-1.5 mt-1">
+                  {ROLE_OPTIONS.map((r) => {
+                    const on = form.role === r.value;
+                    return (
+                      <button
+                        type="button"
+                        key={r.value}
+                        onClick={() => setForm((f) => ({ ...f, role: r.value }))}
+                        className={`text-xs rounded-lg py-2 px-1.5 border font-medium transition-colors ${
+                          on ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <span className="block text-sm mb-0.5">{r.icon}</span>
+                        {r.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {isAdmin ? (
+                <p className="text-[11px] text-slate-400 bg-slate-50 rounded-lg p-2.5">
+                  Administrador vê tudo: todos os kanbans, todos os leads, todos os WhatsApp e o menu de Lançamentos/Configurações.
+                </p>
+              ) : (
+                <>
+                  <label className="flex items-center justify-between gap-2 py-1">
+                    <span className="text-xs text-slate-600">Pode ver leads de todos <span className="text-slate-400">(desmarcado = só os dele)</span></span>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, verTodosLeads: !f.verTodosLeads }))}
+                      className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${form.verTodosLeads ? "bg-emerald-500" : "bg-slate-200"}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.verTodosLeads ? "translate-x-4" : ""}`} />
+                    </button>
+                  </label>
+
+                  <div>
+                    <span className="text-xs text-slate-400">Kanbans que pode ver</span>
+                    <p className="text-[11px] text-slate-300 mb-1.5">Nenhum marcado = vê todas as colunas.</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {stages.map((s) => {
+                        const on = form.kanbansVisiveis.includes(s.id);
+                        return (
+                          <label key={s.id} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" checked={on} onChange={() => toggleArr("kanbansVisiveis", s.id)} className="accent-emerald-500 shrink-0" />
+                            <span className="truncate">{s.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-xs text-slate-400">WhatsApp cujas mensagens pode ver</span>
+                    <p className="text-[11px] text-slate-300 mb-1.5">Nenhum marcado = vê as mensagens de todos.</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {numeros.map((n) => {
+                        const on = form.numerosVisiveis.includes(n.id);
+                        return (
+                          <label key={n.id} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" checked={on} onChange={() => toggleArr("numerosVisiveis", n.id)} className="accent-emerald-500 shrink-0" />
+                            <span className="truncate">{n.label}</span>
+                          </label>
+                        );
+                      })}
+                      {numeros.length === 0 && <span className="text-[11px] text-slate-300 col-span-2">Nenhum número cadastrado.</span>}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {error && <p className="text-xs text-red-500">{error}</p>}
+            </div>
+
+            <div className="flex gap-2 px-5 py-4 border-t border-slate-100 shrink-0">
+              <button type="button" onClick={closePanel} className="flex-1 border border-slate-200 text-slate-600 rounded-lg py-2 text-sm font-medium hover:bg-slate-50 transition-colors">
+                Cancelar
+              </button>
+              <button
+                disabled={saving}
+                className="flex-1 bg-emerald-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+              >
+                {saving ? "Salvando…" : editando ? "Salvar alterações" : "Cadastrar usuário"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ icon, value, label, hint, tint = "emerald" }) {
+  const tints = {
+    emerald: "bg-emerald-50 text-emerald-600",
+    violet: "bg-violet-50 text-violet-600",
+    sky: "bg-sky-50 text-sky-600",
+    amber: "bg-amber-50 text-amber-600",
+  };
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4">
+      <div className="flex items-center gap-3">
+        <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 ${tints[tint]}`}>{icon}</span>
+        <span className="text-xl font-semibold text-slate-800">{value}</span>
+      </div>
+      <p className="text-xs font-medium text-slate-600 mt-2">{label}</p>
+      <p className="text-[11px] text-slate-400">{hint}</p>
     </div>
   );
 }
