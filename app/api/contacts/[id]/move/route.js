@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { regenerarParcelas, lancarLiberacaoCapital } from "@/lib/cobranca";
 import { sendRecebimentoNotice } from "@/lib/ia";
+import { dentroDoHorarioComercial } from "@/lib/horarioComercial";
 
 // Data local de hoje como UTC-midnight (evita drift de fuso nas parcelas)
 function hojeUTC() {
@@ -38,9 +39,13 @@ export async function PATCH(req, { params }) {
   const data = { stageId, order: (last?.order ?? -1) + 1 };
 
   // Automação: se a etapa de destino tem um responsável automático configurado,
-  // atribui o lead a ele (só ao trocar de etapa de fato)
-  if (stage.autoResponsavel && contact.stageId !== stageId) {
+  // atribui o lead a ele (só ao trocar de etapa de fato, e só dentro do
+  // horário comercial configurado — fora dele, fica sem responsável até
+  // alguém pegar manualmente).
+  let autoAtribuiu = false;
+  if (stage.autoResponsavel && contact.stageId !== stageId && (await dentroDoHorarioComercial())) {
     data.responsavel = stage.autoResponsavel;
+    autoAtribuiu = true;
   }
 
   // Ao entrar em "Cravo" (perda/inadimplência), a IA para automaticamente —
@@ -58,6 +63,12 @@ export async function PATCH(req, { params }) {
   }
 
   const updated = await prisma.contact.update({ where: { id }, data });
+
+  if (autoAtribuiu) {
+    await prisma.atribuicaoLog.create({
+      data: { contactId: id, contactName: updated.name, stageName: stage.name, responsavel: data.responsavel },
+    }).catch(() => {});
+  }
 
   if (entrandoRecebimento && updated.valorCapital && updated.pagamentoCapital && aindaSemPlano) {
     await regenerarParcelas(id);

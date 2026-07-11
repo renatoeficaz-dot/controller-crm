@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
 
 // Corrige a digitação de um telefone BR (tira espaço/traço/parênteses, completa
 // o DDI 55 se faltar) e valida o formato — retorna só dígitos (12 ou 13, com
@@ -1421,9 +1422,31 @@ function MensagensProntas() {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [busca, setBusca] = useState("");
+  const [menuId, setMenuId] = useState(null);
+  const [showVariaveis, setShowVariaveis] = useState(false);
   const fileRef = useRef(null);
+  const bodyRef = useRef(null);
 
   const editando = editId !== null;
+  const templatesFiltrados = templates.filter((t) => !busca.trim() || t.title.toLowerCase().includes(busca.trim().toLowerCase()));
+
+  // Insere no textarea da mensagem na posição do cursor (ou envolve o texto
+  // selecionado, pro caso de negrito/itálico), mantendo o foco.
+  function inserirNoTexto(before, after = "") {
+    const el = bodyRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? form.body.length;
+    const end = el.selectionEnd ?? form.body.length;
+    const selecionado = form.body.slice(start, end);
+    const novo = form.body.slice(0, start) + before + selecionado + after + form.body.slice(end);
+    setForm((f) => ({ ...f, body: novo }));
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + before.length + selecionado.length + after.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
 
   const load = useCallback(async () => {
     setTemplates(await fetch("/api/templates").then((r) => r.json()));
@@ -1510,15 +1533,19 @@ function MensagensProntas() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
-        <h2 className="font-semibold text-slate-800">
-          {editando ? "Editar mensagem" : "Nova mensagem pronta"}
-        </h2>
-        <Field
-          label="Título (aparece no seletor)"
-          value={form.title}
-          onChange={(v) => setForm((f) => ({ ...f, title: v }))}
-          placeholder="Ex.: Saudação inicial"
-        />
+        <SectionHeader icon="💬" title={editando ? "Editar mensagem" : "Nova mensagem pronta"} />
+        <label className="block">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-400">Título (aparece no seletor)</span>
+            <span className="text-[11px] text-slate-300">{form.title.length}/80</span>
+          </div>
+          <input
+            value={form.title}
+            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value.slice(0, 80) }))}
+            placeholder="Ex.: Saudação inicial"
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+          />
+        </label>
 
         {/* Tipo */}
         <label className="block">
@@ -1534,16 +1561,49 @@ function MensagensProntas() {
 
         {/* Texto */}
         {mt === "text" && (
-          <label className="block">
+          <div>
             <span className="text-xs text-slate-400">Mensagem</span>
-            <textarea
-              value={form.body}
-              onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
-              rows={5}
-              placeholder="Ex.: Olá! Tudo bem? Aqui é da Controller…"
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400 resize-none"
-            />
-          </label>
+            <div className="mt-0.5 border border-slate-200 rounded-lg overflow-hidden focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-100 transition-shadow">
+              <div className="flex items-center gap-1 px-2 py-1.5 border-b border-slate-100 bg-slate-50/60">
+                <button type="button" title="Negrito" onClick={() => inserirNoTexto("*", "*")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm font-bold text-slate-500">B</button>
+                <button type="button" title="Itálico" onClick={() => inserirNoTexto("_", "_")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm italic text-slate-500">I</button>
+                <span className="w-px h-4 bg-slate-200 mx-0.5" />
+                <button type="button" title="Lista com marcadores" onClick={() => inserirNoTexto("\n- ")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500">☰</button>
+                <button type="button" title="Lista numerada" onClick={() => inserirNoTexto("\n1. ")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-xs text-slate-500">1.</button>
+                <span className="w-px h-4 bg-slate-200 mx-0.5" />
+                <button type="button" title="Link" onClick={() => inserirNoTexto("", " (https://)")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500">🔗</button>
+                <button type="button" title="Emoji" onClick={() => inserirNoTexto("🙂")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500">🙂</button>
+                <div className="relative ml-auto">
+                  <button type="button" onClick={() => setShowVariaveis((v) => !v)} className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 px-1.5">
+                    Variáveis <span className="text-[9px]">▾</span>
+                  </button>
+                  {showVariaveis && (
+                    <div className="absolute right-0 mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-56 text-sm">
+                      {VARIAVEIS_DISPONIVEIS.map((v) => (
+                        <button
+                          key={v.key}
+                          type="button"
+                          onClick={() => { inserirNoTexto(`{{${v.key}}}`); setShowVariaveis(false); }}
+                          className="w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                        >
+                          <span className="text-emerald-600 font-mono text-xs">{"{{" + v.key + "}}"}</span>
+                          <span className="text-slate-400 text-xs ml-1.5">{v.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <textarea
+                ref={bodyRef}
+                value={form.body}
+                onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
+                rows={5}
+                placeholder="Ex.: Olá! Tudo bem? Aqui é da Controller…"
+                className="w-full text-sm px-2.5 py-2 outline-none resize-none"
+              />
+            </div>
+          </div>
         )}
 
         {/* Imagem / Áudio / Documento */}
@@ -1612,12 +1672,23 @@ function MensagensProntas() {
       </form>
 
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
-        <h2 className="font-medium text-slate-800 mb-3">Mensagens cadastradas ({templates.length})</h2>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <SectionHeader icon="🗂️" title={`Mensagens cadastradas (${templates.length})`} />
+          <div className="relative w-44 shrink-0">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-xs">🔍</span>
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar mensagens…"
+              className="w-full text-xs border border-slate-200 rounded-lg pl-7 pr-2 py-1.5 outline-none focus:border-emerald-400 transition-shadow"
+            />
+          </div>
+        </div>
         <ul className="divide-y divide-slate-100">
-          {templates.map((t) => (
+          {templatesFiltrados.map((t) => (
             <li
               key={t.id}
-              className={`py-2.5 ${editId === t.id ? "bg-emerald-50/50 -mx-2 px-2 rounded" : ""}`}
+              className={`relative py-2.5 ${editId === t.id ? "bg-emerald-50/50 -mx-2 px-2 rounded" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -1644,30 +1715,86 @@ function MensagensProntas() {
                   <button onClick={() => remove(t.id)} className="text-xs text-red-400 hover:text-red-600">
                     Excluir
                   </button>
+                  <button
+                    onClick={() => setMenuId((m) => (m === t.id ? null : t.id))}
+                    className="text-slate-400 hover:text-slate-600 px-1 rounded hover:bg-slate-100"
+                  >
+                    ⋮
+                  </button>
                 </div>
               </div>
+              {menuId === t.id && (
+                <div className="absolute right-2 top-9 z-10 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-40 text-sm">
+                  <button onClick={() => { setMenuId(null); startEdit(t); }} className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50">Editar</button>
+                  <button
+                    onClick={async () => {
+                      setMenuId(null);
+                      await fetch("/api/templates", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ ...t, title: t.title + " (cópia)" }),
+                      });
+                      load();
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+                  >
+                    Duplicar
+                  </button>
+                  <button onClick={() => { setMenuId(null); remove(t.id); }} className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-slate-50">Excluir</button>
+                </div>
+              )}
             </li>
           ))}
-          {templates.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma mensagem ainda.</li>}
+          {templatesFiltrados.length === 0 && (
+            <li className="py-4 text-sm text-slate-400">
+              {templates.length === 0 ? "Nenhuma mensagem ainda." : "Nenhuma mensagem encontrada."}
+            </li>
+          )}
         </ul>
+      </div>
+
+      <div className="md:col-span-2 flex items-center justify-between gap-3 text-xs text-slate-500 bg-sky-50 rounded-xl p-3">
+        <span className="flex items-center gap-1.5">ℹ️ Dica: use variáveis para personalizar suas mensagens automaticamente.</span>
+        <button type="button" onClick={() => setShowVariaveis((v) => !v)} className="border border-slate-200 bg-white rounded-lg px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-50 shrink-0">
+          {"</>"} Ver variáveis disponíveis
+        </button>
       </div>
     </div>
   );
 }
 
 /* ---------------- Automação do funil (responsável por etapa) ---------------- */
+// Ícone por etapa (só estética — cai num ícone genérico se o nome não bater).
+const STAGE_ICON = {
+  "novo": "✨", "em conversa": "💬", "documentação": "📄", "análise": "📈",
+  "liberação pagamento": "💲", "recebimento": "✅", "pago": "🏦",
+  "cravo": "⛔", "venda perdida": "⛔", "aguardando cobrador": "⏳",
+};
+function iconeEtapa(nome) {
+  return STAGE_ICON[(nome || "").toLowerCase()] || "🔹";
+}
+
 function AutomacaoFunil() {
   const [stages, setStages] = useState([]);
   const [users, setUsers] = useState([]);
   const [savedId, setSavedId] = useState(null);
+  const [horario, setHorario] = useState({ horarioComercialInicio: "", horarioComercialFim: "" });
+  const [showHorario, setShowHorario] = useState(false);
+  const [savingHorario, setSavingHorario] = useState(false);
+  const [history, setHistory] = useState(null);
 
   const load = useCallback(async () => {
-    const [s, u] = await Promise.all([
+    const [s, u, cfg] = await Promise.all([
       fetch("/api/stages").then((r) => r.json()),
       fetch("/api/users").then((r) => r.json()),
+      fetch("/api/config").then((r) => r.json()).catch(() => ({})),
     ]);
     setStages(Array.isArray(s) ? s : []);
     setUsers(Array.isArray(u) ? u : []);
+    setHorario({
+      horarioComercialInicio: cfg?.horarioComercialInicio || "",
+      horarioComercialFim: cfg?.horarioComercialFim || "",
+    });
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -1682,36 +1809,163 @@ function AutomacaoFunil() {
     setTimeout(() => setSavedId(null), 1200);
   }
 
+  async function salvarHorario() {
+    setSavingHorario(true);
+    await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(horario),
+    });
+    setSavingHorario(false);
+    setShowHorario(false);
+  }
+
+  async function openHistory() {
+    const logs = await fetch("/api/automacao/historico").then((r) => r.json()).catch(() => []);
+    setHistory(Array.isArray(logs) ? logs : []);
+  }
+
+  function fmtData(d) {
+    return new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-xl">
-      <h2 className="font-medium text-slate-800 mb-1">Responsável automático por etapa</h2>
-      <p className="text-xs text-slate-400 mb-4">
-        Quando um lead entra numa etapa, ele é atribuído automaticamente ao usuário escolhido aqui (deixe em branco para não automatizar).
-      </p>
-      <ul className="divide-y divide-slate-100">
-        {stages.map((s) => (
-          <li key={s.id} className="py-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-              <span className="text-sm text-slate-700 truncate">{s.name}</span>
+    <div className="grid lg:grid-cols-3 gap-6 items-start">
+      <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 className="font-semibold text-slate-800">Configure responsáveis automáticos por etapa</h2>
+            <p className="text-xs text-slate-400 mt-1 max-w-md">
+              Quando um lead entra numa etapa, ele é atribuído automaticamente ao usuário escolhido aqui (pode ser levado em conta também o horário comercial).
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[1fr_auto] gap-x-4 text-[11px] font-medium text-slate-400 uppercase tracking-wide px-1 pb-2 border-b border-slate-100">
+          <span>Etapas do funil</span>
+          <span>Responsável automático</span>
+        </div>
+        <ul className="divide-y divide-slate-100">
+          {stages.map((s) => (
+            <li key={s.id} className="py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                <span className="text-base shrink-0">{iconeEtapa(s.name)}</span>
+                <span className="text-sm text-slate-700 truncate">{s.name}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {savedId === s.id && <span className="text-xs text-emerald-600">salvo ✓</span>}
+                <select
+                  value={s.autoResponsavel || ""}
+                  onChange={(e) => setAuto(s.id, e.target.value)}
+                  className="text-xs border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                >
+                  <option value="">— Nenhum —</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.name}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+            </li>
+          ))}
+          {stages.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma etapa cadastrada.</li>}
+        </ul>
+      </div>
+
+      <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-5">
+        <span className="w-10 h-10 rounded-xl bg-white text-emerald-600 flex items-center justify-center text-lg shadow-sm">🛡️</span>
+        <h3 className="font-semibold text-slate-800 mt-3">Como funciona?</h3>
+        <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+          O responsável será atribuído automaticamente sempre que um lead entrar na etapa correspondente.
+        </p>
+        <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+          Considere o horário comercial configurado para aplicar as regras de automação com precisão.
+          {horario.horarioComercialInicio && horario.horarioComercialFim && (
+            <span className="block mt-1 font-medium text-emerald-700">
+              Ativo das {horario.horarioComercialInicio} às {horario.horarioComercialFim}
+            </span>
+          )}
+        </p>
+
+        <button
+          type="button"
+          onClick={() => setShowHorario(true)}
+          className="w-full flex items-center justify-center gap-1.5 bg-white border border-emerald-200 text-emerald-700 rounded-lg py-2 text-sm font-medium mt-4 hover:bg-emerald-50 transition-colors"
+        >
+          🕓 Configurar horário comercial
+        </button>
+        <button
+          type="button"
+          onClick={openHistory}
+          className="w-full flex items-center justify-between text-xs text-slate-500 hover:text-slate-700 mt-3 pt-3 border-t border-emerald-100"
+        >
+          <span className="flex items-center gap-1.5">ℹ️ Ver histórico de atribuições</span>
+          <span>›</span>
+        </button>
+      </div>
+
+      {/* Modal: horário comercial */}
+      {showHorario && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setShowHorario(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800 mb-1">Horário comercial da automação</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Fora dessa janela, o lead entra na etapa mas não é atribuído automaticamente. Deixe em branco para a automação ficar sempre ativa.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-xs text-slate-400">Início</span>
+                <input
+                  type="time"
+                  value={horario.horarioComercialInicio}
+                  onChange={(e) => setHorario((h) => ({ ...h, horarioComercialInicio: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs text-slate-400">Fim</span>
+                <input
+                  type="time"
+                  value={horario.horarioComercialFim}
+                  onChange={(e) => setHorario((h) => ({ ...h, horarioComercialFim: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                />
+              </label>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {savedId === s.id && <span className="text-xs text-emerald-600">salvo ✓</span>}
-              <select
-                value={s.autoResponsavel || ""}
-                onChange={(e) => setAuto(s.id, e.target.value)}
-                className="text-xs border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
-              >
-                <option value="">— Nenhum —</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.name}>{u.name}</option>
-                ))}
-              </select>
+            <div className="flex gap-2 mt-5">
+              <button type="button" onClick={() => setShowHorario(false)} className="flex-1 border border-slate-200 text-slate-600 rounded-lg py-2 text-sm font-medium hover:bg-slate-50 transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={salvarHorario} disabled={savingHorario} className="flex-1 bg-emerald-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors">
+                {savingHorario ? "Salvando…" : "Salvar"}
+              </button>
             </div>
-          </li>
-        ))}
-        {stages.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma etapa cadastrada.</li>}
-      </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Painel: histórico de atribuições */}
+      {history && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setHistory(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto thin-scroll" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-semibold text-slate-800">Histórico de atribuições</h3>
+              <button onClick={() => setHistory(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <ul className="p-3 divide-y divide-slate-50">
+              {history.map((h) => (
+                <li key={h.id} className="py-2.5 px-2">
+                  <p className="text-sm text-slate-700">
+                    <span className="font-medium">{h.contactName}</span> entrou em <span className="font-medium">{h.stageName}</span> → atribuído a <span className="text-emerald-600">{h.responsavel}</span>
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{fmtData(h.createdAt)}</p>
+                </li>
+              ))}
+              {history.length === 0 && <li className="py-8 text-center text-sm text-slate-400">Nenhuma atribuição registrada ainda.</li>}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

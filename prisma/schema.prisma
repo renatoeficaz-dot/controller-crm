@@ -122,6 +122,13 @@ model Config {
   evolutionUrl        String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
   evolutionApiKey     String? // API Key global da Evolution
 
+  // Horário comercial da automação de responsável por etapa — fora dessa janela,
+  // o lead entra na etapa mas NÃO é auto-atribuído (fica sem responsável até
+  // alguém pegar manualmente ou até a próxima checagem dentro do horário).
+  // Vazio = automação sempre ativa, sem restrição de horário.
+  horarioComercialInicio String? // "HH:MM"
+  horarioComercialFim    String? // "HH:MM"
+
   // IA: DeepInfra hospeda texto (Llama) e transcrição (Whisper), compartilhados por
   // todos os agentes. Cada agente pode escolher usar áudio da DeepInfra também, ou
   // de um provedor de voz dedicado (Fish Audio / ElevenLabs) usando o token abaixo.
@@ -230,6 +237,17 @@ model LembreteCobrancaLog {
   createdAt DateTime @default(now())
 
   @@unique([contactId, dia])
+}
+
+// Histórico de atribuições automáticas de responsável (uma linha por vez que
+// a automação por etapa realmente atribuiu alguém a um lead).
+model AtribuicaoLog {
+  id          String   @id @default(cuid())
+  contactId   String
+  contactName String   // snapshot — continua legível mesmo se o lead for excluído depois
+  stageName   String
+  responsavel String
+  createdAt   DateTime @default(now())
 }
 
 // Etiqueta (tag) atribuível a leads

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import MediaBubble from "./MediaBubble";
 import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
+import { interpolarVariaveis } from "@/lib/variaveis";
 
 // Data de hoje (local) como "YYYY-MM-DD"
 function todayStr() {
@@ -262,7 +263,7 @@ export default function ChatView() {
         payload.mediaUrl = t.mediaUrl;
         payload.mediaMimetype = t.mediaMimetype;
         payload.mediaFileName = t.mediaFileName;
-        payload.body = t.body || "";
+        payload.body = interpolarVariaveis(t.body || "", contact);
       }
       const res = await fetch(`/api/contacts/${selectedId}/messages`, {
         method: "POST",
@@ -280,9 +281,10 @@ export default function ChatView() {
       return;
     }
 
-    setText(t.body);
+    const bodyFinal = interpolarVariaveis(t.body, contact);
+    setText(bodyFinal);
     try {
-      await navigator.clipboard.writeText(t.body);
+      await navigator.clipboard.writeText(bodyFinal);
       setTplSent(true);
       setTimeout(() => setTplSent(false), 1500);
     } catch { /* sem clipboard */ }

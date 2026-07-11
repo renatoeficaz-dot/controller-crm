@@ -29,6 +29,8 @@ export async function PATCH(req) {
   if ("elevenLabsApiKey" in body) data.elevenLabsApiKey = (body.elevenLabsApiKey || "").trim() || null;
   if ("contaLiberacaoId" in body) data.contaLiberacaoId = body.contaLiberacaoId || null;
   if ("contaRecebimentoId" in body) data.contaRecebimentoId = body.contaRecebimentoId || null;
+  if ("horarioComercialInicio" in body) data.horarioComercialInicio = (body.horarioComercialInicio || "").trim() || null;
+  if ("horarioComercialFim" in body) data.horarioComercialFim = (body.horarioComercialFim || "").trim() || null;
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }
