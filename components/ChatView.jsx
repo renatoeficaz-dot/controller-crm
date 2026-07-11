@@ -1,8 +1,38 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import MediaBubble from "./MediaBubble";
 import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
+
+// Data de hoje (local) como "YYYY-MM-DD"
+function todayStr() {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+// Situação de cobrança do contato (mesma lógica do Kanban):
+//  "atrasado" = tem parcela vencida e não baixada
+//  "hoje"     = tem parcela que vence hoje e não baixada
+//  "emdia"    = tem plano de parcelas, sem atraso nem vencimento hoje
+//  "sem"      = não tem plano de parcelas (ainda não está em cobrança)
+function situacaoContato(c) {
+  const ciclo = c.cicloAtual || 1;
+  const parcelas = (c.parcelas || []).filter((p) => (p.ciclo || 1) === ciclo);
+  if (parcelas.length === 0) return "sem";
+  const hoje = todayStr();
+  let vencida = false;
+  let hojeVence = false;
+  for (const p of parcelas) {
+    if (p.paid) continue;
+    const d = new Date(p.dueDate).toISOString().slice(0, 10);
+    if (d < hoje) vencida = true;
+    else if (d === hoje) hojeVence = true;
+  }
+  if (vencida) return "atrasado";
+  if (hojeVence) return "hoje";
+  return "emdia";
+}
+
+const STATUS_LABEL = { atrasado: "Atrasado", hoje: "Vence hoje", emdia: "Em dia", sem: "Sem cobrança" };
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -57,6 +87,14 @@ export default function ChatView() {
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
 
+  // Filtros da lista de conversas
+  const [busca, setBusca] = useState(""); // nome ou telefone
+  const [statusFiltro, setStatusFiltro] = useState(""); // "" = todos
+  const [tagFiltro, setTagFiltro] = useState("");
+  const [stageFiltro, setStageFiltro] = useState("");
+  const [instanceFiltro, setInstanceFiltro] = useState(""); // número/instância que está conversando
+  const [ordem, setOrdem] = useState("recentes"); // "recentes" | "antigas" | "nome"
+
   const loadConversations = useCallback(async () => {
     const data = await fetch("/api/chat").then((r) => r.json()).catch(() => []);
     setConversations(Array.isArray(data) ? data : []);
@@ -68,20 +106,58 @@ export default function ChatView() {
     return () => clearInterval(t);
   }, [loadConversations]);
 
+  // Resumo financeiro (a receber / inadimplência) — recarrega periodicamente,
+  // não só uma vez ao abrir a tela, senão fica desatualizado.
+  const loadResumo = useCallback(async () => {
+    const s = await fetch("/api/stages").then((r) => r.json()).catch(() => []);
+    const list = Array.isArray(s) ? s : [];
+    setStagesList(list.map((st) => ({ id: st.id, name: st.name })));
+    const receber = aReceber(list);
+    const inad = inadimplenciaCravo(list);
+    setResumo({ ...receber, pendenteTotal: inad.pendenteTotal, clientes: inad.clientes });
+  }, []);
+
+  useEffect(() => {
+    loadResumo();
+    const t = setInterval(loadResumo, 30000);
+    return () => clearInterval(t);
+  }, [loadResumo]);
+
   // Carrega listas auxiliares (uma vez)
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsers).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
-    fetch("/api/stages").then((r) => r.json()).then((s) => {
-      const list = Array.isArray(s) ? s : [];
-      setStagesList(list.map((st) => ({ id: st.id, name: st.name })));
-      const receber = aReceber(list);
-      const inad = inadimplenciaCravo(list);
-      setResumo({ ...receber, pendenteTotal: inad.pendenteTotal, clientes: inad.clientes });
-    }).catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
   }, []);
+
+  // Aplica busca + filtros + ordenação na lista de conversas
+  const conversasFiltradas = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    const termoDigitos = busca.replace(/\D/g, "");
+    let out = conversations.filter((c) => {
+      if (termo) {
+        const bateNome = (c.name || "").toLowerCase().includes(termo);
+        const batePhone = termoDigitos && (c.phone || "").replace(/\D/g, "").includes(termoDigitos);
+        if (!bateNome && !batePhone) return false;
+      }
+      if (statusFiltro && situacaoContato(c) !== statusFiltro) return false;
+      if (tagFiltro && !(c.tags || []).some((t) => t.id === tagFiltro)) return false;
+      if (stageFiltro && c.stageId !== stageFiltro) return false;
+      if (instanceFiltro && c.instance !== instanceFiltro) return false;
+      return true;
+    });
+    if (ordem === "nome") {
+      out = [...out].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    } else {
+      out = [...out].sort((a, b) => {
+        const da = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt) : 0;
+        const db = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt) : 0;
+        return ordem === "antigas" ? da - db : db - da;
+      });
+    }
+    return out;
+  }, [conversations, busca, statusFiltro, tagFiltro, stageFiltro, instanceFiltro, ordem]);
 
   const loadContact = useCallback(async () => {
     if (!selectedId) return;
@@ -348,11 +424,76 @@ export default function ChatView() {
       <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
       {/* Lista de conversas */}
       <div className={`${selectedId ? "hidden md:flex" : "flex"} w-full md:w-80 shrink-0 border-r border-slate-200 bg-white flex-col min-h-0`}>
-        <div className="px-4 py-3 border-b border-slate-200 shrink-0">
-          <h2 className="font-semibold text-slate-800 text-sm">Conversas</h2>
+        <div className="px-4 py-3 border-b border-slate-200 shrink-0 space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-slate-800 text-sm">Conversas</h2>
+            <span className="text-[11px] text-slate-400">{conversasFiltradas.length}</span>
+          </div>
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por nome ou telefone…"
+            className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+          />
+          <div className="flex flex-wrap gap-1">
+            {["", "atrasado", "hoje", "emdia", "sem"].map((s) => (
+              <button
+                key={s || "todos"}
+                onClick={() => setStatusFiltro(s)}
+                className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${
+                  statusFiltro === s
+                    ? "bg-slate-800 text-white border-slate-800"
+                    : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                {s ? STATUS_LABEL[s] : "Todos"}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <select
+              value={stageFiltro}
+              onChange={(e) => setStageFiltro(e.target.value)}
+              className="text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white outline-none focus:border-emerald-400"
+            >
+              <option value="">Todas etapas</option>
+              {stagesList.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            <select
+              value={tagFiltro}
+              onChange={(e) => setTagFiltro(e.target.value)}
+              className="text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white outline-none focus:border-emerald-400"
+            >
+              <option value="">Todas etiquetas</option>
+              {allTags.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            <select
+              value={instanceFiltro}
+              onChange={(e) => setInstanceFiltro(e.target.value)}
+              className="text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white outline-none focus:border-emerald-400"
+            >
+              <option value="">Todos números</option>
+              {numbers.map((n) => (
+                <option key={n.id} value={n.instance}>{n.label}</option>
+              ))}
+            </select>
+            <select
+              value={ordem}
+              onChange={(e) => setOrdem(e.target.value)}
+              className="text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white outline-none focus:border-emerald-400"
+            >
+              <option value="recentes">Mais recentes</option>
+              <option value="antigas">Mais antigas</option>
+              <option value="nome">Nome (A-Z)</option>
+            </select>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto thin-scroll">
-          {conversations.map((c) => (
+          {conversasFiltradas.map((c) => (
             <button
               key={c.id}
               onClick={() => { setSelectedId(c.id); setContact(null); setMessages([]); setShowInfo(false); }}
@@ -386,8 +527,8 @@ export default function ChatView() {
               </div>
             </button>
           ))}
-          {conversations.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-8">Nenhuma conversa.</p>
+          {conversasFiltradas.length === 0 && (
+            <p className="text-sm text-slate-400 text-center py-8">Nenhuma conversa encontrada.</p>
           )}
         </div>
       </div>
