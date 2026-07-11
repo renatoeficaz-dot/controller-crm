@@ -430,10 +430,19 @@ export default function KanbanBoard() {
               return ordem === "recentes" ? db - da : da - db;
             });
             // Soma do que ainda falta receber (parcelas do ciclo atual não baixadas)
-            // dos leads visíveis nesta coluna — só faz sentido em "Recebimento".
+            // e contagem de atrasados/vencem hoje entre os leads visíveis nesta
+            // coluna — só faz sentido em "Recebimento".
             const totalAReceber =
               stage.name === "Recebimento"
                 ? visiveis.reduce((sum, c) => sum + valorAReceber(c), 0)
+                : 0;
+            const qtdAtrasados =
+              stage.name === "Recebimento"
+                ? visiveis.filter((c) => situacaoContato(c) === "atrasado").length
+                : 0;
+            const qtdHoje =
+              stage.name === "Recebimento"
+                ? visiveis.filter((c) => situacaoContato(c) === "hoje").length
                 : 0;
             return (
               <div
@@ -463,9 +472,21 @@ export default function KanbanBoard() {
                     </div>
                   </div>
                   {stage.name === "Recebimento" && (
-                    <p className="text-xs text-emerald-700 font-medium pl-[18px]">
-                      A receber: {money(totalAReceber)}
-                    </p>
+                    <div className="flex items-center gap-2 pl-[18px]">
+                      <p className="text-xs text-emerald-700 font-medium">
+                        A receber: {money(totalAReceber)}
+                      </p>
+                      {qtdAtrasados > 0 && (
+                        <span className="text-[11px] text-red-600 font-medium">
+                          {qtdAtrasados} atrasado{qtdAtrasados > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {qtdHoje > 0 && (
+                        <span className="text-[11px] text-amber-600 font-medium">
+                          {qtdHoje} hoje
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
 
