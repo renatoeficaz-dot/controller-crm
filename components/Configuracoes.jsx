@@ -38,6 +38,63 @@ const UF_LIST = [
   { uf: "SP", name: "São Paulo" }, { uf: "SE", name: "Sergipe" }, { uf: "TO", name: "Tocantins" },
 ];
 
+// Ícones de linha, minimalistas (sem depender de lib externa) — 20x20, stroke atual.
+const ICONS = {
+  honorarios: (
+    <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+  usuarios: (
+    <>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
+  numeros: (
+    <path
+      d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  ),
+  tags: (
+    <>
+      <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="7" cy="7" r="1.2" fill="currentColor" stroke="none" />
+    </>
+  ),
+  mensagens: (
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+  automacao: (
+    <path d="M13 2 3 14h7l-1 8 10-12h-7z" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+  ia: (
+    <>
+      <path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="3.2" />
+    </>
+  ),
+};
+
+function Icon({ name, className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+      {ICONS[name]}
+    </svg>
+  );
+}
+
+const TABS = [
+  { key: "honorarios", label: "Honorários / Multa", desc: "Percentuais e regras de cobrança" },
+  { key: "usuarios", label: "Usuários", desc: "Acessos e permissões da equipe" },
+  { key: "numeros", label: "Números", desc: "WhatsApp conectados e cobrança automática" },
+  { key: "tags", label: "Tags / Auto-tag", desc: "Etiquetas e regras automáticas" },
+  { key: "mensagens", label: "Mensagens prontas", desc: "Modelos de texto, mídia e contato" },
+  { key: "automacao", label: "Automação", desc: "Responsáveis automáticos por etapa" },
+  { key: "ia", label: "IA", desc: "Agentes, modelos e chaves de API" },
+];
+
 export default function Configuracoes() {
   const [tab, setTab] = useState("honorarios");
 
@@ -47,62 +104,85 @@ export default function Configuracoes() {
     return () => window.removeEventListener("configuracoes:tab", onTab);
   }, []);
 
+  const atual = TABS.find((t) => t.key === tab);
+
   return (
-    <div className="p-3 md:p-6 max-w-4xl w-full overflow-y-auto thin-scroll">
-      <h1 className="text-lg font-semibold text-slate-800 mb-4">Configurações</h1>
+    <div className="flex-1 overflow-y-auto thin-scroll bg-slate-50/60">
+      <div className="max-w-5xl mx-auto p-4 md:p-8">
+        <header className="mb-6 md:mb-8">
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-900 tracking-tight">Configurações</h1>
+          <p className="text-sm text-slate-500 mt-1">Gerencie usuários, números, automações e integrações do sistema.</p>
+        </header>
 
-      <div className="flex gap-1 md:gap-2 mb-5 border-b border-slate-200 overflow-x-auto">
-        <TabBtn active={tab === "honorarios"} onClick={() => setTab("honorarios")}>
-          Honorários / Multa
-        </TabBtn>
-        <TabBtn active={tab === "usuarios"} onClick={() => setTab("usuarios")}>
-          Usuários
-        </TabBtn>
-        <TabBtn active={tab === "numeros"} onClick={() => setTab("numeros")}>
-          Números
-        </TabBtn>
-        <TabBtn active={tab === "tags"} onClick={() => setTab("tags")}>
-          Tags / Auto-tag
-        </TabBtn>
-        <TabBtn active={tab === "mensagens"} onClick={() => setTab("mensagens")}>
-          Mensagens prontas
-        </TabBtn>
-        <TabBtn active={tab === "automacao"} onClick={() => setTab("automacao")}>
-          Automação
-        </TabBtn>
-        <TabBtn active={tab === "ia"} onClick={() => setTab("ia")}>
-          IA
-        </TabBtn>
-      </div>
+        {/* Navegação: pills horizontais roláveis no mobile, sidebar vertical no desktop */}
+        <nav className="flex md:hidden gap-1.5 mb-5 overflow-x-auto pb-1 -mx-4 px-4">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium border transition-colors ${
+                tab === t.key
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white text-slate-600 border-slate-200"
+              }`}
+            >
+              <Icon name={t.key} className="w-3.5 h-3.5" />
+              {t.label}
+            </button>
+          ))}
+        </nav>
 
-      {tab === "honorarios" && <Honorarios />}
-      {tab === "usuarios" && <Usuarios />}
-      {tab === "numeros" && <Numeros />}
-      {tab === "tags" && <TagsConfig />}
-      {tab === "mensagens" && <MensagensProntas />}
-      {tab === "automacao" && <AutomacaoFunil />}
-      {tab === "ia" && (
-        <div className="space-y-6">
-          <TokenDeepInfra />
-          <AgentesIa />
+        <div className="md:grid md:grid-cols-[220px_1fr] md:gap-8 md:items-start">
+          <nav className="hidden md:flex flex-col gap-0.5 sticky top-6">
+            {TABS.map((t) => {
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`group flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                    active ? "bg-white shadow-sm ring-1 ring-slate-200" : "hover:bg-white/70"
+                  }`}
+                >
+                  <Icon
+                    name={t.key}
+                    className={`w-4 h-4 mt-0.5 shrink-0 transition-colors ${
+                      active ? "text-emerald-600" : "text-slate-400 group-hover:text-slate-500"
+                    }`}
+                  />
+                  <span>
+                    <span className={`block text-sm font-medium ${active ? "text-slate-900" : "text-slate-600"}`}>
+                      {t.label}
+                    </span>
+                    <span className="block text-[11px] text-slate-400 leading-tight mt-0.5">{t.desc}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <main className="min-w-0">
+            <div className="md:hidden mb-4">
+              <h2 className="text-sm font-semibold text-slate-700">{atual?.label}</h2>
+              <p className="text-xs text-slate-400 mt-0.5">{atual?.desc}</p>
+            </div>
+
+            {tab === "honorarios" && <Honorarios />}
+            {tab === "usuarios" && <Usuarios />}
+            {tab === "numeros" && <Numeros />}
+            {tab === "tags" && <TagsConfig />}
+            {tab === "mensagens" && <MensagensProntas />}
+            {tab === "automacao" && <AutomacaoFunil />}
+            {tab === "ia" && (
+              <div className="space-y-6">
+                <TokenDeepInfra />
+                <AgentesIa />
+              </div>
+            )}
+          </main>
         </div>
-      )}
+      </div>
     </div>
-  );
-}
-
-function TabBtn({ active, onClick, children }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-2.5 md:px-4 py-2 text-xs md:text-sm font-medium -mb-px border-b-2 transition-colors whitespace-nowrap ${
-        active
-          ? "border-emerald-500 text-emerald-600"
-          : "border-transparent text-slate-500 hover:text-slate-700"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -142,7 +222,7 @@ function Honorarios() {
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 max-w-md space-y-4">
+    <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-md space-y-4">
       <div>
         <h2 className="font-medium text-slate-800">% de honorários</h2>
         <p className="text-sm text-slate-500 mt-1">
@@ -310,7 +390,7 @@ function Usuarios() {
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
+      <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
         <h2 className="font-medium text-slate-800">
           {editando ? "Editar usuário" : "Novo usuário"}
         </h2>
@@ -417,7 +497,7 @@ function Usuarios() {
         </div>
       </form>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
         <h2 className="font-medium text-slate-800 mb-3">Usuários ({users.length})</h2>
         <ul className="divide-y divide-slate-100">
           {users.map((u) => (
@@ -607,7 +687,7 @@ function Numeros() {
   return (
     <div className="space-y-6">
       {/* Servidor Evolution */}
-      <form onSubmit={saveEvolution} className="bg-white rounded-xl border border-slate-200 p-5 grid md:grid-cols-3 gap-3 items-end">
+      <form onSubmit={saveEvolution} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 grid md:grid-cols-3 gap-3 items-end">
         <Field label="URL do servidor Evolution" value={evo.evolutionUrl} onChange={(v) => setEvo((s) => ({ ...s, evolutionUrl: v }))} placeholder="https://evo.exemplo.com" />
         <label className="block">
           <span className="text-xs text-slate-400">API Key (global)</span>
@@ -625,7 +705,7 @@ function Numeros() {
       </form>
 
       <div className="grid md:grid-cols-2 gap-6">
-        <form onSubmit={create} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
+        <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
           <h2 className="font-medium text-slate-800">Conectar número</h2>
           <Field label="Nome da conexão" value={form.label} onChange={(v) => setForm((f) => ({ ...f, label: v }))} placeholder="Ex.: Comercial 1" />
           <Field label="Número (com DDI)" value={form.number} onChange={(v) => setForm((f) => ({ ...f, number: v }))} placeholder="5511999998888" />
@@ -652,7 +732,7 @@ function Numeros() {
           </button>
         </form>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
           <h2 className="font-medium text-slate-800 mb-3">Números conectados ({numeros.length})</h2>
           <ul className="divide-y divide-slate-100">
             {numeros.map((n) => {
@@ -827,7 +907,7 @@ function TagsConfig() {
     <div className="space-y-6">
       {/* Criar tag */}
       <div className="grid md:grid-cols-2 gap-6">
-        <form onSubmit={createTag} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
+        <form onSubmit={createTag} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
           <h2 className="font-medium text-slate-800">Nova tag</h2>
           <div className="flex gap-2">
             <Field label="Nome" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Indicação" />
@@ -846,7 +926,7 @@ function TagsConfig() {
           </button>
         </form>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
           <h2 className="font-medium text-slate-800 mb-3">Tags cadastradas ({tags.length})</h2>
           <ul className="divide-y divide-slate-100">
             {tags.map((t) => (
@@ -864,7 +944,7 @@ function TagsConfig() {
       </div>
 
       {/* Auto-tag */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
         <h2 className="font-medium text-slate-800">Auto-tag pela 1ª mensagem</h2>
         <p className="text-sm text-slate-500">
           Se a <strong>primeira mensagem</strong> que o cliente enviar contém o texto abaixo,
@@ -1035,7 +1115,7 @@ function MensagensProntas() {
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 h-fit">
+      <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
         <h2 className="font-medium text-slate-800">
           {editando ? "Editar mensagem" : "Nova mensagem pronta"}
         </h2>
@@ -1137,7 +1217,7 @@ function MensagensProntas() {
         </div>
       </form>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
         <h2 className="font-medium text-slate-800 mb-3">Mensagens cadastradas ({templates.length})</h2>
         <ul className="divide-y divide-slate-100">
           {templates.map((t) => (
@@ -1209,7 +1289,7 @@ function AutomacaoFunil() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 max-w-xl">
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-xl">
       <h2 className="font-medium text-slate-800 mb-1">Responsável automático por etapa</h2>
       <p className="text-xs text-slate-400 mb-4">
         Quando um lead entra numa etapa, ele é atribuído automaticamente ao usuário escolhido aqui (deixe em branco para não automatizar).
@@ -1358,7 +1438,7 @@ function TokenDeepInfra() {
   }
 
   return (
-    <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 max-w-lg space-y-3">
+    <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-lg space-y-3">
       <h2 className="font-medium text-slate-800">Tokens</h2>
       <p className="text-xs text-slate-400">
         A primeira chave (<a href="https://deepinfra.com/dash" target="_blank" rel="noreferrer" className="underline text-emerald-600">gerar aqui</a>) dá
@@ -1479,7 +1559,7 @@ function AgentesIa() {
 
   return (
     <div className="grid md:grid-cols-[220px_1fr] gap-6">
-      <div className="bg-white rounded-xl border border-slate-200 p-3">
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-3">
         <div className="flex items-center justify-between mb-2 px-1">
           <h2 className="font-medium text-slate-800 text-sm">Agentes</h2>
           <button onClick={() => setNewAgentModalOpen(true)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">+ Novo</button>
@@ -1500,7 +1580,7 @@ function AgentesIa() {
       </div>
 
       {selectedId ? (
-        <form onSubmit={save} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+        <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
           <Field label="Nome do agente" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Atendimento comercial" />
 
           <label className="block">
@@ -1708,7 +1788,7 @@ function AgentesIa() {
           </div>
         </form>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 flex items-center justify-center text-sm text-slate-400">
+        <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 flex items-center justify-center text-sm text-slate-400">
           Selecione ou crie um agente para editar
         </div>
       )}
