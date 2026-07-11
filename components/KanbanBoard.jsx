@@ -73,6 +73,8 @@ export default function KanbanBoard() {
   const [dragging, setDragging] = useState(null); // { contactId, fromStageId }
   const [overStage, setOverStage] = useState(null);
   const [openId, setOpenId] = useState(null); // contato aberto no modal
+  const [cardMenuId, setCardMenuId] = useState(null); // contato com o menu (⋮) do card aberto
+  const [moveSubmenuId, setMoveSubmenuId] = useState(null); // contato com o submenu "Mover para" aberto
   const [adding, setAdding] = useState(null); // stageId onde estou adicionando
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -155,6 +157,13 @@ export default function KanbanBoard() {
       flash(data.error || "Não foi possível mover o contato.");
       load();
     }
+  }
+
+  async function removeContact(contactId) {
+    if (!confirm("Excluir este contato? Essa ação não pode ser desfeita.")) return;
+    setCardMenuId(null);
+    await fetch(`/api/contacts/${contactId}`, { method: "DELETE" });
+    load();
   }
 
   function onDrop(toStageId) {
@@ -509,7 +518,7 @@ export default function KanbanBoard() {
                           setOverStage(null);
                         }}
                         onClick={() => setOpenId(c.id)}
-                        className={`group rounded-lg border p-3 cursor-pointer hover:shadow-sm transition-all active:cursor-grabbing ${style}`}
+                        className={`group relative rounded-lg border p-3 cursor-pointer hover:shadow-sm transition-all active:cursor-grabbing ${style}`}
                       >
                         <div className="flex items-center gap-2.5">
                           <div className="relative w-8 h-8 shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center">
@@ -530,7 +539,53 @@ export default function KanbanBoard() {
                               {sit === "atrasado" ? "Atrasado" : "Vence hoje"}
                             </span>
                           )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMoveSubmenuId(null);
+                              setCardMenuId((m) => (m === c.id ? null : c.id));
+                            }}
+                            className={`shrink-0 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded px-1 ${(sit === "atrasado" || sit === "hoje") ? "" : "ml-auto"}`}
+                          >
+                            ⋮
+                          </button>
                         </div>
+
+                        {cardMenuId === c.id && (
+                          <div
+                            className="absolute right-2 top-10 z-20 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-44 text-sm"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button onClick={() => { setCardMenuId(null); setOpenId(c.id); }} className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50">
+                              Abrir
+                            </button>
+                            <div className="relative">
+                              <button
+                                onClick={() => setMoveSubmenuId((m) => (m === c.id ? null : c.id))}
+                                className="w-full flex items-center justify-between px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+                              >
+                                Mover para <span className="text-slate-300">›</span>
+                              </button>
+                              {moveSubmenuId === c.id && (
+                                <div className="absolute left-full top-0 ml-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-44 max-h-56 overflow-y-auto thin-scroll">
+                                  {stages.filter((s) => s.id !== stage.id).map((s) => (
+                                    <button
+                                      key={s.id}
+                                      onClick={() => { setCardMenuId(null); setMoveSubmenuId(null); moveContact(c.id, s.id); }}
+                                      className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50 truncate"
+                                    >
+                                      {s.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <button onClick={() => removeContact(c.id)} className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-slate-50">
+                              Excluir
+                            </button>
+                          </div>
+                        )}
                         {(c.tags || []).length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             {c.tags.map((t) => (

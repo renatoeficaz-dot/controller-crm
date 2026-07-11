@@ -75,6 +75,7 @@ export default function LancamentosView() {
   const [fBanco, setFBanco] = useState("");
   const [fIni, setFIni] = useState(inicioMesStr());
   const [fFim, setFFim] = useState(hojeStr());
+  const [buscaLanc, setBuscaLanc] = useState("");
 
   // Cadastro rápido de categoria / banco
   const [newCat, setNewCat] = useState({ name: "", type: "entrada" });
@@ -145,6 +146,40 @@ export default function LancamentosView() {
     }
     return { entradas, saidas, saldo: entradas - saidas };
   }, [lancamentos]);
+
+  const lancamentosFiltrados = useMemo(() => {
+    const q = buscaLanc.trim().toLowerCase();
+    if (!q) return lancamentos;
+    return lancamentos.filter((l) =>
+      (l.description || "").toLowerCase().includes(q) ||
+      (l.categoria?.name || "").toLowerCase().includes(q) ||
+      (l.banco?.name || "").toLowerCase().includes(q) ||
+      (l.contact?.name || "").toLowerCase().includes(q)
+    );
+  }, [lancamentos, buscaLanc]);
+
+  function exportarCsv() {
+    const linhas = [["Data", "Tipo", "Descrição", "Categoria", "Banco", "Lead", "Valor"]];
+    for (const l of lancamentosFiltrados) {
+      linhas.push([
+        new Date(l.date).toLocaleDateString("pt-BR"),
+        l.type === "entrada" ? "Entrada" : "Saída",
+        l.description || "",
+        l.categoria?.name || "",
+        l.banco?.name || "",
+        l.contact?.name || "",
+        String(l.amount).replace(".", ","),
+      ]);
+    }
+    const csv = linhas.map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lancamentos_${hojeStr()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // Agrupamento por categoria (para gráficos de pizza)
   const porCategoria = useMemo(() => {
@@ -379,6 +414,24 @@ export default function LancamentosView() {
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+            <div className="flex items-center justify-between gap-3 p-3 border-b border-slate-100">
+              <div className="relative flex-1 max-w-xs">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-xs">🔍</span>
+                <input
+                  value={buscaLanc}
+                  onChange={(e) => setBuscaLanc(e.target.value)}
+                  placeholder="Buscar descrição, categoria, responsável…"
+                  className="w-full text-xs border border-slate-200 rounded-lg pl-7 pr-2 py-1.5 outline-none focus:border-emerald-400 transition-shadow"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={exportarCsv}
+                className="flex items-center gap-1.5 text-xs font-medium border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-50 shrink-0"
+              >
+                ⬇ Exportar
+              </button>
+            </div>
             <table className="w-full text-sm min-w-[600px]">
               <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
@@ -393,7 +446,7 @@ export default function LancamentosView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {lancamentos.map((l) => (
+                {lancamentosFiltrados.map((l) => (
                   <tr key={l.id} className="hover:bg-slate-50">
                     <td className="px-4 py-2 text-xs text-slate-500">{new Date(l.date).toLocaleDateString("pt-BR")}</td>
                     <td className="px-4 py-2">
@@ -428,8 +481,10 @@ export default function LancamentosView() {
                     </td>
                   </tr>
                 ))}
-                {lancamentos.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Nenhum lançamento no período.</td></tr>
+                {lancamentosFiltrados.length === 0 && (
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                    {lancamentos.length === 0 ? "Nenhum lançamento no período." : "Nenhum lançamento encontrado."}
+                  </td></tr>
                 )}
               </tbody>
             </table>
