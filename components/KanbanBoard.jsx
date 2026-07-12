@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import ContactModal from "./ContactModal";
 
 // Iniciais para o avatar do contato
@@ -279,8 +280,29 @@ export default function KanbanBoard() {
     );
   }
 
+  const totalContatos = stages.reduce((s, st) => s + st.contacts.length, 0);
+
   return (
     <>
+      {/* Ações do cabeçalho (o título/subtítulo já vêm de app/contatos/page.js) */}
+      <div className="flex items-center justify-end gap-2 px-3 md:px-4 pt-3">
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href="/configuracoes?tab=automacao"
+            className="hidden sm:flex items-center gap-1.5 text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            ⚡ Automatizar funil
+          </Link>
+          <button
+            onClick={() => setAdding(stages[0]?.id)}
+            disabled={!stages[0]}
+            className="flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+          >
+            + Novo contato
+          </button>
+        </div>
+      </div>
+
       {notify && (
         <div className="mx-4 mt-2 rounded-lg bg-amber-50 border border-amber-300 text-amber-700 text-sm px-3 py-2">
           ⚠️ {notify}
@@ -661,6 +683,11 @@ export default function KanbanBoard() {
             );
           })}
         </div>
+      </div>
+
+      {/* Rodapé com total (as colunas/cards já respeitam o filtro atual) */}
+      <div className="flex items-center justify-end px-3 md:px-4 py-2 border-t border-slate-100 text-xs text-slate-500 shrink-0">
+        Total de contatos: <span className="font-medium text-slate-700 ml-1">{totalContatos}</span>
       </div>
 
       {openId && (

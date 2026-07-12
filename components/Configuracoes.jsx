@@ -99,6 +99,12 @@ const TABS = [
 export default function Configuracoes() {
   const [tab, setTab] = useState("honorarios");
 
+  // Deep-link de outras páginas (ex.: "Automatizar funil" em Contatos) via ?tab=automacao
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("tab");
+    if (q) setTab(q);
+  }, []);
+
   useEffect(() => {
     const onTab = (e) => setTab(e.detail);
     window.addEventListener("configuracoes:tab", onTab);
