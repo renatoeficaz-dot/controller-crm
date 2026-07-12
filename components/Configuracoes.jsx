@@ -712,6 +712,7 @@ function Numeros() {
   const [editingEvo, setEditingEvo] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null); // { ok, error, totalInstances }
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [qr, setQr] = useState(null); // { id, label, image, connected, error }
   const [disconnecting, setDisconnecting] = useState(null); // id em andamento
   const [status, setStatus] = useState([]); // [{ id, label, number, state }] — estado real na Evolution
@@ -799,6 +800,7 @@ function Numeros() {
     }
     const novo = await res.json();
     setForm({ ddi: "55", label: "", number: "", instance: "", userId: "" });
+    setConnectModalOpen(false);
     load();
     conectar(novo); // já tenta gerar o QR do número recém-criado
   }
@@ -954,63 +956,18 @@ function Numeros() {
         )}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 items-start">
-        <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3.5">
-          <SectionHeader icon="📞" title="Conectar novo número" subtitle="Informe os dados do número WhatsApp para conectar ao sistema." />
-          <Field label="Nome da conexão" value={form.label} onChange={(v) => setForm((f) => ({ ...f, label: v }))} placeholder="Ex.: Comercial 1" />
-          <div>
-            <span className="text-xs text-slate-400">Número (com DDI)</span>
-            <div className="flex gap-2 mt-0.5">
-              <select
-                value={form.ddi}
-                onChange={(e) => setForm((f) => ({ ...f, ddi: e.target.value }))}
-                className="w-20 text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow shrink-0"
-              >
-                <option value="55">🇧🇷 55</option>
-                <option value="1">🇺🇸 1</option>
-                <option value="351">🇵🇹 351</option>
-              </select>
-              <input
-                value={form.number}
-                onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))}
-                placeholder="11 99999-8888"
-                className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
-              />
-            </div>
-            <p className="text-[11px] text-slate-400 mt-1">Inclua o DDD. Ex.: 11 99999-8888</p>
-          </div>
-          <div>
-            <Field label="Instância (Evolution)" value={form.instance} onChange={(v) => setForm((f) => ({ ...f, instance: v }))} placeholder="ex.: comercial1" />
-            <p className="text-[11px] text-slate-400 mt-1">Informe a instância criada no servidor Evolution.</p>
-          </div>
-          <label className="block">
-            <span className="text-xs text-slate-400">Atribuir a um usuário</span>
-            <select
-              value={form.userId}
-              onChange={(e) => setForm((f) => ({ ...f, userId: e.target.value }))}
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
-            >
-              <option value="">— Sem responsável —</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
-            <p className="text-[11px] text-slate-400 mt-1">O número ficará disponível para toda a equipe.</p>
-          </label>
-          {error && <p className="text-xs text-red-500">{error}</p>}
-          <button
-            disabled={saving}
-            className="w-full flex items-center justify-center gap-2 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
-          >
-            <span>💬</span> {saving ? "Conectando…" : "Conectar número (gera QR)"}
-          </button>
-          <p className="flex items-start gap-2 text-[11px] text-sky-700 bg-sky-50 rounded-lg p-2.5">
-            <span>ℹ️</span> Após conectar, um QR Code será gerado para autenticação do número no WhatsApp.
-          </p>
-        </form>
-
+      <div>
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
-          <SectionHeader icon="📶" title={`Números conectados (${numeros.length})`} subtitle="Gerencie os números já conectados ao sistema." />
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeader icon="📶" title={`Números conectados (${numeros.length})`} subtitle="Gerencie os números já conectados ao sistema." />
+            <button
+              type="button"
+              onClick={() => { setError(""); setConnectModalOpen(true); }}
+              className="shrink-0 flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 transition-colors"
+            >
+              + Conectar número
+            </button>
+          </div>
           <ul className="mt-4 space-y-2">
             {numeros.map((n) => {
               const conectado = status.find((s) => s.id === n.id)?.state === "open";
@@ -1120,6 +1077,71 @@ function Numeros() {
               {history.length === 0 && <li className="py-8 text-center text-sm text-slate-400">Nenhum evento registrado ainda.</li>}
             </ul>
           </div>
+        </div>
+      )}
+
+      {/* Modal: conectar novo número */}
+      {connectModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setConnectModalOpen(false)}>
+          <form onSubmit={create} onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-3.5 max-h-[88vh] overflow-y-auto thin-scroll">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📞</span>
+                <h3 className="font-semibold text-slate-800">Conectar número</h3>
+              </div>
+              <button type="button" onClick={() => setConnectModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <Field label="Nome da conexão" value={form.label} onChange={(v) => setForm((f) => ({ ...f, label: v }))} placeholder="Ex.: Comercial 1" />
+            <div>
+              <span className="text-xs text-slate-400">Número (com DDI)</span>
+              <div className="flex gap-2 mt-0.5">
+                <select
+                  value={form.ddi}
+                  onChange={(e) => setForm((f) => ({ ...f, ddi: e.target.value }))}
+                  className="w-20 text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow shrink-0"
+                >
+                  <option value="55">🇧🇷 55</option>
+                  <option value="1">🇺🇸 1</option>
+                  <option value="351">🇵🇹 351</option>
+                </select>
+                <input
+                  value={form.number}
+                  onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))}
+                  placeholder="11 99999-8888"
+                  className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Inclua o DDD. Ex.: 11 99999-8888</p>
+            </div>
+            <div>
+              <Field label="Instância (Evolution)" value={form.instance} onChange={(v) => setForm((f) => ({ ...f, instance: v }))} placeholder="ex.: comercial1" />
+              <p className="text-[11px] text-slate-400 mt-1">Informe a instância criada no servidor Evolution.</p>
+            </div>
+            <label className="block">
+              <span className="text-xs text-slate-400">Atribuir a um usuário</span>
+              <select
+                value={form.userId}
+                onChange={(e) => setForm((f) => ({ ...f, userId: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+              >
+                <option value="">— Sem responsável —</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-400 mt-1">O número ficará disponível para toda a equipe.</p>
+            </label>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <button
+              disabled={saving}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+            >
+              <span>💬</span> {saving ? "Conectando…" : "Conectar número (gera QR)"}
+            </button>
+            <p className="flex items-start gap-2 text-[11px] text-sky-700 bg-sky-50 rounded-lg p-2.5">
+              <span>ℹ️</span> Após conectar, um QR Code será gerado para autenticação do número no WhatsApp.
+            </p>
+          </form>
         </div>
       )}
 
@@ -1412,6 +1434,54 @@ const MEDIA_TYPES = [
 
 const MEDIA_LABELS = { text: "Texto", image: "Imagem", audio: "Áudio", document: "Documento", contact: "Contato" };
 
+// Emojis comuns e compatíveis com o WhatsApp (unicode padrão), agrupados por categoria.
+const EMOJI_GRUPOS = [
+  {
+    nome: "Carinhas",
+    itens: ["😀", "😁", "😂", "🤣", "😊", "🙂", "😉", "😍", "🥰", "😘", "😎", "🤔", "😐", "😑", "😢", "😭", "😡", "😱", "😴", "🥳", "😇", "🙄", "😅", "😆", "😋", "😜", "🤗", "🤝", "🙏", "👏"],
+  },
+  {
+    nome: "Gestos",
+    itens: ["👍", "👎", "👌", "✌️", "🤞", "👋", "💪", "🙌", "👉", "👈", "☝️", "✋", "🤙", "👊", "✊"],
+  },
+  {
+    nome: "Coração",
+    itens: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💔", "💕", "💖", "💗", "✨", "⭐", "🔥", "💯"],
+  },
+  {
+    nome: "Dinheiro / negócio",
+    itens: ["💰", "💵", "💳", "🏦", "📈", "📉", "💸", "🧾", "✅", "❌", "⚠️", "📌", "📎", "🔒", "🔑"],
+  },
+  {
+    nome: "Comunicação",
+    itens: ["📱", "💬", "☎️", "📞", "📩", "📅", "⏰", "⏳", "📝", "📄", "📋", "🔔", "🚗", "🏠", "🚚"],
+  },
+];
+
+function EmojiPicker({ onPick, onClose }) {
+  return (
+    <div className="absolute right-0 mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-2 w-64 max-h-64 overflow-y-auto thin-scroll">
+      {EMOJI_GRUPOS.map((g) => (
+        <div key={g.nome} className="mb-1.5">
+          <p className="text-[10px] text-slate-400 px-1 mb-0.5">{g.nome}</p>
+          <div className="grid grid-cols-8 gap-0.5">
+            {g.itens.map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => { onPick(e); onClose(); }}
+                className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 text-base"
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -1431,6 +1501,7 @@ function MensagensProntas() {
   const [busca, setBusca] = useState("");
   const [menuId, setMenuId] = useState(null);
   const [showVariaveis, setShowVariaveis] = useState(false);
+  const [showEmojis, setShowEmojis] = useState(false);
   const fileRef = useRef(null);
   const bodyRef = useRef(null);
 
@@ -1578,7 +1649,12 @@ function MensagensProntas() {
                 <button type="button" title="Lista numerada" onClick={() => inserirNoTexto("\n1. ")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-xs text-slate-500">1.</button>
                 <span className="w-px h-4 bg-slate-200 mx-0.5" />
                 <button type="button" title="Link" onClick={() => inserirNoTexto("", " (https://)")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500">🔗</button>
-                <button type="button" title="Emoji" onClick={() => inserirNoTexto("🙂")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500">🙂</button>
+                <div className="relative">
+                  <button type="button" title="Emoji" onClick={() => setShowEmojis((v) => !v)} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500">🙂</button>
+                  {showEmojis && (
+                    <EmojiPicker onPick={(e) => inserirNoTexto(e)} onClose={() => setShowEmojis(false)} />
+                  )}
+                </div>
                 <div className="relative ml-auto">
                   <button type="button" onClick={() => setShowVariaveis((v) => !v)} className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 px-1.5">
                     Variáveis <span className="text-[9px]">▾</span>
