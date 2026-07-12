@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import ContactModal from "./ContactModal";
 
@@ -75,6 +76,7 @@ export default function KanbanBoard() {
   const [overStage, setOverStage] = useState(null);
   const [openId, setOpenId] = useState(null); // contato aberto no modal
   const [cardMenuId, setCardMenuId] = useState(null); // contato com o menu (⋮) do card aberto
+  const [cardMenuPos, setCardMenuPos] = useState(null); // { top, left } do menu — calculado do botão, renderizado via portal (evita ser cortado pelo scroll da coluna)
   const [moveSubmenuId, setMoveSubmenuId] = useState(null); // contato com o submenu "Mover para" aberto
   const [adding, setAdding] = useState(null); // stageId onde estou adicionando
   const [newName, setNewName] = useState("");
@@ -565,8 +567,14 @@ export default function KanbanBoard() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              const r = e.currentTarget.getBoundingClientRect();
                               setMoveSubmenuId(null);
-                              setCardMenuId((m) => (m === c.id ? null : c.id));
+                              if (cardMenuId === c.id) {
+                                setCardMenuId(null);
+                              } else {
+                                setCardMenuPos({ top: r.bottom + 4, left: Math.max(8, r.right - 176) });
+                                setCardMenuId(c.id);
+                              }
                             }}
                             className={`shrink-0 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded px-1 ${(sit === "atrasado" || sit === "hoje") ? "" : "ml-auto"}`}
                           >
@@ -574,39 +582,44 @@ export default function KanbanBoard() {
                           </button>
                         </div>
 
-                        {cardMenuId === c.id && (
-                          <div
-                            className="absolute right-2 top-10 z-20 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-44 text-sm"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button onClick={() => { setCardMenuId(null); setOpenId(c.id); }} className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50">
-                              Abrir
-                            </button>
-                            <div className="relative">
+                        {/* Renderizado via portal (fora da coluna, que tem overflow-y-auto e
+                            cortava esse menu — "Mover para" simplesmente não aparecia). */}
+                        {cardMenuId === c.id && cardMenuPos && createPortal(
+                          <>
+                            <div className="fixed inset-0 z-30" onClick={() => { setCardMenuId(null); setMoveSubmenuId(null); }} />
+                            <div
+                              className="fixed z-40 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-44 text-sm max-h-64 overflow-y-auto thin-scroll"
+                              style={{ top: cardMenuPos.top, left: cardMenuPos.left }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button onClick={() => { setCardMenuId(null); setOpenId(c.id); }} className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50">
+                                Abrir
+                              </button>
                               <button
                                 onClick={() => setMoveSubmenuId((m) => (m === c.id ? null : c.id))}
                                 className="w-full flex items-center justify-between px-3 py-1.5 text-slate-600 hover:bg-slate-50"
                               >
-                                Mover para <span className="text-slate-300">›</span>
+                                Mover para <span className="text-slate-300">{moveSubmenuId === c.id ? "︿" : "›"}</span>
                               </button>
                               {moveSubmenuId === c.id && (
-                                <div className="absolute left-full top-0 ml-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-44 max-h-56 overflow-y-auto thin-scroll">
+                                <div className="bg-slate-50 border-y border-slate-100 py-1">
                                   {stages.filter((s) => s.id !== stage.id).map((s) => (
                                     <button
                                       key={s.id}
                                       onClick={() => { setCardMenuId(null); setMoveSubmenuId(null); moveContact(c.id, s.id); }}
-                                      className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50 truncate"
+                                      className="w-full text-left pl-6 pr-3 py-1.5 text-slate-600 hover:bg-slate-100 truncate"
                                     >
                                       {s.name}
                                     </button>
                                   ))}
                                 </div>
                               )}
+                              <button onClick={() => removeContact(c.id)} className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-slate-50">
+                                Excluir
+                              </button>
                             </div>
-                            <button onClick={() => removeContact(c.id)} className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-slate-50">
-                              Excluir
-                            </button>
-                          </div>
+                          </>,
+                          document.body
                         )}
                         {(c.tags || []).length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
