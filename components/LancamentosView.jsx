@@ -256,6 +256,12 @@ export default function LancamentosView() {
     loadMeta();
   }
 
+  async function renameCat(id, name) {
+    if (!name.trim()) return;
+    await fetch(`/api/lancamentos/categorias/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+    loadMeta();
+  }
+
   async function addBanco(e) {
     e.preventDefault();
     if (!newBanco.trim()) return;
@@ -266,6 +272,12 @@ export default function LancamentosView() {
 
   async function removeBanco(id) {
     await fetch(`/api/lancamentos/bancos/${id}`, { method: "DELETE" });
+    loadMeta();
+  }
+
+  async function renameBanco(id, name) {
+    if (!name.trim()) return;
+    await fetch(`/api/lancamentos/bancos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
     loadMeta();
   }
 
@@ -506,9 +518,18 @@ export default function LancamentosView() {
           </form>
           <ul className="divide-y divide-slate-100 text-sm">
             {categorias.map((c) => (
-              <li key={c.id} className="flex items-center justify-between py-1.5">
-                <span className="text-slate-700">{c.name} <span className={`text-[10px] ml-1 ${c.type === "entrada" ? "text-emerald-500" : "text-red-500"}`}>{c.type}</span></span>
-                <button onClick={() => removeCat(c.id)} className="text-xs text-red-400 hover:text-red-600">×</button>
+              <li key={c.id} className="flex items-center justify-between py-1.5 gap-2">
+                <span className="flex items-center gap-1 min-w-0">
+                  <input
+                    defaultValue={c.name}
+                    onBlur={(e) => e.target.value !== c.name && renameCat(c.id, e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+                    className="text-slate-700 bg-transparent outline-none focus:bg-slate-50 rounded px-1 -mx-1 min-w-0 w-24"
+                    title="Clique para renomear"
+                  />
+                  <span className={`text-[10px] shrink-0 ${c.type === "entrada" ? "text-emerald-500" : "text-red-500"}`}>{c.type}</span>
+                </span>
+                <button onClick={() => removeCat(c.id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">×</button>
               </li>
             ))}
           </ul>
@@ -529,7 +550,13 @@ export default function LancamentosView() {
               const isRecebimento = config?.contaRecebimentoId === b.id;
               return (
                 <li key={b.id} className="flex items-center justify-between py-1.5 gap-2">
-                  <span className="text-slate-700 truncate">{b.name}</span>
+                  <input
+                    defaultValue={b.name}
+                    onBlur={(e) => e.target.value !== b.name && renameBanco(b.id, e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+                    className="text-slate-700 bg-transparent outline-none focus:bg-slate-50 rounded px-1 -mx-1 min-w-0 flex-1"
+                    title="Clique para renomear"
+                  />
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => setContaEspecial("contaLiberacaoId", b.id)}
