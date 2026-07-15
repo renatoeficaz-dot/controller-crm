@@ -565,7 +565,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     >
                       <option value="">— Sem tipo —</option>
                       {taskTypes.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
+                        <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
                       ))}
                     </select>
                     <input
@@ -595,7 +595,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       <span className={`text-xs flex-1 min-w-0 truncate ${t.done ? "text-slate-400 line-through" : "text-slate-600"}`}>{t.title}</span>
                       {t.tipo && (
                         <span className="text-[9px] font-medium rounded-full px-1.5 py-0.5 text-white shrink-0" style={{ backgroundColor: t.tipo.color }}>
-                          {t.tipo.name}
+                          {t.tipo.emoji ? `${t.tipo.emoji} ` : ""}{t.tipo.name}
                         </span>
                       )}
                       <button onClick={() => removeTask(t.id)} className="text-red-400 hover:text-red-600 shrink-0">×</button>

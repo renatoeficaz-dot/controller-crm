@@ -101,6 +101,7 @@ model TaskType {
   id        String   @id @default(cuid())
   name      String
   color     String   @default("#6366f1")
+  emoji     String?
   tasks     Task[]
   createdAt DateTime @default(now())
 }

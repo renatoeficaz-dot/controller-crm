@@ -1371,7 +1371,7 @@ function MetasConfig() {
 
 function TiposTarefaConfig() {
   const [tipos, setTipos] = useState([]);
-  const [form, setForm] = useState({ name: "", color: "#6366f1" });
+  const [form, setForm] = useState({ name: "", color: "#6366f1", emoji: "" });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -1384,7 +1384,7 @@ function TiposTarefaConfig() {
     if (!form.name.trim()) return;
     setSaving(true);
     await fetch("/api/task-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    setForm({ name: "", color: "#6366f1" });
+    setForm({ name: "", color: "#6366f1", emoji: "" });
     setSaving(false);
     load();
   }
@@ -1400,6 +1400,16 @@ function TiposTarefaConfig() {
       <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
         <SectionHeader icon="✅" title="Novo tipo de tarefa" subtitle="Categorias pra organizar as tarefas dos leads (ex.: Ligação, Visita, Cobrança extra)." />
         <div className="flex gap-2">
+          <label className="block shrink-0 w-16">
+            <span className="text-xs text-slate-400">Emoji</span>
+            <input
+              value={form.emoji}
+              onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))}
+              placeholder="📞"
+              maxLength={4}
+              className="mt-0.5 w-full text-center text-lg border border-slate-200 rounded-lg px-1 py-1.5 outline-none focus:border-emerald-400"
+            />
+          </label>
           <Field label="Nome" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Ligação" />
           <label className="block shrink-0">
             <span className="text-xs text-slate-400">Cor</span>
@@ -1423,6 +1433,7 @@ function TiposTarefaConfig() {
             <li key={t.id} className="flex items-center justify-between py-2">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color }} />
+                {t.emoji && <span>{t.emoji}</span>}
                 <span className="text-sm text-slate-700">{t.name}</span>
               </div>
               <button onClick={() => remove(t.id)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>

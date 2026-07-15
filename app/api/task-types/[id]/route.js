@@ -11,6 +11,7 @@ export async function PATCH(req, { params }) {
     data.name = name;
   }
   if ("color" in body) data.color = body.color;
+  if ("emoji" in body) data.emoji = body.emoji || null;
   const tipo = await prisma.taskType.update({ where: { id }, data });
   return NextResponse.json(tipo);
 }

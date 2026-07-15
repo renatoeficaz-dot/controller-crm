@@ -88,6 +88,10 @@ export default function ChatView() {
   const [recording, setRecording] = useState(false);
   const [attachError, setAttachError] = useState("");
   const [multaPct, setMultaPct] = useState(50);
+  const [tasks, setTasks] = useState([]);
+  const [taskTypes, setTaskTypes] = useState([]);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
   const [horaLimite, setHoraLimite] = useState("");
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
@@ -136,6 +140,7 @@ export default function ChatView() {
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
+    fetch("/api/task-types").then((r) => r.json()).then((t) => setTaskTypes(Array.isArray(t) ? t : [])).catch(() => {});
     fetch("/api/config").then((r) => r.json()).then((cfg) => {
       if (cfg?.multaPct != null) setMultaPct(cfg.multaPct);
       setHoraLimite(cfg?.pagamentoHoraLimite || "");
@@ -170,10 +175,19 @@ export default function ChatView() {
     return out;
   }, [conversations, busca, statusFiltro, tagFiltro, stageFiltro, instanceFiltro, ordem]);
 
+  const loadTasks = useCallback(async () => {
+    if (!selectedId) return;
+    const requestedId = selectedId;
+    const data = await fetch(`/api/tasks?contactId=${requestedId}`).then((r) => r.json()).catch(() => []);
+    if (requestedId !== selectedIdRef.current) return;
+    setTasks(Array.isArray(data) ? data : []);
+  }, [selectedId]);
+
   const loadContact = useCallback(async () => {
     if (!selectedId) return;
     const requestedId = selectedId;
     const ct = await fetch(`/api/contacts/${requestedId}`).then((r) => r.json()).catch(() => null);
+    loadTasks();
     if (requestedId !== selectedIdRef.current) return; // trocou de conversa enquanto isso — descarta
     if (ct && !ct.error) {
       setContact(ct);
@@ -190,7 +204,7 @@ export default function ChatView() {
       });
       setContactTags((ct.tags || []).map((t) => t.id));
     }
-  }, [selectedId]);
+  }, [selectedId, loadTasks]);
 
   const loadMessages = useCallback(async () => {
     if (!selectedId) return;
@@ -423,6 +437,36 @@ export default function ChatView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paid: vaiPagar, amountPago }),
     });
+  }
+
+  async function createTask(e) {
+    e.preventDefault();
+    if (!taskForm.title.trim() || !selectedId) return;
+    const dia = taskForm.dueDate || todayStr();
+    const hora = taskForm.dueTime || "09:00";
+    await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...taskForm, contactId: selectedId, dueDate: `${dia}T${hora}:00` }),
+    });
+    setTaskForm({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
+    setShowTaskForm(false);
+    loadTasks();
+  }
+
+  async function toggleTaskDone(t) {
+    setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)));
+    await fetch(`/api/tasks/${t.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: !t.done }),
+    });
+  }
+
+  async function removeTask(id) {
+    if (!confirm("Excluir esta tarefa?")) return;
+    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    loadTasks();
   }
 
   const selected = conversations.find((c) => c.id === selectedId);
@@ -773,6 +817,70 @@ export default function ChatView() {
                 📍 Estado (IA): <span className="font-medium text-slate-600">{contact.estado}</span>
               </p>
             )}
+
+            {/* Tarefas do lead */}
+            <div className="border border-slate-200 rounded-lg p-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-slate-600">Tarefas ({tasks.filter((t) => !t.done).length} pendentes)</span>
+                <button type="button" onClick={() => setShowTaskForm((v) => !v)} className="text-[11px] text-emerald-600 hover:text-emerald-700">
+                  {showTaskForm ? "Cancelar" : "+ Tarefa"}
+                </button>
+              </div>
+              {showTaskForm && (
+                <form onSubmit={createTask} className="mt-2 space-y-1.5">
+                  <input
+                    value={taskForm.title}
+                    onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+                    placeholder="Título da tarefa"
+                    className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                  />
+                  <div className="flex gap-1.5">
+                    <select
+                      value={taskForm.tipoId}
+                      onChange={(e) => setTaskForm((f) => ({ ...f, tipoId: e.target.value }))}
+                      className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none"
+                    >
+                      <option value="">— Sem tipo —</option>
+                      {taskTypes.map((t) => (
+                        <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="date"
+                      value={taskForm.dueDate}
+                      onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))}
+                      className="text-xs border border-slate-200 rounded px-2 py-1.5"
+                    />
+                    <input
+                      type="time"
+                      value={taskForm.dueTime}
+                      onChange={(e) => setTaskForm((f) => ({ ...f, dueTime: e.target.value }))}
+                      className="w-20 text-xs border border-slate-200 rounded px-2 py-1.5"
+                    />
+                  </div>
+                  <button className="w-full bg-emerald-500 text-white rounded py-1.5 text-xs hover:bg-emerald-600">Criar tarefa</button>
+                </form>
+              )}
+              {tasks.length > 0 && (
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {tasks.map((t) => (
+                    <li key={t.id} className="flex items-center gap-2 py-1.5">
+                      <input type="checkbox" checked={t.done} onChange={() => toggleTaskDone(t)} className="accent-emerald-500 shrink-0" />
+                      <span className="text-[10px] text-slate-400 shrink-0">
+                        {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      <span className={`text-xs flex-1 min-w-0 truncate ${t.done ? "text-slate-400 line-through" : "text-slate-600"}`}>{t.title}</span>
+                      {t.tipo && (
+                        <span className="text-[9px] font-medium rounded-full px-1.5 py-0.5 text-white shrink-0" style={{ backgroundColor: t.tipo.color }}>
+                          {t.tipo.emoji ? `${t.tipo.emoji} ` : ""}{t.tipo.name}
+                        </span>
+                      )}
+                      <button onClick={() => removeTask(t.id)} className="text-red-400 hover:text-red-600 shrink-0">×</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             {/* Tags */}
             {allTags.length > 0 && (

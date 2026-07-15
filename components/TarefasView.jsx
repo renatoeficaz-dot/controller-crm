@@ -121,7 +121,7 @@ export default function TarefasView() {
           >
             <option value="">— Sem tipo —</option>
             {tipos.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+              <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
             ))}
           </select>
         </label>
@@ -187,7 +187,7 @@ export default function TarefasView() {
           >
             <option value="">Todos os tipos</option>
             {tipos.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+              <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
             ))}
           </select>
         </div>
@@ -208,7 +208,7 @@ export default function TarefasView() {
                     <p className={`text-sm font-medium ${t.done ? "text-slate-400 line-through" : "text-slate-700"}`}>{t.title}</p>
                     {t.tipo && (
                       <span className="text-[10px] font-medium rounded-full px-1.5 py-0.5 text-white shrink-0" style={{ backgroundColor: t.tipo.color }}>
-                        {t.tipo.name}
+                        {t.tipo.emoji ? `${t.tipo.emoji} ` : ""}{t.tipo.name}
                       </span>
                     )}
                     {atrasada && (
