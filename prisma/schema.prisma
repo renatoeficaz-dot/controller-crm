@@ -58,6 +58,11 @@ model Contact {
   // ligado/desligado manualmente pelo botão no chat/popup do lead.
   iaPausada Boolean @default(false)
 
+  // Timestamp de quando o lead ENTROU na etapa "Recebimento" (venda concluída).
+  // Independente do pagamentoCapital (que tem sua própria lógica condicional
+  // pra gerar parcelas) — usado só pra contar "vendas do dia" na aba Metas.
+  entrouRecebimentoEm DateTime?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }

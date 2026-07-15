@@ -63,6 +63,7 @@ export async function POST(req) {
         if (contact.valorCapital && aindaSemPlano && !contact.pagamentoCapital) {
           data.pagamentoCapital = hoje;
         }
+        if (!contact.entrouRecebimentoEm) data.entrouRecebimentoEm = new Date();
 
         const updated = await prisma.contact.update({ where: { id }, data });
         if (updated.valorCapital && updated.pagamentoCapital && aindaSemPlano) {

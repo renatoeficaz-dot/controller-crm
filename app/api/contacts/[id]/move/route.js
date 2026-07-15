@@ -61,6 +61,11 @@ export async function PATCH(req, { params }) {
   if (entrandoRecebimento && contact.valorCapital && aindaSemPlano && !contact.pagamentoCapital) {
     data.pagamentoCapital = hojeUTC();
   }
+  // Timestamp de venda concluída — independente da lógica acima (que só roda
+  // em certas condições), pra "vendas do dia" na aba Metas nunca ficar de fora.
+  if (entrandoRecebimento && !contact.entrouRecebimentoEm) {
+    data.entrouRecebimentoEm = new Date();
+  }
 
   const updated = await prisma.contact.update({ where: { id }, data });
 

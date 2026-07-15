@@ -27,7 +27,7 @@ export async function GET() {
       select: { contactId: true },
       distinct: ["contactId"],
     }),
-    prisma.contact.count({ where: { pagamentoCapital: { gte: inicioHoje, lt: inicioAmanha } } }),
+    prisma.contact.count({ where: { entrouRecebimentoEm: { gte: inicioHoje, lt: inicioAmanha } } }),
   ]);
 
   const totalEmRecebimento = stageRecebimento
