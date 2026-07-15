@@ -17,6 +17,7 @@ export default function TarefasView() {
   const [error, setError] = useState("");
   const [fStatus, setFStatus] = useState("pendentes"); // pendentes | todas | concluidas
   const [fTipo, setFTipo] = useState("");
+  const [editingId, setEditingId] = useState(null);
 
   const load = useCallback(async () => {
     const done = fStatus === "pendentes" ? "false" : fStatus === "concluidas" ? "true" : "";
@@ -48,19 +49,40 @@ export default function TarefasView() {
       return;
     }
     setSaving(true);
-    const res = await fetch("/api/tasks", {
-      method: "POST",
+    const editando = editingId !== null;
+    const res = await fetch(editando ? `/api/tasks/${editingId}` : "/api/tasks", {
+      method: editando ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, dueDate: `${form.dueDate}T${form.dueTime || "09:00"}:00` }),
     });
     setSaving(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setError(d.error || "Erro ao criar tarefa.");
+      setError(d.error || "Erro ao salvar tarefa.");
       return;
     }
     setForm(EMPTY_FORM);
+    setEditingId(null);
     load();
+  }
+
+  function startEdit(t) {
+    setEditingId(t.id);
+    const d = new Date(t.dueDate);
+    setForm({
+      title: t.title || "",
+      notes: t.notes || "",
+      contactId: t.contactId || "",
+      tipoId: t.tipoId || "",
+      dueDate: d.toLocaleDateString("en-CA"),
+      dueTime: d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setError("");
   }
 
   async function toggleDone(t) {
@@ -76,6 +98,7 @@ export default function TarefasView() {
   async function remove(id) {
     if (!confirm("Excluir esta tarefa?")) return;
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    if (editingId === id) cancelEdit();
     load();
   }
 
@@ -89,7 +112,7 @@ export default function TarefasView() {
       </div>
 
       <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 md:p-5 grid md:grid-cols-2 gap-3">
-        <h2 className="font-medium text-slate-800 md:col-span-2">Nova tarefa</h2>
+        <h2 className="font-medium text-slate-800 md:col-span-2">{editingId ? "Editar tarefa" : "Nova tarefa"}</h2>
         <label className="block">
           <span className="text-xs text-slate-400">Título</span>
           <input
@@ -155,12 +178,19 @@ export default function TarefasView() {
           />
         </label>
         {error && <p className="text-xs text-red-500 md:col-span-2">{error}</p>}
-        <button
-          disabled={saving}
-          className="md:col-span-2 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
-        >
-          {saving ? "Criando…" : "Criar tarefa"}
-        </button>
+        <div className="md:col-span-2 flex gap-2">
+          <button
+            disabled={saving}
+            className="flex-1 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+          >
+            {saving ? "Salvando…" : editingId ? "Salvar alterações" : "Criar tarefa"}
+          </button>
+          {editingId && (
+            <button type="button" onClick={cancelEdit} className="px-4 text-sm text-slate-400 hover:text-slate-600">
+              Cancelar
+            </button>
+          )}
+        </div>
       </form>
 
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 md:p-5">
@@ -196,7 +226,7 @@ export default function TarefasView() {
           {tasks.map((t) => {
             const atrasada = !t.done && t.dueDate.slice(0, 10) < hoje;
             return (
-              <li key={t.id} className="flex items-start gap-3 py-2.5">
+              <li key={t.id} className={`flex items-start gap-3 py-2.5 ${editingId === t.id ? "bg-emerald-50/50 -mx-2 px-2 rounded" : ""}`}>
                 <input
                   type="checkbox"
                   checked={t.done}
@@ -220,7 +250,10 @@ export default function TarefasView() {
                     {t.notes ? ` · ${t.notes}` : ""}
                   </p>
                 </div>
-                <button onClick={() => remove(t.id)} title="Excluir" className="text-xs text-red-400 hover:text-red-600 shrink-0">×</button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => startEdit(t)} title="Editar" className="text-xs text-emerald-600 hover:text-emerald-700">✎</button>
+                  <button onClick={() => remove(t.id)} title="Excluir" className="text-xs text-red-400 hover:text-red-600">×</button>
+                </div>
               </li>
             );
           })}

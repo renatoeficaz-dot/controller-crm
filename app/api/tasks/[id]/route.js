@@ -10,12 +10,13 @@ export async function PATCH(req, { params }) {
   if ("dueDate" in body) data.dueDate = new Date(body.dueDate);
   if ("done" in body) data.done = !!body.done;
   if ("tipoId" in body) data.tipoId = body.tipoId || null;
+  if ("contactId" in body && body.contactId) data.contactId = body.contactId;
   const task = await prisma.task.update({
     where: { id },
     data,
     include: {
       contact: { select: { id: true, name: true, phone: true } },
-      tipo: { select: { id: true, name: true, color: true } },
+      tipo: { select: { id: true, name: true, color: true, emoji: true } },
     },
   });
   return NextResponse.json(task);

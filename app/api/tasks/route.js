@@ -19,7 +19,7 @@ export async function GET(req) {
     orderBy: { dueDate: "asc" },
     include: {
       contact: { select: { id: true, name: true, phone: true } },
-      tipo: { select: { id: true, name: true, color: true } },
+      tipo: { select: { id: true, name: true, color: true, emoji: true } },
     },
   });
   return NextResponse.json(tasks);
@@ -44,7 +44,7 @@ export async function POST(req) {
     },
     include: {
       contact: { select: { id: true, name: true, phone: true } },
-      tipo: { select: { id: true, name: true, color: true } },
+      tipo: { select: { id: true, name: true, color: true, emoji: true } },
     },
   });
   return NextResponse.json(task);
