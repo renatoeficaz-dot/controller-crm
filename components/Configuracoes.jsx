@@ -1373,6 +1373,7 @@ function TiposTarefaConfig() {
   const [tipos, setTipos] = useState([]);
   const [form, setForm] = useState({ name: "", color: "#6366f1", emoji: "" });
   const [saving, setSaving] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const load = useCallback(async () => {
     setTipos(await fetch("/api/task-types").then((r) => r.json()).catch(() => []));
@@ -1400,16 +1401,22 @@ function TiposTarefaConfig() {
       <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
         <SectionHeader icon="✅" title="Novo tipo de tarefa" subtitle="Categorias pra organizar as tarefas dos leads (ex.: Ligação, Visita, Cobrança extra)." />
         <div className="flex gap-2">
-          <label className="block shrink-0 w-16">
+          <div className="block shrink-0 w-16 relative">
             <span className="text-xs text-slate-400">Emoji</span>
-            <input
-              value={form.emoji}
-              onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))}
-              placeholder="📞"
-              maxLength={4}
-              className="mt-0.5 w-full text-center text-lg border border-slate-200 rounded-lg px-1 py-1.5 outline-none focus:border-emerald-400"
-            />
-          </label>
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker((v) => !v)}
+              className="mt-0.5 w-full text-center text-lg border border-slate-200 rounded-lg px-1 py-1.5 hover:border-emerald-400 transition-colors"
+            >
+              {form.emoji || <span className="text-slate-300 text-sm">＋</span>}
+            </button>
+            {showEmojiPicker && (
+              <EmojiPicker
+                onPick={(e) => setForm((f) => ({ ...f, emoji: e }))}
+                onClose={() => setShowEmojiPicker(false)}
+              />
+            )}
+          </div>
           <Field label="Nome" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Ligação" />
           <label className="block shrink-0">
             <span className="text-xs text-slate-400">Cor</span>
