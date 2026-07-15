@@ -8,13 +8,14 @@ function inicioDiaUTC(offsetDias = 0) {
   return d;
 }
 
-// Resumo do dia pra aba Metas: meta é X% de todos os leads atualmente na
-// etapa "Recebimento" pagando (dando baixa numa parcela) hoje.
+// Resumo do dia pra aba Metas:
+// - Vendas: meta fixa configurável de quantos leads devem cair em "Recebimento" no dia.
+// - Recebimentos: meta é X% de todos os leads atualmente em "Recebimento" pagando hoje.
 export async function GET() {
   const inicioHoje = inicioDiaUTC(0);
   const inicioAmanha = inicioDiaUTC(1);
 
-  const [cfg, stageRecebimento, valorRecebidoHoje, pagantesHoje] = await Promise.all([
+  const [cfg, stageRecebimento, valorRecebidoHoje, pagantesHoje, vendasHoje] = await Promise.all([
     prisma.config.findUnique({ where: { id: "singleton" } }),
     prisma.stage.findFirst({ where: { name: "Recebimento" } }),
     prisma.parcela.aggregate({
@@ -26,6 +27,7 @@ export async function GET() {
       select: { contactId: true },
       distinct: ["contactId"],
     }),
+    prisma.contact.count({ where: { pagamentoCapital: { gte: inicioHoje, lt: inicioAmanha } } }),
   ]);
 
   const totalEmRecebimento = stageRecebimento
@@ -35,8 +37,11 @@ export async function GET() {
   const pct = Math.min(100, Math.max(0, cfg?.metaPctRecebimento ?? 70));
   const metaRecebimentosHoje = Math.ceil((totalEmRecebimento * pct) / 100);
   const recebimentosHoje = pagantesHoje.length;
+  const metaVendasDia = cfg?.metaVendasDia ?? 5;
 
   return NextResponse.json({
+    vendasHoje,
+    metaVendasDia,
     totalEmRecebimento,
     recebimentosHoje,
     valorRecebidoHoje: valorRecebidoHoje._sum.amountPago || 0,

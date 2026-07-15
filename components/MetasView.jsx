@@ -57,7 +57,25 @@ export default function MetasView() {
         </p>
       </div>
 
-      <Card titulo="Leads atualmente em Recebimento" valor={resumo.totalEmRecebimento} sub="Base do cálculo da meta de hoje" cor="violet" />
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-semibold text-slate-700">Meta de vendas hoje</p>
+          <p className="text-sm text-slate-500">{resumo.vendasHoje} / {resumo.metaVendasDia}</p>
+        </div>
+        <div className="w-full bg-slate-100 rounded-full h-3">
+          <div
+            className={`h-3 rounded-full transition-all ${resumo.vendasHoje >= resumo.metaVendasDia ? "bg-emerald-500" : "bg-violet-500"}`}
+            style={{ width: `${resumo.metaVendasDia > 0 ? Math.min(100, Math.round((resumo.vendasHoje / resumo.metaVendasDia) * 100)) : 100}%` }}
+          />
+        </div>
+        <p className="text-xs text-slate-400 mt-2">
+          {resumo.vendasHoje < resumo.metaVendasDia
+            ? `Faltam ${resumo.metaVendasDia - resumo.vendasHoje} venda(s) pra bater a meta de hoje.`
+            : "Meta de vendas de hoje batida! 🎉"}
+        </p>
+      </div>
+
+      <Card titulo="Leads atualmente em Recebimento" valor={resumo.totalEmRecebimento} sub="Base do cálculo da meta de recebimento de hoje" cor="violet" />
 
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
         <div className="flex items-center justify-between mb-2">

@@ -145,6 +145,8 @@ model Config {
   // Meta diária: X% de todos os leads atualmente na etapa "Recebimento"
   // precisam pagar (dar baixa numa parcela) hoje.
   metaPctRecebimento Float @default(70)
+  // Meta diária de vendas: quantos leads devem cair em "Recebimento" no dia.
+  metaVendasDia      Int   @default(5)
 
   // Horário comercial da automação de responsável por etapa — fora dessa janela,
   // o lead entra na etapa mas NÃO é auto-atribuído (fica sem responsável até

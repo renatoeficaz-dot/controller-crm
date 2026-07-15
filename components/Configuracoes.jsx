@@ -1296,11 +1296,13 @@ function Numeros() {
 /* ---------------- Tags / Etiquetas + regras de auto-tag ---------------- */
 function MetasConfig() {
   const [pct, setPct] = useState(70);
+  const [metaVendas, setMetaVendas] = useState(5);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/config").then((r) => r.json()).then((c) => {
       setPct(c?.metaPctRecebimento ?? 70);
+      setMetaVendas(c?.metaVendasDia ?? 5);
     });
   }, []);
 
@@ -1309,36 +1311,57 @@ function MetasConfig() {
     await fetch("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ metaPctRecebimento: pct }),
+      body: JSON.stringify({ metaPctRecebimento: pct, metaVendasDia: metaVendas }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
 
   return (
-    <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-md space-y-4">
-      <SectionHeader
-        icon="🎯"
-        title="Meta diária de recebimento"
-        subtitle='Regra: X% de todos os leads que estão atualmente na etapa "Recebimento" precisam pagar (dar baixa numa parcela) hoje.'
-      />
-      <label className="block">
-        <span className="text-xs text-slate-400">Percentual da meta (%)</span>
-        <div className="flex items-center gap-2 mt-0.5">
+    <form onSubmit={save} className="space-y-6 max-w-md">
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
+        <SectionHeader
+          icon="🎯"
+          title="Meta diária de vendas"
+          subtitle="Quantos leads devem cair na etapa 'Recebimento' (empréstimo liberado) no dia."
+        />
+        <label className="block">
+          <span className="text-xs text-slate-400">Meta de vendas do dia</span>
           <input
             type="number"
             min={0}
-            max={100}
-            value={pct}
-            onChange={(e) => setPct(e.target.value)}
-            className="w-32 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            value={metaVendas}
+            onChange={(e) => setMetaVendas(e.target.value)}
+            className="mt-0.5 w-32 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
           />
-          <span className="text-slate-500">%</span>
-        </div>
-      </label>
-      <p className="text-[11px] text-slate-400">
-        Exemplo: se hoje tem 40 leads em "Recebimento" e a meta é 70%, a meta do dia é 28 baixas de parcela.
-      </p>
+        </label>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
+        <SectionHeader
+          icon="💰"
+          title="Meta diária de recebimento"
+          subtitle='Regra: X% de todos os leads que estão atualmente na etapa "Recebimento" precisam pagar (dar baixa numa parcela) hoje.'
+        />
+        <label className="block">
+          <span className="text-xs text-slate-400">Percentual da meta (%)</span>
+          <div className="flex items-center gap-2 mt-0.5">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={pct}
+              onChange={(e) => setPct(e.target.value)}
+              className="w-32 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+            <span className="text-slate-500">%</span>
+          </div>
+        </label>
+        <p className="text-[11px] text-slate-400">
+          Exemplo: se hoje tem 40 leads em "Recebimento" e a meta é 70%, a meta do dia é 28 baixas de parcela.
+        </p>
+      </div>
+
       <button className="w-full bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600">
         {saved ? "Salvo ✓" : "Salvar"}
       </button>

@@ -4,20 +4,25 @@ import { useEffect, useState } from "react";
 
 // Popup pra ver a mídia direto no sistema, sem abrir aba nova nem forçar download.
 function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
-  const isPreviewable = kind === "image" || mimetype === "application/pdf";
+  // Documento que na verdade é uma foto/scan (ex.: comprovante mandado como
+  // "arquivo" em vez de "foto" no WhatsApp) — trata como imagem mesmo se o
+  // kind salvo for "document", senão o modal só mostrava um link sem preview.
+  const isImagem = kind === "image" || (mimetype || "").startsWith("image/");
+  const isPdf = mimetype === "application/pdf";
+  const isPreviewable = isImagem || isPdf;
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
       <div className="max-w-3xl max-h-[85vh] w-full flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
         <div className="w-full flex justify-end mb-2">
           <button onClick={onClose} className="text-white/80 hover:text-white text-2xl leading-none">×</button>
         </div>
-        {kind === "image" && (
+        {isImagem && (
           <img src={url} alt={fileName || "imagem"} className="max-w-full max-h-[75vh] rounded-lg object-contain" />
         )}
-        {kind !== "image" && mimetype === "application/pdf" && (
+        {!isImagem && isPdf && (
           <iframe src={url} title={fileName || "documento"} className="w-full h-[75vh] rounded-lg bg-white" />
         )}
-        {kind !== "image" && !isPreviewable && (
+        {!isPreviewable && (
           <div className="bg-white rounded-lg p-6 text-center text-sm text-slate-600">
             <p className="mb-3">Esse tipo de arquivo não tem visualização direta ({fileName || "documento"}).</p>
             <a href={url} target="_blank" rel="noreferrer" className="text-emerald-600 underline">
@@ -99,10 +104,17 @@ export default function MediaBubble({ message }) {
   }
 
   if (message.kind === "document") {
+    // Documento que na verdade é uma imagem (comprovante mandado como
+    // "arquivo") — mostra miniatura de verdade em vez de só o nome do arquivo.
+    const ehImagem = (message.mimeType || "").startsWith("image/");
     return url ? (
       <>
-        <button type="button" onClick={() => setOpen(true)} className="underline text-xs text-left">
-          {message.fileName || "documento"}
+        <button type="button" onClick={() => setOpen(true)} className="block">
+          {ehImagem ? (
+            <img src={url} alt={message.fileName || "imagem"} className="rounded-md max-w-[220px] max-h-[220px] object-cover" />
+          ) : (
+            <span className="underline text-xs text-left">{message.fileName || "documento"}</span>
+          )}
         </button>
         {open && (
           <MediaLightbox url={url} mimetype={message.mimeType} fileName={message.fileName} kind="document" onClose={() => setOpen(false)} />
