@@ -6,7 +6,7 @@ function hojeStr() {
   return new Date().toLocaleDateString("en-CA");
 }
 
-const EMPTY_FORM = { title: "", notes: "", contactId: "", tipoId: "", dueDate: hojeStr() };
+const EMPTY_FORM = { title: "", notes: "", contactId: "", tipoId: "", dueDate: hojeStr(), dueTime: "09:00" };
 
 export default function TarefasView() {
   const [tasks, setTasks] = useState([]);
@@ -51,7 +51,7 @@ export default function TarefasView() {
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, dueDate: `${form.dueDate}T${form.dueTime || "09:00"}:00` }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -125,15 +125,26 @@ export default function TarefasView() {
             ))}
           </select>
         </label>
-        <label className="block">
-          <span className="text-xs text-slate-400">Data</span>
-          <input
-            type="date"
-            value={form.dueDate}
-            onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
-          />
-        </label>
+        <div className="flex gap-2">
+          <label className="block flex-1">
+            <span className="text-xs text-slate-400">Data</span>
+            <input
+              type="date"
+              value={form.dueDate}
+              onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block w-28">
+            <span className="text-xs text-slate-400">Horário</span>
+            <input
+              type="time"
+              value={form.dueTime}
+              onChange={(e) => setForm((f) => ({ ...f, dueTime: e.target.value }))}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+        </div>
         <label className="block md:col-span-2">
           <span className="text-xs text-slate-400">Observações (opcional)</span>
           <input
@@ -205,7 +216,7 @@ export default function TarefasView() {
                     )}
                   </div>
                   <p className="text-xs text-slate-400">
-                    {t.contact?.name || "—"} · vence {new Date(t.dueDate).toLocaleDateString("pt-BR")}
+                    {t.contact?.name || "—"} · vence {new Date(t.dueDate).toLocaleDateString("pt-BR")} às {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                     {t.notes ? ` · ${t.notes}` : ""}
                   </p>
                 </div>

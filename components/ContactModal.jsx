@@ -57,7 +57,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [tasks, setTasks] = useState([]);
   const [taskTypes, setTaskTypes] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "" });
+  const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
   const chatEnd = useRef(null);
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
@@ -264,12 +264,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   async function createTask(e) {
     e.preventDefault();
     if (!taskForm.title.trim()) return;
+    const dia = taskForm.dueDate || toDateInput(new Date());
+    const hora = taskForm.dueTime || "09:00";
     await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...taskForm, contactId, dueDate: taskForm.dueDate || toDateInput(new Date()) }),
+      body: JSON.stringify({ ...taskForm, contactId, dueDate: `${dia}T${hora}:00` }),
     });
-    setTaskForm({ title: "", tipoId: "", dueDate: "" });
+    setTaskForm({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
     setShowTaskForm(false);
     loadTasks();
   }
@@ -572,6 +574,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))}
                       className="text-xs border border-slate-200 rounded px-2 py-1.5"
                     />
+                    <input
+                      type="time"
+                      value={taskForm.dueTime || "09:00"}
+                      onChange={(e) => setTaskForm((f) => ({ ...f, dueTime: e.target.value }))}
+                      className="w-20 text-xs border border-slate-200 rounded px-2 py-1.5"
+                    />
                   </div>
                   <button className="w-full bg-emerald-500 text-white rounded py-1.5 text-xs hover:bg-emerald-600">Criar tarefa</button>
                 </form>
@@ -581,6 +589,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   {tasks.map((t) => (
                     <li key={t.id} className="flex items-center gap-2 py-1.5">
                       <input type="checkbox" checked={t.done} onChange={() => toggleTaskDone(t)} className="accent-emerald-500 shrink-0" />
+                      <span className="text-[10px] text-slate-400 shrink-0">
+                        {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
                       <span className={`text-xs flex-1 min-w-0 truncate ${t.done ? "text-slate-400 line-through" : "text-slate-600"}`}>{t.title}</span>
                       {t.tipo && (
                         <span className="text-[9px] font-medium rounded-full px-1.5 py-0.5 text-white shrink-0" style={{ backgroundColor: t.tipo.color }}>
