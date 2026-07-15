@@ -905,7 +905,7 @@ function Numeros() {
               title="Servidor Evolution"
               subtitle={evo.evolutionUrl ? "URL e API Key configurados e ativos" : "Nenhum servidor configurado ainda"}
             />
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="text-right mr-2">
                 <p className="text-[11px] text-slate-400">Status do servidor</p>
                 <p className={`text-xs font-medium flex items-center gap-1.5 justify-end ${testResult?.ok ? "text-emerald-600" : evo.evolutionUrl ? "text-slate-500" : "text-red-500"}`}>
@@ -958,12 +958,12 @@ function Numeros() {
 
       <div>
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <SectionHeader icon="📶" title={`Números conectados (${numeros.length})`} subtitle="Gerencie os números já conectados ao sistema." />
             <button
               type="button"
               onClick={() => { setError(""); setConnectModalOpen(true); }}
-              className="shrink-0 flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 transition-colors"
+              className="shrink-0 flex items-center justify-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 transition-colors"
             >
               + Conectar número
             </button>
@@ -1234,16 +1234,10 @@ function Numeros() {
                       onChange={(v) => setCobranca(n.id, "estadosCobranca", v)}
                     />
                   </label>
-                  <label className="block">
-                    <span className="text-xs text-slate-400">Mensagem de cobrança</span>
-                    <textarea
-                      defaultValue={n.mensagemCobranca || ""}
-                      onBlur={(e) => setCobranca(n.id, "mensagemCobranca", e.target.value)}
-                      placeholder="Ex.: Oi! Passando pra lembrar que sua parcela de hoje vence às 10h. Já pode fazer o pagamento?"
-                      rows={2}
-                      className="mt-0.5 w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
-                    />
-                  </label>
+                  <MensagemCobrancaField
+                    value={n.mensagemCobranca || ""}
+                    onSave={(v) => setCobranca(n.id, "mensagemCobranca", v)}
+                  />
                 </div>
               </div>
             </div>
@@ -1438,23 +1432,31 @@ const MEDIA_LABELS = { text: "Texto", image: "Imagem", audio: "Áudio", document
 const EMOJI_GRUPOS = [
   {
     nome: "Carinhas",
-    itens: ["😀", "😁", "😂", "🤣", "😊", "🙂", "😉", "😍", "🥰", "😘", "😎", "🤔", "😐", "😑", "😢", "😭", "😡", "😱", "😴", "🥳", "😇", "🙄", "😅", "😆", "😋", "😜", "🤗", "🤝", "🙏", "👏"],
+    itens: ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😙", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🥵", "🥶", "😵", "🤯", "🥳", "😎", "🤓", "🧐", "😕", "😟", "🙁", "😮", "😯", "😲", "😳", "🥺", "😦", "😧", "😨", "😰", "😥", "😢", "😭", "😱", "😖", "😣", "😞", "😓", "😩", "😫", "🥱", "😤", "😡", "😠", "🤬"],
   },
   {
-    nome: "Gestos",
-    itens: ["👍", "👎", "👌", "✌️", "🤞", "👋", "💪", "🙌", "👉", "👈", "☝️", "✋", "🤙", "👊", "✊"],
+    nome: "Gestos e pessoas",
+    itens: ["👍", "👎", "👌", "🤌", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👋", "🤚", "🖐️", "✋", "🖖", "👏", "🙌", "🤝", "🙏", "✍️", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "👃", "👀", "👤", "🧑", "👨", "👩", "🧓", "👴", "👵", "🕺", "💃"],
   },
   {
-    nome: "Coração",
-    itens: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💔", "💕", "💖", "💗", "✨", "⭐", "🔥", "💯"],
+    nome: "Coração e símbolos",
+    itens: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "✨", "⭐", "🌟", "💫", "🔥", "💯", "💢", "💥", "💦", "💨", "🕳️", "💣", "💤"],
   },
   {
     nome: "Dinheiro / negócio",
-    itens: ["💰", "💵", "💳", "🏦", "📈", "📉", "💸", "🧾", "✅", "❌", "⚠️", "📌", "📎", "🔒", "🔑"],
+    itens: ["💰", "💵", "💴", "💶", "💷", "💳", "🪙", "🏦", "📈", "📉", "📊", "💸", "🧾", "✅", "❌", "❎", "⚠️", "🚫", "📌", "📍", "📎", "🖇️", "🔒", "🔓", "🔑", "🗝️", "🛡️", "💼", "📁", "📂"],
   },
   {
-    nome: "Comunicação",
-    itens: ["📱", "💬", "☎️", "📞", "📩", "📅", "⏰", "⏳", "📝", "📄", "📋", "🔔", "🚗", "🏠", "🚚"],
+    nome: "Comunicação e tempo",
+    itens: ["📱", "💬", "💭", "🗨️", "☎️", "📞", "📟", "📠", "📩", "📧", "📨", "📤", "📥", "📅", "📆", "🗓️", "⏰", "⏱️", "⏲️", "⏳", "⌛", "📝", "✏️", "📄", "📃", "📋", "📑", "🔔", "🔕", "📢", "📣"],
+  },
+  {
+    nome: "Carro / casa / trânsito",
+    itens: ["🚗", "🚙", "🏍️", "🚚", "🚛", "🚐", "🏠", "🏡", "🏢", "🏪", "⛽", "🛣️", "🚦", "🚧", "📍", "🗺️", "🧭", "🔧", "🔨", "🛠️"],
+  },
+  {
+    nome: "Documentos e ações",
+    itens: ["📸", "📷", "🎥", "🎬", "📹", "🖼️", "🗂️", "📦", "✂️", "📐", "📏", "🧮", "🖊️", "🖋️", "🖌️", "🧷", "📀", "💾", "🔗", "🌐"],
   },
 ];
 
@@ -1754,7 +1756,7 @@ function MensagensProntas() {
       </form>
 
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
-        <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <SectionHeader icon="🗂️" title={`Mensagens cadastradas (${templates.length})`} />
           <div className="relative w-44 shrink-0">
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-xs">🔍</span>
@@ -2293,7 +2295,7 @@ function AgentesIa() {
     <>
       {/* Lista compacta — clicar num agente abre o modal de edição */}
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <SectionHeader icon="🤖" title="Agentes" />
           <button onClick={() => setNewAgentModalOpen(true)} className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5">
             + Novo
@@ -2664,6 +2666,53 @@ function Field({ label, value, onChange, placeholder }) {
 
 // Seletor com todos os estados do Brasil (checkbox múltiplo, pra um número
 // poder atender mais de um estado). Armazena/recebe como string "SP,MG".
+// Campo de texto da mensagem de cobrança automática, com botão de emoji
+// (o mesmo picker usado em Mensagens prontas). Mantém estado local próprio
+// pra poder inserir o emoji na posição do cursor e só salva ao sair do campo.
+function MensagemCobrancaField({ value, onSave }) {
+  const [texto, setTexto] = useState(value);
+  const [showEmojis, setShowEmojis] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => { setTexto(value); }, [value]);
+
+  function inserirEmoji(emoji) {
+    const el = ref.current;
+    const start = el?.selectionStart ?? texto.length;
+    const end = el?.selectionEnd ?? texto.length;
+    const novo = texto.slice(0, start) + emoji + texto.slice(end);
+    setTexto(novo);
+    onSave(novo);
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      const pos = start + emoji.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
+  return (
+    <label className="block">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-400">Mensagem de cobrança</span>
+        <div className="relative">
+          <button type="button" title="Emoji" onClick={() => setShowEmojis((v) => !v)} className="w-6 h-6 rounded hover:bg-slate-200/60 text-sm text-slate-500">🙂</button>
+          {showEmojis && <EmojiPicker onPick={inserirEmoji} onClose={() => setShowEmojis(false)} />}
+        </div>
+      </div>
+      <textarea
+        ref={ref}
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={(e) => onSave(e.target.value)}
+        placeholder="Ex.: Oi! Passando pra lembrar que sua parcela de hoje vence às 10h. Já pode fazer o pagamento?"
+        rows={2}
+        className="mt-0.5 w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+      />
+    </label>
+  );
+}
+
 function EstadosSeletor({ value, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
