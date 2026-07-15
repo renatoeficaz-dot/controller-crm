@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import ContactModal from "./ContactModal";
 
 function hojeStr() {
   return new Date().toLocaleDateString("en-CA");
@@ -18,6 +19,7 @@ export default function TarefasView() {
   const [fStatus, setFStatus] = useState("pendentes"); // pendentes | todas | concluidas
   const [fTipo, setFTipo] = useState("");
   const [editingId, setEditingId] = useState(null);
+  const [openContactId, setOpenContactId] = useState(null);
 
   const load = useCallback(async () => {
     const done = fStatus === "pendentes" ? "false" : fStatus === "concluidas" ? "true" : "";
@@ -246,7 +248,18 @@ export default function TarefasView() {
                     )}
                   </div>
                   <p className="text-xs text-slate-400">
-                    {t.contact?.name || "—"} · vence {new Date(t.dueDate).toLocaleDateString("pt-BR")} às {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    {t.contact ? (
+                      <button
+                        type="button"
+                        onClick={() => setOpenContactId(t.contact.id)}
+                        className="font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                      >
+                        {t.contact.name || "Sem nome"}
+                      </button>
+                    ) : (
+                      "—"
+                    )}
+                    {" "}· vence {new Date(t.dueDate).toLocaleDateString("pt-BR")} às {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                     {t.notes ? ` · ${t.notes}` : ""}
                   </p>
                 </div>
@@ -260,6 +273,14 @@ export default function TarefasView() {
           {tasks.length === 0 && <li className="py-8 text-center text-sm text-slate-400">Nenhuma tarefa neste filtro.</li>}
         </ul>
       </div>
+
+      {openContactId && (
+        <ContactModal
+          contactId={openContactId}
+          onClose={() => setOpenContactId(null)}
+          onChanged={load}
+        />
+      )}
     </div>
   );
 }
