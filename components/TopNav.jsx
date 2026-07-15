@@ -8,6 +8,7 @@ const links = [
   { href: "/contatos", label: "Contatos" },
   { href: "/chat", label: "Chat" },
   { href: "/tarefas", label: "Tarefas" },
+  { href: "/metas", label: "Metas" },
   { href: "/lancamentos", label: "Lançamentos", admin: true },
   { href: "/relatorios", label: "Relatórios" },
   { href: "/chatbot", label: "Chatbot", admin: true },

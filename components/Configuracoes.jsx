@@ -79,6 +79,13 @@ const ICONS = {
   tarefas: (
     <path d="M9 11l3 3L22 4M9 12v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" strokeLinecap="round" strokeLinejoin="round" />
   ),
+  metas: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+    </>
+  ),
 };
 
 function Icon({ name, className }) {
@@ -95,6 +102,7 @@ const TABS = [
   { key: "numeros", label: "Números", desc: "WhatsApp conectados e cobrança automática" },
   { key: "tags", label: "Tags / Auto-tag", desc: "Etiquetas e regras automáticas" },
   { key: "tarefas", label: "Tipos de Tarefa", desc: "Categorias das tarefas dos leads" },
+  { key: "metas", label: "Metas", desc: "Regra da meta diária de recebimento" },
   { key: "mensagens", label: "Mensagens prontas", desc: "Modelos de texto, mídia e contato" },
   { key: "automacao", label: "Automação", desc: "Responsáveis automáticos por etapa" },
   { key: "ia", label: "IA", desc: "Agentes, modelos e chaves de API" },
@@ -183,6 +191,7 @@ export default function Configuracoes() {
             {tab === "numeros" && <Numeros />}
             {tab === "tags" && <TagsConfig />}
             {tab === "tarefas" && <TiposTarefaConfig />}
+            {tab === "metas" && <MetasConfig />}
             {tab === "mensagens" && <MensagensProntas />}
             {tab === "automacao" && <AutomacaoFunil />}
             {tab === "ia" && (
@@ -1285,6 +1294,70 @@ function Numeros() {
 }
 
 /* ---------------- Tags / Etiquetas + regras de auto-tag ---------------- */
+function MetasConfig() {
+  const [form, setForm] = useState({ metaVendasBase: 1, metaRecebimentosBase: 1 });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/config").then((r) => r.json()).then((c) => {
+      setForm({
+        metaVendasBase: c?.metaVendasBase ?? 1,
+        metaRecebimentosBase: c?.metaRecebimentosBase ?? 1,
+      });
+    });
+  }, []);
+
+  async function save(e) {
+    e.preventDefault();
+    await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  return (
+    <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-md space-y-4">
+      <SectionHeader
+        icon="🎯"
+        title="Meta diária de recebimento"
+        subtitle='Regra: "a cada X vendas (leads que caem em Recebimento) num dia, o dia seguinte precisa de Y baixas de parcela."'
+      />
+      <div className="flex items-center gap-3">
+        <label className="block flex-1">
+          <span className="text-xs text-slate-400">A cada quantas vendas...</span>
+          <input
+            type="number"
+            min={1}
+            value={form.metaVendasBase}
+            onChange={(e) => setForm((f) => ({ ...f, metaVendasBase: e.target.value }))}
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+          />
+        </label>
+        <span className="text-slate-400 mt-4">→</span>
+        <label className="block flex-1">
+          <span className="text-xs text-slate-400">...precisa de quantos recebimentos</span>
+          <input
+            type="number"
+            min={0}
+            value={form.metaRecebimentosBase}
+            onChange={(e) => setForm((f) => ({ ...f, metaRecebimentosBase: e.target.value }))}
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+          />
+        </label>
+      </div>
+      <p className="text-[11px] text-slate-400">
+        Exemplo: 1 venda → 10 recebimentos, significa que cada venda de hoje gera a meta de 10 baixas no dia seguinte (uma por parcela diária).
+      </p>
+      <button className="w-full bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600">
+        {saved ? "Salvo ✓" : "Salvar"}
+      </button>
+    </form>
+  );
+}
+
 function TiposTarefaConfig() {
   const [tipos, setTipos] = useState([]);
   const [form, setForm] = useState({ name: "", color: "#6366f1" });
