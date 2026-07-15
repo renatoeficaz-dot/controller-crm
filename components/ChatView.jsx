@@ -414,6 +414,7 @@ export default function ChatView() {
   const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === (contact?.cicloAtual || 1));
   const pagas = parcelasAtuais.filter((p) => p.paid).length;
   const totalParcelas = parcelasAtuais.length;
+  const faltaQuitar = parcelasAtuais.filter((p) => !p.paid).reduce((s, p) => s + p.amount, 0);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const inputCls = "w-full text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400";
@@ -791,6 +792,12 @@ export default function ChatView() {
                     <span className="text-slate-400">Parcelas</span>
                     <span className="text-slate-700">{pagas}/{totalParcelas} pagas</span>
                   </div>
+                  {faltaQuitar > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">Falta quitar</span>
+                      <span className="font-medium text-red-500">{money(faltaQuitar)}</span>
+                    </div>
+                  )}
                   <div className="w-full bg-slate-100 rounded-full h-1.5">
                     <div
                       className="bg-emerald-500 h-1.5 rounded-full transition-all"

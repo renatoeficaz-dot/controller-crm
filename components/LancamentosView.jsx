@@ -593,7 +593,7 @@ export default function LancamentosView() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[700px]">
+              <table className="w-full text-sm min-w-[800px]">
                 <thead className="bg-slate-50 text-xs text-slate-500">
                   <tr>
                     <th className="text-left px-4 py-2">Data</th>
@@ -602,6 +602,7 @@ export default function LancamentosView() {
                     <th className="text-left px-4 py-2">Categoria</th>
                     <th className="text-left px-4 py-2">Banco / Conta</th>
                     <th className="text-left px-4 py-2">Responsável</th>
+                    <th className="text-left px-4 py-2">Cliente</th>
                     <th className="text-right px-4 py-2">Valor</th>
                     <th className="px-2"></th>
                   </tr>
@@ -618,12 +619,13 @@ export default function LancamentosView() {
                       <td className="px-4 py-2 text-slate-700 max-w-[200px] truncate">{l.description || "—"}</td>
                       <td className="px-4 py-2 text-xs text-slate-500">{l.categoria?.name || "—"}</td>
                       <td className="px-4 py-2 text-xs text-slate-500">{l.banco?.name || "—"}</td>
+                      <td className="px-4 py-2 text-xs text-slate-500">{l.contact?.responsavel || "—"}</td>
                       <td className="px-4 py-2 text-xs text-slate-500">
                         {l.contact ? (
-                          <button onClick={() => setOpenContactId(l.contactId)} title="Ver conversa deste lead" className="text-emerald-600 hover:text-emerald-700 hover:underline">
-                            {l.contact.responsavel || l.contact.name}
+                          <button onClick={() => setOpenContactId(l.contactId)} title="Ver card deste lead" className="text-emerald-600 hover:text-emerald-700 hover:underline">
+                            {l.contact.name}
                           </button>
-                        ) : (l.contact?.responsavel || "—")}
+                        ) : "—"}
                       </td>
                       <td className={`px-4 py-2 text-right font-medium whitespace-nowrap ${l.type === "entrada" ? "text-emerald-600" : "text-red-600"}`}>
                         {l.type === "saida" ? "- " : ""}{money(l.amount)}
@@ -637,7 +639,7 @@ export default function LancamentosView() {
                     </tr>
                   ))}
                   {lancamentosPagina.length === 0 && (
-                    <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                    <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                       {lancamentos.length === 0 ? "Nenhum lançamento no período." : "Nenhum lançamento encontrado."}
                     </td></tr>
                   )}

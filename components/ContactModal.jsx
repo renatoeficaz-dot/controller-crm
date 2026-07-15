@@ -378,6 +378,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === cicloAtual);
   const parcelasHistorico = parcelas.filter((p) => (p.ciclo || 1) < cicloAtual);
   const totalPago = parcelasAtuais.filter((p) => p.paid).reduce((s, p) => s + p.amount, 0);
+  const faltaQuitar = parcelasAtuais.filter((p) => !p.paid).reduce((s, p) => s + p.amount, 0);
   const todasPagas = parcelasAtuais.length > 0 && parcelasAtuais.every((p) => p.paid);
 
   function field(label, key, type = "text") {
@@ -546,6 +547,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   <span className="text-right font-semibold text-emerald-700">{money(resumo.total)}</span>
                   <span>Parcela (10× diárias)</span>
                   <span className="text-right font-medium">{money(resumo.valorParcela)}</span>
+                  {parcelasAtuais.length > 0 && (
+                    <>
+                      <span className="text-red-600 font-semibold">Falta quitar</span>
+                      <span className="text-right font-semibold text-red-600">{money(faltaQuitar)}</span>
+                    </>
+                  )}
                 </div>
 
                 <button
