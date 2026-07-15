@@ -8,36 +8,39 @@ function inicioDiaUTC(offsetDias = 0) {
   return d;
 }
 
-// Resumo do dia pra aba Metas: vendas (leads que caíram em Recebimento) hoje
-// e ontem, recebimentos (baixas de parcela) hoje, e a meta calculada a partir
-// da configuração ("a cada X vendas, precisa de Y recebimentos no dia seguinte").
+// Resumo do dia pra aba Metas: meta é X% de todos os leads atualmente na
+// etapa "Recebimento" pagando (dando baixa numa parcela) hoje.
 export async function GET() {
   const inicioHoje = inicioDiaUTC(0);
   const inicioAmanha = inicioDiaUTC(1);
-  const inicioOntem = inicioDiaUTC(-1);
 
-  const [cfg, vendasHoje, vendasOntem, recebimentosHoje, valorRecebidoHoje] = await Promise.all([
+  const [cfg, stageRecebimento, valorRecebidoHoje, pagantesHoje] = await Promise.all([
     prisma.config.findUnique({ where: { id: "singleton" } }),
-    prisma.contact.count({ where: { pagamentoCapital: { gte: inicioHoje, lt: inicioAmanha } } }),
-    prisma.contact.count({ where: { pagamentoCapital: { gte: inicioOntem, lt: inicioHoje } } }),
-    prisma.parcela.count({ where: { paid: true, paidAt: { gte: inicioHoje, lt: inicioAmanha } } }),
+    prisma.stage.findFirst({ where: { name: "Recebimento" } }),
     prisma.parcela.aggregate({
       where: { paid: true, paidAt: { gte: inicioHoje, lt: inicioAmanha } },
       _sum: { amountPago: true },
     }),
+    prisma.parcela.findMany({
+      where: { paid: true, paidAt: { gte: inicioHoje, lt: inicioAmanha } },
+      select: { contactId: true },
+      distinct: ["contactId"],
+    }),
   ]);
 
-  const vendasBase = Math.max(1, cfg?.metaVendasBase ?? 1);
-  const recebimentosBase = Math.max(0, cfg?.metaRecebimentosBase ?? 1);
-  const metaRecebimentosHoje = Math.ceil((vendasOntem * recebimentosBase) / vendasBase);
+  const totalEmRecebimento = stageRecebimento
+    ? await prisma.contact.count({ where: { stageId: stageRecebimento.id } })
+    : 0;
+
+  const pct = Math.min(100, Math.max(0, cfg?.metaPctRecebimento ?? 70));
+  const metaRecebimentosHoje = Math.ceil((totalEmRecebimento * pct) / 100);
+  const recebimentosHoje = pagantesHoje.length;
 
   return NextResponse.json({
-    vendasHoje,
-    vendasOntem,
+    totalEmRecebimento,
     recebimentosHoje,
     valorRecebidoHoje: valorRecebidoHoje._sum.amountPago || 0,
     metaRecebimentosHoje,
-    metaVendasBase: vendasBase,
-    metaRecebimentosBase: recebimentosBase,
+    metaPctRecebimento: pct,
   });
 }

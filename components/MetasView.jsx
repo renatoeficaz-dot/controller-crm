@@ -42,7 +42,7 @@ export default function MetasView() {
   if (!resumo) return <div className="p-6 text-slate-400">Não foi possível carregar as metas.</div>;
 
   const falta = Math.max(0, resumo.metaRecebimentosHoje - resumo.recebimentosHoje);
-  const pct = resumo.metaRecebimentosHoje > 0
+  const pctBarra = resumo.metaRecebimentosHoje > 0
     ? Math.min(100, Math.round((resumo.recebimentosHoje / resumo.metaRecebimentosHoje) * 100))
     : 100;
 
@@ -51,29 +51,25 @@ export default function MetasView() {
       <div>
         <h1 className="text-lg font-semibold text-slate-800">Metas</h1>
         <p className="text-sm text-slate-500 mt-0.5">
-          Meta de vendas (leads que caíram em Recebimento) e baixas de recebimento do dia.
-          Regra atual: a cada <strong>{resumo.metaVendasBase}</strong> venda(s), a meta é de{" "}
-          <strong>{resumo.metaRecebimentosBase}</strong> recebimento(s) no dia seguinte.
+          Meta de recebimento do dia. Regra atual: <strong>{resumo.metaPctRecebimento}%</strong> de todos os
+          leads que estão na etapa Recebimento precisam pagar hoje.
           <a href="/configuracoes?tab=metas" className="text-emerald-600 hover:underline ml-1">Configurar</a>
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <Card titulo="Vendas hoje" valor={resumo.vendasHoje} sub="Leads que caíram em Recebimento hoje" cor="violet" />
-        <Card titulo="Vendas ontem" valor={resumo.vendasOntem} sub="Base do cálculo da meta de hoje" cor="slate" />
-      </div>
+      <Card titulo="Leads atualmente em Recebimento" valor={resumo.totalEmRecebimento} sub="Base do cálculo da meta de hoje" cor="violet" />
 
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-slate-700">Meta de recebimentos hoje</p>
+          <p className="text-sm font-semibold text-slate-700">Meta de recebimentos hoje ({resumo.metaPctRecebimento}%)</p>
           <p className="text-sm text-slate-500">
             {resumo.recebimentosHoje} / {resumo.metaRecebimentosHoje}
           </p>
         </div>
         <div className="w-full bg-slate-100 rounded-full h-3">
           <div
-            className={`h-3 rounded-full transition-all ${pct >= 100 ? "bg-emerald-500" : "bg-sky-500"}`}
-            style={{ width: `${pct}%` }}
+            className={`h-3 rounded-full transition-all ${pctBarra >= 100 ? "bg-emerald-500" : "bg-sky-500"}`}
+            style={{ width: `${pctBarra}%` }}
           />
         </div>
         <p className="text-xs text-slate-400 mt-2">

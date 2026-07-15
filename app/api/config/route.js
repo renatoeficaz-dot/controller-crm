@@ -31,8 +31,7 @@ export async function PATCH(req) {
   if ("contaRecebimentoId" in body) data.contaRecebimentoId = body.contaRecebimentoId || null;
   if ("horarioComercialInicio" in body) data.horarioComercialInicio = (body.horarioComercialInicio || "").trim() || null;
   if ("horarioComercialFim" in body) data.horarioComercialFim = (body.horarioComercialFim || "").trim() || null;
-  if ("metaVendasBase" in body) data.metaVendasBase = Math.max(1, Number(body.metaVendasBase) || 1);
-  if ("metaRecebimentosBase" in body) data.metaRecebimentosBase = Math.max(0, Number(body.metaRecebimentosBase) || 0);
+  if ("metaPctRecebimento" in body) data.metaPctRecebimento = Math.min(100, Math.max(0, Number(body.metaPctRecebimento) || 0));
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }

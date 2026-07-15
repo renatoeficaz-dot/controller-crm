@@ -1295,15 +1295,12 @@ function Numeros() {
 
 /* ---------------- Tags / Etiquetas + regras de auto-tag ---------------- */
 function MetasConfig() {
-  const [form, setForm] = useState({ metaVendasBase: 1, metaRecebimentosBase: 1 });
+  const [pct, setPct] = useState(70);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/config").then((r) => r.json()).then((c) => {
-      setForm({
-        metaVendasBase: c?.metaVendasBase ?? 1,
-        metaRecebimentosBase: c?.metaRecebimentosBase ?? 1,
-      });
+      setPct(c?.metaPctRecebimento ?? 70);
     });
   }, []);
 
@@ -1312,7 +1309,7 @@ function MetasConfig() {
     await fetch("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ metaPctRecebimento: pct }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
@@ -1323,33 +1320,24 @@ function MetasConfig() {
       <SectionHeader
         icon="🎯"
         title="Meta diária de recebimento"
-        subtitle='Regra: "a cada X vendas (leads que caem em Recebimento) num dia, o dia seguinte precisa de Y baixas de parcela."'
+        subtitle='Regra: X% de todos os leads que estão atualmente na etapa "Recebimento" precisam pagar (dar baixa numa parcela) hoje.'
       />
-      <div className="flex items-center gap-3">
-        <label className="block flex-1">
-          <span className="text-xs text-slate-400">A cada quantas vendas...</span>
-          <input
-            type="number"
-            min={1}
-            value={form.metaVendasBase}
-            onChange={(e) => setForm((f) => ({ ...f, metaVendasBase: e.target.value }))}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
-          />
-        </label>
-        <span className="text-slate-400 mt-4">→</span>
-        <label className="block flex-1">
-          <span className="text-xs text-slate-400">...precisa de quantos recebimentos</span>
+      <label className="block">
+        <span className="text-xs text-slate-400">Percentual da meta (%)</span>
+        <div className="flex items-center gap-2 mt-0.5">
           <input
             type="number"
             min={0}
-            value={form.metaRecebimentosBase}
-            onChange={(e) => setForm((f) => ({ ...f, metaRecebimentosBase: e.target.value }))}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            max={100}
+            value={pct}
+            onChange={(e) => setPct(e.target.value)}
+            className="w-32 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
           />
-        </label>
-      </div>
+          <span className="text-slate-500">%</span>
+        </div>
+      </label>
       <p className="text-[11px] text-slate-400">
-        Exemplo: 1 venda → 10 recebimentos, significa que cada venda de hoje gera a meta de 10 baixas no dia seguinte (uma por parcela diária).
+        Exemplo: se hoje tem 40 leads em "Recebimento" e a meta é 70%, a meta do dia é 28 baixas de parcela.
       </p>
       <button className="w-full bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600">
         {saved ? "Salvo ✓" : "Salvar"}

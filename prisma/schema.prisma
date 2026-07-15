@@ -142,11 +142,9 @@ model Config {
   evolutionUrl        String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
   evolutionApiKey     String? // API Key global da Evolution
 
-  // Meta diária: "a cada [metaVendasBase] vendas (leads que caíram em
-  // Recebimento) num dia, o dia seguinte precisa ter [metaRecebimentosBase]
-  // baixas de parcela" — usado pra calcular a meta de recebimento do dia.
-  metaVendasBase       Int @default(1)
-  metaRecebimentosBase Int @default(1)
+  // Meta diária: X% de todos os leads atualmente na etapa "Recebimento"
+  // precisam pagar (dar baixa numa parcela) hoje.
+  metaPctRecebimento Float @default(70)
 
   // Horário comercial da automação de responsável por etapa — fora dessa janela,
   // o lead entra na etapa mas NÃO é auto-atribuído (fica sem responsável até
