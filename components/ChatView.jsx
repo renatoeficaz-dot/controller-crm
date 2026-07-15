@@ -834,28 +834,28 @@ export default function ChatView() {
                     placeholder="Título da tarefa"
                     className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
                   />
+                  <select
+                    value={taskForm.tipoId}
+                    onChange={(e) => setTaskForm((f) => ({ ...f, tipoId: e.target.value }))}
+                    className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none"
+                  >
+                    <option value="">— Sem tipo —</option>
+                    {taskTypes.map((t) => (
+                      <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
+                    ))}
+                  </select>
                   <div className="flex gap-1.5">
-                    <select
-                      value={taskForm.tipoId}
-                      onChange={(e) => setTaskForm((f) => ({ ...f, tipoId: e.target.value }))}
-                      className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none"
-                    >
-                      <option value="">— Sem tipo —</option>
-                      {taskTypes.map((t) => (
-                        <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
-                      ))}
-                    </select>
                     <input
                       type="date"
                       value={taskForm.dueDate}
                       onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))}
-                      className="text-xs border border-slate-200 rounded px-2 py-1.5"
+                      className="min-w-0 flex-1 text-xs border border-slate-200 rounded px-2 py-1.5"
                     />
                     <input
                       type="time"
                       value={taskForm.dueTime}
                       onChange={(e) => setTaskForm((f) => ({ ...f, dueTime: e.target.value }))}
-                      className="w-20 text-xs border border-slate-200 rounded px-2 py-1.5"
+                      className="min-w-0 w-24 shrink-0 text-xs border border-slate-200 rounded px-2 py-1.5"
                     />
                   </div>
                   <button className="w-full bg-emerald-500 text-white rounded py-1.5 text-xs hover:bg-emerald-600">Criar tarefa</button>
