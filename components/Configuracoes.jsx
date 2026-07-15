@@ -76,6 +76,9 @@ const ICONS = {
       <circle cx="12" cy="12" r="3.2" />
     </>
   ),
+  tarefas: (
+    <path d="M9 11l3 3L22 4M9 12v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" strokeLinecap="round" strokeLinejoin="round" />
+  ),
 };
 
 function Icon({ name, className }) {
@@ -91,6 +94,7 @@ const TABS = [
   { key: "usuarios", label: "Usuários", desc: "Acessos e permissões da equipe" },
   { key: "numeros", label: "Números", desc: "WhatsApp conectados e cobrança automática" },
   { key: "tags", label: "Tags / Auto-tag", desc: "Etiquetas e regras automáticas" },
+  { key: "tarefas", label: "Tipos de Tarefa", desc: "Categorias das tarefas dos leads" },
   { key: "mensagens", label: "Mensagens prontas", desc: "Modelos de texto, mídia e contato" },
   { key: "automacao", label: "Automação", desc: "Responsáveis automáticos por etapa" },
   { key: "ia", label: "IA", desc: "Agentes, modelos e chaves de API" },
@@ -178,6 +182,7 @@ export default function Configuracoes() {
             {tab === "usuarios" && <Usuarios />}
             {tab === "numeros" && <Numeros />}
             {tab === "tags" && <TagsConfig />}
+            {tab === "tarefas" && <TiposTarefaConfig />}
             {tab === "mensagens" && <MensagensProntas />}
             {tab === "automacao" && <AutomacaoFunil />}
             {tab === "ia" && (
@@ -1280,6 +1285,72 @@ function Numeros() {
 }
 
 /* ---------------- Tags / Etiquetas + regras de auto-tag ---------------- */
+function TiposTarefaConfig() {
+  const [tipos, setTipos] = useState([]);
+  const [form, setForm] = useState({ name: "", color: "#6366f1" });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setTipos(await fetch("/api/task-types").then((r) => r.json()).catch(() => []));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function create(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setSaving(true);
+    await fetch("/api/task-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setForm({ name: "", color: "#6366f1" });
+    setSaving(false);
+    load();
+  }
+
+  async function remove(id) {
+    if (!confirm("Excluir este tipo de tarefa? As tarefas que usam ele ficam sem tipo.")) return;
+    await fetch(`/api/task-types/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
+        <SectionHeader icon="✅" title="Novo tipo de tarefa" subtitle="Categorias pra organizar as tarefas dos leads (ex.: Ligação, Visita, Cobrança extra)." />
+        <div className="flex gap-2">
+          <Field label="Nome" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ex.: Ligação" />
+          <label className="block shrink-0">
+            <span className="text-xs text-slate-400">Cor</span>
+            <input
+              type="color"
+              value={form.color}
+              onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+              className="mt-0.5 w-10 h-9 rounded cursor-pointer border border-slate-200"
+            />
+          </label>
+        </div>
+        <button disabled={saving} className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50">
+          {saving ? "Salvando…" : "Criar tipo"}
+        </button>
+      </form>
+
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+        <h2 className="font-medium text-slate-800 mb-3">Tipos cadastrados ({tipos.length})</h2>
+        <ul className="divide-y divide-slate-100">
+          {tipos.map((t) => (
+            <li key={t.id} className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color }} />
+                <span className="text-sm text-slate-700">{t.name}</span>
+              </div>
+              <button onClick={() => remove(t.id)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
+            </li>
+          ))}
+          {tipos.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhum tipo ainda.</li>}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 function TagsConfig() {
   const [tags, setTags] = useState([]);
   const [form, setForm] = useState({ name: "", color: "#6366f1" });

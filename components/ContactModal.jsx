@@ -54,16 +54,26 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [showHistorico, setShowHistorico] = useState(false);
   const [renovForm, setRenovForm] = useState({ valorCapital: "", pagamentoCapital: "" });
   const [renovando, setRenovando] = useState(false);
+  const [tasks, setTasks] = useState([]);
+  const [taskTypes, setTaskTypes] = useState([]);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "" });
   const chatEnd = useRef(null);
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
 
+  const loadTasks = useCallback(async () => {
+    const data = await fetch(`/api/tasks?contactId=${contactId}`).then((r) => r.json()).catch(() => []);
+    setTasks(Array.isArray(data) ? data : []);
+  }, [contactId]);
+
   const loadContact = useCallback(async () => {
     const [res, cfg] = await Promise.all([
       fetch(`/api/contacts/${contactId}`),
       fetch("/api/config").then((r) => r.json()).catch(() => null),
+      loadTasks(),
     ]);
     const data = await res.json();
     setContact(data);
@@ -99,6 +109,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       .catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
+    fetch("/api/task-types").then((r) => r.json()).then((t) => setTaskTypes(Array.isArray(t) ? t : [])).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
   }, []);
 
@@ -248,6 +259,34 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paid: vaiPagar, amountPago }),
     });
+  }
+
+  async function createTask(e) {
+    e.preventDefault();
+    if (!taskForm.title.trim()) return;
+    await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...taskForm, contactId, dueDate: taskForm.dueDate || toDateInput(new Date()) }),
+    });
+    setTaskForm({ title: "", tipoId: "", dueDate: "" });
+    setShowTaskForm(false);
+    loadTasks();
+  }
+
+  async function toggleTaskDone(t) {
+    setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)));
+    await fetch(`/api/tasks/${t.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: !t.done }),
+    });
+  }
+
+  async function removeTask(id) {
+    if (!confirm("Excluir esta tarefa?")) return;
+    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    loadTasks();
   }
 
   async function send() {
@@ -499,6 +538,61 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 📍 Estado (detectado pela IA): <span className="font-medium text-slate-600">{contact.estado}</span>
               </p>
             )}
+
+            {/* Tarefas do lead */}
+            <div className="border border-slate-200 rounded-lg p-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-600">Tarefas ({tasks.filter((t) => !t.done).length} pendentes)</span>
+                <button type="button" onClick={() => setShowTaskForm((v) => !v)} className="text-xs text-emerald-600 hover:text-emerald-700">
+                  {showTaskForm ? "Cancelar" : "+ Tarefa"}
+                </button>
+              </div>
+              {showTaskForm && (
+                <form onSubmit={createTask} className="mt-2 space-y-1.5">
+                  <input
+                    value={taskForm.title}
+                    onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+                    placeholder="Título da tarefa"
+                    className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                  />
+                  <div className="flex gap-1.5">
+                    <select
+                      value={taskForm.tipoId}
+                      onChange={(e) => setTaskForm((f) => ({ ...f, tipoId: e.target.value }))}
+                      className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none"
+                    >
+                      <option value="">— Sem tipo —</option>
+                      {taskTypes.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="date"
+                      value={taskForm.dueDate}
+                      onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))}
+                      className="text-xs border border-slate-200 rounded px-2 py-1.5"
+                    />
+                  </div>
+                  <button className="w-full bg-emerald-500 text-white rounded py-1.5 text-xs hover:bg-emerald-600">Criar tarefa</button>
+                </form>
+              )}
+              {tasks.length > 0 && (
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {tasks.map((t) => (
+                    <li key={t.id} className="flex items-center gap-2 py-1.5">
+                      <input type="checkbox" checked={t.done} onChange={() => toggleTaskDone(t)} className="accent-emerald-500 shrink-0" />
+                      <span className={`text-xs flex-1 min-w-0 truncate ${t.done ? "text-slate-400 line-through" : "text-slate-600"}`}>{t.title}</span>
+                      {t.tipo && (
+                        <span className="text-[9px] font-medium rounded-full px-1.5 py-0.5 text-white shrink-0" style={{ backgroundColor: t.tipo.color }}>
+                          {t.tipo.name}
+                        </span>
+                      )}
+                      <button onClick={() => removeTask(t.id)} className="text-red-400 hover:text-red-600 shrink-0">×</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             {/* Tags / Etiquetas */}
             {allTags.length > 0 && (

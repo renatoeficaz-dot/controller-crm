@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 const links = [
   { href: "/chat", label: "Chat", icon: "💬" },
+  { href: "/tarefas", label: "Tarefas", icon: "✅" },
   { href: "/lancamentos", label: "Lançamentos", icon: "💲", admin: true },
   { href: "/contatos", label: "Contatos", icon: "👥" },
   { href: "/relatorios", label: "Relatórios", icon: "📊" },

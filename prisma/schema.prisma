@@ -88,9 +88,21 @@ model Task {
   parcela   Parcela?  @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
   parcelaId String?   @unique
   title     String
+  notes     String?
   dueDate   DateTime
   done      Boolean   @default(false)
+  tipo      TaskType? @relation(fields: [tipoId], references: [id], onDelete: SetNull)
+  tipoId    String?
   createdAt DateTime  @default(now())
+}
+
+// Tipo de tarefa configurável (ex.: "Ligação", "Visita", "Cobrança extra")
+model TaskType {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#6366f1")
+  tasks     Task[]
+  createdAt DateTime @default(now())
 }
 
 // Mensagem pronta (modelo de texto/mídia/contato) para envio rápido aos contatos
