@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import MediaBubble from "./MediaBubble";
 import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
 import { interpolarVariaveis } from "@/lib/variaveis";
+import { parcelaAtrasada } from "@/lib/finance";
 
 // Data de hoje (local) como "YYYY-MM-DD"
 function todayStr() {
@@ -86,6 +87,8 @@ export default function ChatView() {
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [attachError, setAttachError] = useState("");
+  const [multaPct, setMultaPct] = useState(50);
+  const [horaLimite, setHoraLimite] = useState("");
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -133,6 +136,10 @@ export default function ChatView() {
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
+    fetch("/api/config").then((r) => r.json()).then((cfg) => {
+      if (cfg?.multaPct != null) setMultaPct(cfg.multaPct);
+      setHoraLimite(cfg?.pagamentoHoraLimite || "");
+    }).catch(() => {});
   }, []);
 
   // Aplica busca + filtros + ordenação na lista de conversas
@@ -398,14 +405,23 @@ export default function ChatView() {
 
   // Marca/desmarca uma parcela como paga direto pelo painel do chat.
   async function togglePaid(p) {
+    const vaiPagar = !p.paid;
+    let amountPago;
+    if (vaiPagar && parcelaAtrasada(p, undefined, { multaPct, horaLimite })) {
+      const comMulta = p.amount * (1 + Number(multaPct) / 100);
+      const cobrarComJuros = confirm(
+        `Essa parcela está atrasada.\n\nOK = cobrar COM juros (${money(comMulta)})\nCancelar = cobrar SEM juros (${money(p.amount)})`
+      );
+      amountPago = cobrarComJuros ? comMulta : p.amount;
+    }
     setContact((c) => ({
       ...c,
-      parcelas: (c.parcelas || []).map((x) => (x.id === p.id ? { ...x, paid: !x.paid } : x)),
+      parcelas: (c.parcelas || []).map((x) => (x.id === p.id ? { ...x, paid: vaiPagar, amountPago: vaiPagar ? (amountPago ?? p.amount) : null } : x)),
     }));
     await fetch(`/api/parcelas/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paid: !p.paid }),
+      body: JSON.stringify({ paid: vaiPagar, amountPago }),
     });
   }
 

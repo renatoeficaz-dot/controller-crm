@@ -233,11 +233,20 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   }
 
   async function togglePaid(p) {
-    setParcelas((prev) => prev.map((x) => (x.id === p.id ? { ...x, paid: !x.paid } : x)));
+    const vaiPagar = !p.paid;
+    let amountPago;
+    if (vaiPagar && parcelaAtrasada(p, undefined, { multaPct, horaLimite })) {
+      const comMulta = p.amount * (1 + Number(multaPct) / 100);
+      const cobrarComJuros = confirm(
+        `Essa parcela está atrasada.\n\nOK = cobrar COM juros (${money(comMulta)})\nCancelar = cobrar SEM juros (${money(p.amount)})`
+      );
+      amountPago = cobrarComJuros ? comMulta : p.amount;
+    }
+    setParcelas((prev) => prev.map((x) => (x.id === p.id ? { ...x, paid: vaiPagar, amountPago: vaiPagar ? (amountPago ?? p.amount) : null } : x)));
     await fetch(`/api/parcelas/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paid: !p.paid }),
+      body: JSON.stringify({ paid: vaiPagar, amountPago }),
     });
   }
 

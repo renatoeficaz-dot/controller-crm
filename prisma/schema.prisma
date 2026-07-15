@@ -69,6 +69,10 @@ model Parcela {
   paid      Boolean   @default(false)
   paidAt    DateTime?
   ciclo     Int       @default(1)     // 1 = primeiro empréstimo, 2 = 1ª renovação, etc.
+  // Valor realmente cobrado na baixa (pode ser diferente de `amount` quando o
+  // cobrador escolhe baixar SEM o juro de atraso, pra aliviar o cliente).
+  // null = ainda não paga.
+  amountPago Float?
   task      Task?
 }
 
