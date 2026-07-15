@@ -11,6 +11,23 @@ import { handleChatbotMessage } from "@/lib/chatbot";
 import { respondWithIa, moveContactStage } from "@/lib/ia";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
 
+// Serializa a busca+criação de contato por telefone: se duas mensagens do
+// mesmo número chegam quase juntas (ex.: cliente manda 2 msgs seguidas), as
+// duas requisições rodavam o "findFirst" em paralelo, nenhuma achava o outro
+// ainda sendo criado, e as duas criavam um lead duplicado. Isso enfileira as
+// requisições do MESMO telefone (não trava as de números diferentes).
+const contactLocks = new Map();
+function withPhoneLock(tail, fn) {
+  const prev = contactLocks.get(tail) || Promise.resolve();
+  const result = prev.then(fn, fn);
+  const cleanup = result.then(() => {}, () => {});
+  contactLocks.set(tail, cleanup);
+  cleanup.finally(() => {
+    if (contactLocks.get(tail) === cleanup) contactLocks.delete(tail);
+  });
+  return result;
+}
+
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
 export async function POST(req) {
@@ -35,43 +52,51 @@ export async function POST(req) {
   const location = extractIncomingLocation(data.message); // 📍 localização (lat/long, sem arquivo)
   if (!text && !media && !location) return NextResponse.json({ ok: true }); // nada que saibamos exibir
 
-  // Acha o contato pelo telefone (últimos 8 dígitos batem, pra tolerar formatações)
+  // Acha o contato pelo telefone (últimos 8 dígitos batem, pra tolerar formatações).
+  // Todo o bloco de busca+criação roda dentro do lock por telefone (ver
+  // withPhoneLock acima) pra duas mensagens quase simultâneas do mesmo
+  // número não criarem dois leads duplicados.
   const tail = number.slice(-8);
-  let contact = await prisma.contact.findFirst({
-    where: { phone: { endsWith: tail } },
-  });
-
-  // Mensagem enviada por nós direto pelo celular (fora do CRM): só registra se o
-  // contato já existir — não cria lead novo nem aplica auto-tag por isso.
-  if (fromMe && !contact) return NextResponse.json({ ok: true });
-
-  let isNewContact = false;
-  // Se não existir (mensagem recebida de um contato novo), cria um lead na primeira coluna
-  if (!contact) {
-    isNewContact = true;
-    const first = await prisma.stage.findFirst({ orderBy: { order: "asc" } });
-    if (!first) return NextResponse.json({ ok: true });
-    contact = await prisma.contact.create({
-      data: {
-        name: data.pushName || number,
-        phone: number,
-        stageId: first.id,
-      },
+  const lockResult = await withPhoneLock(tail, async () => {
+    let contact = await prisma.contact.findFirst({
+      where: { phone: { endsWith: tail } },
     });
 
-    // Auto-tag: se a 1ª mensagem conter um texto configurado, atribui a tag.
-    const msgText = (text || "").toLowerCase();
-    if (msgText) {
-      const rules = await prisma.autoTagRule.findMany({ include: { tag: true } });
-      const matched = rules.filter((r) => msgText.includes(r.match.toLowerCase()));
-      if (matched.length) {
-        await prisma.contact.update({
-          where: { id: contact.id },
-          data: { tags: { connect: matched.map((r) => ({ id: r.tagId })) } },
-        });
+    // Mensagem enviada por nós direto pelo celular (fora do CRM): só registra se o
+    // contato já existir — não cria lead novo nem aplica auto-tag por isso.
+    if (fromMe && !contact) return { stop: true };
+
+    let isNewContact = false;
+    // Se não existir (mensagem recebida de um contato novo), cria um lead na primeira coluna
+    if (!contact) {
+      isNewContact = true;
+      const first = await prisma.stage.findFirst({ orderBy: { order: "asc" } });
+      if (!first) return { stop: true };
+      contact = await prisma.contact.create({
+        data: {
+          name: data.pushName || number,
+          phone: number,
+          stageId: first.id,
+        },
+      });
+
+      // Auto-tag: se a 1ª mensagem conter um texto configurado, atribui a tag.
+      const msgText = (text || "").toLowerCase();
+      if (msgText) {
+        const rules = await prisma.autoTagRule.findMany({ include: { tag: true } });
+        const matched = rules.filter((r) => msgText.includes(r.match.toLowerCase()));
+        if (matched.length) {
+          await prisma.contact.update({
+            where: { id: contact.id },
+            data: { tags: { connect: matched.map((r) => ({ id: r.tagId })) } },
+          });
+        }
       }
     }
-  }
+    return { contact, isNewContact };
+  });
+  if (lockResult.stop) return NextResponse.json({ ok: true });
+  const { contact, isNewContact } = lockResult;
 
   // Monta a mensagem (texto ou mídia)
   const msg = fromMe
