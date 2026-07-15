@@ -28,6 +28,10 @@ model Contact {
   phone     String?
   email     String?
   company   String?
+  // Estado (UF) do lead identificado pela IA a partir do que ele conta na
+  // conversa (ex.: "moro em Salvador") — complementa o DDD do telefone, que
+  // nem sempre bate com onde a pessoa mora de fato.
+  estado    String?
   notes     String?
   order     Int       @default(0)
   stage     Stage     @relation(fields: [stageId], references: [id])

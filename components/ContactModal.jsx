@@ -493,6 +493,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </select>
             </label>
 
+            {/* Estado do lead — detectado sozinho pela IA a partir da conversa */}
+            {contact?.estado && (
+              <p className="text-xs text-slate-400 flex items-center gap-1">
+                📍 Estado (detectado pela IA): <span className="font-medium text-slate-600">{contact.estado}</span>
+              </p>
+            )}
+
             {/* Tags / Etiquetas */}
             {allTags.length > 0 && (
               <div>

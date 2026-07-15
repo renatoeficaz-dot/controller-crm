@@ -767,6 +767,13 @@ export default function ChatView() {
               </select>
             </label>
 
+            {/* Estado do lead — detectado sozinho pela IA a partir da conversa */}
+            {contact?.estado && (
+              <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                📍 Estado (IA): <span className="font-medium text-slate-600">{contact.estado}</span>
+              </p>
+            )}
+
             {/* Tags */}
             {allTags.length > 0 && (
               <div>
