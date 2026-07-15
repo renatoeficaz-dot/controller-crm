@@ -7,7 +7,6 @@ import {
   fetchIncomingMediaBase64,
   onlyDigits,
 } from "@/lib/evolution";
-import { handleChatbotMessage } from "@/lib/chatbot";
 import { respondWithIa, moveContactStage } from "@/lib/ia";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
 
@@ -96,7 +95,7 @@ export async function POST(req) {
     return { contact, isNewContact };
   });
   if (lockResult.stop) return NextResponse.json({ ok: true });
-  const { contact, isNewContact } = lockResult;
+  const { contact } = lockResult;
 
   // Monta a mensagem (texto ou mídia)
   const msg = fromMe
@@ -160,15 +159,10 @@ export async function POST(req) {
     }
   }
 
-  // Chatbot: só reage a mensagens recebidas do cliente (não a ecos do nosso próprio envio).
-  // Atendimento manual (iaPausada) desliga tanto o chatbot em blocos quanto a IA livre.
+  // IA livre (DeepInfra/Llama): só reage a mensagens recebidas do cliente
+  // (não a ecos do nosso próprio envio). Atendimento manual (iaPausada) desliga.
   if (!fromMe && !contact.iaPausada) {
-    const handled = await handleChatbotMessage(contact, text || "", isNewContact, instance).catch(() => false);
-
-    // IA livre (DeepInfra/Llama): só entra se o fluxo por blocos não tratou a mensagem
-    if (!handled) {
-      await respondWithIa(contact, saved, instance, incomingAudio).catch(() => {});
-    }
+    await respondWithIa(contact, saved, instance, incomingAudio).catch(() => {});
   }
 
   return NextResponse.json({ ok: true });

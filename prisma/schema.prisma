@@ -48,14 +48,9 @@ model Contact {
   tasks            Task[]
   lancamentos      Lancamento[]
 
-  // Chatbot: sessão atual do lead num fluxo (null = nenhum bot em andamento)
-  botFlowId String?
-  botNodeId String?
-
-  // Atendimento manual: enquanto true, a IA não responde esse lead (nem por
-  // texto livre nem pelo chatbot em blocos) — o humano assumiu a conversa.
-  // É ligado automaticamente ao mover o lead pra "Cravo", e pode ser
-  // ligado/desligado manualmente pelo botão no chat/popup do lead.
+  // Atendimento manual: enquanto true, a IA não responde esse lead — o
+  // humano assumiu a conversa. É ligado automaticamente ao mover o lead pra
+  // "Cravo", e pode ser ligado/desligado manualmente pelo botão no chat/popup do lead.
   iaPausada Boolean @default(false)
 
   // Timestamp de quando o lead ENTROU na etapa "Recebimento" (venda concluída).
@@ -124,19 +119,6 @@ model MessageTemplate {
   contactPhone  String?
   order         Int      @default(0)
   createdAt     DateTime @default(now())
-}
-
-// Fluxo de chatbot (editor visual por blocos). nodesJson/edgesJson guardam o
-// grafo do React Flow serializado (array de nós/arestas em JSON).
-model ChatbotFlow {
-  id             String   @id @default(cuid())
-  name           String
-  active         Boolean  @default(false) // só um fluxo ativo por vez é usado no webhook
-  triggerKeyword String?  // texto que a 1ª mensagem do contato deve conter pra iniciar o fluxo (vazio = qualquer 1ª msg)
-  nodesJson      String   @default("[]")
-  edgesJson      String   @default("[]")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 }
 
 // Configurações globais do sistema (linha única)

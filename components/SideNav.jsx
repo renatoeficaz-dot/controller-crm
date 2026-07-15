@@ -11,7 +11,6 @@ const links = [
   { href: "/lancamentos", label: "Lançamentos", icon: "💲", admin: true },
   { href: "/contatos", label: "Contatos", icon: "👥" },
   { href: "/relatorios", label: "Relatórios", icon: "📊" },
-  { href: "/chatbot", label: "Chatbot", icon: "🤖", admin: true },
   { href: "/configuracoes", label: "Configurações", icon: "⚙️", admin: true },
 ];
 

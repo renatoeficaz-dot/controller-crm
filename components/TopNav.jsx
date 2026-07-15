@@ -11,7 +11,6 @@ const links = [
   { href: "/metas", label: "Metas" },
   { href: "/lancamentos", label: "Lançamentos", admin: true },
   { href: "/relatorios", label: "Relatórios" },
-  { href: "/chatbot", label: "Chatbot", admin: true },
   { href: "/configuracoes", label: "Configurações", admin: true },
 ];
 
