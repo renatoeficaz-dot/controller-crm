@@ -11,6 +11,7 @@ export async function PATCH(req, { params }) {
   }
   if ("userId" in body) data.userId = body.userId || null;
   if ("agentId" in body) data.agentId = body.agentId || null;
+  if ("provider" in body) data.provider = body.provider === "waha" ? "waha" : "evolution";
   if ("estadosCobranca" in body) data.estadosCobranca = (body.estadosCobranca || "").trim() || null;
   if ("mensagemCobranca" in body) data.mensagemCobranca = (body.mensagemCobranca || "").trim() || null;
 

@@ -22,8 +22,9 @@ export async function POST(req) {
   if (!label || !number || !instance) {
     return NextResponse.json({ error: "Preencha nome, número e instância." }, { status: 400 });
   }
+  const provider = body.provider === "waha" ? "waha" : "evolution";
   const created = await prisma.whatsappNumber.create({
-    data: { label, number, instance, userId: body.userId || null },
+    data: { label, number, instance, provider, userId: body.userId || null },
     include: {
       user: { select: { id: true, name: true } },
       agent: { select: { id: true, name: true } },

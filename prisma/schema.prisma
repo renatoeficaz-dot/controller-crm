@@ -129,6 +129,8 @@ model Config {
   pagamentoHoraLimite String? // "HH:MM" — após esse horário, a parcela que vence hoje já conta como atrasada
   evolutionUrl        String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
   evolutionApiKey     String? // API Key global da Evolution
+  wahaUrl             String? // URL do servidor WAHA (ex.: http://ip:3001)
+  wahaApiKey          String? // API Key global do WAHA
 
   // Meta diária: X% de todos os leads atualmente na etapa "Recebimento"
   // precisam pagar (dar baixa numa parcela) hoje.
@@ -209,7 +211,8 @@ model WhatsappNumber {
   id                 String   @id @default(cuid())
   label              String   // nome amigável (ex.: "Comercial 1")
   number             String   // número (ex.: 5511999998888)
-  instance           String   // nome da instância na Evolution
+  instance           String   // nome da instância (Evolution) ou sessão (WAHA)
+  provider           String   @default("evolution") // "evolution" | "waha" — qual API atende este número
   user               User?    @relation("NumeroResponsavel", fields: [userId], references: [id], onDelete: SetNull)
   userId             String?
   usuariosVisualizam User[]   @relation("NumeroVisibilidade") // usuários que podem ver as mensagens deste número

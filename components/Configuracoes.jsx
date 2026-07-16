@@ -718,7 +718,7 @@ function Numeros() {
   const [numeros, setNumeros] = useState([]);
   const [users, setUsers] = useState([]);
   const [agents, setAgents] = useState([]);
-  const [form, setForm] = useState({ ddi: "55", label: "", number: "", instance: "", userId: "" });
+  const [form, setForm] = useState({ ddi: "55", label: "", number: "", instance: "", userId: "", provider: "evolution" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [evo, setEvo] = useState({ evolutionUrl: "", evolutionApiKey: "" });
@@ -726,6 +726,11 @@ function Numeros() {
   const [editingEvo, setEditingEvo] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null); // { ok, error, totalInstances }
+  const [waha, setWaha] = useState({ wahaUrl: "", wahaApiKey: "" });
+  const [wahaSaved, setWahaSaved] = useState(false);
+  const [editingWaha, setEditingWaha] = useState(false);
+  const [testingWaha, setTestingWaha] = useState(false);
+  const [testResultWaha, setTestResultWaha] = useState(null); // { ok, error, engine, version }
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [qr, setQr] = useState(null); // { id, label, image, connected, error }
   const [disconnecting, setDisconnecting] = useState(null); // id em andamento
@@ -744,6 +749,7 @@ function Numeros() {
     setNumeros(n);
     setUsers(u);
     setEvo({ evolutionUrl: cfg?.evolutionUrl || "", evolutionApiKey: cfg?.evolutionApiKey || "" });
+    setWaha({ wahaUrl: cfg?.wahaUrl || "", wahaApiKey: cfg?.wahaApiKey || "" });
     setAgents(Array.isArray(ag) ? ag : []);
   }, []);
   useEffect(() => {
@@ -793,6 +799,27 @@ function Numeros() {
     setTestResult(r);
   }
 
+  async function saveWaha(e) {
+    e.preventDefault();
+    await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(waha),
+    });
+    setWahaSaved(true);
+    setTestResultWaha(null);
+    setTimeout(() => setWahaSaved(false), 1500);
+    setEditingWaha(false);
+  }
+
+  async function testWahaConnectionFn() {
+    setTestingWaha(true);
+    setTestResultWaha(null);
+    const r = await fetch("/api/config/test-waha-connection", { method: "POST" }).then((r) => r.json()).catch((e) => ({ ok: false, error: e.message }));
+    setTestingWaha(false);
+    setTestResultWaha(r);
+  }
+
   async function create(e) {
     e.preventDefault();
     setError("");
@@ -813,7 +840,7 @@ function Numeros() {
       return;
     }
     const novo = await res.json();
-    setForm({ ddi: "55", label: "", number: "", instance: "", userId: "" });
+    setForm({ ddi: "55", label: "", number: "", instance: "", userId: "", provider: "evolution" });
     setConnectModalOpen(false);
     load();
     conectar(novo); // já tenta gerar o QR do número recém-criado
@@ -970,6 +997,66 @@ function Numeros() {
         )}
       </div>
 
+      {/* Servidor WAHA */}
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+        {!editingWaha ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SectionHeader
+              icon="🟢"
+              title="Servidor WAHA"
+              subtitle={waha.wahaUrl ? "URL e API Key configurados e ativos" : "Nenhum servidor configurado ainda"}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-right mr-2">
+                <p className="text-[11px] text-slate-400">Status do servidor</p>
+                <p className={`text-xs font-medium flex items-center gap-1.5 justify-end ${testResultWaha?.ok ? "text-emerald-600" : waha.wahaUrl ? "text-slate-500" : "text-red-500"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${testResultWaha?.ok ? "bg-emerald-500" : waha.wahaUrl ? "bg-slate-300" : "bg-red-500"}`} />
+                  {testResultWaha?.ok ? "Online" : waha.wahaUrl ? "Não testado" : "Sem servidor"}
+                </p>
+              </div>
+              <button type="button" onClick={() => setEditingWaha(true)} className="text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors">
+                Editar servidor
+              </button>
+              <button type="button" onClick={testWahaConnectionFn} disabled={testingWaha} className="text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
+                {testingWaha ? "Testando…" : "📶 Testar conexão"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={saveWaha}>
+            <SectionHeader icon="🟢" title="URL do servidor WAHA" subtitle="Informe a URL e a API Key do seu servidor WAHA para integração." />
+            <div className="grid md:grid-cols-3 gap-3 items-end mt-4">
+              <Field label="URL do servidor WAHA" value={waha.wahaUrl} onChange={(v) => setWaha((s) => ({ ...s, wahaUrl: v }))} placeholder="http://185.101.104.154:3001" />
+              <label className="block">
+                <span className="text-xs text-slate-400">API Key (global)</span>
+                <input
+                  type="password"
+                  value={waha.wahaApiKey}
+                  onChange={(e) => setWaha((s) => ({ ...s, wahaApiKey: e.target.value }))}
+                  placeholder="sua-api-key"
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                />
+              </label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setEditingWaha(false)} className="flex-1 border border-slate-200 text-slate-600 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50 transition-colors">
+                  Cancelar
+                </button>
+                <button className="flex-1 bg-slate-800 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-slate-700 transition-colors">
+                  {wahaSaved ? "Salvo ✓" : "Salvar"}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+        {testResultWaha && (
+          <p className={`mt-3 text-xs rounded-lg p-2.5 ${testResultWaha.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+            {testResultWaha.ok
+              ? `✓ Conectado com sucesso${testResultWaha.version ? ` — versão ${testResultWaha.version} (${testResultWaha.engine || "WEBJS"})` : ""}.`
+              : `✗ ${testResultWaha.error || "Falha ao conectar."}`}
+          </p>
+        )}
+      </div>
+
       <div>
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1106,6 +1193,17 @@ function Numeros() {
               <button type="button" onClick={() => setConnectModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
             </div>
             <Field label="Nome da conexão" value={form.label} onChange={(v) => setForm((f) => ({ ...f, label: v }))} placeholder="Ex.: Comercial 1" />
+            <label className="block">
+              <span className="text-xs text-slate-400">Provedor</span>
+              <select
+                value={form.provider}
+                onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+              >
+                <option value="evolution">Evolution API</option>
+                <option value="waha">WAHA</option>
+              </select>
+            </label>
             <div>
               <span className="text-xs text-slate-400">Número (com DDI)</span>
               <div className="flex gap-2 mt-0.5">
@@ -1128,8 +1226,17 @@ function Numeros() {
               <p className="text-[11px] text-slate-400 mt-1">Inclua o DDD. Ex.: 11 99999-8888</p>
             </div>
             <div>
-              <Field label="Instância (Evolution)" value={form.instance} onChange={(v) => setForm((f) => ({ ...f, instance: v }))} placeholder="ex.: comercial1" />
-              <p className="text-[11px] text-slate-400 mt-1">Informe a instância criada no servidor Evolution.</p>
+              <Field
+                label={form.provider === "waha" ? "Nome da sessão (WAHA)" : "Instância (Evolution)"}
+                value={form.instance}
+                onChange={(v) => setForm((f) => ({ ...f, instance: v }))}
+                placeholder={form.provider === "waha" ? "ex.: comercial1" : "ex.: comercial1"}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                {form.provider === "waha"
+                  ? "Escolha um nome único para a sessão — será criada automaticamente no servidor WAHA."
+                  : "Informe a instância criada no servidor Evolution."}
+              </p>
             </div>
             <label className="block">
               <span className="text-xs text-slate-400">Atribuir a um usuário</span>

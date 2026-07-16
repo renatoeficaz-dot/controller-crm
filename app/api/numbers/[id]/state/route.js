@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { instanceState } from "@/lib/evolution";
+import { sessionStateWaha } from "@/lib/waha";
 
 // Estado da conexão do número (para saber quando o QR foi escaneado)
 export async function GET(_req, { params }) {
@@ -9,8 +10,13 @@ export async function GET(_req, { params }) {
   if (!num) return NextResponse.json({ error: "Número não encontrado" }, { status: 404 });
 
   const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
-  const base = cfg?.evolutionUrl || process.env.EVOLUTION_API_URL || "";
-  const apikey = cfg?.evolutionApiKey || process.env.EVOLUTION_API_KEY || "";
-  const state = await instanceState(base, apikey, num.instance);
+  let state;
+  if (num.provider === "waha") {
+    state = await sessionStateWaha(cfg?.wahaUrl || "", cfg?.wahaApiKey || "", num.instance);
+  } else {
+    const base = cfg?.evolutionUrl || process.env.EVOLUTION_API_URL || "";
+    const apikey = cfg?.evolutionApiKey || process.env.EVOLUTION_API_KEY || "";
+    state = await instanceState(base, apikey, num.instance);
+  }
   return NextResponse.json({ state });
 }

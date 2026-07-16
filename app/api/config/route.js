@@ -24,6 +24,8 @@ export async function PATCH(req) {
   if ("pagamentoHoraLimite" in body) data.pagamentoHoraLimite = (body.pagamentoHoraLimite || "").trim() || null;
   if ("evolutionUrl" in body) data.evolutionUrl = (body.evolutionUrl || "").trim() || null;
   if ("evolutionApiKey" in body) data.evolutionApiKey = (body.evolutionApiKey || "").trim() || null;
+  if ("wahaUrl" in body) data.wahaUrl = (body.wahaUrl || "").trim() || null;
+  if ("wahaApiKey" in body) data.wahaApiKey = (body.wahaApiKey || "").trim() || null;
   if ("deepinfraApiKey" in body) data.deepinfraApiKey = (body.deepinfraApiKey || "").trim() || null;
   if ("fishAudioApiKey" in body) data.fishAudioApiKey = (body.fishAudioApiKey || "").trim() || null;
   if ("elevenLabsApiKey" in body) data.elevenLabsApiKey = (body.elevenLabsApiKey || "").trim() || null;
