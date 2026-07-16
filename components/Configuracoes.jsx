@@ -870,10 +870,16 @@ function Numeros() {
     return new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
-  // Conecta o número: pede o QR à Evolution e abre o modal
-  async function conectar(n) {
-    setQr({ id: n.id, label: n.label, loading: true });
-    const res = await fetch(`/api/numbers/${n.id}/connect`, { method: "POST" });
+  // Conecta o número: pede o QR à Evolution/WAHA e abre o modal. Se vier "pending"
+  // (sessão WAHA ainda subindo o Chromium), tenta de novo algumas vezes antes de
+  // desistir — evita ficar preso em "Gerando QR Code..." pra sempre.
+  async function conectar(n, attempt = 1) {
+    setQr((prev) => (attempt === 1 ? { id: n.id, label: n.label, loading: true } : prev?.id === n.id ? prev : { id: n.id, label: n.label, loading: true }));
+    const res = await fetch(`/api/numbers/${n.id}/connect`, { method: "POST" }).catch((e) => ({ ok: false, _err: e }));
+    if (!res || res._err) {
+      setQr({ id: n.id, label: n.label, error: "Falha ao conectar (rede)." });
+      return;
+    }
     const d = await res.json().catch(() => ({}));
     if (!res.ok) {
       setQr({ id: n.id, label: n.label, error: d.error || "Falha ao conectar." });
@@ -882,6 +888,14 @@ function Numeros() {
     if (d.connected) {
       setQr({ id: n.id, label: n.label, connected: true });
       return;
+    }
+    if (d.pending) {
+      if (attempt >= 3) {
+        setQr({ id: n.id, label: n.label, error: "O servidor demorou demais para gerar o QR Code. Tente novamente." });
+        return;
+      }
+      setQr({ id: n.id, label: n.label, loading: true });
+      return conectar(n, attempt + 1);
     }
     const image = d.qr?.startsWith("data:") ? d.qr : `data:image/png;base64,${d.qr}`;
     setQr({ id: n.id, label: n.label, image });
@@ -1317,6 +1331,29 @@ function Numeros() {
 
                 <div className="grid gap-3">
                   <label className="block">
+                    <span className="text-xs text-slate-400">Provedor (API de WhatsApp)</span>
+                    <select
+                      value={n.provider || "evolution"}
+                      onChange={async (e) => {
+                        const provider = e.target.value;
+                        setNumeros((prev) => prev.map((x) => (x.id === n.id ? { ...x, provider } : x)));
+                        await fetch(`/api/numbers/${n.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ provider }),
+                        });
+                        load();
+                      }}
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                    >
+                      <option value="evolution">Evolution API</option>
+                      <option value="waha">WAHA</option>
+                    </select>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Ao trocar, use "Conectar (QR)" acima para gerar um novo QR Code no provedor escolhido.
+                    </p>
+                  </label>
+                  <label className="block">
                     <span className="text-xs text-slate-400">Usuário responsável</span>
                     <select
                       value={n.userId || ""}
@@ -1381,7 +1418,19 @@ function Numeros() {
                 <p className="text-emerald-600 font-medium">Número conectado!</p>
               </div>
             ) : qr.error ? (
-              <p className="text-sm text-red-500 py-6">{qr.error}</p>
+              <div className="py-6 space-y-3">
+                <p className="text-sm text-red-500">{qr.error}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const n = numeros.find((x) => x.id === qr.id);
+                    if (n) conectar(n);
+                  }}
+                  className="text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Tentar novamente
+                </button>
+              </div>
             ) : qr.loading || !qr.image ? (
               <p className="text-sm text-slate-400 py-10">Gerando QR Code…</p>
             ) : (
