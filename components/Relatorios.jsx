@@ -33,6 +33,7 @@ export default function Relatorios() {
   const [preset, setPreset] = useState("mes");
   const [ini, setIni] = useState(inicioMesStr());
   const [fim, setFim] = useState(hojeStr());
+  const [estadoFiltro, setEstadoFiltro] = useState("");
 
   const load = useCallback(async () => {
     const data = await fetch("/api/stages").then((r) => r.json()).catch(() => []);
@@ -53,7 +54,41 @@ export default function Relatorios() {
   );
   const multaPct = cfg?.multaPct ?? 50;
 
-  const stagesFiltrados = stages;
+  // Filtro por estado (UF): quando escolhido, todas as métricas abaixo passam
+  // a considerar só os leads daquele estado — reaproveita a mesma lógica que
+  // já existe pra cada indicador, sem precisar duplicar nada.
+  const stagesFiltrados = useMemo(() => {
+    if (!estadoFiltro) return stages;
+    return stages.map((s) => ({ ...s, contacts: (s.contacts || []).filter((c) => c.estado === estadoFiltro) }));
+  }, [stages, estadoFiltro]);
+
+  // Lista de UFs presentes na base, pro seletor (só mostra o que existe).
+  const ufsDisponiveis = useMemo(() => {
+    const set = new Set();
+    for (const s of stages) for (const c of s.contacts || []) if (c.estado) set.add(c.estado);
+    return Array.from(set).sort();
+  }, [stages]);
+
+  // Resumo por estado — sempre com TODOS os leads (ignora o filtro acima),
+  // pra comparar os estados lado a lado numa tabela só.
+  const porEstado = useMemo(() => {
+    const hoje = hojeStr();
+    const map = new Map();
+    for (const s of stages) {
+      for (const c of s.contacts || []) {
+        const uf = c.estado || "Não identificado";
+        if (!map.has(uf)) map.set(uf, { uf, leads: 0, emRecebimento: 0, adimplentes: 0, inadimplentes: 0 });
+        const row = map.get(uf);
+        row.leads++;
+        if (s.name === "Recebimento") row.emRecebimento++;
+        if (c.parcelas && c.parcelas.length > 0) {
+          const temAtrasada = c.parcelas.some((p) => parcelaAtrasada(p, hoje));
+          if (temAtrasada) row.inadimplentes++; else row.adimplentes++;
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.leads - a.leads);
+  }, [stages]);
 
   function aplicarPreset(p) {
     setPreset(p.key);
@@ -138,6 +173,30 @@ export default function Relatorios() {
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 space-y-4 md:space-y-6 max-w-5xl">
+      {/* Filtro por estado — afeta todas as métricas abaixo */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-slate-400">Estado:</span>
+        <button
+          onClick={() => setEstadoFiltro("")}
+          className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+            estadoFiltro === "" ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+          }`}
+        >
+          Todos
+        </button>
+        {ufsDisponiveis.map((uf) => (
+          <button
+            key={uf}
+            onClick={() => setEstadoFiltro(uf)}
+            className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+              estadoFiltro === uf ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+            }`}
+          >
+            {uf}
+          </button>
+        ))}
+      </div>
+
       {/* Indicadores gerais */}
       <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Visão geral</h2>
@@ -216,6 +275,52 @@ export default function Relatorios() {
           <Card titulo="Pendente em capital" valor={inad.pendenteCapital} cor="red" />
           <Card titulo="Pendente total (com honorários)" valor={inad.pendenteTotal} cor="red" />
         </div>
+      </section>
+
+      {/* Resumo por estado — comparação lado a lado, independente do filtro acima */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">Resumo por estado</h2>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+          {porEstado.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 px-5">Nenhum lead cadastrado.</p>
+          ) : (
+            <table className="w-full text-sm min-w-[560px]">
+              <thead>
+                <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                  <th className="py-2.5 px-4 font-medium">Estado</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Leads</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Em Recebimento</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Adimplentes</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Inadimplentes</th>
+                  <th className="py-2.5 px-4 font-medium text-right">% Inadimplência</th>
+                </tr>
+              </thead>
+              <tbody>
+                {porEstado.map((r) => {
+                  const base = r.adimplentes + r.inadimplentes;
+                  const pctInad = base > 0 ? Math.round((r.inadimplentes / base) * 100) : 0;
+                  return (
+                    <tr
+                      key={r.uf}
+                      className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer ${estadoFiltro === r.uf ? "bg-emerald-50/60" : ""}`}
+                      onClick={() => setEstadoFiltro(r.uf === "Não identificado" ? "" : estadoFiltro === r.uf ? "" : r.uf)}
+                    >
+                      <td className="py-2 px-4 font-medium text-slate-700">{r.uf}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.leads}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.emRecebimento}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-emerald-600">{r.adimplentes}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-red-500">{r.inadimplentes}</td>
+                      <td className={`py-2 px-4 text-right tabular-nums font-medium ${pctInad >= 50 ? "text-red-600" : pctInad >= 25 ? "text-amber-600" : "text-slate-500"}`}>
+                        {base > 0 ? `${pctInad}%` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <p className="text-[11px] text-slate-400 mt-1">Clique numa linha pra filtrar as métricas acima só por aquele estado.</p>
       </section>
 
       {/* Funil: leads por etapa */}
