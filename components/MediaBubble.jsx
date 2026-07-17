@@ -43,11 +43,13 @@ export default function MediaBubble({ message }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [open, setOpen] = useState(false);
+  const [tentativa, setTentativa] = useState(0); // incrementa pra forçar nova busca (botão "Tentar novamente")
 
   useEffect(() => {
     if (url || message.mediaUrl || message.kind === "location") return; // localização não tem arquivo pra carregar
     let cancelled = false;
     setLoading(true);
+    setError(false);
     fetch(`/api/messages/${message.id}/media`)
       .then((r) => r.json())
       .then((d) => {
@@ -58,9 +60,26 @@ export default function MediaBubble({ message }) {
       .catch(() => !cancelled && setError(true))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, [message.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message.id, tentativa]);
 
-  if (error) return <p className="text-xs text-red-400">Não foi possível carregar o arquivo.</p>;
+  // A busca é feita uma vez só quando a mensagem aparece — se falhar por uma
+  // instabilidade passageira de rede (ex.: durante um deploy), o arquivo em si
+  // continua salvo certinho no servidor; só precisa tentar buscar de novo.
+  if (error) {
+    return (
+      <div className="text-xs">
+        <p className="text-red-400">Não foi possível carregar o arquivo.</p>
+        <button
+          type="button"
+          onClick={() => setTentativa((t) => t + 1)}
+          className="text-emerald-600 hover:text-emerald-700 underline mt-0.5"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
 
   if (message.kind === "audio") {
     return url ? (
