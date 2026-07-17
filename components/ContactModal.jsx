@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { resumoCobranca, valorParcelaAtual, parcelaAtrasada } from "@/lib/finance";
+import { UFS_BR } from "@/lib/ddd";
 import MediaBubble from "./MediaBubble";
 
 function fmtTime(iso) {
@@ -86,6 +87,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       valorCapital: data.valorCapital ?? "",
       pagamentoCapital: toDateInput(data.pagamentoCapital),
       responsavel: data.responsavel || "",
+      estado: data.estado || "",
     });
     setMessages(data.messages || []);
     setParcelas(data.parcelas || []);
@@ -534,12 +536,21 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </select>
             </label>
 
-            {/* Estado do lead — detectado sozinho pela IA a partir da conversa */}
-            {contact?.estado && (
-              <p className="text-xs text-slate-400 flex items-center gap-1">
-                📍 Estado (detectado pela IA): <span className="font-medium text-slate-600">{contact.estado}</span>
-              </p>
-            )}
+            {/* Estado do lead — a IA já preenche pelo DDD do telefone (ou pelo
+                que o cliente contar na conversa); dá pra corrigir manualmente. */}
+            <label className="block">
+              <span className="text-xs text-slate-400">📍 Estado (UF)</span>
+              <select
+                value={form.estado || ""}
+                onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="">— Não identificado —</option>
+                {UFS_BR.map((uf) => (
+                  <option key={uf} value={uf}>{uf}</option>
+                ))}
+              </select>
+            </label>
 
             {/* Tarefas do lead */}
             <div className="border border-slate-200 rounded-lg p-2.5">

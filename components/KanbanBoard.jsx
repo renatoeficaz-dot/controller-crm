@@ -648,6 +648,11 @@ export default function KanbanBoard() {
                         {c.phone && (
                           <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
                             <span className="text-emerald-500">●</span> {c.phone}
+                            {c.estado && (
+                              <span className="ml-auto text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full px-1.5 py-0.5 shrink-0">
+                                📍 {c.estado}
+                              </span>
+                            )}
                           </p>
                         )}
                         {stage.name === "Recebimento" && (

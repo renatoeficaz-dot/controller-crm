@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { ufFromPhone } from "@/lib/ddd";
 
 // Cria um novo contato (cai na coluna informada, ou na primeira)
 export async function POST(req) {
@@ -38,6 +39,7 @@ export async function POST(req) {
       email: body.email || null,
       company: body.company || null,
       notes: body.notes || null,
+      estado: body.estado || ufFromPhone(body.phone),
       stageId,
       order: (last?.order ?? -1) + 1,
     },

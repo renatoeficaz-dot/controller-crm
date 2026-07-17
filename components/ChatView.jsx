@@ -5,6 +5,7 @@ import MediaBubble from "./MediaBubble";
 import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
 import { interpolarVariaveis } from "@/lib/variaveis";
 import { parcelaAtrasada } from "@/lib/finance";
+import { UFS_BR } from "@/lib/ddd";
 
 // Data de hoje (local) como "YYYY-MM-DD"
 function todayStr() {
@@ -201,6 +202,7 @@ export default function ChatView() {
         stageId: ct.stageId || "",
         valorCapital: ct.valorCapital ?? "",
         pagamentoCapital: ct.pagamentoCapital ? new Date(ct.pagamentoCapital).toISOString().slice(0, 10) : "",
+        estado: ct.estado || "",
       });
       setContactTags((ct.tags || []).map((t) => t.id));
     }
@@ -764,9 +766,14 @@ export default function ChatView() {
         )}
       </div>
 
-      {/* Painel direito: edição do lead */}
+      {/* Painel direito: edição do lead. No mobile era um overlay w-full que
+          cobria o chat inteiro — agora é uma gaveta mais estreita (com fundo
+          escurecido atrás) pra sobrar um pouco do chat visível do lado. */}
       {selectedId && contact && showInfo && (
-        <div className="w-full md:w-72 lg:w-80 shrink-0 border-l border-slate-200 bg-white overflow-y-auto thin-scroll absolute md:relative inset-0 md:inset-auto z-30 md:z-auto">
+        <div className="md:hidden fixed inset-0 bg-slate-900/30 z-20" onClick={() => setShowInfo(false)} />
+      )}
+      {selectedId && contact && showInfo && (
+        <div className="w-[82%] max-w-sm md:w-72 lg:w-80 shrink-0 border-l border-slate-200 bg-white overflow-y-auto thin-scroll absolute md:relative inset-y-0 right-0 md:inset-auto z-30 md:z-auto shadow-xl md:shadow-none">
           <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
             <h3 className="font-semibold text-slate-800 text-sm">Editar lead</h3>
             <button onClick={() => setShowInfo(false)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
@@ -811,12 +818,17 @@ export default function ChatView() {
               </select>
             </label>
 
-            {/* Estado do lead — detectado sozinho pela IA a partir da conversa */}
-            {contact?.estado && (
-              <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                📍 Estado (IA): <span className="font-medium text-slate-600">{contact.estado}</span>
-              </p>
-            )}
+            {/* Estado do lead — a IA já preenche pelo DDD do telefone (ou pelo
+                que o cliente contar na conversa); dá pra corrigir manualmente. */}
+            <label className="block">
+              <span className="text-[11px] text-slate-400">📍 Estado (UF)</span>
+              <select value={form.estado || ""} onChange={set("estado")} className={selectCls}>
+                <option value="">— Não identificado —</option>
+                {UFS_BR.map((uf) => (
+                  <option key={uf} value={uf}>{uf}</option>
+                ))}
+              </select>
+            </label>
 
             {/* Tarefas do lead */}
             <div className="border border-slate-200 rounded-lg p-2.5">
