@@ -24,6 +24,7 @@ const PRESETS = [
   { key: "hoje", label: "Hoje", range: () => [hojeStr(), hojeStr()] },
   { key: "semana", label: "Esta semana", range: () => [inicioSemanaStr(), fimSemanaStr()] },
   { key: "mes", label: "Este mês", range: () => [inicioMesStr(), fimMesStr()] },
+  { key: "tudo", label: "Todo período", range: () => ["2000-01-01", hojeStr()] },
 ];
 
 export default function Relatorios() {
