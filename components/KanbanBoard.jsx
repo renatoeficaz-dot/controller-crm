@@ -89,6 +89,7 @@ export default function KanbanBoard() {
   const [usuarios, setUsuarios] = useState([]);
   const [tags, setTags] = useState([]);
   const [tagFiltro, setTagFiltro] = useState(""); // "" = todas; tagId = só leads com essa tag
+  const [estadoFiltro, setEstadoFiltro] = useState(""); // "" = todos; UF = só leads desse estado
   const [bulkAction, setBulkAction] = useState(""); // "", stage, responsavel, unit, delete
   const [bulkValue, setBulkValue] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -208,12 +209,18 @@ export default function KanbanBoard() {
     load();
   }
 
-  // Um lead passa pelo filtro atual (situação + responsável + busca)?
+  // UFs presentes na base (pra só mostrar no seletor o que existe de fato).
+  const estadosDisponiveis = Array.from(
+    new Set(stages.flatMap((s) => s.contacts.map((c) => c.estado).filter(Boolean)))
+  ).sort();
+
+  // Um lead passa pelo filtro atual (situação + responsável + região + busca)?
   function passaFiltro(c) {
     if (filtros.length && !filtros.includes(situacaoContato(c))) return false;
     if (respFiltro === "__none__" && c.responsavel) return false;
     if (respFiltro && respFiltro !== "__none__" && c.responsavel !== respFiltro) return false;
     if (tagFiltro && !(c.tags || []).some((t) => t.id === tagFiltro)) return false;
+    if (estadoFiltro && c.estado !== estadoFiltro) return false;
     if (busca.trim()) {
       const termo = busca.trim().toLowerCase();
       const nomeBate = (c.name || "").toLowerCase().includes(termo);
@@ -382,6 +389,25 @@ export default function KanbanBoard() {
               <option value="">Todas</option>
               {tags.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </>
+        )}
+
+        {/* Filtro por região (estado do lead, detectado pela IA ou pelo DDD) */}
+        {estadosDisponiveis.length > 0 && (
+          <>
+            <span className="text-xs text-slate-400 ml-2">Região:</span>
+            <select
+              value={estadoFiltro}
+              onChange={(e) => setEstadoFiltro(e.target.value)}
+              className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
+                estadoFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
+              }`}
+            >
+              <option value="">Todas</option>
+              {estadosDisponiveis.map((uf) => (
+                <option key={uf} value={uf}>{uf}</option>
               ))}
             </select>
           </>
