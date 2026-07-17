@@ -22,6 +22,52 @@ function Card({ titulo, valor, sub, cor = "slate" }) {
   );
 }
 
+// Nível atingido hoje, dos 3 configurados: abaixo da mínima, na mínima,
+// na média, ou meta cheia batida.
+function nivelDe(atual, minima, media, meta) {
+  if (atual >= meta) return "meta";
+  if (atual >= media) return "media";
+  if (atual >= minima) return "minima";
+  return "abaixo";
+}
+
+const NIVEL_BARRA = { abaixo: "bg-red-500", minima: "bg-amber-500", media: "bg-sky-500", meta: "bg-emerald-500" };
+const NIVEL_TEXTO = { abaixo: "text-red-600", minima: "text-amber-600", media: "text-sky-600", meta: "text-emerald-600" };
+const NIVEL_LABEL = { abaixo: "Abaixo da mínima", minima: "Bateu a mínima", media: "Bateu a média", meta: "Meta cheia batida! 🎉" };
+
+// Barra de progresso com marcadores de mínima/média, cor muda conforme o
+// nível atingido no dia.
+function NivelBar({ atual, minima, media, meta, unidade, unidadePlural }) {
+  const max = Math.max(meta, atual, 1);
+  const nivel = nivelDe(atual, minima, media, meta);
+  const pct = Math.min(100, Math.round((atual / max) * 100));
+  const posMinima = Math.min(100, Math.round((minima / max) * 100));
+  const posMedia = Math.min(100, Math.round((media / max) * 100));
+  const faltaMeta = Math.max(0, meta - atual);
+  const plural = unidadePlural || `${unidade}s`;
+
+  return (
+    <div>
+      <div className="relative w-full bg-slate-100 rounded-full h-3">
+        <div className={`h-3 rounded-full transition-all ${NIVEL_BARRA[nivel]}`} style={{ width: `${pct}%` }} />
+        <div className="absolute top-0 bottom-0 w-0.5 bg-slate-400/60" style={{ left: `${posMinima}%` }} title={`Mínima: ${minima}`} />
+        <div className="absolute top-0 bottom-0 w-0.5 bg-slate-400/60" style={{ left: `${posMedia}%` }} title={`Média: ${media}`} />
+      </div>
+      <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-400">
+        <span>Mínima {minima}</span>
+        <span>Média {media}</span>
+        <span>Meta {meta}</span>
+      </div>
+      <p className={`text-xs font-medium mt-2 ${NIVEL_TEXTO[nivel]}`}>{NIVEL_LABEL[nivel]}</p>
+      {faltaMeta > 0 && (
+        <p className="text-xs text-slate-400 mt-0.5">
+          Faltam {faltaMeta} {faltaMeta === 1 ? unidade : plural} pra meta cheia.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function MetasView() {
   const [resumo, setResumo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,18 +87,13 @@ export default function MetasView() {
   if (loading) return <div className="p-6 text-slate-400">Carregando metas…</div>;
   if (!resumo) return <div className="p-6 text-slate-400">Não foi possível carregar as metas.</div>;
 
-  const falta = Math.max(0, resumo.metaRecebimentosHoje - resumo.recebimentosHoje);
-  const pctBarra = resumo.metaRecebimentosHoje > 0
-    ? Math.min(100, Math.round((resumo.recebimentosHoje / resumo.metaRecebimentosHoje) * 100))
-    : 100;
-
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 max-w-4xl space-y-4 md:space-y-6">
       <div>
         <h1 className="text-lg font-semibold text-slate-800">Metas</h1>
         <p className="text-sm text-slate-500 mt-0.5">
           Meta de recebimento do dia. Regra atual: <strong>{resumo.metaPctRecebimento}%</strong> de todos os
-          leads que estão na etapa Recebimento precisam pagar hoje.
+          leads que estão na etapa Recebimento precisam pagar hoje (mínima {resumo.metaPctRecebimentoMinima}%, média {resumo.metaPctRecebimentoMedia}%).
           <a href="/configuracoes?tab=metas" className="text-emerald-600 hover:underline ml-1">Configurar</a>
         </p>
       </div>
@@ -62,17 +103,13 @@ export default function MetasView() {
           <p className="text-sm font-semibold text-slate-700">Meta de vendas hoje</p>
           <p className="text-sm text-slate-500">{resumo.vendasHoje} / {resumo.metaVendasDia}</p>
         </div>
-        <div className="w-full bg-slate-100 rounded-full h-3">
-          <div
-            className={`h-3 rounded-full transition-all ${resumo.vendasHoje >= resumo.metaVendasDia ? "bg-emerald-500" : "bg-violet-500"}`}
-            style={{ width: `${resumo.metaVendasDia > 0 ? Math.min(100, Math.round((resumo.vendasHoje / resumo.metaVendasDia) * 100)) : 100}%` }}
-          />
-        </div>
-        <p className="text-xs text-slate-400 mt-2">
-          {resumo.vendasHoje < resumo.metaVendasDia
-            ? `Faltam ${resumo.metaVendasDia - resumo.vendasHoje} venda(s) pra bater a meta de hoje.`
-            : "Meta de vendas de hoje batida! 🎉"}
-        </p>
+        <NivelBar
+          atual={resumo.vendasHoje}
+          minima={resumo.metaVendasMinima}
+          media={resumo.metaVendasMedia}
+          meta={resumo.metaVendasDia}
+          unidade="venda"
+        />
       </div>
 
       <Card titulo="Leads atualmente em Recebimento" valor={resumo.totalEmRecebimento} sub="Base do cálculo da meta de recebimento de hoje" cor="violet" />
@@ -84,15 +121,14 @@ export default function MetasView() {
             {resumo.recebimentosHoje} / {resumo.metaRecebimentosHoje}
           </p>
         </div>
-        <div className="w-full bg-slate-100 rounded-full h-3">
-          <div
-            className={`h-3 rounded-full transition-all ${pctBarra >= 100 ? "bg-emerald-500" : "bg-sky-500"}`}
-            style={{ width: `${pctBarra}%` }}
-          />
-        </div>
-        <p className="text-xs text-slate-400 mt-2">
-          {falta > 0 ? `Faltam ${falta} baixa(s) pra bater a meta de hoje.` : "Meta de hoje batida! 🎉"}
-        </p>
+        <NivelBar
+          atual={resumo.recebimentosHoje}
+          minima={resumo.metaRecebimentosMinima}
+          media={resumo.metaRecebimentosMedia}
+          meta={resumo.metaRecebimentosHoje}
+          unidade="baixa"
+          unidadePlural="baixas"
+        />
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">

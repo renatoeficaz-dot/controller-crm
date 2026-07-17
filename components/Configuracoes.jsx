@@ -1451,14 +1451,22 @@ function Numeros() {
 
 /* ---------------- Tags / Etiquetas + regras de auto-tag ---------------- */
 function MetasConfig() {
-  const [pct, setPct] = useState(70);
-  const [metaVendas, setMetaVendas] = useState(5);
+  const [vMinima, setVMinima] = useState(2);
+  const [vMedia, setVMedia] = useState(3);
+  const [vMeta, setVMeta] = useState(5);
+  const [pMinima, setPMinima] = useState(40);
+  const [pMedia, setPMedia] = useState(55);
+  const [pMeta, setPMeta] = useState(70);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/config").then((r) => r.json()).then((c) => {
-      setPct(c?.metaPctRecebimento ?? 70);
-      setMetaVendas(c?.metaVendasDia ?? 5);
+      setVMinima(c?.metaVendasMinima ?? 2);
+      setVMedia(c?.metaVendasMedia ?? 3);
+      setVMeta(c?.metaVendasDia ?? 5);
+      setPMinima(c?.metaPctRecebimentoMinima ?? 40);
+      setPMedia(c?.metaPctRecebimentoMedia ?? 55);
+      setPMeta(c?.metaPctRecebimento ?? 70);
     });
   }, []);
 
@@ -1467,7 +1475,14 @@ function MetasConfig() {
     await fetch("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ metaPctRecebimento: pct, metaVendasDia: metaVendas }),
+      body: JSON.stringify({
+        metaVendasMinima: vMinima,
+        metaVendasMedia: vMedia,
+        metaVendasDia: vMeta,
+        metaPctRecebimentoMinima: pMinima,
+        metaPctRecebimentoMedia: pMedia,
+        metaPctRecebimento: pMeta,
+      }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
@@ -1479,42 +1494,85 @@ function MetasConfig() {
         <SectionHeader
           icon="🎯"
           title="Meta diária de vendas"
-          subtitle="Quantos leads devem cair na etapa 'Recebimento' (empréstimo liberado) no dia."
+          subtitle="Quantos leads devem cair na etapa 'Recebimento' (empréstimo liberado) no dia. 3 níveis: mínima, média e meta cheia."
         />
-        <label className="block">
-          <span className="text-xs text-slate-400">Meta de vendas do dia</span>
-          <input
-            type="number"
-            min={0}
-            value={metaVendas}
-            onChange={(e) => setMetaVendas(e.target.value)}
-            className="mt-0.5 w-32 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
-          />
-        </label>
+        <div className="grid grid-cols-3 gap-3">
+          <label className="block">
+            <span className="text-xs text-red-500">Mínima</span>
+            <input
+              type="number"
+              min={0}
+              value={vMinima}
+              onChange={(e) => setVMinima(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-amber-500">Média</span>
+            <input
+              type="number"
+              min={0}
+              value={vMedia}
+              onChange={(e) => setVMedia(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-emerald-600">Meta</span>
+            <input
+              type="number"
+              min={0}
+              value={vMeta}
+              onChange={(e) => setVMeta(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
         <SectionHeader
           icon="💰"
           title="Meta diária de recebimento"
-          subtitle='Regra: X% de todos os leads que estão atualmente na etapa "Recebimento" precisam pagar (dar baixa numa parcela) hoje.'
+          subtitle='Regra: X% de todos os leads que estão atualmente na etapa "Recebimento" precisam pagar (dar baixa numa parcela) hoje. 3 níveis: mínima, média e meta cheia.'
         />
-        <label className="block">
-          <span className="text-xs text-slate-400">Percentual da meta (%)</span>
-          <div className="flex items-center gap-2 mt-0.5">
+        <div className="grid grid-cols-3 gap-3">
+          <label className="block">
+            <span className="text-xs text-red-500">Mínima (%)</span>
             <input
               type="number"
               min={0}
               max={100}
-              value={pct}
-              onChange={(e) => setPct(e.target.value)}
-              className="w-32 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+              value={pMinima}
+              onChange={(e) => setPMinima(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
             />
-            <span className="text-slate-500">%</span>
-          </div>
-        </label>
+          </label>
+          <label className="block">
+            <span className="text-xs text-amber-500">Média (%)</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={pMedia}
+              onChange={(e) => setPMedia(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-emerald-600">Meta (%)</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={pMeta}
+              onChange={(e) => setPMeta(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+        </div>
         <p className="text-[11px] text-slate-400">
-          Exemplo: se hoje tem 40 leads em "Recebimento" e a meta é 70%, a meta do dia é 28 baixas de parcela.
+          Exemplo: se hoje tem 40 leads em "Recebimento" e a meta é 70%, a meta cheia do dia é 28 baixas de parcela.
         </p>
       </div>
 

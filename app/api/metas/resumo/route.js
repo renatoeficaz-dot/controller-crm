@@ -34,18 +34,32 @@ export async function GET() {
     ? await prisma.contact.count({ where: { stageId: stageRecebimento.id } })
     : 0;
 
-  const pct = Math.min(100, Math.max(0, cfg?.metaPctRecebimento ?? 70));
+  const clamp = (v) => Math.min(100, Math.max(0, v));
+  const pctMinima = clamp(cfg?.metaPctRecebimentoMinima ?? 40);
+  const pctMedia = clamp(cfg?.metaPctRecebimentoMedia ?? 55);
+  const pct = clamp(cfg?.metaPctRecebimento ?? 70);
+  const metaRecebimentosMinima = Math.ceil((totalEmRecebimento * pctMinima) / 100);
+  const metaRecebimentosMedia = Math.ceil((totalEmRecebimento * pctMedia) / 100);
   const metaRecebimentosHoje = Math.ceil((totalEmRecebimento * pct) / 100);
   const recebimentosHoje = pagantesHoje.length;
+
+  const metaVendasMinima = cfg?.metaVendasMinima ?? 2;
+  const metaVendasMedia = cfg?.metaVendasMedia ?? 3;
   const metaVendasDia = cfg?.metaVendasDia ?? 5;
 
   return NextResponse.json({
     vendasHoje,
+    metaVendasMinima,
+    metaVendasMedia,
     metaVendasDia,
     totalEmRecebimento,
     recebimentosHoje,
     valorRecebidoHoje: valorRecebidoHoje._sum.amountPago || 0,
+    metaRecebimentosMinima,
+    metaRecebimentosMedia,
     metaRecebimentosHoje,
+    metaPctRecebimentoMinima: pctMinima,
+    metaPctRecebimentoMedia: pctMedia,
     metaPctRecebimento: pct,
   });
 }

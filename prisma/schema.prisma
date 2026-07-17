@@ -133,10 +133,16 @@ model Config {
   wahaApiKey          String? // API Key global do WAHA
 
   // Meta diária: X% de todos os leads atualmente na etapa "Recebimento"
-  // precisam pagar (dar baixa numa parcela) hoje.
-  metaPctRecebimento Float @default(70)
+  // precisam pagar (dar baixa numa parcela) hoje. 3 níveis: mínima < média < meta
+  // (meta = metaPctRecebimento, o valor "ideal"/cheio, já existia antes).
+  metaPctRecebimentoMinima Float @default(40)
+  metaPctRecebimentoMedia  Float @default(55)
+  metaPctRecebimento       Float @default(70)
   // Meta diária de vendas: quantos leads devem cair em "Recebimento" no dia.
-  metaVendasDia      Int   @default(5)
+  // 3 níveis: mínima < média < meta (metaVendasDia = a meta cheia, já existia antes).
+  metaVendasMinima Int @default(2)
+  metaVendasMedia  Int @default(3)
+  metaVendasDia    Int @default(5)
 
   // Horário comercial da automação de responsável por etapa — fora dessa janela,
   // o lead entra na etapa mas NÃO é auto-atribuído (fica sem responsável até

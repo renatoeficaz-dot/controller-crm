@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 
-// Dois mini-medidores (vendas e recebimento) mostrando o quanto falta pra
-// bater a meta do dia — mesmos números da aba Metas, só que compactos, pra
+// Dois mini-medidores (vendas e recebimento) mostrando o nível do dia
+// (mínima/média/meta) — mesmos números da aba Metas, só que compactos, pra
 // caber ao lado do título do Funil de contatos.
 export default function MetasMini() {
   const [resumo, setResumo] = useState(null);
@@ -21,24 +21,48 @@ export default function MetasMini() {
 
   if (!resumo) return null;
 
-  const faltaVendas = Math.max(0, resumo.metaVendasDia - resumo.vendasHoje);
-  const pctVendas = resumo.metaVendasDia > 0 ? Math.min(100, Math.round((resumo.vendasHoje / resumo.metaVendasDia) * 100)) : 100;
-
-  const faltaReceb = Math.max(0, resumo.metaRecebimentosHoje - resumo.recebimentosHoje);
-  const pctReceb = resumo.metaRecebimentosHoje > 0 ? Math.min(100, Math.round((resumo.recebimentosHoje / resumo.metaRecebimentosHoje) * 100)) : 100;
-
   return (
     <div className="hidden md:flex items-center gap-2.5">
-      <Meter label="Vendas hoje" pct={pctVendas} falta={faltaVendas} unidade="venda" cor="violet" />
-      <Meter label="Recebimentos hoje" pct={pctReceb} falta={faltaReceb} unidade="baixa" unidadePlural="baixas" cor="sky" />
+      <Meter
+        label="Vendas hoje"
+        atual={resumo.vendasHoje}
+        minima={resumo.metaVendasMinima}
+        media={resumo.metaVendasMedia}
+        meta={resumo.metaVendasDia}
+        unidade="venda"
+      />
+      <Meter
+        label="Recebimentos hoje"
+        atual={resumo.recebimentosHoje}
+        minima={resumo.metaRecebimentosMinima}
+        media={resumo.metaRecebimentosMedia}
+        meta={resumo.metaRecebimentosHoje}
+        unidade="baixa"
+        unidadePlural="baixas"
+      />
     </div>
   );
 }
 
-const FILL = { violet: "bg-violet-500", sky: "bg-sky-500" };
+// Nível atingido hoje: abaixo da mínima, na mínima, na média, ou meta cheia.
+function nivelDe(atual, minima, media, meta) {
+  if (atual >= meta) return "meta";
+  if (atual >= media) return "media";
+  if (atual >= minima) return "minima";
+  return "abaixo";
+}
 
-function Meter({ label, pct, falta, unidade, unidadePlural, cor }) {
-  const batida = falta === 0;
+const NIVEL_BARRA = { abaixo: "bg-red-500", minima: "bg-amber-500", media: "bg-sky-500", meta: "bg-emerald-500" };
+const NIVEL_TEXTO = { abaixo: "text-red-600", minima: "text-amber-600", media: "text-sky-600", meta: "text-emerald-600" };
+const NIVEL_LABEL = { abaixo: "Abaixo da mínima", minima: "Bateu a mínima", media: "Bateu a média", meta: "Meta batida! 🎉" };
+
+function Meter({ label, atual, minima, media, meta, unidade, unidadePlural }) {
+  const max = Math.max(meta, atual, 1);
+  const pct = Math.min(100, Math.round((atual / max) * 100));
+  const nivel = nivelDe(atual, minima, media, meta);
+  const falta = Math.max(0, meta - atual);
+  const plural = unidadePlural || `${unidade}s`;
+
   return (
     <a
       href="/metas"
@@ -46,17 +70,17 @@ function Meter({ label, pct, falta, unidade, unidadePlural, cor }) {
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] text-slate-400 truncate">{label}</span>
-        <span className={`text-[11px] font-semibold shrink-0 ${batida ? "text-emerald-600" : "text-slate-600"}`}>{pct}%</span>
+        <span className={`text-[11px] font-semibold shrink-0 ${NIVEL_TEXTO[nivel]}`}>{pct}%</span>
       </div>
       <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1.5">
-        <div
-          className={`h-1.5 rounded-full transition-all ${batida ? "bg-emerald-500" : FILL[cor]}`}
-          style={{ width: `${pct}%` }}
-        />
+        <div className={`h-1.5 rounded-full transition-all ${NIVEL_BARRA[nivel]}`} style={{ width: `${pct}%` }} />
       </div>
-      <p className={`text-[11px] mt-1.5 ${batida ? "text-emerald-600 font-medium" : "text-slate-500"}`}>
-        {batida ? "Meta batida! 🎉" : `Faltam ${falta} ${falta === 1 ? unidade : unidadePlural || `${unidade}s`}`}
-      </p>
+      <p className={`text-[11px] mt-1.5 font-medium ${NIVEL_TEXTO[nivel]}`}>{NIVEL_LABEL[nivel]}</p>
+      {falta > 0 && (
+        <p className="text-[11px] text-slate-400 mt-0.5">
+          Faltam {falta} {falta === 1 ? unidade : plural}
+        </p>
+      )}
     </a>
   );
 }
