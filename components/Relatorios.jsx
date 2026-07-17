@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { aReceber, totalRecebido, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
-import { hojeStr } from "@/lib/finance";
+import { hojeStr, parcelaAtrasada, NUM_PARCELAS } from "@/lib/finance";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -65,6 +65,44 @@ export default function Relatorios() {
   const receber = useMemo(() => aReceber(stagesFiltrados, multaOpts), [stagesFiltrados, multaOpts]);
   const recebido = useMemo(() => totalRecebido(stagesFiltrados, ini, fim), [stagesFiltrados, ini, fim]);
   const inad = useMemo(() => inadimplenciaCravo(stagesFiltrados), [stagesFiltrados]);
+
+  // Funil: quantos leads em cada etapa do Kanban (usa a cor já configurada na coluna).
+  const funilData = useMemo(
+    () => stagesFiltrados.map((s) => ({ label: s.name, value: (s.contacts || []).length, color: s.color || "#64748b" })),
+    [stagesFiltrados]
+  );
+
+  // Adimplência: entre os clientes com empréstimo ativo (têm parcelas), quantos
+  // têm alguma parcela vencida e não paga agora (inadimplente) vs nenhuma (adimplente).
+  const { adimplentes, inadimplentes } = useMemo(() => {
+    const hoje = hojeStr();
+    let ad = 0, inad = 0;
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        if (!c.parcelas || c.parcelas.length === 0) continue;
+        const temAtrasada = c.parcelas.some((p) => parcelaAtrasada(p, hoje));
+        if (temAtrasada) inad++; else ad++;
+      }
+    }
+    return { adimplentes: ad, inadimplentes: inad };
+  }, [stagesFiltrados]);
+
+  // Em qual parcela o cliente parou de pagar: menor número de parcela vencida
+  // e não paga (a partir dela ele deixou de honrar as cobranças em sequência).
+  // Só considera quem está com atraso ativo agora.
+  const paradaData = useMemo(() => {
+    const hoje = hojeStr();
+    const counts = Array.from({ length: NUM_PARCELAS }, () => 0);
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        const atrasadas = (c.parcelas || []).filter((p) => parcelaAtrasada(p, hoje));
+        if (atrasadas.length === 0) continue;
+        const stopAt = Math.min(...atrasadas.map((p) => p.number));
+        if (stopAt >= 1 && stopAt <= NUM_PARCELAS) counts[stopAt - 1]++;
+      }
+    }
+    return counts.map((v, i) => ({ label: `${i + 1}ª`, value: v }));
+  }, [stagesFiltrados]);
 
   // Novos indicadores
   const { novasVendas, renovacoes } = useMemo(() => {
@@ -161,6 +199,49 @@ export default function Relatorios() {
           <Card titulo="Pendente total (com honorários)" valor={inad.pendenteTotal} cor="red" />
         </div>
       </section>
+
+      {/* Funil: leads por etapa */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">Funil — leads por etapa</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          {funilData.length === 0 || funilData.every((d) => d.value === 0) ? (
+            <p className="text-sm text-slate-400 py-4">Nenhum lead cadastrado.</p>
+          ) : (
+            <HBarChart data={funilData} />
+          )}
+        </div>
+      </section>
+
+      {/* Adimplência vs inadimplência */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          {adimplentes + inadimplentes === 0 ? (
+            <p className="text-sm text-slate-400 py-4">Nenhum cliente com empréstimo ativo.</p>
+          ) : (
+            <DonutChart
+              data={[
+                { label: "Adimplentes", value: adimplentes, color: "#059669" },
+                { label: "Inadimplentes", value: inadimplentes, color: "#ef4444" },
+              ]}
+            />
+          )}
+        </div>
+      </section>
+
+      {/* Em qual parcela o cliente parou de pagar */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Parcela em que o cliente parou de pagar <span className="text-slate-400 font-normal">— clientes em atraso agora</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          {paradaData.every((d) => d.value === 0) ? (
+            <p className="text-sm text-slate-400 py-4">Nenhum cliente em atraso no momento.</p>
+          ) : (
+            <VBarChart data={paradaData} color="#f59e0b" />
+          )}
+        </div>
+      </section>
     </div>
   );
 }
@@ -177,6 +258,131 @@ function Card({ titulo, valor, cor }) {
     <div className="bg-white rounded-xl border border-slate-200 p-5">
       <p className="text-xs text-slate-400">{titulo}</p>
       <p className={`text-2xl font-semibold mt-1 ${CORES[cor] || "text-slate-700"}`}>{money(valor)}</p>
+    </div>
+  );
+}
+
+/* ---------------- Gráficos (SVG/CSS leves, sem lib externa) ---------------- */
+
+// Barras horizontais — boa pra rótulos longos (nomes de etapa do funil).
+function HBarChart({ data }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  return (
+    <div className="space-y-2.5">
+      {data.map((d, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <span className="w-28 sm:w-36 shrink-0 text-xs text-slate-600 truncate" title={d.label}>
+            {d.label}
+          </span>
+          <div className="flex-1 h-4 rounded-full bg-slate-100 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-[width] duration-300"
+              style={{ width: `${Math.max(d.value > 0 ? 3 : 0, (d.value / max) * 100)}%`, background: d.color }}
+              title={`${d.label}: ${d.value}`}
+            />
+          </div>
+          <span className="w-8 shrink-0 text-xs text-slate-500 text-right tabular-nums">{d.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Colunas verticais — pra sequência ordinal (1ª, 2ª, 3ª parcela...).
+function VBarChart({ data, color = "#7c3aed", height = 160 }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  const [hover, setHover] = useState(null);
+  return (
+    <div className="flex items-end gap-1.5 sm:gap-2.5" style={{ height: height + 34 }}>
+      {data.map((d, i) => {
+        const h = d.value > 0 ? Math.max(6, Math.round((d.value / max) * height)) : 0;
+        return (
+          <div
+            key={i}
+            className="flex-1 flex flex-col items-center justify-end h-full relative min-w-0"
+            onMouseEnter={() => setHover(i)}
+            onMouseLeave={() => setHover(null)}
+          >
+            {hover === i && (
+              <div className="absolute -top-1 -translate-y-full bg-slate-800 text-white text-[11px] rounded px-1.5 py-0.5 whitespace-nowrap z-10">
+                {d.label} parcela: {d.value} cliente{d.value === 1 ? "" : "s"}
+              </div>
+            )}
+            <span className="text-[11px] text-slate-500 tabular-nums mb-1 h-4">{d.value > 0 ? d.value : ""}</span>
+            <div
+              className="w-full rounded-t-[4px]"
+              style={{ height: h, background: color, maxWidth: 28, opacity: hover === null || hover === i ? 1 : 0.55, transition: "opacity .15s" }}
+            />
+            <span className="text-[10px] text-slate-400 mt-1.5 text-center truncate w-full">{d.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Donut de 2 (ou mais) categorias, com legenda + rótulo direto de valor/%.
+function DonutChart({ data, size = 150, strokeWidth = 26 }) {
+  const total = data.reduce((acc, d) => acc + d.value, 0) || 1;
+  const r = (size - strokeWidth) / 2;
+  const c = 2 * Math.PI * r;
+  const [hover, setHover] = useState(null);
+  let offset = 0;
+  return (
+    <div className="flex items-center gap-6 flex-wrap">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
+        <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={strokeWidth} />
+          {data
+            .filter((d) => d.value > 0)
+            .map((d, i) => {
+              const frac = d.value / total;
+              const dash = frac * c;
+              const el = (
+                <circle
+                  key={i}
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={r}
+                  fill="none"
+                  stroke={d.color}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={`${Math.max(dash - 2, 0)} ${c - dash + 2}`}
+                  strokeDashoffset={-offset}
+                  strokeLinecap="round"
+                  onMouseEnter={() => setHover(i)}
+                  onMouseLeave={() => setHover(null)}
+                  style={{ cursor: "pointer", opacity: hover === null || hover === i ? 1 : 0.45, transition: "opacity .15s" }}
+                />
+              );
+              offset += dash;
+              return el;
+            })}
+        </g>
+        <text x="50%" y="47%" textAnchor="middle" className="fill-slate-700" style={{ fontSize: 22, fontWeight: 600 }}>
+          {total}
+        </text>
+        <text x="50%" y="63%" textAnchor="middle" className="fill-slate-400" style={{ fontSize: 10 }}>
+          cliente{total === 1 ? "" : "s"}
+        </text>
+      </svg>
+      <ul className="space-y-2 text-xs">
+        {data.map((d, i) => (
+          <li
+            key={i}
+            className="flex items-center gap-2"
+            onMouseEnter={() => setHover(i)}
+            onMouseLeave={() => setHover(null)}
+            style={{ opacity: hover === null || hover === i ? 1 : 0.55, transition: "opacity .15s" }}
+          >
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
+            <span className="text-slate-600">{d.label}</span>
+            <span className="text-slate-400 tabular-nums">
+              {d.value} ({Math.round((d.value / total) * 100)}%)
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
