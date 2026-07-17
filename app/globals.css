@@ -41,3 +41,12 @@ body {
 .thin-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+/* Rolagem por toque no mobile (iOS/Android): sem isso, um container de
+   scroll aninhado dentro de outro (como a lista de mensagens do chat)
+   pode "prender" o gesto de arrastar no pai em vez de rolar o próprio
+   conteúdo — overscroll-behavior corta esse vazamento pro pai, e
+   -webkit-overflow-scrolling garante o momentum scroll no Safari. */
+.thin-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
