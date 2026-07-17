@@ -284,12 +284,13 @@ export default function Relatorios() {
           {porEstado.length === 0 ? (
             <p className="text-sm text-slate-400 py-4 px-5">Nenhum lead cadastrado.</p>
           ) : (
-            <table className="w-full text-sm min-w-[560px]">
+            <table className="w-full text-sm min-w-[660px]">
               <thead>
                 <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
                   <th className="py-2.5 px-4 font-medium">Estado</th>
                   <th className="py-2.5 px-3 font-medium text-right">Leads</th>
                   <th className="py-2.5 px-3 font-medium text-right">Em Recebimento</th>
+                  <th className="py-2.5 px-3 font-medium text-right">% Conversão</th>
                   <th className="py-2.5 px-3 font-medium text-right">Adimplentes</th>
                   <th className="py-2.5 px-3 font-medium text-right">Inadimplentes</th>
                   <th className="py-2.5 px-4 font-medium text-right">% Inadimplência</th>
@@ -299,6 +300,7 @@ export default function Relatorios() {
                 {porEstado.map((r) => {
                   const base = r.adimplentes + r.inadimplentes;
                   const pctInad = base > 0 ? Math.round((r.inadimplentes / base) * 100) : 0;
+                  const pctConversao = r.leads > 0 ? Math.round((r.emRecebimento / r.leads) * 100) : 0;
                   return (
                     <tr
                       key={r.uf}
@@ -308,6 +310,9 @@ export default function Relatorios() {
                       <td className="py-2 px-4 font-medium text-slate-700">{r.uf}</td>
                       <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.leads}</td>
                       <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.emRecebimento}</td>
+                      <td className="py-2 px-3 text-right tabular-nums font-medium text-violet-600">
+                        {r.leads > 0 ? `${pctConversao}%` : "—"}
+                      </td>
                       <td className="py-2 px-3 text-right tabular-nums text-emerald-600">{r.adimplentes}</td>
                       <td className="py-2 px-3 text-right tabular-nums text-red-500">{r.inadimplentes}</td>
                       <td className={`py-2 px-4 text-right tabular-nums font-medium ${pctInad >= 50 ? "text-red-600" : pctInad >= 25 ? "text-amber-600" : "text-slate-500"}`}>
