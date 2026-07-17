@@ -56,12 +56,21 @@ const NIVEL_BARRA = { abaixo: "bg-red-500", minima: "bg-amber-500", media: "bg-s
 const NIVEL_TEXTO = { abaixo: "text-red-600", minima: "text-amber-600", media: "text-sky-600", meta: "text-emerald-600" };
 const NIVEL_LABEL = { abaixo: "Abaixo da mínima", minima: "Bateu a mínima", media: "Bateu a média", meta: "Meta batida! 🎉" };
 
+// % que ainda falta pra alcançar um limiar (mínima/média), em pontos
+// percentuais do próprio limiar — null quando já foi alcançado.
+function pctFalta(atual, limiar) {
+  if (limiar <= 0 || atual >= limiar) return null;
+  return Math.round(((limiar - atual) / limiar) * 100);
+}
+
 function Meter({ label, atual, minima, media, meta, unidade, unidadePlural }) {
   const max = Math.max(meta, atual, 1);
   const pct = Math.min(100, Math.round((atual / max) * 100));
   const nivel = nivelDe(atual, minima, media, meta);
   const falta = Math.max(0, meta - atual);
   const plural = unidadePlural || `${unidade}s`;
+  const faltaPctMinima = pctFalta(atual, minima);
+  const faltaPctMedia = pctFalta(atual, media);
 
   return (
     <a
@@ -76,6 +85,8 @@ function Meter({ label, atual, minima, media, meta, unidade, unidadePlural }) {
         <div className={`h-1.5 rounded-full transition-all ${NIVEL_BARRA[nivel]}`} style={{ width: `${pct}%` }} />
       </div>
       <p className={`text-[11px] mt-1.5 font-medium ${NIVEL_TEXTO[nivel]}`}>{NIVEL_LABEL[nivel]}</p>
+      {faltaPctMinima != null && <p className="text-[11px] text-red-500 mt-0.5">Faltam {faltaPctMinima}% pra mínima</p>}
+      {faltaPctMedia != null && <p className="text-[11px] text-amber-500 mt-0.5">Faltam {faltaPctMedia}% pra média</p>}
       {falta > 0 && (
         <p className="text-[11px] text-slate-400 mt-0.5">
           Faltam {falta} {falta === 1 ? unidade : plural}

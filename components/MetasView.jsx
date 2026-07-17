@@ -35,6 +35,13 @@ const NIVEL_BARRA = { abaixo: "bg-red-500", minima: "bg-amber-500", media: "bg-s
 const NIVEL_TEXTO = { abaixo: "text-red-600", minima: "text-amber-600", media: "text-sky-600", meta: "text-emerald-600" };
 const NIVEL_LABEL = { abaixo: "Abaixo da mínima", minima: "Bateu a mínima", media: "Bateu a média", meta: "Meta cheia batida! 🎉" };
 
+// % que ainda falta pra alcançar um limiar (mínima/média), em pontos
+// percentuais do próprio limiar — null quando já foi alcançado.
+function pctFalta(atual, limiar) {
+  if (limiar <= 0 || atual >= limiar) return null;
+  return Math.round(((limiar - atual) / limiar) * 100);
+}
+
 // Barra de progresso com marcadores de mínima/média, cor muda conforme o
 // nível atingido no dia.
 function NivelBar({ atual, minima, media, meta, unidade, unidadePlural }) {
@@ -45,6 +52,8 @@ function NivelBar({ atual, minima, media, meta, unidade, unidadePlural }) {
   const posMedia = Math.min(100, Math.round((media / max) * 100));
   const faltaMeta = Math.max(0, meta - atual);
   const plural = unidadePlural || `${unidade}s`;
+  const faltaPctMinima = pctFalta(atual, minima);
+  const faltaPctMedia = pctFalta(atual, media);
 
   return (
     <div>
@@ -59,6 +68,8 @@ function NivelBar({ atual, minima, media, meta, unidade, unidadePlural }) {
         <span>Meta {meta}</span>
       </div>
       <p className={`text-xs font-medium mt-2 ${NIVEL_TEXTO[nivel]}`}>{NIVEL_LABEL[nivel]}</p>
+      {faltaPctMinima != null && <p className="text-xs text-red-500 mt-0.5">Faltam {faltaPctMinima}% pra mínima</p>}
+      {faltaPctMedia != null && <p className="text-xs text-amber-500 mt-0.5">Faltam {faltaPctMedia}% pra média</p>}
       {faltaMeta > 0 && (
         <p className="text-xs text-slate-400 mt-0.5">
           Faltam {faltaMeta} {faltaMeta === 1 ? unidade : plural} pra meta cheia.
