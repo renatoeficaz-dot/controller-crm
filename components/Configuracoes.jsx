@@ -1,7 +1,22 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
+
+// Posição (fixed, em relação à viewport) do EmojiPicker a partir do botão que
+// o abriu — mantém dentro da tela em qualquer largura (nada de calcular
+// "responsivo" via CSS puro, já que ele escapa via portal de containers com
+// overflow-hidden, então precisa saber onde encaixar sozinho).
+function posEmojiPicker(rect) {
+  const LARGURA = 256; // w-64
+  const ALTURA_MAX = 280;
+  const margem = 8;
+  const left = Math.min(Math.max(margem, rect.left), window.innerWidth - LARGURA - margem);
+  const abaixoCabe = rect.bottom + ALTURA_MAX + margem <= window.innerHeight;
+  const top = abaixoCabe ? rect.bottom + 4 : Math.max(margem, rect.top - ALTURA_MAX - 4);
+  return { top, left };
+}
 
 // Corrige a digitação de um telefone BR (tira espaço/traço/parênteses, completa
 // o DDI 55 se faltar) e valida o formato — retorna só dígitos (12 ou 13, com
@@ -1588,6 +1603,7 @@ function TiposTarefaConfig() {
   const [form, setForm] = useState({ name: "", color: "#6366f1", emoji: "" });
   const [saving, setSaving] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [emojiPos, setEmojiPos] = useState(null);
 
   const load = useCallback(async () => {
     setTipos(await fetch("/api/task-types").then((r) => r.json()).catch(() => []));
@@ -1619,13 +1635,14 @@ function TiposTarefaConfig() {
             <span className="text-xs text-slate-400">Emoji</span>
             <button
               type="button"
-              onClick={() => setShowEmojiPicker((v) => !v)}
+              onClick={(e) => { setEmojiPos(posEmojiPicker(e.currentTarget.getBoundingClientRect())); setShowEmojiPicker((v) => !v); }}
               className="mt-0.5 w-full text-center text-lg border border-slate-200 rounded-lg px-1 py-1.5 hover:border-emerald-400 transition-colors"
             >
               {form.emoji || <span className="text-slate-300 text-sm">＋</span>}
             </button>
             {showEmojiPicker && (
               <EmojiPicker
+                pos={emojiPos}
                 onPick={(e) => setForm((f) => ({ ...f, emoji: e }))}
                 onClose={() => setShowEmojiPicker(false)}
               />
@@ -1847,27 +1864,40 @@ const EMOJI_GRUPOS = [
   },
 ];
 
-function EmojiPicker({ onPick, onClose }) {
-  return (
-    <div className="absolute right-0 mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-2 w-64 max-h-64 overflow-y-auto thin-scroll">
-      {EMOJI_GRUPOS.map((g) => (
-        <div key={g.nome} className="mb-1.5">
-          <p className="text-[10px] text-slate-400 px-1 mb-0.5">{g.nome}</p>
-          <div className="grid grid-cols-8 gap-0.5">
-            {g.itens.map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => { onPick(e); onClose(); }}
-                className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 text-base"
-              >
-                {e}
-              </button>
-            ))}
+// Renderizado via portal (fora de qualquer container com overflow-hidden —
+// o editor de texto que o abre tem overflow-hidden pra arredondar os cantos,
+// e isso cortava o picker: "não estava responsivo"). `pos` já vem calculado
+// (posEmojiPicker) a partir do botão que abriu, sempre dentro da tela.
+function EmojiPicker({ onPick, onClose, pos }) {
+  if (!pos) return null;
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-30" onClick={onClose} />
+      <div
+        className="fixed z-40 bg-white border border-slate-200 rounded-lg shadow-lg p-2 w-64 max-h-64 overflow-y-auto thin-scroll"
+        style={{ top: pos.top, left: pos.left }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {EMOJI_GRUPOS.map((g) => (
+          <div key={g.nome} className="mb-1.5">
+            <p className="text-[10px] text-slate-400 px-1 mb-0.5">{g.nome}</p>
+            <div className="grid grid-cols-8 gap-0.5">
+              {g.itens.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => { onPick(e); onClose(); }}
+                  className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 text-base"
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>,
+    document.body
   );
 }
 
@@ -1890,7 +1920,9 @@ function MensagensProntas() {
   const [busca, setBusca] = useState("");
   const [menuId, setMenuId] = useState(null);
   const [showVariaveis, setShowVariaveis] = useState(false);
+  const [variaveisPos, setVariaveisPos] = useState(null);
   const [showEmojis, setShowEmojis] = useState(false);
+  const [emojiPos, setEmojiPos] = useState(null);
   const fileRef = useRef(null);
   const bodyRef = useRef(null);
 
@@ -2039,29 +2071,48 @@ function MensagensProntas() {
                 <span className="w-px h-4 bg-slate-200 mx-0.5" />
                 <button type="button" title="Link" onClick={() => inserirNoTexto("", " (https://)")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500">🔗</button>
                 <div className="relative">
-                  <button type="button" title="Emoji" onClick={() => setShowEmojis((v) => !v)} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500">🙂</button>
+                  <button
+                    type="button"
+                    title="Emoji"
+                    onClick={(e) => { setEmojiPos(posEmojiPicker(e.currentTarget.getBoundingClientRect())); setShowEmojis((v) => !v); }}
+                    className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500"
+                  >
+                    🙂
+                  </button>
                   {showEmojis && (
-                    <EmojiPicker onPick={(e) => inserirNoTexto(e)} onClose={() => setShowEmojis(false)} />
+                    <EmojiPicker pos={emojiPos} onPick={(e) => inserirNoTexto(e)} onClose={() => setShowEmojis(false)} />
                   )}
                 </div>
                 <div className="relative ml-auto">
-                  <button type="button" onClick={() => setShowVariaveis((v) => !v)} className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 px-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => { setVariaveisPos(posEmojiPicker(e.currentTarget.getBoundingClientRect())); setShowVariaveis((v) => !v); }}
+                    className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 px-1.5"
+                  >
                     Variáveis <span className="text-[9px]">▾</span>
                   </button>
-                  {showVariaveis && (
-                    <div className="absolute right-0 mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-56 text-sm">
-                      {VARIAVEIS_DISPONIVEIS.map((v) => (
-                        <button
-                          key={v.key}
-                          type="button"
-                          onClick={() => { inserirNoTexto(`{{${v.key}}}`); setShowVariaveis(false); }}
-                          className="w-full text-left px-3 py-1.5 hover:bg-slate-50"
-                        >
-                          <span className="text-emerald-600 font-mono text-xs">{"{{" + v.key + "}}"}</span>
-                          <span className="text-slate-400 text-xs ml-1.5">{v.label}</span>
-                        </button>
-                      ))}
-                    </div>
+                  {showVariaveis && variaveisPos && createPortal(
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setShowVariaveis(false)} />
+                      <div
+                        className="fixed z-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-56 text-sm max-h-64 overflow-y-auto thin-scroll"
+                        style={{ top: variaveisPos.top, left: variaveisPos.left }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {VARIAVEIS_DISPONIVEIS.map((v) => (
+                          <button
+                            key={v.key}
+                            type="button"
+                            onClick={() => { inserirNoTexto(`{{${v.key}}}`); setShowVariaveis(false); }}
+                            className="w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                          >
+                            <span className="text-emerald-600 font-mono text-xs">{"{{" + v.key + "}}"}</span>
+                            <span className="text-slate-400 text-xs ml-1.5">{v.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>,
+                    document.body
                   )}
                 </div>
               </div>
@@ -2226,7 +2277,11 @@ function MensagensProntas() {
 
       <div className="md:col-span-2 flex items-center justify-between gap-3 text-xs text-slate-500 bg-sky-50 rounded-xl p-3">
         <span className="flex items-center gap-1.5">ℹ️ Dica: use variáveis para personalizar suas mensagens automaticamente.</span>
-        <button type="button" onClick={() => setShowVariaveis((v) => !v)} className="border border-slate-200 bg-white rounded-lg px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-50 shrink-0">
+        <button
+          type="button"
+          onClick={(e) => { setVariaveisPos(posEmojiPicker(e.currentTarget.getBoundingClientRect())); setShowVariaveis((v) => !v); }}
+          className="border border-slate-200 bg-white rounded-lg px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-50 shrink-0"
+        >
           {"</>"} Ver variáveis disponíveis
         </button>
       </div>
@@ -3079,6 +3134,7 @@ function Field({ label, value, onChange, placeholder }) {
 function MensagemCobrancaField({ value, onSave }) {
   const [texto, setTexto] = useState(value);
   const [showEmojis, setShowEmojis] = useState(false);
+  const [emojiPos, setEmojiPos] = useState(null);
   const ref = useRef(null);
 
   useEffect(() => { setTexto(value); }, [value]);
@@ -3103,8 +3159,15 @@ function MensagemCobrancaField({ value, onSave }) {
       <div className="flex items-center justify-between">
         <span className="text-xs text-slate-400">Mensagem de cobrança</span>
         <div className="relative">
-          <button type="button" title="Emoji" onClick={() => setShowEmojis((v) => !v)} className="w-6 h-6 rounded hover:bg-slate-200/60 text-sm text-slate-500">🙂</button>
-          {showEmojis && <EmojiPicker onPick={inserirEmoji} onClose={() => setShowEmojis(false)} />}
+          <button
+            type="button"
+            title="Emoji"
+            onClick={(e) => { setEmojiPos(posEmojiPicker(e.currentTarget.getBoundingClientRect())); setShowEmojis((v) => !v); }}
+            className="w-6 h-6 rounded hover:bg-slate-200/60 text-sm text-slate-500"
+          >
+            🙂
+          </button>
+          {showEmojis && <EmojiPicker pos={emojiPos} onPick={inserirEmoji} onClose={() => setShowEmojis(false)} />}
         </div>
       </div>
       <textarea
