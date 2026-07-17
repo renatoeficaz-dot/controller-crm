@@ -3,6 +3,7 @@ import "./globals.css";
 import TopNav from "@/components/TopNav";
 import SideNav from "@/components/SideNav";
 import ConnectionStatusBanner from "@/components/ConnectionStatusBanner";
+import DeepInfraBalanceBanner from "@/components/DeepInfraBalanceBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,7 @@ export default function RootLayout({ children }) {
           <main className="flex-1 flex flex-col min-h-0 overflow-hidden">{children}</main>
         </div>
         <ConnectionStatusBanner />
+        <DeepInfraBalanceBanner />
       </body>
     </html>
   );

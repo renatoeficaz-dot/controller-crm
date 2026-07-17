@@ -2474,6 +2474,7 @@ function TokenDeepInfra() {
   const [tokens, setTokens] = useState({ deepinfraApiKey: "", fishAudioApiKey: "", elevenLabsApiKey: "" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saldo, setSaldo] = useState(null); // { ok, saldo, usoRecente } | { ok:false, error }
 
   useEffect(() => {
     fetch("/api/config").then((r) => r.json()).then((d) => {
@@ -2484,6 +2485,11 @@ function TokenDeepInfra() {
       });
     }).catch(() => {});
   }, []);
+
+  const loadSaldo = useCallback(() => {
+    fetch("/api/config/deepinfra-saldo").then((r) => r.json()).then(setSaldo).catch(() => setSaldo({ ok: false, error: "Falha ao consultar." }));
+  }, []);
+  useEffect(() => { loadSaldo(); }, [loadSaldo]);
 
   async function save(e) {
     e.preventDefault();
@@ -2496,11 +2502,25 @@ function TokenDeepInfra() {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
+    loadSaldo();
   }
 
   return (
     <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-lg space-y-3">
-      <h2 className="font-semibold text-slate-800">Tokens</h2>
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="font-semibold text-slate-800">Tokens</h2>
+        {saldo?.ok && (
+          <div className="text-right shrink-0">
+            <p className="text-[11px] text-slate-400">Saldo DeepInfra</p>
+            <p className={`text-lg font-semibold ${saldo.saldo <= 1 ? "text-red-600" : "text-emerald-600"}`}>
+              US$ {saldo.saldo.toFixed(2)}
+            </p>
+          </div>
+        )}
+      </div>
+      {saldo && !saldo.ok && saldo.error && (
+        <p className="text-xs text-amber-600">Saldo DeepInfra: {saldo.error}</p>
+      )}
       <p className="text-xs text-slate-400">
         A primeira chave (<a href="https://deepinfra.com/dash" target="_blank" rel="noreferrer" className="underline text-emerald-600">gerar aqui</a>) dá
         acesso a texto e transcrição — sempre necessária. As outras duas são opcionais: cada agente escolhe qual usar pra gerar a voz.
