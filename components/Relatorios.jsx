@@ -104,6 +104,24 @@ export default function Relatorios() {
     return counts.map((v, i) => ({ label: `${i + 1}ª`, value: v }));
   }, [stagesFiltrados]);
 
+  // A receber por parcela: quantas parcelas em aberto (não pagas, de qualquer
+  // vencimento) existem de cada número — 1ª, 2ª, 3ª... — e a soma de cada uma.
+  const receberPorParcelaData = useMemo(() => {
+    const counts = Array.from({ length: NUM_PARCELAS }, () => 0);
+    const valores = Array.from({ length: NUM_PARCELAS }, () => 0);
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        for (const p of c.parcelas || []) {
+          if (p.paid) continue;
+          if (p.number < 1 || p.number > NUM_PARCELAS) continue;
+          counts[p.number - 1]++;
+          valores[p.number - 1] += p.amount;
+        }
+      }
+    }
+    return counts.map((v, i) => ({ label: `${i + 1}ª`, value: v, valor: valores[i] }));
+  }, [stagesFiltrados]);
+
   // Novos indicadores
   const { novasVendas, renovacoes } = useMemo(() => {
     const all = stagesFiltrados.flatMap((s) => s.contacts || []);
@@ -242,6 +260,24 @@ export default function Relatorios() {
           )}
         </div>
       </section>
+
+      {/* A receber por número de parcela */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          A receber por parcela <span className="text-slate-400 font-normal">— quantas parcelas em aberto de cada número</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          {receberPorParcelaData.every((d) => d.value === 0) ? (
+            <p className="text-sm text-slate-400 py-4">Nenhuma parcela em aberto.</p>
+          ) : (
+            <VBarChart
+              data={receberPorParcelaData}
+              color="#0284c7"
+              tooltip={(d) => `${d.label} parcela: ${d.value} em aberto — ${money(d.valor)}`}
+            />
+          )}
+        </div>
+      </section>
     </div>
   );
 }
@@ -289,9 +325,10 @@ function HBarChart({ data }) {
 }
 
 // Colunas verticais — pra sequência ordinal (1ª, 2ª, 3ª parcela...).
-function VBarChart({ data, color = "#7c3aed", height = 160 }) {
+function VBarChart({ data, color = "#7c3aed", height = 160, tooltip }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   const [hover, setHover] = useState(null);
+  const tooltipFor = tooltip || ((d) => `${d.label} parcela: ${d.value} cliente${d.value === 1 ? "" : "s"}`);
   return (
     <div className="flex items-end gap-1.5 sm:gap-2.5" style={{ height: height + 34 }}>
       {data.map((d, i) => {
@@ -305,7 +342,7 @@ function VBarChart({ data, color = "#7c3aed", height = 160 }) {
           >
             {hover === i && (
               <div className="absolute -top-1 -translate-y-full bg-slate-800 text-white text-[11px] rounded px-1.5 py-0.5 whitespace-nowrap z-10">
-                {d.label} parcela: {d.value} cliente{d.value === 1 ? "" : "s"}
+                {tooltipFor(d)}
               </div>
             )}
             <span className="text-[11px] text-slate-500 tabular-nums mb-1 h-4">{d.value > 0 ? d.value : ""}</span>
