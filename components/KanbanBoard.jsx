@@ -528,6 +528,9 @@ export default function KanbanBoard() {
                   {visiveis.map((c) => {
                     const sit = situacaoContato(c);
                     const style = CARD_STYLE[sit] || CARD_STYLE.base;
+                    // Lead em Recebimento sem nenhuma tarefa cadastrada — provavelmente
+                    // o plano de cobrança não gerou as tarefas diárias; precisa de atenção.
+                    const semTarefa = stage.name === "Recebimento" && (c.tasksCount || 0) === 0;
                     return (
                       <div
                         key={c.id}
@@ -542,7 +545,10 @@ export default function KanbanBoard() {
                           setOverStage(null);
                         }}
                         onClick={() => setOpenId(c.id)}
-                        className={`group relative rounded-lg border p-3 cursor-pointer hover:shadow-sm transition-all active:cursor-grabbing ${style}`}
+                        title={semTarefa ? "Lead em Recebimento sem nenhuma tarefa cadastrada" : undefined}
+                        className={`group relative rounded-lg border p-3 cursor-pointer hover:shadow-sm transition-all active:cursor-grabbing ${style} ${
+                          semTarefa ? "ring-2 ring-red-600" : ""
+                        }`}
                       >
                         <div className="flex items-center gap-2.5">
                           <div className="relative w-8 h-8 shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center">
@@ -554,7 +560,12 @@ export default function KanbanBoard() {
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-slate-800 truncate">{c.name}</p>
                           </div>
-                          {(sit === "atrasado" || sit === "hoje") && (
+                          {semTarefa && (
+                            <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-600 text-white">
+                              Sem tarefa
+                            </span>
+                          )}
+                          {!semTarefa && (sit === "atrasado" || sit === "hoje") && (
                             <span
                               className={`ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
                                 sit === "atrasado" ? "bg-red-500 text-white" : "bg-amber-400 text-white"
@@ -576,7 +587,7 @@ export default function KanbanBoard() {
                                 setCardMenuId(c.id);
                               }
                             }}
-                            className={`shrink-0 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded px-1 ${(sit === "atrasado" || sit === "hoje") ? "" : "ml-auto"}`}
+                            className={`shrink-0 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded px-1 ${(semTarefa || sit === "atrasado" || sit === "hoje") ? "" : "ml-auto"}`}
                           >
                             ⋮
                           </button>

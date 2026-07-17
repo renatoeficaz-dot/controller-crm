@@ -29,7 +29,7 @@ export async function GET() {
         include: {
           parcelas: { orderBy: { number: "asc" } },
           tags: { select: { id: true, name: true, color: true } },
-          _count: { select: { messages: { where: { fromMe: false, readAt: null } } } },
+          _count: { select: { messages: { where: { fromMe: false, readAt: null } }, tasks: true } },
           messages: {
             orderBy: { createdAt: "desc" },
             take: 1,
@@ -40,7 +40,8 @@ export async function GET() {
     },
   });
 
-  // Enriquece com unreadCount e o horário da última mensagem (de qualquer
+  // Enriquece com unreadCount, tasksCount (pra alertar lead em Recebimento sem
+  // nenhuma tarefa de cobrança) e o horário da última mensagem (de qualquer
   // direção) — o front ordena os cards por isso (mais recente ou mais antiga
   // primeiro, conforme o filtro escolhido).
   const enriched = stages.map((s) => ({
@@ -48,6 +49,7 @@ export async function GET() {
     contacts: s.contacts.map((c) => ({
       ...c,
       unreadCount: c._count?.messages || 0,
+      tasksCount: c._count?.tasks || 0,
       lastMessageAt: c.messages?.[0]?.createdAt || c.createdAt,
       messages: undefined,
       _count: undefined,
