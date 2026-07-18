@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { aReceber, totalRecebido, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
 import { hojeStr, parcelaAtrasada, NUM_PARCELAS } from "@/lib/finance";
+import ContactModal from "@/components/ContactModal";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -35,6 +36,7 @@ export default function Relatorios() {
   const [ini, setIni] = useState(inicioMesStr());
   const [fim, setFim] = useState(hojeStr());
   const [estadoFiltro, setEstadoFiltro] = useState("");
+  const [openContactId, setOpenContactId] = useState(null);
 
   const load = useCallback(async () => {
     const data = await fetch("/api/stages").then((r) => r.json()).catch(() => []);
@@ -62,6 +64,24 @@ export default function Relatorios() {
     if (!estadoFiltro) return stages;
     return stages.map((s) => ({ ...s, contacts: (s.contacts || []).filter((c) => c.estado === estadoFiltro) }));
   }, [stages, estadoFiltro]);
+
+  // Leads do estado filtrado, pra listar embaixo da tabela de resumo —
+  // clicar num deles abre o mesmo modal de contato usado no Kanban/Chat.
+  const leadsDoEstadoFiltro = useMemo(() => {
+    if (!estadoFiltro) return [];
+    const hoje = hojeStr();
+    const out = [];
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        let situacao = "sem-cobranca";
+        if (c.parcelas && c.parcelas.length > 0) {
+          situacao = c.parcelas.some((p) => parcelaAtrasada(p, hoje)) ? "inadimplente" : "adimplente";
+        }
+        out.push({ id: c.id, name: c.name, phone: c.phone, stageName: s.name, situacao });
+      }
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  }, [stagesFiltrados, estadoFiltro]);
 
   // Lista de UFs presentes na base, pro seletor (só mostra o que existe).
   const ufsDisponiveis = useMemo(() => {
@@ -327,6 +347,43 @@ export default function Relatorios() {
           )}
         </div>
         <p className="text-[11px] text-slate-400 mt-1">Clique numa linha pra filtrar as métricas acima só por aquele estado.</p>
+
+        {estadoFiltro && (
+          <div className="mt-3">
+            <h3 className="text-xs font-semibold text-slate-500 mb-1.5">
+              Leads em {estadoFiltro} <span className="font-normal text-slate-400">({leadsDoEstadoFiltro.length})</span>
+            </h3>
+            <div className="bg-white rounded-xl border border-slate-200 max-h-80 overflow-y-auto thin-scroll divide-y divide-slate-50">
+              {leadsDoEstadoFiltro.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setOpenContactId(c.id)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50/80 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-700 truncate">{c.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{c.phone || "sem telefone"} · {c.stageName}</p>
+                  </div>
+                  <span
+                    className={`text-[10px] font-medium rounded-full px-2 py-0.5 shrink-0 ${
+                      c.situacao === "inadimplente"
+                        ? "bg-red-50 text-red-600"
+                        : c.situacao === "adimplente"
+                        ? "bg-emerald-50 text-emerald-600"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {c.situacao === "inadimplente" ? "Inadimplente" : c.situacao === "adimplente" ? "Adimplente" : "Sem cobrança"}
+                  </span>
+                </button>
+              ))}
+              {leadsDoEstadoFiltro.length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-6">Nenhum lead nesse estado.</p>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Funil: leads por etapa */}
@@ -389,6 +446,14 @@ export default function Relatorios() {
           )}
         </div>
       </section>
+
+      {openContactId && (
+        <ContactModal
+          contactId={openContactId}
+          onClose={() => setOpenContactId(null)}
+          onChanged={load}
+        />
+      )}
     </div>
   );
 }
