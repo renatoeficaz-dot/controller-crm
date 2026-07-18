@@ -37,8 +37,8 @@ export default function MetasMini() {
         minima={resumo.metaRecebimentosMinima}
         media={resumo.metaRecebimentosMedia}
         meta={resumo.metaRecebimentosHoje}
-        unidade="baixa"
-        unidadePlural="baixas"
+        unidade="cliente"
+        unidadePlural="clientes"
       />
     </div>
   );

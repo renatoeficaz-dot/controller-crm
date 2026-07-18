@@ -54,6 +54,27 @@ function situacaoContato(contact) {
   return "emdia";
 }
 
+// Situação das tarefas (pendentes) do contato:
+//  "sem"      = nenhuma tarefa pendente cadastrada
+//  "atrasada" = tem tarefa pendente com prazo já vencido
+//  "hoje"     = tem tarefa pendente que vence hoje
+//  "futura"   = só tem tarefas pendentes com prazo futuro
+function statusTarefas(contact) {
+  const tarefas = contact.tarefasPendentes || [];
+  if (tarefas.length === 0) return "sem";
+  const hoje = todayStr();
+  let atrasada = false;
+  let hojeVence = false;
+  for (const t of tarefas) {
+    const d = new Date(t.dueDate).toISOString().slice(0, 10);
+    if (d < hoje) atrasada = true;
+    else if (d === hoje) hojeVence = true;
+  }
+  if (atrasada) return "atrasada";
+  if (hojeVence) return "hoje";
+  return "futura";
+}
+
 // Estilo do card por situação
 const CARD_STYLE = {
   atrasado: "border-red-400 bg-red-50 hover:border-red-500",
@@ -90,6 +111,9 @@ export default function KanbanBoard() {
   const [tags, setTags] = useState([]);
   const [tagFiltro, setTagFiltro] = useState(""); // "" = todas; tagId = só leads com essa tag
   const [estadoFiltro, setEstadoFiltro] = useState(""); // "" = todos; UF = só leads desse estado
+  const [generoFiltro, setGeneroFiltro] = useState(""); // "" = todos; "masculino" | "feminino"
+  const [tipoClienteFiltro, setTipoClienteFiltro] = useState(""); // "" = todos; "motoboy" | "uber" | "comerciante"
+  const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
   const [bulkAction, setBulkAction] = useState(""); // "", stage, responsavel, unit, delete
   const [bulkValue, setBulkValue] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -221,6 +245,9 @@ export default function KanbanBoard() {
     if (respFiltro && respFiltro !== "__none__" && c.responsavel !== respFiltro) return false;
     if (tagFiltro && !(c.tags || []).some((t) => t.id === tagFiltro)) return false;
     if (estadoFiltro && c.estado !== estadoFiltro) return false;
+    if (generoFiltro && c.genero !== generoFiltro) return false;
+    if (tipoClienteFiltro && c.tipoCliente !== tipoClienteFiltro) return false;
+    if (tarefaFiltro && statusTarefas(c) !== tarefaFiltro) return false;
     if (busca.trim()) {
       const termo = busca.trim().toLowerCase();
       const nomeBate = (c.name || "").toLowerCase().includes(termo);
@@ -412,6 +439,51 @@ export default function KanbanBoard() {
             </select>
           </>
         )}
+
+        {/* Filtro por gênero */}
+        <span className="text-xs text-slate-400 ml-2">Gênero:</span>
+        <select
+          value={generoFiltro}
+          onChange={(e) => setGeneroFiltro(e.target.value)}
+          className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
+            generoFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
+          }`}
+        >
+          <option value="">Todos</option>
+          <option value="masculino">Masculino</option>
+          <option value="feminino">Feminino</option>
+        </select>
+
+        {/* Filtro por tipo de cliente */}
+        <span className="text-xs text-slate-400 ml-2">Tipo de cliente:</span>
+        <select
+          value={tipoClienteFiltro}
+          onChange={(e) => setTipoClienteFiltro(e.target.value)}
+          className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
+            tipoClienteFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
+          }`}
+        >
+          <option value="">Todos</option>
+          <option value="motoboy">Motoboy</option>
+          <option value="uber">Uber</option>
+          <option value="comerciante">Comerciante</option>
+        </select>
+
+        {/* Filtro por situação das tarefas pendentes */}
+        <span className="text-xs text-slate-400 ml-2">Tarefas:</span>
+        <select
+          value={tarefaFiltro}
+          onChange={(e) => setTarefaFiltro(e.target.value)}
+          className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
+            tarefaFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
+          }`}
+        >
+          <option value="">Todas</option>
+          <option value="sem">Sem tarefas</option>
+          <option value="atrasada">Atrasadas</option>
+          <option value="hoje">De hoje</option>
+          <option value="futura">A vencer</option>
+        </select>
 
         {/* Ordenação dos cards por última mensagem */}
         <span className="text-xs text-slate-400 ml-2">Ordenar:</span>

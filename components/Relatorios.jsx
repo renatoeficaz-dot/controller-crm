@@ -83,6 +83,32 @@ export default function Relatorios() {
     return out.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }, [stagesFiltrados, estadoFiltro]);
 
+  // Adimplência agrupada por um campo do contato (gênero ou tipo de cliente) —
+  // reaproveitado pros dois gráficos abaixo, um donut por valor do grupo.
+  function agruparAdimplencia(campo, rotulos) {
+    const hoje = hojeStr();
+    const map = new Map();
+    for (const s of stages) {
+      for (const c of s.contacts || []) {
+        if (!c.parcelas || c.parcelas.length === 0) continue; // só quem tem empréstimo ativo
+        const chave = c[campo] || "outros";
+        if (!map.has(chave)) map.set(chave, { chave, adimplentes: 0, inadimplentes: 0 });
+        const row = map.get(chave);
+        const temAtrasada = c.parcelas.some((p) => parcelaAtrasada(p, hoje));
+        if (temAtrasada) row.inadimplentes++; else row.adimplentes++;
+      }
+    }
+    return Array.from(map.values())
+      .map((r) => ({ ...r, label: rotulos[r.chave] || r.chave }))
+      .sort((a, b) => (b.adimplentes + b.inadimplentes) - (a.adimplentes + a.inadimplentes));
+  }
+
+  const GENERO_LABEL = { masculino: "Masculino", feminino: "Feminino", outros: "Não identificado" };
+  const TIPO_CLIENTE_LABEL = { motoboy: "Motoboy", uber: "Uber", comerciante: "Comerciante", outros: "Não identificado" };
+
+  const adimplenciaPorGenero = useMemo(() => agruparAdimplencia("genero", GENERO_LABEL), [stages]);
+  const adimplenciaPorTipoCliente = useMemo(() => agruparAdimplencia("tipoCliente", TIPO_CLIENTE_LABEL), [stages]);
+
   // Lista de UFs presentes na base, pro seletor (só mostra o que existe).
   const ufsDisponiveis = useMemo(() => {
     const set = new Set();
@@ -454,6 +480,58 @@ export default function Relatorios() {
                 { label: "Inadimplentes", value: inadimplentes, color: "#ef4444" },
               ]}
             />
+          )}
+        </div>
+      </section>
+
+      {/* Adimplência por gênero */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência por gênero</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          {adimplenciaPorGenero.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4">Nenhum cliente com empréstimo ativo.</p>
+          ) : (
+            <div className="flex flex-wrap gap-6">
+              {adimplenciaPorGenero.map((g) => (
+                <div key={g.chave}>
+                  <p className="text-xs font-medium text-slate-500 mb-2">{g.label}</p>
+                  <DonutChart
+                    size={110}
+                    strokeWidth={18}
+                    data={[
+                      { label: "Adimplentes", value: g.adimplentes, color: "#059669" },
+                      { label: "Inadimplentes", value: g.inadimplentes, color: "#ef4444" },
+                    ]}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Adimplência por tipo de cliente */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência por tipo de cliente</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          {adimplenciaPorTipoCliente.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4">Nenhum cliente com empréstimo ativo.</p>
+          ) : (
+            <div className="flex flex-wrap gap-6">
+              {adimplenciaPorTipoCliente.map((g) => (
+                <div key={g.chave}>
+                  <p className="text-xs font-medium text-slate-500 mb-2">{g.label}</p>
+                  <DonutChart
+                    size={110}
+                    strokeWidth={18}
+                    data={[
+                      { label: "Adimplentes", value: g.adimplentes, color: "#059669" },
+                      { label: "Inadimplentes", value: g.inadimplentes, color: "#ef4444" },
+                    ]}
+                  />
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </section>

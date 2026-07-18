@@ -15,7 +15,7 @@ export async function GET() {
   const inicioHoje = inicioDiaUTC(0);
   const inicioAmanha = inicioDiaUTC(1);
 
-  const [cfg, stageRecebimento, valorRecebidoHoje, pagantesHoje, vendasHoje] = await Promise.all([
+  const [cfg, stageRecebimento, valorRecebidoHoje, pagantesHoje, baixasHoje, vendasHoje] = await Promise.all([
     prisma.config.findUnique({ where: { id: "singleton" } }),
     prisma.stage.findFirst({ where: { name: "Recebimento" } }),
     prisma.parcela.aggregate({
@@ -26,6 +26,13 @@ export async function GET() {
       where: { paid: true, paidAt: { gte: inicioHoje, lt: inicioAmanha } },
       select: { contactId: true },
       distinct: ["contactId"],
+    }),
+    // Total de parcelas baixadas hoje (não distinto por cliente) — um cliente
+    // que quita 2 dias de atraso de uma vez conta como 2 baixas aqui, mas só
+    // 1 em "pagantesHoje" (a meta é sobre % de CLIENTES que pagaram, não de
+    // parcelas — ficavam parecendo números "errados" um contra o outro).
+    prisma.parcela.count({
+      where: { paid: true, paidAt: { gte: inicioHoje, lt: inicioAmanha } },
     }),
     prisma.contact.count({ where: { entrouRecebimentoEm: { gte: inicioHoje, lt: inicioAmanha } } }),
   ]);
@@ -54,6 +61,7 @@ export async function GET() {
     metaVendasDia,
     totalEmRecebimento,
     recebimentosHoje,
+    baixasHoje,
     valorRecebidoHoje: valorRecebidoHoje._sum.amountPago || 0,
     metaRecebimentosMinima,
     metaRecebimentosMedia,

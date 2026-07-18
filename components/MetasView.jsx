@@ -129,7 +129,7 @@ export default function MetasView() {
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-slate-700">Meta de recebimentos hoje ({resumo.metaPctRecebimento}%)</p>
           <p className="text-sm text-slate-500">
-            {resumo.recebimentosHoje} / {resumo.metaRecebimentosHoje}
+            {resumo.recebimentosHoje} / {resumo.metaRecebimentosHoje} clientes
           </p>
         </div>
         <NivelBar
@@ -137,13 +137,22 @@ export default function MetasView() {
           minima={resumo.metaRecebimentosMinima}
           media={resumo.metaRecebimentosMedia}
           meta={resumo.metaRecebimentosHoje}
-          unidade="baixa"
-          unidadePlural="baixas"
+          unidade="cliente"
+          unidadePlural="clientes"
         />
+        <p className="text-[11px] text-slate-400 mt-2">
+          A meta conta <strong>clientes distintos</strong> que pagaram hoje, não o número de parcelas — se um cliente
+          quitar 2 dias de atraso de uma vez, conta como 1 aqui (mas como 2 nas "baixas" abaixo).
+        </p>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <Card titulo="Baixas de recebimento hoje" valor={resumo.recebimentosHoje} cor="emerald" />
+        <Card
+          titulo="Baixas de parcela hoje"
+          valor={resumo.baixasHoje}
+          sub={`${resumo.recebimentosHoje} cliente${resumo.recebimentosHoje === 1 ? "" : "s"} distinto${resumo.recebimentosHoje === 1 ? "" : "s"}`}
+          cor="emerald"
+        />
         <Card titulo="Valor recebido hoje" valor={money(resumo.valorRecebidoHoje)} cor="emerald" />
       </div>
     </div>
