@@ -26,8 +26,6 @@ model Contact {
   id        String    @id @default(cuid())
   name      String
   phone     String?
-  email     String?
-  company   String?
   // Estado (UF) do lead identificado pela IA a partir do que ele conta na
   // conversa (ex.: "moro em Salvador") — complementa o DDD do telefone, que
   // nem sempre bate com onde a pessoa mora de fato.
@@ -35,6 +33,8 @@ model Contact {
   // Gênero do lead ("masculino" | "feminino"), identificado pela IA a partir
   // do nome (pushName do WhatsApp ou nome cadastrado) assim que o lead entra.
   genero    String?
+  // Tipo de cliente ("motoboy" | "uber" | "comerciante") — cadastrado manualmente.
+  tipoCliente String?
   notes     String?
   order     Int       @default(0)
   stage     Stage     @relation(fields: [stageId], references: [id])

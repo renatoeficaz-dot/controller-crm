@@ -22,7 +22,7 @@ export default function MetasMini() {
   if (!resumo) return null;
 
   return (
-    <div className="hidden md:flex items-center gap-2.5">
+    <div className="flex flex-wrap items-center justify-center gap-2.5">
       <Meter
         label="Vendas hoje"
         atual={resumo.vendasHoje}

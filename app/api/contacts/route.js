@@ -37,11 +37,10 @@ export async function POST(req) {
     data: {
       name: body.name || "Sem nome",
       phone: body.phone || null,
-      email: body.email || null,
-      company: body.company || null,
       notes: body.notes || null,
       estado: body.estado || ufFromPhone(body.phone),
       genero: body.genero || null,
+      tipoCliente: body.tipoCliente || null,
       stageId,
       order: (last?.order ?? -1) + 1,
     },

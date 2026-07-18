@@ -206,8 +206,6 @@ export default function ChatView() {
       setForm({
         name: ct.name || "",
         phone: ct.phone || "",
-        email: ct.email || "",
-        company: ct.company || "",
         notes: ct.notes || "",
         responsavel: ct.responsavel || "",
         stageId: ct.stageId || "",
@@ -215,6 +213,7 @@ export default function ChatView() {
         pagamentoCapital: ct.pagamentoCapital ? new Date(ct.pagamentoCapital).toISOString().slice(0, 10) : "",
         estado: ct.estado || "",
         genero: ct.genero || "",
+        tipoCliente: ct.tipoCliente || "",
       });
       setContactTags((ct.tags || []).map((t) => t.id));
     }
@@ -644,6 +643,17 @@ export default function ChatView() {
                 <p className="text-sm font-medium text-slate-800 truncate">{selected.name}</p>
                 {selected.phone && <p className="text-xs text-slate-400">{selected.phone}</p>}
               </div>
+              {selected.phone && (
+                <a
+                  href={`https://wa.me/${selected.phone.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Abrir conversa no WhatsApp pra ligar pro cliente (o sistema não faz a chamada sozinho)"
+                  className="shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
+                >
+                  📞 Ligar
+                </a>
+              )}
               {contact && (
                 <button
                   onClick={toggleIaPausada}
@@ -801,12 +811,13 @@ export default function ChatView() {
               <input value={form.phone || ""} onChange={set("phone")} className={inputCls} />
             </label>
             <label className="block">
-              <span className="text-[11px] text-slate-400">Email</span>
-              <input value={form.email || ""} onChange={set("email")} className={inputCls} />
-            </label>
-            <label className="block">
-              <span className="text-[11px] text-slate-400">Empresa</span>
-              <input value={form.company || ""} onChange={set("company")} className={inputCls} />
+              <span className="text-[11px] text-slate-400">Tipo de cliente</span>
+              <select value={form.tipoCliente || ""} onChange={set("tipoCliente")} className={selectCls}>
+                <option value="">— Não identificado —</option>
+                <option value="motoboy">Motoboy</option>
+                <option value="uber">Uber</option>
+                <option value="comerciante">Comerciante</option>
+              </select>
             </label>
 
             {/* Etapa */}

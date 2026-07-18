@@ -301,49 +301,92 @@ export default function Relatorios() {
       {/* Resumo por estado — comparação lado a lado, independente do filtro acima */}
       <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Resumo por estado</h2>
-        <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {porEstado.length === 0 ? (
             <p className="text-sm text-slate-400 py-4 px-5">Nenhum lead cadastrado.</p>
           ) : (
-            <table className="w-full text-sm min-w-[660px]">
-              <thead>
-                <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
-                  <th className="py-2.5 px-4 font-medium">Estado</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Leads</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Em Recebimento</th>
-                  <th className="py-2.5 px-3 font-medium text-right">% Conversão</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Adimplentes</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Inadimplentes</th>
-                  <th className="py-2.5 px-4 font-medium text-right">% Inadimplência</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Desktop/tablet: tabela completa */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm min-w-[660px]">
+                  <thead>
+                    <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                      <th className="py-2.5 px-4 font-medium">Estado</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Leads</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Em Recebimento</th>
+                      <th className="py-2.5 px-3 font-medium text-right">% Conversão</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Adimplentes</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Inadimplentes</th>
+                      <th className="py-2.5 px-4 font-medium text-right">% Inadimplência</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {porEstado.map((r) => {
+                      const base = r.adimplentes + r.inadimplentes;
+                      const pctInad = base > 0 ? Math.round((r.inadimplentes / base) * 100) : 0;
+                      const pctConversao = r.leads > 0 ? Math.round((r.emRecebimento / r.leads) * 100) : 0;
+                      return (
+                        <tr
+                          key={r.uf}
+                          className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer ${estadoFiltro === r.uf ? "bg-emerald-50/60" : ""}`}
+                          onClick={() => setEstadoFiltro(r.uf === "Não identificado" ? "" : estadoFiltro === r.uf ? "" : r.uf)}
+                        >
+                          <td className="py-2 px-4 font-medium text-slate-700">{r.uf}</td>
+                          <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.leads}</td>
+                          <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.emRecebimento}</td>
+                          <td className="py-2 px-3 text-right tabular-nums font-medium text-violet-600">
+                            {r.leads > 0 ? `${pctConversao}%` : "—"}
+                          </td>
+                          <td className="py-2 px-3 text-right tabular-nums text-emerald-600">{r.adimplentes}</td>
+                          <td className="py-2 px-3 text-right tabular-nums text-red-500">{r.inadimplentes}</td>
+                          <td className={`py-2 px-4 text-right tabular-nums font-medium ${pctInad >= 50 ? "text-red-600" : pctInad >= 25 ? "text-amber-600" : "text-slate-500"}`}>
+                            {base > 0 ? `${pctInad}%` : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile: cards empilhados (a tabela de 7 colunas não cabe numa tela estreita) */}
+              <div className="sm:hidden divide-y divide-slate-50">
                 {porEstado.map((r) => {
                   const base = r.adimplentes + r.inadimplentes;
                   const pctInad = base > 0 ? Math.round((r.inadimplentes / base) * 100) : 0;
                   const pctConversao = r.leads > 0 ? Math.round((r.emRecebimento / r.leads) * 100) : 0;
                   return (
-                    <tr
+                    <button
                       key={r.uf}
-                      className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer ${estadoFiltro === r.uf ? "bg-emerald-50/60" : ""}`}
+                      type="button"
                       onClick={() => setEstadoFiltro(r.uf === "Não identificado" ? "" : estadoFiltro === r.uf ? "" : r.uf)}
+                      className={`w-full text-left px-4 py-3 ${estadoFiltro === r.uf ? "bg-emerald-50/60" : "hover:bg-slate-50/60"}`}
                     >
-                      <td className="py-2 px-4 font-medium text-slate-700">{r.uf}</td>
-                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.leads}</td>
-                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.emRecebimento}</td>
-                      <td className="py-2 px-3 text-right tabular-nums font-medium text-violet-600">
-                        {r.leads > 0 ? `${pctConversao}%` : "—"}
-                      </td>
-                      <td className="py-2 px-3 text-right tabular-nums text-emerald-600">{r.adimplentes}</td>
-                      <td className="py-2 px-3 text-right tabular-nums text-red-500">{r.inadimplentes}</td>
-                      <td className={`py-2 px-4 text-right tabular-nums font-medium ${pctInad >= 50 ? "text-red-600" : pctInad >= 25 ? "text-amber-600" : "text-slate-500"}`}>
-                        {base > 0 ? `${pctInad}%` : "—"}
-                      </td>
-                    </tr>
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-slate-700 text-sm">{r.uf}</span>
+                        <span className="text-xs text-slate-400">{r.leads} lead{r.leads === 1 ? "" : "s"} · {r.emRecebimento} em Recebimento</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mt-1.5 text-xs">
+                        <div>
+                          <span className="text-slate-400 block">Conversão</span>
+                          <span className="font-medium text-violet-600">{r.leads > 0 ? `${pctConversao}%` : "—"}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Adimplentes</span>
+                          <span className="font-medium text-emerald-600">{r.adimplentes}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Inadimplência</span>
+                          <span className={`font-medium ${pctInad >= 50 ? "text-red-600" : pctInad >= 25 ? "text-amber-600" : "text-slate-500"}`}>
+                            {r.inadimplentes} {base > 0 ? `(${pctInad}%)` : ""}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
         <p className="text-[11px] text-slate-400 mt-1">Clique numa linha pra filtrar as métricas acima só por aquele estado.</p>

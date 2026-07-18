@@ -81,14 +81,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     setForm({
       name: data.name || "",
       phone: data.phone || "",
-      email: data.email || "",
-      company: data.company || "",
       notes: data.notes || "",
       valorCapital: data.valorCapital ?? "",
       pagamentoCapital: toDateInput(data.pagamentoCapital),
       responsavel: data.responsavel || "",
       estado: data.estado || "",
       genero: data.genero || "",
+      tipoCliente: data.tipoCliente || "",
     });
     setMessages(data.messages || []);
     setParcelas(data.parcelas || []);
@@ -567,6 +566,24 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </select>
             </label>
 
+            {/* Tipo de cliente */}
+            <label className="block">
+              <span className="text-xs text-slate-400">Tipo de cliente</span>
+              <select
+                value={form.tipoCliente || ""}
+                onChange={(e) => setForm((f) => ({ ...f, tipoCliente: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="">— Não identificado —</option>
+                <option value="motoboy">Motoboy</option>
+                <option value="uber">Uber</option>
+                <option value="comerciante">Comerciante</option>
+              </select>
+            </label>
+
+            {/* Mídias enviadas na conversa */}
+            <MidiasEnviadas messages={messages} />
+
             {/* Tarefas do lead */}
             <div className="border border-slate-200 rounded-lg p-2.5">
               <div className="flex items-center justify-between">
@@ -972,6 +989,42 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+const MIDIA_KINDS = ["image", "audio", "document"];
+
+// Grade com todas as fotos/áudios/documentos já trocados na conversa — cada
+// miniatura reaproveita o MediaBubble (que já sabe carregar sob demanda e
+// abrir o preview em tela cheia ao clicar).
+function MidiasEnviadas({ messages }) {
+  const [aberto, setAberto] = useState(false);
+  const midias = messages.filter((m) => MIDIA_KINDS.includes(m.kind));
+
+  return (
+    <div className="border border-slate-200 rounded-lg p-2.5">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        className="w-full flex items-center justify-between text-xs font-medium text-slate-600"
+      >
+        <span>🖼️ Mídias enviadas ({midias.length})</span>
+        <span className="text-slate-400">{aberto ? "︿" : "﹀"}</span>
+      </button>
+      {aberto && (
+        midias.length === 0 ? (
+          <p className="text-xs text-slate-400 mt-2">Nenhuma mídia trocada nessa conversa ainda.</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-1.5 mt-2">
+            {midias.map((m) => (
+              <div key={m.id} className="aspect-square rounded-md overflow-hidden bg-slate-50 border border-slate-100 flex items-center justify-center">
+                <MediaBubble message={m} />
+              </div>
+            ))}
+          </div>
+        )
+      )}
     </div>
   );
 }

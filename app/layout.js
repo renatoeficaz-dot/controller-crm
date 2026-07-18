@@ -24,9 +24,13 @@ export default function RootLayout({ children }) {
   return (
     <html
       lang="pt-BR"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-dvh antialiased`}
     >
-      <body className="h-full flex flex-col overflow-hidden">
+      {/* h-dvh (não h-full/100vh): no mobile, quando o teclado abre pra digitar
+          no chat, a altura "dinâmica" da viewport encolhe de verdade — com
+          100vh/100% fixo, o teclado cobria o fim da conversa e a caixa de
+          texto sem dar pra rolar até lá. */}
+      <body className="h-dvh flex flex-col overflow-hidden">
         <TopNav />
         <div className="flex-1 flex min-h-0 overflow-hidden">
           <SideNav />
