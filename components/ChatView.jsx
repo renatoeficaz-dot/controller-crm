@@ -148,6 +148,17 @@ export default function ChatView() {
     }).catch(() => {});
   }, []);
 
+  // Quantos números distintos aparecem de fato nas mensagens DESTA conversa —
+  // usado pra decidir se mostra a etiqueta "📱 número" em cada balão. Antes
+  // isso dependia de `numbers.length` (a lista de números que o usuário logado
+  // tem permissão de ver); um cobrador com só 1 número visível nunca via a
+  // etiqueta, mesmo numa conversa que teve mensagens de outro número (ex.:
+  // atendida antes por outro cobrador/setor).
+  const instanciasNaConversa = useMemo(
+    () => new Set(messages.map((m) => m.instance).filter(Boolean)),
+    [messages]
+  );
+
   // Aplica busca + filtros + ordenação na lista de conversas
   const conversasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -662,7 +673,7 @@ export default function ChatView() {
                         : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"
                     }`}
                   >
-                    {m.instance && numbers.length > 1 && (
+                    {m.instance && instanciasNaConversa.size > 1 && (
                       <p className={`text-[10px] mb-0.5 ${m.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
                         📱 {numberLabel(m.instance, numbers)}
                       </p>
