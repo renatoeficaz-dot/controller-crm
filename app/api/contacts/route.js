@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { ufFromPhone } from "@/lib/ddd";
+import { getIaConfig, detectarGeneroPorNome } from "@/lib/ia";
 
 // Cria um novo contato (cai na coluna informada, ou na primeira)
 export async function POST(req) {
@@ -40,10 +41,21 @@ export async function POST(req) {
       company: body.company || null,
       notes: body.notes || null,
       estado: body.estado || ufFromPhone(body.phone),
+      genero: body.genero || null,
       stageId,
       order: (last?.order ?? -1) + 1,
     },
   });
+
+  // Gênero pelo nome (IA, uma vez só) — não bloqueia a criação do lead.
+  if (!body.genero && body.name) {
+    getIaConfig()
+      .then((cfg) => detectarGeneroPorNome(body.name, cfg?.deepinfraApiKey))
+      .then((genero) => {
+        if (genero) return prisma.contact.update({ where: { id: contact.id }, data: { genero } });
+      })
+      .catch(() => {});
+  }
 
   return NextResponse.json(contact);
 }

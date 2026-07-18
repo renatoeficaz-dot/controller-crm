@@ -214,6 +214,7 @@ export default function ChatView() {
         valorCapital: ct.valorCapital ?? "",
         pagamentoCapital: ct.pagamentoCapital ? new Date(ct.pagamentoCapital).toISOString().slice(0, 10) : "",
         estado: ct.estado || "",
+        genero: ct.genero || "",
       });
       setContactTags((ct.tags || []).map((t) => t.id));
     }
@@ -838,6 +839,16 @@ export default function ChatView() {
                 {UFS_BR.map((uf) => (
                   <option key={uf} value={uf}>{uf}</option>
                 ))}
+              </select>
+            </label>
+
+            {/* Gênero do lead — a IA já preenche pelo nome; dá pra corrigir manualmente. */}
+            <label className="block">
+              <span className="text-[11px] text-slate-400">Gênero</span>
+              <select value={form.genero || ""} onChange={set("genero")} className={selectCls}>
+                <option value="">— Não identificado —</option>
+                <option value="masculino">Masculino</option>
+                <option value="feminino">Feminino</option>
               </select>
             </label>
 

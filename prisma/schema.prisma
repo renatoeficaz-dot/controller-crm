@@ -32,6 +32,9 @@ model Contact {
   // conversa (ex.: "moro em Salvador") — complementa o DDD do telefone, que
   // nem sempre bate com onde a pessoa mora de fato.
   estado    String?
+  // Gênero do lead ("masculino" | "feminino"), identificado pela IA a partir
+  // do nome (pushName do WhatsApp ou nome cadastrado) assim que o lead entra.
+  genero    String?
   notes     String?
   order     Int       @default(0)
   stage     Stage     @relation(fields: [stageId], references: [id])

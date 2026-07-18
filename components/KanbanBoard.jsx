@@ -674,11 +674,23 @@ export default function KanbanBoard() {
                         {c.phone && (
                           <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
                             <span className="text-emerald-500">●</span> {c.phone}
-                            {c.estado && (
-                              <span className="ml-auto text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full px-1.5 py-0.5 shrink-0">
-                                📍 {c.estado}
-                              </span>
-                            )}
+                            <span className="ml-auto flex items-center gap-1 shrink-0">
+                              {c.genero && (
+                                <span
+                                  className={`text-[10px] font-medium rounded-full px-1.5 py-0.5 ${
+                                    c.genero === "feminino" ? "bg-pink-50 text-pink-500" : "bg-sky-50 text-sky-600"
+                                  }`}
+                                  title={c.genero === "feminino" ? "Feminino" : "Masculino"}
+                                >
+                                  {c.genero === "feminino" ? "♀" : "♂"}
+                                </span>
+                              )}
+                              {c.estado && (
+                                <span className="text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full px-1.5 py-0.5">
+                                  📍 {c.estado}
+                                </span>
+                              )}
+                            </span>
                           </p>
                         )}
                         {stage.name === "Recebimento" && (

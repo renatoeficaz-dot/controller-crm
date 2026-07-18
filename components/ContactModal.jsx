@@ -88,6 +88,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       pagamentoCapital: toDateInput(data.pagamentoCapital),
       responsavel: data.responsavel || "",
       estado: data.estado || "",
+      genero: data.genero || "",
     });
     setMessages(data.messages || []);
     setParcelas(data.parcelas || []);
@@ -549,6 +550,20 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 {UFS_BR.map((uf) => (
                   <option key={uf} value={uf}>{uf}</option>
                 ))}
+              </select>
+            </label>
+
+            {/* Gênero do lead — a IA já preenche pelo nome; dá pra corrigir manualmente. */}
+            <label className="block">
+              <span className="text-xs text-slate-400">Gênero</span>
+              <select
+                value={form.genero || ""}
+                onChange={(e) => setForm((f) => ({ ...f, genero: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="">— Não identificado —</option>
+                <option value="masculino">Masculino</option>
+                <option value="feminino">Feminino</option>
               </select>
             </label>
 
