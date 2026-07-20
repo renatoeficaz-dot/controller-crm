@@ -242,6 +242,14 @@ export default function Relatorios() {
     return out.sort((a, b) => b.capital - a.capital);
   }, [stagesFiltrados]);
 
+  // Lista "por cliente" só faz sentido pra quem JÁ teve payback (payback é um
+  // evento que aconteceu ou não) — quem ainda está em aberto já aparece nas
+  // seções de "A receber"/inadimplência, não precisa duplicar aqui.
+  const paybackConcluido = useMemo(
+    () => paybackData.filter((d) => d.diasPayback != null).sort((a, b) => a.diasPayback - b.diasPayback),
+    [paybackData]
+  );
+
   const paybackStats = useMemo(() => {
     const recuperados = paybackData.filter((d) => d.diasPayback != null);
     const mediaDias = recuperados.length
@@ -726,30 +734,32 @@ export default function Relatorios() {
 
         {paybackData.length > 0 && (
           <div className="mt-3">
-            <h3 className="text-xs font-semibold text-slate-500 mb-1.5">Por cliente</h3>
+            <h3 className="text-xs font-semibold text-slate-500 mb-1.5">
+              Por cliente <span className="font-normal text-slate-400">— só quem já recuperou o capital ({paybackConcluido.length})</span>
+            </h3>
             <div className="bg-white rounded-xl border border-slate-200 max-h-80 overflow-y-auto thin-scroll divide-y divide-slate-50">
-              {paybackData.map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => setOpenContactId(d.id)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50/80 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-700 truncate">{d.name}</p>
-                    <p className="text-xs text-slate-400 truncate">
-                      Enviou {money(d.capital)} · Voltou {money(d.recuperado)} ({d.pctRecuperado}%)
-                    </p>
-                  </div>
-                  <span
-                    className={`text-[10px] font-medium rounded-full px-2 py-0.5 shrink-0 ${
-                      d.diasPayback != null ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-                    }`}
+              {paybackConcluido.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-6">Nenhum cliente recuperou o capital ainda.</p>
+              ) : (
+                paybackConcluido.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setOpenContactId(d.id)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50/80 transition-colors"
                   >
-                    {d.diasPayback != null ? `${d.diasPayback}d` : "Em aberto"}
-                  </span>
-                </button>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-700 truncate">{d.name}</p>
+                      <p className="text-xs text-slate-400 truncate">
+                        Enviou {money(d.capital)} · Voltou {money(d.recuperado)} ({d.pctRecuperado}%)
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-medium rounded-full px-2 py-0.5 shrink-0 bg-emerald-50 text-emerald-600">
+                      {d.diasPayback}d
+                    </span>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         )}
