@@ -15,7 +15,7 @@ export async function GET() {
   const inicioHoje = inicioDiaUTC(0);
   const inicioAmanha = inicioDiaUTC(1);
 
-  const [cfg, stageRecebimento, valorRecebidoHoje, pagantesHoje, baixasHoje, vendasHoje] = await Promise.all([
+  const [cfg, stageRecebimento, valorRecebidoHoje, pagantesHoje, baixasHoje, vendasHoje, baixasDetalhe] = await Promise.all([
     prisma.config.findUnique({ where: { id: "singleton" } }),
     prisma.stage.findFirst({ where: { name: "Recebimento" } }),
     prisma.parcela.aggregate({
@@ -35,6 +35,19 @@ export async function GET() {
       where: { paid: true, paidAt: { gte: inicioHoje, lt: inicioAmanha } },
     }),
     prisma.contact.count({ where: { entrouRecebimentoEm: { gte: inicioHoje, lt: inicioAmanha } } }),
+    // Lista de cada baixa de hoje (uma linha por parcela paga) — pra mostrar
+    // quem pagou e dar pra abrir o lead direto da tela de Metas.
+    prisma.parcela.findMany({
+      where: { paid: true, paidAt: { gte: inicioHoje, lt: inicioAmanha } },
+      orderBy: { paidAt: "desc" },
+      select: {
+        id: true,
+        number: true,
+        amountPago: true,
+        paidAt: true,
+        contact: { select: { id: true, name: true, phone: true } },
+      },
+    }),
   ]);
 
   const totalEmRecebimento = stageRecebimento
@@ -62,6 +75,15 @@ export async function GET() {
     totalEmRecebimento,
     recebimentosHoje,
     baixasHoje,
+    baixasDetalhe: baixasDetalhe.map((p) => ({
+      id: p.id,
+      contactId: p.contact.id,
+      nome: p.contact.name,
+      phone: p.contact.phone,
+      parcela: p.number,
+      valor: p.amountPago,
+      paidAt: p.paidAt,
+    })),
     valorRecebidoHoje: valorRecebidoHoje._sum.amountPago || 0,
     metaRecebimentosMinima,
     metaRecebimentosMedia,

@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import ContactModal from "@/components/ContactModal";
+
+function fmtHora(iso) {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -82,6 +87,7 @@ function NivelBar({ atual, minima, media, meta, unidade, unidadePlural }) {
 export default function MetasView() {
   const [resumo, setResumo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [openContactId, setOpenContactId] = useState(null);
 
   const load = useCallback(async () => {
     const data = await fetch("/api/metas/resumo").then((r) => r.json()).catch(() => null);
@@ -155,6 +161,42 @@ export default function MetasView() {
         />
         <Card titulo="Valor recebido hoje" valor={money(resumo.valorRecebidoHoje)} cor="emerald" />
       </div>
+
+      {/* Quais foram as baixas de hoje — clique num lead abre o card dele */}
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+        <p className="text-sm font-semibold text-slate-700 mb-2">
+          Baixas de hoje <span className="text-slate-400 font-normal">({resumo.baixasDetalhe?.length || 0})</span>
+        </p>
+        {!resumo.baixasDetalhe || resumo.baixasDetalhe.length === 0 ? (
+          <p className="text-sm text-slate-400 py-2">Nenhuma baixa registrada hoje ainda.</p>
+        ) : (
+          <ul className="divide-y divide-slate-50">
+            {resumo.baixasDetalhe.map((b) => (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  onClick={() => setOpenContactId(b.contactId)}
+                  className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-slate-50/80 transition-colors rounded-lg px-1.5 -mx-1.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-700 truncate">{b.nome || "Sem nome"}</p>
+                    <p className="text-xs text-slate-400 truncate">{b.phone || "sem telefone"} · Parcela {b.parcela}ª · {fmtHora(b.paidAt)}</p>
+                  </div>
+                  <span className="text-sm font-medium text-emerald-600 shrink-0">{money(b.valor)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {openContactId && (
+        <ContactModal
+          contactId={openContactId}
+          onClose={() => setOpenContactId(null)}
+          onChanged={load}
+        />
+      )}
     </div>
   );
 }
