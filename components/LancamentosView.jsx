@@ -108,7 +108,7 @@ function StatCard({ icon, label, value, color, onEdit }) {
           type="button"
           onClick={onEdit}
           title="Editar saldo"
-          className="absolute top-2 right-2 text-slate-300 hover:text-emerald-600 text-xs"
+          className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:text-emerald-600 hover:border-emerald-300 text-xs shadow-sm"
         >
           ✎
         </button>
