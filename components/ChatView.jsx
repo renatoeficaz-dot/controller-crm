@@ -515,7 +515,7 @@ export default function ChatView() {
       )}
       <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
       {/* Lista de conversas */}
-      <div className={`${selectedId ? "hidden md:flex" : "flex"} w-full md:w-80 shrink-0 border-r border-slate-200 bg-white flex-col min-h-0`}>
+      <div className={`${selectedId ? "hidden md:flex" : "flex"} w-full md:w-80 flex-1 md:flex-none border-r border-slate-200 bg-white flex-col min-h-0`}>
         <div className="px-4 py-3 border-b border-slate-200 shrink-0 space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-slate-800 text-sm">Conversas</h2>
