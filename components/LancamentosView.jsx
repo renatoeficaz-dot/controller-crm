@@ -95,14 +95,24 @@ function PieChart({ data, title, periodo, onPeriodo }) {
   );
 }
 
-function StatCard({ icon, label, value, color }) {
+function StatCard({ icon, label, value, color, onEdit }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 flex items-center gap-3">
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 flex items-center gap-3 relative">
       <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-base shrink-0 ${color}`}>{icon}</span>
       <div className="min-w-0">
         <p className="text-xs text-slate-400 truncate">{label}</p>
         <p className="text-lg font-semibold text-slate-800 truncate">{value}</p>
       </div>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          title="Editar saldo"
+          className="absolute top-2 right-2 text-slate-300 hover:text-emerald-600 text-xs"
+        >
+          ✎
+        </button>
+      )}
     </div>
   );
 }
@@ -135,6 +145,7 @@ export default function LancamentosView() {
   const [newCat, setNewCat] = useState({ name: "", type: "entrada" });
   const [newBanco, setNewBanco] = useState("");
   const [saldoAtual, setSaldoAtual] = useState(null);
+  const [editandoSaldo, setEditandoSaldo] = useState(null); // { novoSaldo, motivo } | null
   const [config, setConfig] = useState(null);
   const [openContactId, setOpenContactId] = useState(null);
 
@@ -157,6 +168,36 @@ export default function LancamentosView() {
     const data = await fetch("/api/lancamentos/saldo").then((r) => r.json()).catch(() => null);
     setSaldoAtual(data);
   }, []);
+
+  // Editar o saldo não muda um número guardado — cria um lançamento de ajuste
+  // (entrada ou saída) pela diferença, então continua tudo auditável na lista
+  // e no motivo, igual o resto do financeiro.
+  async function confirmarAjusteSaldo() {
+    if (!editandoSaldo) return;
+    const novoSaldo = Number(editandoSaldo.novoSaldo);
+    if (Number.isNaN(novoSaldo)) return;
+    const motivo = editandoSaldo.motivo.trim();
+    const atual = saldoAtual?.saldo ?? 0;
+    const diff = Math.round((novoSaldo - atual) * 100) / 100;
+    if (diff === 0) {
+      setEditandoSaldo(null);
+      return;
+    }
+    if (!motivo) return;
+    await fetch("/api/lancamentos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: diff > 0 ? "entrada" : "saida",
+        amount: Math.abs(diff),
+        description: `Ajuste de saldo: ${motivo}`,
+        date: hojeStr(),
+      }),
+    });
+    setEditandoSaldo(null);
+    loadSaldo();
+    loadLanc();
+  }
 
   const loadLanc = useCallback(async () => {
     const q = new URLSearchParams();
@@ -559,7 +600,13 @@ export default function LancamentosView() {
         {/* -------- Conteúdo principal -------- */}
         <div className="space-y-4 md:space-y-6 min-w-0">
           <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <StatCard icon="👛" label="Saldo atual da conta" value={saldoAtual ? money(saldoAtual.saldo) : "—"} color="bg-slate-100" />
+            <StatCard
+              icon="👛"
+              label="Saldo atual da conta"
+              value={saldoAtual ? money(saldoAtual.saldo) : "—"}
+              color="bg-slate-100"
+              onEdit={() => setEditandoSaldo({ novoSaldo: String((saldoAtual?.saldo ?? 0).toFixed(2)), motivo: "" })}
+            />
             <StatCard icon="↑" label="Entradas" value={money(resumo.entradas)} color="bg-emerald-50 text-emerald-600" />
             <StatCard icon="↓" label="Saídas" value={money(resumo.saidas)} color="bg-red-50 text-red-600" />
             <StatCard icon="📅" label="Saldo do período" value={money(resumo.saldo)} color="bg-sky-50 text-sky-600" />
@@ -731,6 +778,51 @@ export default function LancamentosView() {
           onClose={() => setOpenContactId(null)}
           onChanged={() => {}}
         />
+      )}
+
+      {/* Editar saldo — cria um lançamento de ajuste pela diferença, com motivo */}
+      {editandoSaldo && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEditandoSaldo(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Editar saldo da conta</h3>
+            <p className="text-xs text-slate-400">
+              Saldo atual: <span className="font-medium text-slate-600">{money(saldoAtual?.saldo ?? 0)}</span>. Ao confirmar, é criado um
+              lançamento de ajuste (entrada ou saída) pela diferença — fica registrado na lista, não é um número solto.
+            </p>
+            <label className="block">
+              <span className="text-xs text-slate-400">Novo saldo</span>
+              <input
+                type="number"
+                step="0.01"
+                value={editandoSaldo.novoSaldo}
+                onChange={(e) => setEditandoSaldo((d) => ({ ...d, novoSaldo: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-400">Motivo do ajuste</span>
+              <textarea
+                value={editandoSaldo.motivo}
+                onChange={(e) => setEditandoSaldo((d) => ({ ...d, motivo: e.target.value }))}
+                rows={3}
+                placeholder="Ex.: saldo inicial ao começar a usar o sistema, diferença encontrada na conferência…"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
+              />
+            </label>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={confirmarAjusteSaldo}
+                disabled={!editandoSaldo.motivo.trim() || editandoSaldo.novoSaldo === ""}
+                className="flex-1 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+              >
+                Confirmar
+              </button>
+              <button onClick={() => setEditandoSaldo(null)} className="px-4 text-sm text-slate-400 hover:text-slate-600">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
