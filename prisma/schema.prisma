@@ -81,6 +81,23 @@ model Parcela {
   // null = ainda não paga.
   amountPago Float?
   task      Task?
+  alteracoes AlteracaoBaixa[]
+}
+
+// Log de alterações feitas numa baixa já registrada (mudar o valor cobrado,
+// ou desmarcar como paga) — sempre com motivo, pra auditoria. Aparece na
+// aba "Alterações" em Configurações.
+model AlteracaoBaixa {
+  id            String   @id @default(cuid())
+  parcela       Parcela  @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
+  parcelaId     String
+  contactNome   String   // denormalizado — segue legível mesmo se o lead for excluído depois
+  parcelaNumero Int
+  valorAntigo   Float?
+  valorNovo     Float?
+  motivo        String
+  usuarioNome   String?
+  createdAt     DateTime @default(now())
 }
 
 // Tarefa do responsável pela lead (uma por parcela, na data do pagamento)

@@ -121,6 +121,7 @@ const TABS = [
   { key: "mensagens", label: "Mensagens prontas", desc: "Modelos de texto, mídia e contato" },
   { key: "automacao", label: "Automação", desc: "Responsáveis automáticos por etapa" },
   { key: "ia", label: "IA", desc: "Agentes, modelos e chaves de API" },
+  { key: "alteracoes", label: "Alterações", desc: "Log de mudanças em baixas já registradas" },
 ];
 
 export default function Configuracoes() {
@@ -215,6 +216,7 @@ export default function Configuracoes() {
                 <AgentesIa />
               </div>
             )}
+            {tab === "alteracoes" && <AlteracoesLog />}
           </main>
         </div>
       </div>
@@ -1458,6 +1460,68 @@ function Numeros() {
               </>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Log de alterações em baixas ---------------- */
+function AlteracoesLog() {
+  const [lista, setLista] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/alteracoes").then((r) => r.json()).then((d) => {
+      setLista(Array.isArray(d) ? d : []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = (iso) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+      <SectionHeader
+        icon="📝"
+        title="Alterações em baixas"
+        subtitle="Toda vez que o valor de uma baixa já registrada é mudado, ou ela é desmarcada, fica registrado aqui com o motivo."
+      />
+      {loading ? (
+        <p className="text-sm text-slate-400 mt-4">Carregando…</p>
+      ) : lista.length === 0 ? (
+        <p className="text-sm text-slate-400 mt-4">Nenhuma alteração registrada ainda.</p>
+      ) : (
+        <div className="overflow-x-auto mt-4">
+          <table className="w-full text-sm min-w-[640px]">
+            <thead>
+              <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                <th className="py-2 px-3 font-medium">Data</th>
+                <th className="py-2 px-3 font-medium">Lead</th>
+                <th className="py-2 px-3 font-medium">Parcela</th>
+                <th className="py-2 px-3 font-medium text-right">De</th>
+                <th className="py-2 px-3 font-medium text-right">Para</th>
+                <th className="py-2 px-3 font-medium">Motivo</th>
+                <th className="py-2 px-3 font-medium">Quem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lista.map((a) => (
+                <tr key={a.id} className="border-b border-slate-50 last:border-0">
+                  <td className="py-2 px-3 text-xs text-slate-500 whitespace-nowrap">{fmt(a.createdAt)}</td>
+                  <td className="py-2 px-3 text-slate-700">{a.contactNome || "—"}</td>
+                  <td className="py-2 px-3 text-slate-500">{a.parcelaNumero}ª</td>
+                  <td className="py-2 px-3 text-right tabular-nums text-slate-500">{a.valorAntigo != null ? money(a.valorAntigo) : "—"}</td>
+                  <td className={`py-2 px-3 text-right tabular-nums font-medium ${a.valorNovo == null ? "text-red-500" : "text-emerald-600"}`}>
+                    {a.valorNovo != null ? money(a.valorNovo) : "desmarcada"}
+                  </td>
+                  <td className="py-2 px-3 text-slate-600 max-w-[220px] truncate" title={a.motivo}>{a.motivo}</td>
+                  <td className="py-2 px-3 text-slate-400 text-xs whitespace-nowrap">{a.usuarioNome || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

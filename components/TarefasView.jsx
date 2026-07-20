@@ -25,10 +25,10 @@ export default function TarefasView() {
   const [error, setError] = useState("");
   const [fStatus, setFStatus] = useState("pendentes"); // pendentes | todas | concluidas
   const [fTipo, setFTipo] = useState("");
-  const [editingId, setEditingId] = useState(null);
   const [openContactId, setOpenContactId] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [overCol, setOverCol] = useState(null);
+  const [detailTask, setDetailTask] = useState(null); // tarefa aberta no modal de detalhes
 
   const load = useCallback(async () => {
     const done = fStatus === "pendentes" ? "false" : fStatus === "concluidas" ? "true" : "";
@@ -60,9 +60,8 @@ export default function TarefasView() {
       return;
     }
     setSaving(true);
-    const editando = editingId !== null;
-    const res = await fetch(editando ? `/api/tasks/${editingId}` : "/api/tasks", {
-      method: editando ? "PATCH" : "POST",
+    const res = await fetch("/api/tasks", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, dueDate: `${form.dueDate}T${form.dueTime || "09:00"}:00` }),
     });
@@ -73,27 +72,43 @@ export default function TarefasView() {
       return;
     }
     setForm(EMPTY_FORM);
-    setEditingId(null);
     load();
   }
 
-  function startEdit(t) {
-    setEditingId(t.id);
+  // Abre o modal de detalhes com uma cópia editável da tarefa clicada.
+  function openDetail(t) {
     const d = new Date(t.dueDate);
-    setForm({
+    setDetailTask({
+      id: t.id,
       title: t.title || "",
       notes: t.notes || "",
       contactId: t.contactId || "",
+      contactName: t.contact?.name || "",
       tipoId: t.tipoId || "",
       dueDate: d.toLocaleDateString("en-CA"),
       dueTime: d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      done: t.done,
     });
   }
 
-  function cancelEdit() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setError("");
+  async function saveDetailTask() {
+    if (!detailTask) return;
+    setSaving(true);
+    const res = await fetch(`/api/tasks/${detailTask.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: detailTask.title,
+        notes: detailTask.notes,
+        tipoId: detailTask.tipoId,
+        dueDate: `${detailTask.dueDate}T${detailTask.dueTime || "09:00"}:00`,
+        done: detailTask.done,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) return;
+    setDetailTask(null);
+    load();
   }
 
   async function toggleDone(t) {
@@ -109,7 +124,7 @@ export default function TarefasView() {
   async function remove(id) {
     if (!confirm("Excluir esta tarefa?")) return;
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
-    if (editingId === id) cancelEdit();
+    if (detailTask?.id === id) setDetailTask(null);
     load();
   }
 
@@ -169,7 +184,7 @@ export default function TarefasView() {
       </div>
 
       <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 md:p-5 grid md:grid-cols-2 gap-3 max-w-2xl">
-        <h2 className="font-medium text-slate-800 md:col-span-2">{editingId ? "Editar tarefa" : "Nova tarefa"}</h2>
+        <h2 className="font-medium text-slate-800 md:col-span-2">Nova tarefa</h2>
         <label className="block">
           <span className="text-xs text-slate-400">Título</span>
           <input
@@ -240,13 +255,8 @@ export default function TarefasView() {
             disabled={saving}
             className="flex-1 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
           >
-            {saving ? "Salvando…" : editingId ? "Salvar alterações" : "Criar tarefa"}
+            {saving ? "Salvando…" : "Criar tarefa"}
           </button>
-          {editingId && (
-            <button type="button" onClick={cancelEdit} className="px-4 text-sm text-slate-400 hover:text-slate-600">
-              Cancelar
-            </button>
-          )}
         </div>
       </form>
 
@@ -308,6 +318,12 @@ export default function TarefasView() {
               <div className="p-2 flex flex-col gap-2 min-h-[60px] max-h-[calc(100vh-320px)] overflow-y-auto thin-scroll">
                 {lista.map((t) => {
                   const atrasada = !t.done && t.dueDate.slice(0, 10) < hoje;
+                  const venceHoje = !t.done && t.dueDate.slice(0, 10) === hoje;
+                  const corCard = atrasada
+                    ? "border-red-300 bg-red-50 hover:bg-red-100/70"
+                    : venceHoje
+                    ? "border-amber-300 bg-amber-50 hover:bg-amber-100/70"
+                    : "border-slate-200 bg-white hover:bg-slate-50";
                   return (
                     <div
                       key={t.id}
@@ -321,15 +337,15 @@ export default function TarefasView() {
                         setDraggingId(null);
                         setOverCol(null);
                       }}
-                      className={`group rounded-lg border p-2.5 bg-white cursor-grab active:cursor-grabbing hover:shadow-sm transition-all ${
-                        editingId === t.id ? "border-emerald-400 bg-emerald-50/50" : atrasada ? "border-red-300" : "border-slate-200"
-                      }`}
+                      onClick={() => openDetail(t)}
+                      className={`group rounded-lg border p-2.5 cursor-pointer active:cursor-grabbing hover:shadow-sm transition-all ${corCard}`}
                     >
                       <div className="flex items-start gap-2">
                         <input
                           type="checkbox"
                           checked={t.done}
-                          onChange={() => toggleDone(t)}
+                          onChange={(e) => { e.stopPropagation(); toggleDone(t); }}
+                          onClick={(e) => e.stopPropagation()}
                           className="mt-0.5 accent-emerald-500 shrink-0"
                         />
                         <div className="min-w-0 flex-1">
@@ -341,14 +357,17 @@ export default function TarefasView() {
                               </span>
                             )}
                             {atrasada && (
-                              <span className="text-[10px] font-medium rounded-full px-1.5 py-0.5 bg-red-100 text-red-600 shrink-0">Atrasada</span>
+                              <span className="text-[10px] font-medium rounded-full px-1.5 py-0.5 bg-red-600 text-white shrink-0">Atrasada</span>
+                            )}
+                            {venceHoje && (
+                              <span className="text-[10px] font-medium rounded-full px-1.5 py-0.5 bg-amber-500 text-white shrink-0">Hoje</span>
                             )}
                           </div>
                           <p className="text-xs text-slate-400 mt-1">
                             {t.contact ? (
                               <button
                                 type="button"
-                                onClick={() => setOpenContactId(t.contact.id)}
+                                onClick={(e) => { e.stopPropagation(); setOpenContactId(t.contact.id); }}
                                 className="font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
                               >
                                 {t.contact.name || "Sem nome"}
@@ -362,8 +381,7 @@ export default function TarefasView() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 justify-end mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => startEdit(t)} title="Editar" className="text-xs text-emerald-600 hover:text-emerald-700">✎</button>
-                        <button onClick={() => remove(t.id)} title="Excluir" className="text-xs text-red-400 hover:text-red-600">×</button>
+                        <button onClick={(e) => { e.stopPropagation(); remove(t.id); }} title="Excluir" className="text-xs text-red-400 hover:text-red-600">×</button>
                       </div>
                     </div>
                   );
@@ -381,6 +399,98 @@ export default function TarefasView() {
           onClose={() => setOpenContactId(null)}
           onChanged={load}
         />
+      )}
+
+      {/* Modal de detalhes/edição da tarefa — abre ao clicar num card */}
+      {detailTask && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setDetailTask(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-3.5 max-h-[88vh] overflow-y-auto thin-scroll" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-slate-800">Detalhes da tarefa</h3>
+              <button onClick={() => setDetailTask(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <label className="block">
+              <span className="text-xs text-slate-400">Título</span>
+              <input
+                value={detailTask.title}
+                onChange={(e) => setDetailTask((d) => ({ ...d, title: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+            {detailTask.contactName && (
+              <p className="text-xs text-slate-400">
+                Lead: <span className="font-medium text-slate-600">{detailTask.contactName}</span>
+              </p>
+            )}
+            <label className="block">
+              <span className="text-xs text-slate-400">Tipo</span>
+              <select
+                value={detailTask.tipoId}
+                onChange={(e) => setDetailTask((d) => ({ ...d, tipoId: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="">— Sem tipo —</option>
+                {tipos.map((t) => (
+                  <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
+                ))}
+              </select>
+            </label>
+            <div className="flex gap-2">
+              <label className="block flex-1">
+                <span className="text-xs text-slate-400">Data</span>
+                <input
+                  type="date"
+                  value={detailTask.dueDate}
+                  onChange={(e) => setDetailTask((d) => ({ ...d, dueDate: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+                />
+              </label>
+              <label className="block w-28">
+                <span className="text-xs text-slate-400">Horário</span>
+                <input
+                  type="time"
+                  value={detailTask.dueTime}
+                  onChange={(e) => setDetailTask((d) => ({ ...d, dueTime: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+                />
+              </label>
+            </div>
+            <label className="block">
+              <span className="text-xs text-slate-400">Observações / descrição</span>
+              <textarea
+                value={detailTask.notes}
+                onChange={(e) => setDetailTask((d) => ({ ...d, notes: e.target.value }))}
+                rows={3}
+                placeholder="Detalhes da tarefa…"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={detailTask.done}
+                onChange={(e) => setDetailTask((d) => ({ ...d, done: e.target.checked }))}
+                className="accent-emerald-500"
+              />
+              Concluída
+            </label>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={saveDetailTask}
+                disabled={saving}
+                className="flex-1 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+              >
+                {saving ? "Salvando…" : "Salvar"}
+              </button>
+              <button
+                onClick={() => { remove(detailTask.id); }}
+                className="px-4 text-sm text-red-500 hover:text-red-600"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

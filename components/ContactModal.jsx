@@ -31,6 +31,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [contact, setContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [parcelas, setParcelas] = useState([]);
+  const [editandoBaixa, setEditandoBaixa] = useState(null); // { parcela, modo: "valor"|"desfazer", novoValor, motivo }
   const [honorariosPct, setHonorariosPct] = useState(30);
   const [multaPct, setMultaPct] = useState(50);
   const [horaLimite, setHoraLimite] = useState("");
@@ -247,20 +248,55 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
   async function togglePaid(p) {
     const vaiPagar = !p.paid;
+    // Desmarcar uma baixa já registrada é uma ALTERAÇÃO — pede motivo antes
+    // (fica logado em Configurações > Alterações).
+    if (!vaiPagar) {
+      setEditandoBaixa({ parcela: p, modo: "desfazer", novoValor: "", motivo: "" });
+      return;
+    }
     let amountPago;
-    if (vaiPagar && parcelaAtrasada(p, undefined, { multaPct, horaLimite })) {
+    if (parcelaAtrasada(p, undefined, { multaPct, horaLimite })) {
       const comMulta = p.amount * (1 + Number(multaPct) / 100);
       const cobrarComJuros = confirm(
         `Essa parcela está atrasada.\n\nOK = cobrar COM juros (${money(comMulta)})\nCancelar = cobrar SEM juros (${money(p.amount)})`
       );
       amountPago = cobrarComJuros ? comMulta : p.amount;
     }
-    setParcelas((prev) => prev.map((x) => (x.id === p.id ? { ...x, paid: vaiPagar, amountPago: vaiPagar ? (amountPago ?? p.amount) : null } : x)));
+    setParcelas((prev) => prev.map((x) => (x.id === p.id ? { ...x, paid: true, amountPago: amountPago ?? p.amount } : x)));
     await fetch(`/api/parcelas/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paid: vaiPagar, amountPago }),
+      body: JSON.stringify({ paid: true, amountPago }),
     });
+  }
+
+  function abrirEdicaoValorBaixa(p) {
+    setEditandoBaixa({ parcela: p, modo: "valor", novoValor: String(p.amountPago ?? p.amount), motivo: "" });
+  }
+
+  async function confirmarEdicaoBaixa() {
+    if (!editandoBaixa) return;
+    const motivo = editandoBaixa.motivo.trim();
+    if (!motivo) return;
+    const p = editandoBaixa.parcela;
+    const paid = editandoBaixa.modo === "valor";
+    const amountPago = paid ? Number(editandoBaixa.novoValor) : null;
+    if (paid && (!amountPago || amountPago <= 0)) return;
+
+    setParcelas((prev) => prev.map((x) => (x.id === p.id ? { ...x, paid, amountPago } : x)));
+    const res = await fetch(`/api/parcelas/${p.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paid, amountPago, motivo }),
+    });
+    if (!res.ok) {
+      // reverte a mudança otimista se o servidor recusar (ex.: motivo vazio)
+      setParcelas((prev) => prev.map((x) => (x.id === p.id ? p : x)));
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || "Falha ao registrar a alteração.");
+      return;
+    }
+    setEditandoBaixa(null);
   }
 
   async function createTask(e) {
@@ -753,8 +789,20 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                               </span>
                             )}
                           </label>
-                          <span className={`font-medium ${p.paid ? "text-emerald-600" : atrasada ? "text-red-600" : "text-slate-700"}`}>
-                            {money(valorParcelaAtual(p, undefined, multaOpts))}
+                          <span className="flex items-center gap-1.5">
+                            <span className={`font-medium ${p.paid ? "text-emerald-600" : atrasada ? "text-red-600" : "text-slate-700"}`}>
+                              {money(p.paid ? p.amountPago : valorParcelaAtual(p, undefined, multaOpts))}
+                            </span>
+                            {p.paid && (
+                              <button
+                                type="button"
+                                onClick={() => abrirEdicaoValorBaixa(p)}
+                                title="Mudar o valor dessa baixa (pede motivo)"
+                                className="text-slate-300 hover:text-emerald-600"
+                              >
+                                ✎
+                              </button>
+                            )}
                           </span>
                         </li>
                         );
@@ -989,6 +1037,56 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
           </div>
         </div>
       </div>
+
+      {/* Alterar valor de uma baixa já registrada, ou desmarcá-la — sempre
+          pede o motivo (fica logado em Configurações > Alterações). */}
+      {editandoBaixa && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEditandoBaixa(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">
+              {editandoBaixa.modo === "valor" ? "Mudar valor da baixa" : "Desmarcar baixa"}
+            </h3>
+            <p className="text-xs text-slate-400">
+              Parcela {editandoBaixa.parcela.number}ª
+              {editandoBaixa.modo === "valor" && <> — valor atual: {money(editandoBaixa.parcela.amountPago)}</>}
+            </p>
+            {editandoBaixa.modo === "valor" && (
+              <label className="block">
+                <span className="text-xs text-slate-400">Novo valor</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editandoBaixa.novoValor}
+                  onChange={(e) => setEditandoBaixa((d) => ({ ...d, novoValor: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+                />
+              </label>
+            )}
+            <label className="block">
+              <span className="text-xs text-slate-400">Motivo da alteração</span>
+              <textarea
+                value={editandoBaixa.motivo}
+                onChange={(e) => setEditandoBaixa((d) => ({ ...d, motivo: e.target.value }))}
+                rows={3}
+                placeholder="Ex.: cliente pagou a mais e foi devolvido, valor lançado errado…"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
+              />
+            </label>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={confirmarEdicaoBaixa}
+                disabled={!editandoBaixa.motivo.trim() || (editandoBaixa.modo === "valor" && !Number(editandoBaixa.novoValor))}
+                className="flex-1 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+              >
+                Confirmar
+              </button>
+              <button onClick={() => setEditandoBaixa(null)} className="px-4 text-sm text-slate-400 hover:text-slate-600">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
