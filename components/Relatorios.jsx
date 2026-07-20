@@ -204,6 +204,106 @@ export default function Relatorios() {
     return counts.map((v, i) => ({ label: `${i + 1}ª`, value: v, valor: valores[i] }));
   }, [stagesFiltrados]);
 
+  // Payback por cliente: quanto foi liberado (capital), quanto já voltou
+  // (soma das parcelas pagas) e em quantos dias o capital foi recuperado
+  // (data em que a soma acumulada dos pagamentos atingiu o capital enviado,
+  // contando a partir da liberação). Considera todas as parcelas de todos os
+  // ciclos — se o cliente renovou, o "voltou" já inclui os ciclos seguintes.
+  const paybackData = useMemo(() => {
+    const out = [];
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        if (!c.valorCapital || !c.pagamentoCapital) continue;
+        const pagas = (c.parcelas || [])
+          .filter((p) => p.paid && p.paidAt)
+          .slice()
+          .sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
+        const recuperado = pagas.reduce((sum, p) => sum + (p.amountPago ?? p.amount), 0);
+        let diasPayback = null;
+        let acumulado = 0;
+        const inicio = new Date(c.pagamentoCapital);
+        for (const p of pagas) {
+          acumulado += p.amountPago ?? p.amount;
+          if (acumulado >= c.valorCapital) {
+            diasPayback = Math.max(0, Math.round((new Date(p.paidAt) - inicio) / 86400000));
+            break;
+          }
+        }
+        out.push({
+          id: c.id,
+          name: c.name,
+          capital: c.valorCapital,
+          recuperado,
+          pctRecuperado: c.valorCapital > 0 ? Math.min(100, Math.round((recuperado / c.valorCapital) * 100)) : 0,
+          diasPayback,
+        });
+      }
+    }
+    return out.sort((a, b) => b.capital - a.capital);
+  }, [stagesFiltrados]);
+
+  const paybackStats = useMemo(() => {
+    const recuperados = paybackData.filter((d) => d.diasPayback != null);
+    const mediaDias = recuperados.length
+      ? Math.round(recuperados.reduce((s, d) => s + d.diasPayback, 0) / recuperados.length)
+      : null;
+    const totalCapital = paybackData.reduce((s, d) => s + d.capital, 0);
+    const totalRecuperado = paybackData.reduce((s, d) => s + d.recuperado, 0);
+    return {
+      mediaDias,
+      qtdRecuperados: recuperados.length,
+      totalClientes: paybackData.length,
+      totalCapital,
+      totalRecuperado,
+    };
+  }, [paybackData]);
+
+  // Distribuição do tempo de payback em faixas, pra virar gráfico de colunas.
+  const paybackBuckets = useMemo(() => {
+    const faixas = [
+      { label: "≤5d", test: (d) => d <= 5 },
+      { label: "6-10d", test: (d) => d > 5 && d <= 10 },
+      { label: "11-20d", test: (d) => d > 10 && d <= 20 },
+      { label: ">20d", test: (d) => d > 20 },
+    ];
+    const counts = faixas.map(() => 0);
+    let naoRecuperado = 0;
+    for (const d of paybackData) {
+      if (d.diasPayback == null) {
+        naoRecuperado++;
+        continue;
+      }
+      const idx = faixas.findIndex((f) => f.test(d.diasPayback));
+      if (idx >= 0) counts[idx]++;
+    }
+    return [...faixas.map((f, i) => ({ label: f.label, value: counts[i] })), { label: "Ainda não", value: naoRecuperado }];
+  }, [paybackData]);
+
+  // LTV: total já recebido de cada cliente, somando TODAS as parcelas pagas
+  // de TODOS os ciclos (empréstimo original + renovações) — o quanto aquele
+  // cliente já gerou de receita desde que virou lead.
+  const ltvData = useMemo(() => {
+    const out = [];
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        const total = (c.parcelas || []).filter((p) => p.paid).reduce((sum, p) => sum + (p.amountPago ?? p.amount), 0);
+        if (total > 0) out.push({ id: c.id, name: c.name, ltv: total, ciclos: c.cicloAtual || 1 });
+      }
+    }
+    return out.sort((a, b) => b.ltv - a.ltv);
+  }, [stagesFiltrados]);
+
+  const ltvStats = useMemo(() => {
+    if (!ltvData.length) return { media: 0, total: 0, qtd: 0 };
+    const total = ltvData.reduce((s, d) => s + d.ltv, 0);
+    return { media: total / ltvData.length, total, qtd: ltvData.length };
+  }, [ltvData]);
+
+  const ltvTop10 = useMemo(
+    () => ltvData.slice(0, 10).map((d) => ({ label: d.name, value: Math.round(d.ltv * 100) / 100, color: "#7c3aed" })),
+    [ltvData]
+  );
+
   // Novos indicadores
   const { novasVendas, renovacoes } = useMemo(() => {
     const all = stagesFiltrados.flatMap((s) => s.contacts || []);
@@ -568,6 +668,89 @@ export default function Relatorios() {
         </div>
       </section>
 
+      {/* Payback: quanto foi liberado, quanto voltou e em quantos dias */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Payback dos clientes <span className="text-slate-400 font-normal">— o que foi liberado, quanto voltou e em quanto tempo</span>
+        </h2>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <Card titulo="Capital enviado" valor={paybackStats.totalCapital} cor="violet" />
+          <Card titulo="Capital recuperado" valor={paybackStats.totalRecuperado} cor="emerald" />
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-xs text-slate-400">Payback médio</p>
+            <p className="text-2xl font-semibold mt-1 text-sky-600">
+              {paybackStats.mediaDias != null ? `${paybackStats.mediaDias} dia${paybackStats.mediaDias === 1 ? "" : "s"}` : "—"}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1">
+              {paybackStats.qtdRecuperados} de {paybackStats.totalClientes} clientes já recuperaram o capital
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
+          {paybackData.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4">Nenhum cliente com capital liberado ainda.</p>
+          ) : (
+            <VBarChart
+              data={paybackBuckets}
+              color="#0ea5e9"
+              tooltip={(d) => `${d.label}: ${d.value} cliente${d.value === 1 ? "" : "s"}`}
+            />
+          )}
+        </div>
+
+        {paybackData.length > 0 && (
+          <div className="mt-3">
+            <h3 className="text-xs font-semibold text-slate-500 mb-1.5">Por cliente</h3>
+            <div className="bg-white rounded-xl border border-slate-200 max-h-80 overflow-y-auto thin-scroll divide-y divide-slate-50">
+              {paybackData.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setOpenContactId(d.id)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50/80 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-700 truncate">{d.name}</p>
+                    <p className="text-xs text-slate-400 truncate">
+                      Enviou {money(d.capital)} · Voltou {money(d.recuperado)} ({d.pctRecuperado}%)
+                    </p>
+                  </div>
+                  <span
+                    className={`text-[10px] font-medium rounded-full px-2 py-0.5 shrink-0 ${
+                      d.diasPayback != null ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                    }`}
+                  >
+                    {d.diasPayback != null ? `${d.diasPayback}d` : "Em aberto"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* LTV: valor total já gerado por cada cliente (todos os ciclos) */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          LTV dos clientes <span className="text-slate-400 font-normal">— total já recebido de cada um, somando todos os ciclos</span>
+        </h2>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Card titulo="LTV médio por cliente" valor={ltvStats.media} cor="violet" />
+          <Card titulo="Total já recebido" valor={ltvStats.total} cor="emerald" />
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
+          {ltvTop10.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4">Nenhum recebimento registrado ainda.</p>
+          ) : (
+            <>
+              <p className="text-xs text-slate-400 mb-2">Top 10 clientes por LTV</p>
+              <HBarChart data={ltvTop10} valueFmt={money} />
+            </>
+          )}
+        </div>
+      </section>
+
       {openContactId && (
         <ContactModal
           contactId={openContactId}
@@ -598,23 +781,24 @@ function Card({ titulo, valor, cor }) {
 /* ---------------- Gráficos (SVG/CSS leves, sem lib externa) ---------------- */
 
 // Barras horizontais — boa pra rótulos longos (nomes de etapa do funil).
-function HBarChart({ data }) {
+function HBarChart({ data, valueFmt }) {
   const max = Math.max(1, ...data.map((d) => d.value));
+  const fmt = valueFmt || ((v) => v);
   return (
     <div className="space-y-2.5">
       {data.map((d, i) => (
         <div key={i} className="flex items-center gap-3">
-          <span className="w-28 sm:w-36 shrink-0 text-xs text-slate-600 truncate" title={d.label}>
+          <span className="w-20 sm:w-28 shrink-0 text-xs text-slate-600 truncate" title={d.label}>
             {d.label}
           </span>
           <div className="flex-1 h-4 rounded-full bg-slate-100 overflow-hidden">
             <div
               className="h-full rounded-full transition-[width] duration-300"
               style={{ width: `${Math.max(d.value > 0 ? 3 : 0, (d.value / max) * 100)}%`, background: d.color }}
-              title={`${d.label}: ${d.value}`}
+              title={`${d.label}: ${fmt(d.value)}`}
             />
           </div>
-          <span className="w-8 shrink-0 text-xs text-slate-500 text-right tabular-nums">{d.value}</span>
+          <span className="w-20 shrink-0 text-xs text-slate-500 text-right tabular-nums">{fmt(d.value)}</span>
         </div>
       ))}
     </div>
