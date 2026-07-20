@@ -333,9 +333,9 @@ export default function Relatorios() {
   if (loading) return <div className="p-6 text-slate-400">Carregando relatórios…</div>;
 
   return (
-    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl">
+    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 items-start">
       {/* Filtro por estado — afeta todas as métricas abaixo */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap xl:col-span-2">
         <span className="text-xs text-slate-400">Estado:</span>
         <button
           onClick={() => setEstadoFiltro("")}
@@ -374,7 +374,7 @@ export default function Relatorios() {
       </section>
 
       {/* A receber */}
-      <section>
+      <section className="xl:col-span-2">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">A receber</h2>
         <div className="grid sm:grid-cols-3 gap-4">
           <Card titulo="Hoje" valor={receber.dia} cor="emerald" />
@@ -387,7 +387,7 @@ export default function Relatorios() {
       </section>
 
       {/* Total recebido por período */}
-      <section>
+      <section className="xl:col-span-2">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
           <h2 className="text-sm font-semibold text-slate-700">Total recebido</h2>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -439,7 +439,7 @@ export default function Relatorios() {
       </section>
 
       {/* Resumo por estado — comparação lado a lado, independente do filtro acima */}
-      <section>
+      <section className="xl:col-span-2">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Resumo por estado</h2>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {porEstado.length === 0 ? (
@@ -651,7 +651,7 @@ export default function Relatorios() {
       </section>
 
       {/* Em qual parcela o cliente parou de pagar */}
-      <section>
+      <section className="xl:col-span-2">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Parcela em que o cliente parou de pagar <span className="text-slate-400 font-normal">— clientes em atraso agora</span>
         </h2>
@@ -665,7 +665,7 @@ export default function Relatorios() {
       </section>
 
       {/* A receber por número de parcela */}
-      <section>
+      <section className="xl:col-span-2">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           A receber por parcela <span className="text-slate-400 font-normal">— quantas parcelas em aberto de cada número</span>
         </h2>
@@ -683,7 +683,7 @@ export default function Relatorios() {
       </section>
 
       {/* Payback: quanto foi liberado, quanto voltou e em quantos dias */}
-      <section>
+      <section className="xl:col-span-2">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Payback dos clientes <span className="text-slate-400 font-normal">— o que foi liberado, quanto voltou e em quanto tempo</span>
         </h2>
@@ -756,7 +756,7 @@ export default function Relatorios() {
       </section>
 
       {/* LTV: valor total já gerado por cada cliente (todos os ciclos) */}
-      <section>
+      <section className="xl:col-span-2">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           LTV dos clientes <span className="text-slate-400 font-normal">— total já recebido de cada um, somando todos os ciclos</span>
         </h2>

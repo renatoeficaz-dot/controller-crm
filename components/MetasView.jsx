@@ -105,8 +105,8 @@ export default function MetasView() {
   if (!resumo) return <div className="p-6 text-slate-400">Não foi possível carregar as metas.</div>;
 
   return (
-    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 max-w-4xl space-y-4 md:space-y-6">
-      <div>
+    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 items-start">
+      <div className="xl:col-span-2">
         <h1 className="text-lg font-semibold text-slate-800">Metas</h1>
         <p className="text-sm text-slate-500 mt-0.5">
           Meta de recebimento do dia. Regra atual: <strong>{resumo.metaPctRecebimento}%</strong> de todos os
@@ -131,7 +131,7 @@ export default function MetasView() {
 
       <Card titulo="Leads atualmente em Recebimento" valor={resumo.totalEmRecebimento} sub="Base do cálculo da meta de recebimento de hoje" cor="violet" />
 
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 xl:col-span-2">
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-slate-700">Meta de recebimentos hoje ({resumo.metaPctRecebimento}%)</p>
           <p className="text-sm text-slate-500">
@@ -152,18 +152,16 @@ export default function MetasView() {
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <Card
-          titulo="Baixas de parcela hoje"
-          valor={resumo.baixasHoje}
-          sub={`${resumo.recebimentosHoje} cliente${resumo.recebimentosHoje === 1 ? "" : "s"} distinto${resumo.recebimentosHoje === 1 ? "" : "s"}`}
-          cor="emerald"
-        />
-        <Card titulo="Valor recebido hoje" valor={money(resumo.valorRecebidoHoje)} cor="emerald" />
-      </div>
+      <Card
+        titulo="Baixas de parcela hoje"
+        valor={resumo.baixasHoje}
+        sub={`${resumo.recebimentosHoje} cliente${resumo.recebimentosHoje === 1 ? "" : "s"} distinto${resumo.recebimentosHoje === 1 ? "" : "s"}`}
+        cor="emerald"
+      />
+      <Card titulo="Valor recebido hoje" valor={money(resumo.valorRecebidoHoje)} cor="emerald" />
 
       {/* Quais foram as baixas de hoje — clique num lead abre o card dele */}
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 xl:col-span-2">
         <p className="text-sm font-semibold text-slate-700 mb-2">
           Baixas de hoje <span className="text-slate-400 font-normal">({resumo.baixasDetalhe?.length || 0})</span>
         </p>
