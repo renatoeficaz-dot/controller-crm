@@ -279,6 +279,20 @@ export default function Relatorios() {
     return [...faixas.map((f, i) => ({ label: f.label, value: counts[i] })), { label: "Ainda não", value: naoRecuperado }];
   }, [paybackData]);
 
+  // % de clientes por dia exato de payback (1D, 2D, 3D...) — só entre quem já
+  // recuperou o capital (ignora quem ainda não bateu, esse não tem "dia").
+  const paybackPorDia = useMemo(() => {
+    const cores = ["#059669", "#0ea5e9", "#7c3aed", "#f59e0b", "#ef4444", "#ec4899", "#14b8a6", "#84cc16", "#6366f1", "#f97316"];
+    const porDia = new Map();
+    for (const d of paybackData) {
+      if (d.diasPayback == null) continue;
+      porDia.set(d.diasPayback, (porDia.get(d.diasPayback) || 0) + 1);
+    }
+    return Array.from(porDia.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([dia, value], i) => ({ label: `${dia}D`, value, color: cores[i % cores.length] }));
+  }, [paybackData]);
+
   // LTV: total já recebido de cada cliente, somando TODAS as parcelas pagas
   // de TODOS os ciclos (empréstimo original + renovações) — o quanto aquele
   // cliente já gerou de receita desde que virou lead.
@@ -300,7 +314,7 @@ export default function Relatorios() {
   }, [ltvData]);
 
   const ltvTop10 = useMemo(
-    () => ltvData.slice(0, 10).map((d) => ({ label: d.name, value: Math.round(d.ltv * 100) / 100, color: "#7c3aed" })),
+    () => ltvData.slice(0, 10).map((d) => ({ id: d.id, label: d.name, value: Math.round(d.ltv * 100) / 100, color: "#7c3aed" })),
     [ltvData]
   );
 
@@ -319,7 +333,7 @@ export default function Relatorios() {
   if (loading) return <div className="p-6 text-slate-400">Carregando relatórios…</div>;
 
   return (
-    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 space-y-4 md:space-y-6 max-w-5xl">
+    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl">
       {/* Filtro por estado — afeta todas as métricas abaixo */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-slate-400">Estado:</span>
@@ -687,16 +701,27 @@ export default function Relatorios() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
-          {paybackData.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4">Nenhum cliente com capital liberado ainda.</p>
-          ) : (
-            <VBarChart
-              data={paybackBuckets}
-              color="#0ea5e9"
-              tooltip={(d) => `${d.label}: ${d.value} cliente${d.value === 1 ? "" : "s"}`}
-            />
-          )}
+        <div className="grid lg:grid-cols-2 gap-4 mt-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-xs text-slate-400 mb-2">Distribuição por faixa de dias</p>
+            {paybackData.length === 0 ? (
+              <p className="text-sm text-slate-400 py-4">Nenhum cliente com capital liberado ainda.</p>
+            ) : (
+              <VBarChart
+                data={paybackBuckets}
+                color="#0ea5e9"
+                tooltip={(d) => `${d.label}: ${d.value} cliente${d.value === 1 ? "" : "s"}`}
+              />
+            )}
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-xs text-slate-400 mb-2">% de payback por dia exato — só quem já recuperou</p>
+            {paybackPorDia.length === 0 ? (
+              <p className="text-sm text-slate-400 py-4">Nenhum cliente recuperou o capital ainda.</p>
+            ) : (
+              <DonutChart data={paybackPorDia} />
+            )}
+          </div>
         </div>
 
         {paybackData.length > 0 && (
@@ -744,8 +769,8 @@ export default function Relatorios() {
             <p className="text-sm text-slate-400 py-4">Nenhum recebimento registrado ainda.</p>
           ) : (
             <>
-              <p className="text-xs text-slate-400 mb-2">Top 10 clientes por LTV</p>
-              <HBarChart data={ltvTop10} valueFmt={money} />
+              <p className="text-xs text-slate-400 mb-2">Top 10 clientes por LTV — clique numa barra pra abrir o lead</p>
+              <HBarChart data={ltvTop10} valueFmt={money} onBarClick={(d) => setOpenContactId(d.id)} />
             </>
           )}
         </div>
@@ -781,26 +806,34 @@ function Card({ titulo, valor, cor }) {
 /* ---------------- Gráficos (SVG/CSS leves, sem lib externa) ---------------- */
 
 // Barras horizontais — boa pra rótulos longos (nomes de etapa do funil).
-function HBarChart({ data, valueFmt }) {
+function HBarChart({ data, valueFmt, onBarClick }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   const fmt = valueFmt || ((v) => v);
   return (
     <div className="space-y-2.5">
-      {data.map((d, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <span className="w-20 sm:w-28 shrink-0 text-xs text-slate-600 truncate" title={d.label}>
-            {d.label}
-          </span>
-          <div className="flex-1 h-4 rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-[width] duration-300"
-              style={{ width: `${Math.max(d.value > 0 ? 3 : 0, (d.value / max) * 100)}%`, background: d.color }}
-              title={`${d.label}: ${fmt(d.value)}`}
-            />
-          </div>
-          <span className="w-20 shrink-0 text-xs text-slate-500 text-right tabular-nums">{fmt(d.value)}</span>
-        </div>
-      ))}
+      {data.map((d, i) => {
+        const Row = onBarClick ? "button" : "div";
+        return (
+          <Row
+            key={i}
+            type={onBarClick ? "button" : undefined}
+            onClick={onBarClick ? () => onBarClick(d) : undefined}
+            className={`w-full flex items-center gap-3 ${onBarClick ? "text-left hover:opacity-75 transition-opacity cursor-pointer" : ""}`}
+          >
+            <span className="w-20 sm:w-28 shrink-0 text-xs text-slate-600 truncate" title={d.label}>
+              {d.label}
+            </span>
+            <div className="flex-1 h-4 rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-[width] duration-300"
+                style={{ width: `${Math.max(d.value > 0 ? 3 : 0, (d.value / max) * 100)}%`, background: d.color }}
+                title={`${d.label}: ${fmt(d.value)}`}
+              />
+            </div>
+            <span className="w-20 shrink-0 text-xs text-slate-500 text-right tabular-nums">{fmt(d.value)}</span>
+          </Row>
+        );
+      })}
     </div>
   );
 }
