@@ -30,9 +30,10 @@ export async function POST(req, { params }) {
 
   const { base, apikey, wahaBase, wahaApikey } = await creds();
   const webhookUrl = appWebhookUrl(req, num.provider);
+  const proxy = num.proxyServer ? { server: num.proxyServer, username: num.proxyUsername, password: num.proxyPassword } : null;
 
   if (num.provider === "waha") {
-    const result = await connectSessionWaha(wahaBase, wahaApikey, num.instance, webhookUrl);
+    const result = await connectSessionWaha(wahaBase, wahaApikey, num.instance, webhookUrl, proxy);
     if (result.error) return NextResponse.json({ error: result.error }, { status: 502 });
     if (result.connected) return NextResponse.json({ connected: true });
     // Sessão criada/iniciando — o QR só fica pronto depois que o status vira
@@ -45,7 +46,7 @@ export async function POST(req, { params }) {
     return NextResponse.json(qr ? { qr } : { pending: true });
   }
 
-  const result = await connectInstance(base, apikey, num.instance);
+  const result = await connectInstance(base, apikey, num.instance, proxy);
   if (result.error) return NextResponse.json({ error: result.error }, { status: 502 });
 
   // Aponta o webhook desta instância para o nosso app (best-effort: não bloqueia a

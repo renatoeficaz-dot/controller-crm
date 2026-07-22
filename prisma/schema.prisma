@@ -251,6 +251,13 @@ model WhatsappNumber {
   estadosCobranca    String?
   mensagemCobranca   String?
 
+  // Proxy dedicado pra esse número (recomendado: residencial/mobile, nunca
+  // datacenter) — evita o WhatsApp banir na hora por detectar IP de VPS.
+  // Cada número deve ter um IP diferente; nunca compartilhar entre números.
+  proxyServer   String? // "host:porta", sem protocolo
+  proxyUsername String?
+  proxyPassword String?
+
   // Número padrão (só um por vez) — destacado na lista.
   padrao         Boolean   @default(false)
   // Rastreamento de conexão: usado pra mostrar "Conectado em ..." /

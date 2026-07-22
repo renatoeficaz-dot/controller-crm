@@ -1400,6 +1400,45 @@ function Numeros() {
 
                 <div className="bg-slate-50 rounded-xl p-3.5 space-y-3">
                   <p className="text-xs font-medium text-slate-500">
+                    Proxy dedicado — evita bloqueio do WhatsApp ao conectar
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    O WhatsApp costuma banir na hora números que conectam de IP de VPS/datacenter. Use um proxy
+                    <strong> residencial ou mobile</strong> (nunca datacenter), com um IP <strong>exclusivo deste número</strong>
+                    {" "}— não reaproveite o mesmo proxy em outro número. Precisa reconectar (QR) depois de configurar.
+                  </p>
+                  <label className="block">
+                    <span className="text-xs text-slate-400">Servidor (host:porta)</span>
+                    <input
+                      defaultValue={n.proxyServer || ""}
+                      onBlur={(e) => setCobranca(n.id, "proxyServer", e.target.value.trim())}
+                      placeholder="ex.: 200.100.50.10:8000"
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                    />
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="text-xs text-slate-400">Usuário</span>
+                      <input
+                        defaultValue={n.proxyUsername || ""}
+                        onBlur={(e) => setCobranca(n.id, "proxyUsername", e.target.value.trim())}
+                        className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-slate-400">Senha</span>
+                      <input
+                        type="password"
+                        defaultValue={n.proxyPassword || ""}
+                        onBlur={(e) => setCobranca(n.id, "proxyPassword", e.target.value.trim())}
+                        className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 rounded-xl p-3.5 space-y-3">
+                  <p className="text-xs font-medium text-slate-500">
                     Cobrança automática — lembrete diário 1h30 antes do horário limite
                   </p>
                   <label className="block">

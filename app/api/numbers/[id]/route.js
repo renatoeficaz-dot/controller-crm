@@ -14,6 +14,9 @@ export async function PATCH(req, { params }) {
   if ("provider" in body) data.provider = body.provider === "waha" ? "waha" : "evolution";
   if ("estadosCobranca" in body) data.estadosCobranca = (body.estadosCobranca || "").trim() || null;
   if ("mensagemCobranca" in body) data.mensagemCobranca = (body.mensagemCobranca || "").trim() || null;
+  if ("proxyServer" in body) data.proxyServer = (body.proxyServer || "").trim() || null;
+  if ("proxyUsername" in body) data.proxyUsername = (body.proxyUsername || "").trim() || null;
+  if ("proxyPassword" in body) data.proxyPassword = (body.proxyPassword || "").trim() || null;
 
   // Só um número pode ser "padrão" por vez — desmarca os outros antes.
   if (body.padrao === true) {
