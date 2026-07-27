@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import MediaBubble from "./MediaBubble";
+import PuxadaAnexo from "./PuxadaAnexo";
 import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
 import { interpolarVariaveis } from "@/lib/variaveis";
 import { parcelaAtrasada } from "@/lib/finance";
@@ -80,6 +81,7 @@ export default function ChatView() {
   const [contactTags, setContactTags] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [cpfCopiado, setCpfCopiado] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [tplSent, setTplSent] = useState(false);
   const [numbers, setNumbers] = useState([]);
@@ -214,6 +216,7 @@ export default function ChatView() {
         estado: ct.estado || "",
         genero: ct.genero || "",
         tipoCliente: ct.tipoCliente || "",
+        cpf: ct.cpf || "",
       });
       setContactTags((ct.tags || []).map((t) => t.id));
     }
@@ -862,6 +865,45 @@ export default function ChatView() {
                 <option value="feminino">Feminino</option>
               </select>
             </label>
+
+            {/* CPF — a IA preenche sozinha ao ler um RG/CNH recebido; dá pra corrigir manualmente. */}
+            <label className="block">
+              <span className="text-[11px] text-slate-400">CPF</span>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={form.cpf || ""}
+                  onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value.replace(/\D/g, "").slice(0, 11) }))}
+                  placeholder="Só números — a IA preenche pelo documento"
+                  className={`flex-1 min-w-0 ${inputCls}`}
+                />
+                {form.cpf && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(form.cpf);
+                        setCpfCopiado(true);
+                        setTimeout(() => setCpfCopiado(false), 1500);
+                      } catch {}
+                    }}
+                    title="Copiar CPF"
+                    className="shrink-0 text-xs border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
+                  >
+                    {cpfCopiado ? "✓" : "📋"}
+                  </button>
+                )}
+              </div>
+            </label>
+
+            {/* Puxada (consulta de crédito) em PDF — fixa no card, não depende do chat */}
+            <PuxadaAnexo
+              contactId={selectedId}
+              phone={contact?.phone}
+              puxadaUrl={contact?.puxadaUrl}
+              puxadaFileName={contact?.puxadaFileName}
+              onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}
+            />
 
             {/* Tarefas do lead */}
             <div className="border border-slate-200 rounded-lg p-2.5">
