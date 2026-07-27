@@ -118,6 +118,16 @@ export default function KanbanBoard() {
   const [bulkValue, setBulkValue] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
 
+  // "+ Novo contato" mora no cabeçalho da página (NovoContatoButton), fora
+  // deste componente — escuta o evento global em vez de duplicar o botão.
+  useEffect(() => {
+    function onNovoContato() {
+      if (stages[0]) setAdding(stages[0].id);
+    }
+    window.addEventListener("kanban:novo-contato", onNovoContato);
+    return () => window.removeEventListener("kanban:novo-contato", onNovoContato);
+  }, [stages]);
+
   function toggleFiltro(sit) {
     setFiltros((prev) =>
       prev.includes(sit) ? prev.filter((s) => s !== sit) : [...prev, sit]
@@ -355,10 +365,58 @@ export default function KanbanBoard() {
             </span>
           )}
         </button>
+
+        {/* Ações em massa sobre os leads do filtro — na mesma linha, pra não gastar altura extra */}
+        <select
+          value={bulkAction}
+          onChange={(e) => { setBulkAction(e.target.value); setBulkValue(""); }}
+          className="text-xs rounded-full px-3 py-1.5 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400 shrink-0"
+        >
+          <option value="">Em massa: escolher ação</option>
+          <option value="stage">Mover de coluna</option>
+          <option value="responsavel">Trocar responsável</option>
+          <option value="delete">Excluir</option>
+        </select>
+        {bulkAction === "stage" && (
+          <select
+            value={bulkValue}
+            onChange={(e) => setBulkValue(e.target.value)}
+            className="text-xs rounded-full px-3 py-1.5 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400 shrink-0"
+          >
+            <option value="">— coluna destino —</option>
+            {stages.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        )}
+        {bulkAction === "responsavel" && (
+          <select
+            value={bulkValue}
+            onChange={(e) => setBulkValue(e.target.value)}
+            className="text-xs rounded-full px-3 py-1.5 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400 shrink-0"
+          >
+            <option value="">— Sem responsável —</option>
+            {usuarios.map((u) => (
+              <option key={u.id} value={u.name}>{u.name}</option>
+            ))}
+          </select>
+        )}
+        {bulkAction && (
+          <button
+            onClick={aplicarEmMassa}
+            disabled={bulkBusy || leadsFiltrados.length === 0}
+            className={`text-xs rounded-full px-3 py-1.5 text-white transition-colors disabled:opacity-50 shrink-0 ${
+              bulkAction === "delete" ? "bg-red-500 hover:bg-red-600" : "bg-emerald-500 hover:bg-emerald-600"
+            }`}
+          >
+            {bulkBusy ? "Aplicando…" : `Aplicar a ${leadsFiltrados.length} lead(s)`}
+          </button>
+        )}
+
         <button
           onClick={() => setAdding(stages[0]?.id)}
           disabled={!stages[0]}
-          className="ml-auto flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 disabled:opacity-50 transition-colors shrink-0"
+          className="ml-auto sm:hidden flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 disabled:opacity-50 transition-colors shrink-0"
         >
           + Novo contato
         </button>
@@ -533,60 +591,6 @@ export default function KanbanBoard() {
           </div>
         </div>
       )}
-
-      {/* Ações em massa sobre os leads do filtro */}
-      <div className="flex items-center gap-2 px-3 md:px-4 pt-2 flex-wrap overflow-x-auto">
-        <span className="text-xs text-slate-400">Em massa:</span>
-        <select
-          value={bulkAction}
-          onChange={(e) => {
-            setBulkAction(e.target.value);
-            setBulkValue("");
-          }}
-          className="text-xs rounded-full px-3 py-1 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400"
-        >
-          <option value="">— escolher ação —</option>
-          <option value="stage">Mover de coluna</option>
-          <option value="responsavel">Trocar responsável</option>
-          <option value="delete">Excluir</option>
-        </select>
-
-        {bulkAction === "stage" && (
-          <select
-            value={bulkValue}
-            onChange={(e) => setBulkValue(e.target.value)}
-            className="text-xs rounded-full px-3 py-1 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400"
-          >
-            <option value="">— coluna destino —</option>
-            {stages.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        )}
-        {bulkAction === "responsavel" && (
-          <select
-            value={bulkValue}
-            onChange={(e) => setBulkValue(e.target.value)}
-            className="text-xs rounded-full px-3 py-1 border bg-white border-slate-200 text-slate-600 outline-none focus:border-emerald-400"
-          >
-            <option value="">— Sem responsável —</option>
-            {usuarios.map((u) => (
-              <option key={u.id} value={u.name}>{u.name}</option>
-            ))}
-          </select>
-        )}
-        {bulkAction && (
-          <button
-            onClick={aplicarEmMassa}
-            disabled={bulkBusy || leadsFiltrados.length === 0}
-            className={`text-xs rounded-full px-3 py-1 text-white transition-colors disabled:opacity-50 ${
-              bulkAction === "delete" ? "bg-red-500 hover:bg-red-600" : "bg-emerald-500 hover:bg-emerald-600"
-            }`}
-          >
-            {bulkBusy ? "Aplicando…" : `Aplicar a ${leadsFiltrados.length} lead(s)`}
-          </button>
-        )}
-      </div>
 
       <div className="flex-1 overflow-x-auto thin-scroll p-2 md:p-4">
         <div className="flex gap-3 md:gap-4 h-full items-start">

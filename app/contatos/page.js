@@ -1,5 +1,6 @@
 import KanbanBoard from "@/components/KanbanBoard";
 import MetasMini from "@/components/MetasMini";
+import NovoContatoButton from "@/components/NovoContatoButton";
 
 export default function ContatosPage() {
   return (
@@ -12,7 +13,9 @@ export default function ContatosPage() {
         <div className="w-full sm:w-auto sm:justify-self-center">
           <MetasMini />
         </div>
-        <div className="hidden sm:block" />
+        <div className="hidden sm:flex justify-end">
+          <NovoContatoButton />
+        </div>
       </div>
       <KanbanBoard />
     </div>
