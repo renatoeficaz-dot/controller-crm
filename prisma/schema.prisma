@@ -95,7 +95,26 @@ model LinkCampanha {
   mensagem    String? // texto pré-preenchido no wa.me (além da tag de rastreio, automática)
   cliques     Int            @default(0)
   leads       Contact[]
+  cliquesLog  LinkClique[]
   createdAt   DateTime       @default(now())
+}
+
+// Registro individual de cada clique num link — dispositivo/navegador (pelo
+// User-Agent), região (geoip por IP, best-effort) e as UTMs que vieram na
+// própria URL do clique (ex.: anúncio do Facebook/Google que anexa as suas).
+model LinkClique {
+  id          String       @id @default(cuid())
+  campanha    LinkCampanha @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
+  campanhaId  String
+  dispositivo String? // "Celular" | "Tablet" | "Computador"
+  navegador   String? // "Chrome" | "Safari" | "Instagram (in-app)" | etc.
+  regiao      String? // "Cidade - UF", best-effort via geoip do IP
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+  createdAt   DateTime     @default(now())
 }
 
 // Parcela diária de cobrança (10 por empréstimo)

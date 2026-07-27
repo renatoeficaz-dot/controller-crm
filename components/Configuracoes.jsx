@@ -1525,6 +1525,26 @@ function Campanhas() {
   const [form, setForm] = useState({
     nome: "", numeroId: "", regiao: "", utmSource: "", utmMedium: "", utmCampaign: "", mensagem: "",
   });
+  const [cliquesAbertoId, setCliquesAbertoId] = useState(null);
+  const [cliques, setCliques] = useState([]);
+  const [loadingCliques, setLoadingCliques] = useState(false);
+
+  async function toggleCliques(campanhaId) {
+    if (cliquesAbertoId === campanhaId) { setCliquesAbertoId(null); return; }
+    setCliquesAbertoId(campanhaId);
+    setLoadingCliques(true);
+    const data = await fetch(`/api/campanhas/${campanhaId}/cliques`).then((r) => r.json()).catch(() => []);
+    setCliques(Array.isArray(data) ? data : []);
+    setLoadingCliques(false);
+  }
+
+  function fmtClique(iso) {
+    const d = new Date(iso);
+    const diaSemana = d.toLocaleDateString("pt-BR", { weekday: "short" });
+    const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return `${diaSemana} ${data} ${hora}`;
+  }
 
   const load = useCallback(async () => {
     const [c, n] = await Promise.all([
@@ -1680,27 +1700,68 @@ function Campanhas() {
         ) : (
           <ul className="divide-y divide-slate-100">
             {campanhas.map((c) => (
-              <li key={c.id} className="py-3 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">{c.nome}</p>
-                  <p className="text-xs text-slate-400 mt-0.5 truncate">
-                    {c.numero?.label} ({c.numero?.number}){c.regiao ? ` · ${c.regiao}` : ""}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => copiar(c)}
-                    className="mt-1.5 text-xs text-sky-600 hover:text-sky-700 font-mono bg-sky-50 rounded px-2 py-1 truncate max-w-full"
-                    title="Copiar link"
-                  >
-                    {copiadoId === c.id ? "✓ Copiado!" : urlDe(c.slug)}
+              <li key={c.id} className="py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-700 truncate">{c.nome}</p>
+                    <p className="text-xs text-slate-400 mt-0.5 truncate">
+                      {c.numero?.label} ({c.numero?.number}){c.regiao ? ` · ${c.regiao}` : ""}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => copiar(c)}
+                      className="mt-1.5 text-xs text-sky-600 hover:text-sky-700 font-mono bg-sky-50 rounded px-2 py-1 truncate max-w-full"
+                      title="Copiar link"
+                    >
+                      {copiadoId === c.id ? "✓ Copiado!" : urlDe(c.slug)}
+                    </button>
+                    <p className="text-[11px] text-slate-400 mt-1.5">
+                      <button type="button" onClick={() => toggleCliques(c.id)} className="text-slate-500 hover:text-emerald-600 underline decoration-dotted">
+                        {c.cliques} clique{c.cliques === 1 ? "" : "s"}
+                      </button>
+                      {" · "}{c._count?.leads || 0} lead{(c._count?.leads || 0) === 1 ? "" : "s"} gerado{(c._count?.leads || 0) === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <button onClick={() => remover(c.id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">
+                    Excluir
                   </button>
-                  <p className="text-[11px] text-slate-400 mt-1.5">
-                    {c.cliques} clique{c.cliques === 1 ? "" : "s"} · {c._count?.leads || 0} lead{(c._count?.leads || 0) === 1 ? "" : "s"} gerado{(c._count?.leads || 0) === 1 ? "" : "s"}
-                  </p>
                 </div>
-                <button onClick={() => remover(c.id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">
-                  Excluir
-                </button>
+
+                {cliquesAbertoId === c.id && (
+                  <div className="mt-3 bg-slate-50 rounded-lg border border-slate-200 overflow-x-auto">
+                    {loadingCliques ? (
+                      <p className="text-xs text-slate-400 p-3">Carregando…</p>
+                    ) : cliques.length === 0 ? (
+                      <p className="text-xs text-slate-400 p-3">Nenhum clique registrado ainda.</p>
+                    ) : (
+                      <table className="w-full text-xs min-w-[560px]">
+                        <thead>
+                          <tr className="text-slate-400 text-left border-b border-slate-200">
+                            <th className="px-3 py-2 font-medium">Quando</th>
+                            <th className="px-3 py-2 font-medium">Dispositivo</th>
+                            <th className="px-3 py-2 font-medium">Navegador</th>
+                            <th className="px-3 py-2 font-medium">Região</th>
+                            <th className="px-3 py-2 font-medium">UTM (da URL do clique)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200/70">
+                          {cliques.map((k) => {
+                            const utmParts = [k.utmSource, k.utmMedium, k.utmCampaign].filter(Boolean);
+                            return (
+                              <tr key={k.id} className="text-slate-600">
+                                <td className="px-3 py-2 whitespace-nowrap">{fmtClique(k.createdAt)}</td>
+                                <td className="px-3 py-2 whitespace-nowrap">{k.dispositivo || "—"}</td>
+                                <td className="px-3 py-2 whitespace-nowrap">{k.navegador || "—"}</td>
+                                <td className="px-3 py-2 whitespace-nowrap">{k.regiao || "—"}</td>
+                                <td className="px-3 py-2 whitespace-nowrap">{utmParts.length ? utmParts.join(" / ") : "—"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
