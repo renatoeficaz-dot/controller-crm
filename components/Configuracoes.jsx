@@ -1734,7 +1734,7 @@ function Campanhas() {
                     ) : cliques.length === 0 ? (
                       <p className="text-xs text-slate-400 p-3">Nenhum clique registrado ainda.</p>
                     ) : (
-                      <table className="w-full text-xs min-w-[560px]">
+                      <table className="w-full text-xs min-w-[760px]">
                         <thead>
                           <tr className="text-slate-400 text-left border-b border-slate-200">
                             <th className="px-3 py-2 font-medium">Quando</th>
@@ -1746,14 +1746,20 @@ function Campanhas() {
                         </thead>
                         <tbody className="divide-y divide-slate-200/70">
                           {cliques.map((k) => {
-                            const utmParts = [k.utmSource, k.utmMedium, k.utmCampaign].filter(Boolean);
+                            const utmParts = [
+                              k.utmSource && `source: ${k.utmSource}`,
+                              k.utmMedium && `medium: ${k.utmMedium}`,
+                              k.utmCampaign && `campaign: ${k.utmCampaign}`,
+                              k.utmTerm && `term: ${k.utmTerm}`,
+                              k.utmContent && `content: ${k.utmContent}`,
+                            ].filter(Boolean);
                             return (
                               <tr key={k.id} className="text-slate-600">
                                 <td className="px-3 py-2 whitespace-nowrap">{fmtClique(k.createdAt)}</td>
                                 <td className="px-3 py-2 whitespace-nowrap">{k.dispositivo || "—"}</td>
                                 <td className="px-3 py-2 whitespace-nowrap">{k.navegador || "—"}</td>
                                 <td className="px-3 py-2 whitespace-nowrap">{k.regiao || "—"}</td>
-                                <td className="px-3 py-2 whitespace-nowrap">{utmParts.length ? utmParts.join(" / ") : "—"}</td>
+                                <td className="px-3 py-2">{utmParts.length ? utmParts.join(" · ") : "—"}</td>
                               </tr>
                             );
                           })}
