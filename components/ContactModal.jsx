@@ -48,6 +48,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [moveErr, setMoveErr] = useState("");
   const [templates, setTemplates] = useState([]);
   const [tplCopied, setTplCopied] = useState(false);
+  const [cpfCopiado, setCpfCopiado] = useState(false);
   const [allTags, setAllTags] = useState([]);
   const [contactTags, setContactTags] = useState([]);
   const [numbers, setNumbers] = useState([]);
@@ -621,13 +622,31 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             {/* CPF — a IA preenche sozinha ao ler um RG/CNH recebido; dá pra corrigir manualmente. */}
             <label className="block">
               <span className="text-xs text-slate-400">CPF</span>
-              <input
-                type="text"
-                value={form.cpf || ""}
-                onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value.replace(/\D/g, "").slice(0, 11) }))}
-                placeholder="Só números — a IA preenche pelo documento"
-                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-              />
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={form.cpf || ""}
+                  onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value.replace(/\D/g, "").slice(0, 11) }))}
+                  placeholder="Só números — a IA preenche pelo documento"
+                  className="flex-1 min-w-0 text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                />
+                {form.cpf && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(form.cpf);
+                        setCpfCopiado(true);
+                        setTimeout(() => setCpfCopiado(false), 1500);
+                      } catch {}
+                    }}
+                    title="Copiar CPF"
+                    className="shrink-0 text-xs border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
+                  >
+                    {cpfCopiado ? "✓" : "📋"}
+                  </button>
+                )}
+              </div>
             </label>
 
             {/* Puxada (consulta de crédito) em PDF — fixa no card, não depende do chat */}
