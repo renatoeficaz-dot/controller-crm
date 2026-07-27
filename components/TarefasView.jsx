@@ -29,6 +29,7 @@ export default function TarefasView() {
   const [draggingId, setDraggingId] = useState(null);
   const [overCol, setOverCol] = useState(null);
   const [detailTask, setDetailTask] = useState(null); // tarefa aberta no modal de detalhes
+  const [novaAberta, setNovaAberta] = useState(false); // modal de "Nova tarefa"
 
   const load = useCallback(async () => {
     const done = fStatus === "pendentes" ? "false" : fStatus === "concluidas" ? "true" : "";
@@ -72,6 +73,7 @@ export default function TarefasView() {
       return;
     }
     setForm(EMPTY_FORM);
+    setNovaAberta(false);
     load();
   }
 
@@ -178,87 +180,106 @@ export default function TarefasView() {
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-800">Tarefas</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Tarefas manuais dos leads (além das cobranças automáticas de parcela).</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-800">Tarefas</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Tarefas manuais dos leads (além das cobranças automáticas de parcela).</p>
+        </div>
+        <button
+          onClick={() => { setError(""); setNovaAberta(true); }}
+          className="shrink-0 flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 transition-colors"
+        >
+          + Incluir tarefa
+        </button>
       </div>
 
-      <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 md:p-5 grid md:grid-cols-2 gap-3 max-w-2xl">
-        <h2 className="font-medium text-slate-800 md:col-span-2">Nova tarefa</h2>
-        <label className="block">
-          <span className="text-xs text-slate-400">Título</span>
-          <input
-            value={form.title}
-            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            placeholder="Ex.: Ligar pra confirmar endereço"
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
-          />
-        </label>
-        <label className="block">
-          <span className="text-xs text-slate-400">Lead</span>
-          <select
-            value={form.contactId}
-            onChange={(e) => setForm((f) => ({ ...f, contactId: e.target.value }))}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+      {novaAberta && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setNovaAberta(false)}>
+          <form
+            onSubmit={create}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto thin-scroll p-5 grid sm:grid-cols-2 gap-3"
           >
-            <option value="">— Escolher lead —</option>
-            {contacts.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-xs text-slate-400">Tipo</span>
-          <select
-            value={form.tipoId}
-            onChange={(e) => setForm((f) => ({ ...f, tipoId: e.target.value }))}
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
-          >
-            <option value="">— Sem tipo —</option>
-            {tipos.map((t) => (
-              <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
-            ))}
-          </select>
-        </label>
-        <div className="flex gap-2">
-          <label className="block flex-1">
-            <span className="text-xs text-slate-400">Data</span>
-            <input
-              type="date"
-              value={form.dueDate}
-              onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
-            />
-          </label>
-          <label className="block w-28">
-            <span className="text-xs text-slate-400">Horário</span>
-            <input
-              type="time"
-              value={form.dueTime}
-              onChange={(e) => setForm((f) => ({ ...f, dueTime: e.target.value }))}
-              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
-            />
-          </label>
+            <div className="flex items-center justify-between sm:col-span-2">
+              <h2 className="font-semibold text-slate-800">Nova tarefa</h2>
+              <button type="button" onClick={() => setNovaAberta(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <label className="block sm:col-span-2">
+              <span className="text-xs text-slate-400">Título</span>
+              <input
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Ex.: Ligar pra confirmar endereço"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-400">Lead</span>
+              <select
+                value={form.contactId}
+                onChange={(e) => setForm((f) => ({ ...f, contactId: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="">— Escolher lead —</option>
+                {contacts.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-400">Tipo</span>
+              <select
+                value={form.tipoId}
+                onChange={(e) => setForm((f) => ({ ...f, tipoId: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="">— Sem tipo —</option>
+                {tipos.map((t) => (
+                  <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
+                ))}
+              </select>
+            </label>
+            <div className="flex gap-2">
+              <label className="block flex-1">
+                <span className="text-xs text-slate-400">Data</span>
+                <input
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+                />
+              </label>
+              <label className="block w-28">
+                <span className="text-xs text-slate-400">Horário</span>
+                <input
+                  type="time"
+                  value={form.dueTime}
+                  onChange={(e) => setForm((f) => ({ ...f, dueTime: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+                />
+              </label>
+            </div>
+            <label className="block sm:col-span-2">
+              <span className="text-xs text-slate-400">Observações (opcional)</span>
+              <input
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="Detalhes da tarefa…"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+            {error && <p className="text-xs text-red-500 sm:col-span-2">{error}</p>}
+            <div className="sm:col-span-2 flex gap-2">
+              <button
+                disabled={saving}
+                className="flex-1 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+              >
+                {saving ? "Salvando…" : "Criar tarefa"}
+              </button>
+            </div>
+          </form>
         </div>
-        <label className="block md:col-span-2">
-          <span className="text-xs text-slate-400">Observações (opcional)</span>
-          <input
-            value={form.notes}
-            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            placeholder="Detalhes da tarefa…"
-            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
-          />
-        </label>
-        {error && <p className="text-xs text-red-500 md:col-span-2">{error}</p>}
-        <div className="md:col-span-2 flex gap-2">
-          <button
-            disabled={saving}
-            className="flex-1 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
-          >
-            {saving ? "Salvando…" : "Criar tarefa"}
-          </button>
-        </div>
-      </form>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {[

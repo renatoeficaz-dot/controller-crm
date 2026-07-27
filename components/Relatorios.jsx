@@ -36,6 +36,12 @@ export default function Relatorios() {
   const [ini, setIni] = useState(inicioMesStr());
   const [fim, setFim] = useState(hojeStr());
   const [estadoFiltro, setEstadoFiltro] = useState("");
+  const [etapaFiltro, setEtapaFiltro] = useState("");
+  const [generoFiltroRel, setGeneroFiltroRel] = useState("");
+  const [tipoClienteFiltroRel, setTipoClienteFiltroRel] = useState("");
+  const [criacaoIni, setCriacaoIni] = useState("");
+  const [criacaoFim, setCriacaoFim] = useState("");
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [openContactId, setOpenContactId] = useState(null);
 
   const load = useCallback(async () => {
@@ -57,18 +63,41 @@ export default function Relatorios() {
   );
   const multaPct = cfg?.multaPct ?? 50;
 
-  // Filtro por estado (UF): quando escolhido, todas as métricas abaixo passam
-  // a considerar só os leads daquele estado — reaproveita a mesma lógica que
-  // já existe pra cada indicador, sem precisar duplicar nada.
-  const stagesFiltrados = useMemo(() => {
-    if (!estadoFiltro) return stages;
-    return stages.map((s) => ({ ...s, contacts: (s.contacts || []).filter((c) => c.estado === estadoFiltro) }));
-  }, [stages, estadoFiltro]);
+  // Filtros do modal (estado, etapa, gênero, tipo de cliente, data de criação)
+  // — combinados, afetam todas as métricas abaixo. Reaproveita a mesma lógica
+  // que já existia só pra estado, sem precisar duplicar nada nos indicadores.
+  const filtrosAtivosCount =
+    (estadoFiltro ? 1 : 0) +
+    (etapaFiltro ? 1 : 0) +
+    (generoFiltroRel ? 1 : 0) +
+    (tipoClienteFiltroRel ? 1 : 0) +
+    (criacaoIni ? 1 : 0) +
+    (criacaoFim ? 1 : 0);
 
-  // Leads do estado filtrado, pra listar embaixo da tabela de resumo —
+  const stagesFiltrados = useMemo(() => {
+    if (filtrosAtivosCount === 0) return stages;
+    return stages.map((s) => ({
+      ...s,
+      contacts: (s.contacts || []).filter((c) => {
+        if (estadoFiltro && c.estado !== estadoFiltro) return false;
+        if (etapaFiltro && s.id !== etapaFiltro) return false;
+        if (generoFiltroRel && c.genero !== generoFiltroRel) return false;
+        if (tipoClienteFiltroRel && c.tipoCliente !== tipoClienteFiltroRel) return false;
+        if (criacaoIni || criacaoFim) {
+          if (!c.createdAt) return false;
+          const d = new Date(c.createdAt).toLocaleDateString("en-CA");
+          if (criacaoIni && d < criacaoIni) return false;
+          if (criacaoFim && d > criacaoFim) return false;
+        }
+        return true;
+      }),
+    }));
+  }, [stages, estadoFiltro, etapaFiltro, generoFiltroRel, tipoClienteFiltroRel, criacaoIni, criacaoFim, filtrosAtivosCount]);
+
+  // Leads filtrados, pra listar embaixo da tabela de resumo por estado —
   // clicar num deles abre o mesmo modal de contato usado no Kanban/Chat.
   const leadsDoEstadoFiltro = useMemo(() => {
-    if (!estadoFiltro) return [];
+    if (filtrosAtivosCount === 0) return [];
     const hoje = hojeStr();
     const out = [];
     for (const s of stagesFiltrados) {
@@ -81,7 +110,7 @@ export default function Relatorios() {
       }
     }
     return out.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  }, [stagesFiltrados, estadoFiltro]);
+  }, [stagesFiltrados, filtrosAtivosCount]);
 
   // Adimplência agrupada por um campo do contato (gênero ou tipo de cliente) —
   // reaproveitado pros dois gráficos abaixo, um donut por valor do grupo.
@@ -438,29 +467,175 @@ export default function Relatorios() {
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 items-start">
-      {/* Filtro por estado — afeta todas as métricas abaixo */}
-      <div className="flex items-center gap-2 flex-wrap xl:col-span-2">
-        <span className="text-xs text-slate-400">Estado:</span>
+      {/* Botão único que abre o modal com todos os filtros */}
+      <div className="flex items-center gap-2 xl:col-span-2">
         <button
-          onClick={() => setEstadoFiltro("")}
-          className={`text-xs rounded-full px-3 py-1 border transition-colors ${
-            estadoFiltro === "" ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+          onClick={() => setFiltrosAbertos(true)}
+          className={`flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border transition-colors ${
+            filtrosAtivosCount > 0
+              ? "bg-slate-800 text-white border-slate-800"
+              : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
           }`}
         >
-          Todos
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+            <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
+          </svg>
+          Filtros
+          {filtrosAtivosCount > 0 && (
+            <span className="bg-white/20 rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none">
+              {filtrosAtivosCount}
+            </span>
+          )}
         </button>
-        {ufsDisponiveis.map((uf) => (
-          <button
-            key={uf}
-            onClick={() => setEstadoFiltro(uf)}
-            className={`text-xs rounded-full px-3 py-1 border transition-colors ${
-              estadoFiltro === uf ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            {uf}
-          </button>
-        ))}
       </div>
+
+      {filtrosAbertos && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setFiltrosAbertos(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto thin-scroll"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-semibold text-slate-800">Filtros</h3>
+              <div className="flex items-center gap-3">
+                {filtrosAtivosCount > 0 && (
+                  <button
+                    onClick={() => {
+                      setEstadoFiltro(""); setEtapaFiltro(""); setGeneroFiltroRel("");
+                      setTipoClienteFiltroRel(""); setCriacaoIni(""); setCriacaoFim("");
+                    }}
+                    className="text-xs text-red-400 hover:text-red-600"
+                  >
+                    Limpar tudo
+                  </button>
+                )}
+                <button onClick={() => setFiltrosAbertos(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <span className="text-xs text-slate-400">Estado</span>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <button
+                    onClick={() => setEstadoFiltro("")}
+                    className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                      estadoFiltro === "" ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  {ufsDisponiveis.map((uf) => (
+                    <button
+                      key={uf}
+                      onClick={() => setEstadoFiltro(uf)}
+                      className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                        estadoFiltro === uf ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {uf}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label className="block">
+                <span className="text-xs text-slate-400">Etapa</span>
+                <select
+                  value={etapaFiltro}
+                  onChange={(e) => setEtapaFiltro(e.target.value)}
+                  className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">Todas</option>
+                  {stages.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs text-slate-400">Gênero</span>
+                <select
+                  value={generoFiltroRel}
+                  onChange={(e) => setGeneroFiltroRel(e.target.value)}
+                  className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">Todos</option>
+                  <option value="masculino">Masculino</option>
+                  <option value="feminino">Feminino</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs text-slate-400">Tipo de cliente</span>
+                <select
+                  value={tipoClienteFiltroRel}
+                  onChange={(e) => setTipoClienteFiltroRel(e.target.value)}
+                  className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">Todos</option>
+                  <option value="motoboy">Motoboy</option>
+                  <option value="uber">Uber</option>
+                  <option value="comerciante">Comerciante</option>
+                </select>
+              </label>
+
+              <div>
+                <span className="text-xs text-slate-400">Data de criação da lead</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="date"
+                    value={criacaoIni}
+                    onChange={(e) => setCriacaoIni(e.target.value)}
+                    className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400"
+                  />
+                  <span className="text-xs text-slate-400 shrink-0">até</span>
+                  <input
+                    type="date"
+                    value={criacaoFim}
+                    onChange={(e) => setCriacaoFim(e.target.value)}
+                    className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs text-slate-400">Período (recebimento/vendas)</span>
+                <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                  {PRESETS.map((p) => (
+                    <button
+                      key={p.key}
+                      onClick={() => aplicarPreset(p)}
+                      className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                        preset === p.key
+                          ? "bg-slate-800 text-white border-slate-800"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <input
+                    type="date"
+                    value={ini}
+                    onChange={(e) => { setPreset("custom"); setIni(e.target.value); }}
+                    className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400"
+                  />
+                  <span className="text-xs text-slate-400 shrink-0">até</span>
+                  <input
+                    type="date"
+                    value={fim}
+                    onChange={(e) => { setPreset("custom"); setFim(e.target.value); }}
+                    className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Indicadores gerais */}
       <section>
@@ -490,38 +665,13 @@ export default function Relatorios() {
         </p>
       </section>
 
-      {/* Total recebido por período */}
+      {/* Total recebido por período — período agora é escolhido no botão "Filtros" no topo */}
       <section className="xl:col-span-2">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
           <h2 className="text-sm font-semibold text-slate-700">Total recebido</h2>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {PRESETS.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => aplicarPreset(p)}
-                className={`text-xs rounded-full px-3 py-1 border transition-colors ${
-                  preset === p.key
-                    ? "bg-slate-800 text-white border-slate-800"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-            <input
-              type="date"
-              value={ini}
-              onChange={(e) => { setPreset("custom"); setIni(e.target.value); }}
-              className="text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400"
-            />
-            <span className="text-xs text-slate-400">até</span>
-            <input
-              type="date"
-              value={fim}
-              onChange={(e) => { setPreset("custom"); setFim(e.target.value); }}
-              className="text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400"
-            />
-          </div>
+          <button onClick={() => setFiltrosAbertos(true)} className="text-xs text-sky-600 hover:text-sky-700">
+            {PRESETS.find((p) => p.key === preset)?.label || "Período personalizado"} — trocar
+          </button>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <p className="text-3xl font-semibold text-emerald-600">{money(recebido)}</p>

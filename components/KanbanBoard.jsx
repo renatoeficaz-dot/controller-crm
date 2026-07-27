@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import ContactModal from "./ContactModal";
 
 // Iniciais para o avatar do contato
@@ -113,6 +112,7 @@ export default function KanbanBoard() {
   const [estadoFiltro, setEstadoFiltro] = useState(""); // "" = todos; UF = só leads desse estado
   const [generoFiltro, setGeneroFiltro] = useState(""); // "" = todos; "masculino" | "feminino"
   const [tipoClienteFiltro, setTipoClienteFiltro] = useState(""); // "" = todos; "motoboy" | "uber" | "comerciante"
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false); // modal com todos os filtros
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
   const [bulkAction, setBulkAction] = useState(""); // "", stage, responsavel, unit, delete
   const [bulkValue, setBulkValue] = useState("");
@@ -317,26 +317,51 @@ export default function KanbanBoard() {
   }
 
   const totalContatos = stages.reduce((s, st) => s + st.contacts.length, 0);
+  const filtrosAtivosCount =
+    filtros.length +
+    (respFiltro ? 1 : 0) +
+    (tagFiltro ? 1 : 0) +
+    (estadoFiltro ? 1 : 0) +
+    (generoFiltro ? 1 : 0) +
+    (tipoClienteFiltro ? 1 : 0) +
+    (tarefaFiltro ? 1 : 0);
 
   return (
     <>
-      {/* Ações do cabeçalho (o título/subtítulo já vêm de app/contatos/page.js) */}
-      <div className="flex items-center justify-end gap-2 px-3 md:px-4 pt-3">
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href="/configuracoes?tab=automacao"
-            className="hidden sm:flex items-center gap-1.5 text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            ⚡ Automatizar funil
-          </Link>
-          <button
-            onClick={() => setAdding(stages[0]?.id)}
-            disabled={!stages[0]}
-            className="flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 disabled:opacity-50 transition-colors"
-          >
-            + Novo contato
-          </button>
-        </div>
+      {/* Busca, filtros e ações — tudo numa linha só, logo abaixo do título
+          (que vem de app/contatos/page.js), pra sobrar mais altura pro funil. */}
+      <div className="flex items-center gap-2 px-3 md:px-4 pt-3 flex-wrap">
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por nome ou telefone…"
+          className="flex-1 min-w-[160px] max-w-xs text-sm border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-emerald-400"
+        />
+        <button
+          onClick={() => setFiltrosAbertos(true)}
+          className={`flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border transition-colors shrink-0 ${
+            filtrosAtivosCount > 0
+              ? "bg-slate-800 text-white border-slate-800"
+              : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+          }`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+            <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
+          </svg>
+          Filtros
+          {filtrosAtivosCount > 0 && (
+            <span className="bg-white/20 rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none">
+              {filtrosAtivosCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setAdding(stages[0]?.id)}
+          disabled={!stages[0]}
+          className="ml-auto flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 disabled:opacity-50 transition-colors shrink-0"
+        >
+          + Novo contato
+        </button>
       </div>
 
       {notify && (
@@ -345,157 +370,169 @@ export default function KanbanBoard() {
         </div>
       )}
 
-      {/* Busca por nome ou telefone */}
-      <div className="px-3 md:px-4 pt-3">
-        <input
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por nome ou telefone…"
-          className="w-full max-w-xs text-sm border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-emerald-400"
-        />
-      </div>
+      {filtrosAbertos && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setFiltrosAbertos(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto thin-scroll"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-semibold text-slate-800">Filtros</h3>
+              <div className="flex items-center gap-3">
+                {filtrosAtivosCount > 0 && (
+                  <button
+                    onClick={() => {
+                      setFiltros([]); setRespFiltro(""); setTagFiltro(""); setEstadoFiltro("");
+                      setGeneroFiltro(""); setTipoClienteFiltro(""); setTarefaFiltro("");
+                    }}
+                    className="text-xs text-red-400 hover:text-red-600"
+                  >
+                    Limpar tudo
+                  </button>
+                )}
+                <button onClick={() => setFiltrosAbertos(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              </div>
+            </div>
 
-      {/* Filtro por situação de cobrança (multi-seleção) */}
-      <div className="flex items-center gap-2 px-3 md:px-4 pt-3 flex-wrap overflow-x-auto">
-        <span className="text-xs text-slate-400">Filtrar:</span>
-        <button
-          onClick={() => setFiltros([])}
-          className={`text-xs rounded-full px-3 py-1 border transition-colors ${
-            filtros.length === 0
-              ? "bg-slate-800 text-white border-slate-800"
-              : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-          }`}
-        >
-          Todos
-        </button>
-        {FILTRO_OPCOES.map(({ label, sit, dot }) => {
-          const active = filtros.includes(sit);
-          return (
-            <button
-              key={sit}
-              onClick={() => toggleFiltro(sit)}
-              className={`flex items-center gap-1.5 text-xs rounded-full px-3 py-1 border transition-colors ${
-                active
-                  ? "bg-slate-800 text-white border-slate-800"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${dot}`} />
-              {label}
-            </button>
-          );
-        })}
+            <div className="p-5 space-y-4">
+              {/* Situação de cobrança (multi-seleção) */}
+              <div>
+                <span className="text-xs text-slate-400">Situação</span>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <button
+                    onClick={() => setFiltros([])}
+                    className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                      filtros.length === 0
+                        ? "bg-slate-800 text-white border-slate-800"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  {FILTRO_OPCOES.map(({ label, sit, dot }) => {
+                    const active = filtros.includes(sit);
+                    return (
+                      <button
+                        key={sit}
+                        onClick={() => toggleFiltro(sit)}
+                        className={`flex items-center gap-1.5 text-xs rounded-full px-3 py-1 border transition-colors ${
+                          active
+                            ? "bg-slate-800 text-white border-slate-800"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${dot}`} />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-        {/* Filtro por responsável */}
-        <span className="text-xs text-slate-400 ml-2">Responsável:</span>
-        <select
-          value={respFiltro}
-          onChange={(e) => setRespFiltro(e.target.value)}
-          className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
-            respFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
-          }`}
-        >
-          <option value="">Todos</option>
-          {usuarios.map((u) => (
-            <option key={u.id} value={u.name}>{u.name}</option>
-          ))}
-          <option value="__none__">Sem responsável</option>
-        </select>
+              <label className="block">
+                <span className="text-xs text-slate-400">Responsável</span>
+                <select
+                  value={respFiltro}
+                  onChange={(e) => setRespFiltro(e.target.value)}
+                  className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">Todos</option>
+                  {usuarios.map((u) => (
+                    <option key={u.id} value={u.name}>{u.name}</option>
+                  ))}
+                  <option value="__none__">Sem responsável</option>
+                </select>
+              </label>
 
-        {/* Filtro por tag */}
-        {tags.length > 0 && (
-          <>
-            <span className="text-xs text-slate-400 ml-2">Tag:</span>
-            <select
-              value={tagFiltro}
-              onChange={(e) => setTagFiltro(e.target.value)}
-              className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
-                tagFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
-              }`}
-            >
-              <option value="">Todas</option>
-              {tags.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </>
-        )}
+              {tags.length > 0 && (
+                <label className="block">
+                  <span className="text-xs text-slate-400">Tag</span>
+                  <select
+                    value={tagFiltro}
+                    onChange={(e) => setTagFiltro(e.target.value)}
+                    className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  >
+                    <option value="">Todas</option>
+                    {tags.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
 
-        {/* Filtro por região (estado do lead, detectado pela IA ou pelo DDD) */}
-        {estadosDisponiveis.length > 0 && (
-          <>
-            <span className="text-xs text-slate-400 ml-2">Região:</span>
-            <select
-              value={estadoFiltro}
-              onChange={(e) => setEstadoFiltro(e.target.value)}
-              className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
-                estadoFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
-              }`}
-            >
-              <option value="">Todas</option>
-              {estadosDisponiveis.map((uf) => (
-                <option key={uf} value={uf}>{uf}</option>
-              ))}
-            </select>
-          </>
-        )}
+              {estadosDisponiveis.length > 0 && (
+                <label className="block">
+                  <span className="text-xs text-slate-400">Região</span>
+                  <select
+                    value={estadoFiltro}
+                    onChange={(e) => setEstadoFiltro(e.target.value)}
+                    className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  >
+                    <option value="">Todas</option>
+                    {estadosDisponiveis.map((uf) => (
+                      <option key={uf} value={uf}>{uf}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
 
-        {/* Filtro por gênero */}
-        <span className="text-xs text-slate-400 ml-2">Gênero:</span>
-        <select
-          value={generoFiltro}
-          onChange={(e) => setGeneroFiltro(e.target.value)}
-          className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
-            generoFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
-          }`}
-        >
-          <option value="">Todos</option>
-          <option value="masculino">Masculino</option>
-          <option value="feminino">Feminino</option>
-        </select>
+              <label className="block">
+                <span className="text-xs text-slate-400">Gênero</span>
+                <select
+                  value={generoFiltro}
+                  onChange={(e) => setGeneroFiltro(e.target.value)}
+                  className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">Todos</option>
+                  <option value="masculino">Masculino</option>
+                  <option value="feminino">Feminino</option>
+                </select>
+              </label>
 
-        {/* Filtro por tipo de cliente */}
-        <span className="text-xs text-slate-400 ml-2">Tipo de cliente:</span>
-        <select
-          value={tipoClienteFiltro}
-          onChange={(e) => setTipoClienteFiltro(e.target.value)}
-          className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
-            tipoClienteFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
-          }`}
-        >
-          <option value="">Todos</option>
-          <option value="motoboy">Motoboy</option>
-          <option value="uber">Uber</option>
-          <option value="comerciante">Comerciante</option>
-        </select>
+              <label className="block">
+                <span className="text-xs text-slate-400">Tipo de cliente</span>
+                <select
+                  value={tipoClienteFiltro}
+                  onChange={(e) => setTipoClienteFiltro(e.target.value)}
+                  className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">Todos</option>
+                  <option value="motoboy">Motoboy</option>
+                  <option value="uber">Uber</option>
+                  <option value="comerciante">Comerciante</option>
+                </select>
+              </label>
 
-        {/* Filtro por situação das tarefas pendentes */}
-        <span className="text-xs text-slate-400 ml-2">Tarefas:</span>
-        <select
-          value={tarefaFiltro}
-          onChange={(e) => setTarefaFiltro(e.target.value)}
-          className={`text-xs rounded-full px-3 py-1 border bg-white outline-none transition-colors ${
-            tarefaFiltro ? "border-slate-800 text-slate-800" : "border-slate-200 text-slate-600"
-          }`}
-        >
-          <option value="">Todas</option>
-          <option value="sem">Sem tarefas</option>
-          <option value="atrasada">Atrasadas</option>
-          <option value="hoje">De hoje</option>
-          <option value="futura">A vencer</option>
-        </select>
+              <label className="block">
+                <span className="text-xs text-slate-400">Tarefas</span>
+                <select
+                  value={tarefaFiltro}
+                  onChange={(e) => setTarefaFiltro(e.target.value)}
+                  className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">Todas</option>
+                  <option value="sem">Sem tarefas</option>
+                  <option value="atrasada">Atrasadas</option>
+                  <option value="hoje">De hoje</option>
+                  <option value="futura">A vencer</option>
+                </select>
+              </label>
 
-        {/* Ordenação dos cards por última mensagem */}
-        <span className="text-xs text-slate-400 ml-2">Ordenar:</span>
-        <select
-          value={ordem}
-          onChange={(e) => setOrdem(e.target.value)}
-          className="text-xs rounded-full px-3 py-1 border bg-white border-slate-200 text-slate-600 outline-none transition-colors"
-        >
-          <option value="recentes">Mais recentes</option>
-          <option value="antigas">Mais antigas</option>
-        </select>
-      </div>
+              <label className="block">
+                <span className="text-xs text-slate-400">Ordenar</span>
+                <select
+                  value={ordem}
+                  onChange={(e) => setOrdem(e.target.value)}
+                  className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="recentes">Mais recentes</option>
+                  <option value="antigas">Mais antigas</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ações em massa sobre os leads do filtro */}
       <div className="flex items-center gap-2 px-3 md:px-4 pt-2 flex-wrap overflow-x-auto">

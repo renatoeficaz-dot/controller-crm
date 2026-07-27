@@ -118,6 +118,7 @@ export default function ChatView() {
   const [stageFiltro, setStageFiltro] = useState("");
   const [instanceFiltro, setInstanceFiltro] = useState(""); // número/instância que está conversando
   const [ordem, setOrdem] = useState("recentes"); // "recentes" | "antigas" | "nome"
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
 
   const loadConversations = useCallback(async () => {
     const data = await fetch("/api/chat").then((r) => r.json()).catch(() => []);
@@ -172,6 +173,9 @@ export default function ChatView() {
   );
 
   // Aplica busca + filtros + ordenação na lista de conversas
+  const chatFiltrosAtivosCount =
+    (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0);
+
   const conversasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     const termoDigitos = busca.replace(/\D/g, "");
@@ -534,69 +538,134 @@ export default function ChatView() {
             <h2 className="font-semibold text-slate-800 text-sm">Conversas</h2>
             <span className="text-[11px] text-slate-400">{conversasFiltradas.length}</span>
           </div>
-          <input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome ou telefone…"
-            className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
-          />
-          <div className="flex flex-wrap gap-1">
-            {["", "atrasado", "hoje", "emdia", "sem"].map((s) => (
-              <button
-                key={s || "todos"}
-                onClick={() => setStatusFiltro(s)}
-                className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${
-                  statusFiltro === s
-                    ? "bg-slate-800 text-white border-slate-800"
-                    : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                {s ? STATUS_LABEL[s] : "Todos"}
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            <select
-              value={stageFiltro}
-              onChange={(e) => setStageFiltro(e.target.value)}
-              className="text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white outline-none focus:border-emerald-400"
+          <div className="flex items-center gap-1.5">
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome ou telefone…"
+              className="flex-1 min-w-0 text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+            />
+            <button
+              onClick={() => setFiltrosAbertos(true)}
+              className={`shrink-0 flex items-center gap-1 text-[11px] rounded-full px-2.5 py-1.5 border transition-colors ${
+                chatFiltrosAtivosCount > 0
+                  ? "bg-slate-800 text-white border-slate-800"
+                  : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+              }`}
             >
-              <option value="">Todas etapas</option>
-              {stagesList.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            <select
-              value={tagFiltro}
-              onChange={(e) => setTagFiltro(e.target.value)}
-              className="text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white outline-none focus:border-emerald-400"
-            >
-              <option value="">Todas etiquetas</option>
-              {allTags.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-            <select
-              value={instanceFiltro}
-              onChange={(e) => setInstanceFiltro(e.target.value)}
-              className="text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white outline-none focus:border-emerald-400"
-            >
-              <option value="">Todos números</option>
-              {numbers.map((n) => (
-                <option key={n.id} value={n.instance}>{n.label}</option>
-              ))}
-            </select>
-            <select
-              value={ordem}
-              onChange={(e) => setOrdem(e.target.value)}
-              className="text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white outline-none focus:border-emerald-400"
-            >
-              <option value="recentes">Mais recentes</option>
-              <option value="antigas">Mais antigas</option>
-              <option value="nome">Nome (A-Z)</option>
-            </select>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
+                <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
+              </svg>
+              Filtros
+              {chatFiltrosAtivosCount > 0 && (
+                <span className="bg-white/20 rounded-full w-3.5 h-3.5 flex items-center justify-center text-[9px] leading-none">
+                  {chatFiltrosAtivosCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
+
+        {filtrosAbertos && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setFiltrosAbertos(false)}>
+            <div
+              className="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[85vh] overflow-y-auto thin-scroll"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+                <h3 className="font-semibold text-slate-800">Filtros</h3>
+                <div className="flex items-center gap-3">
+                  {chatFiltrosAtivosCount > 0 && (
+                    <button
+                      onClick={() => { setStatusFiltro(""); setStageFiltro(""); setTagFiltro(""); setInstanceFiltro(""); }}
+                      className="text-xs text-red-400 hover:text-red-600"
+                    >
+                      Limpar tudo
+                    </button>
+                  )}
+                  <button onClick={() => setFiltrosAbertos(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div>
+                  <span className="text-xs text-slate-400">Situação</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {["", "atrasado", "hoje", "emdia", "sem"].map((s) => (
+                      <button
+                        key={s || "todos"}
+                        onClick={() => setStatusFiltro(s)}
+                        className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                          statusFiltro === s
+                            ? "bg-slate-800 text-white border-slate-800"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        {s ? STATUS_LABEL[s] : "Todos"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="block">
+                  <span className="text-xs text-slate-400">Etapa</span>
+                  <select
+                    value={stageFiltro}
+                    onChange={(e) => setStageFiltro(e.target.value)}
+                    className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  >
+                    <option value="">Todas etapas</option>
+                    {stagesList.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-slate-400">Etiqueta</span>
+                  <select
+                    value={tagFiltro}
+                    onChange={(e) => setTagFiltro(e.target.value)}
+                    className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  >
+                    <option value="">Todas etiquetas</option>
+                    {allTags.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-slate-400">Número</span>
+                  <select
+                    value={instanceFiltro}
+                    onChange={(e) => setInstanceFiltro(e.target.value)}
+                    className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  >
+                    <option value="">Todos números</option>
+                    {numbers.map((n) => (
+                      <option key={n.id} value={n.instance}>{n.label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-slate-400">Ordenar</span>
+                  <select
+                    value={ordem}
+                    onChange={(e) => setOrdem(e.target.value)}
+                    className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  >
+                    <option value="recentes">Mais recentes</option>
+                    <option value="antigas">Mais antigas</option>
+                    <option value="nome">Nome (A-Z)</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto thin-scroll">
           {conversasFiltradas.map((c) => (
             <button
