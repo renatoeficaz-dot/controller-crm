@@ -94,6 +94,9 @@ const ICONS = {
   tarefas: (
     <path d="M9 11l3 3L22 4M9 12v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" strokeLinecap="round" strokeLinejoin="round" />
   ),
+  campanhas: (
+    <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07L11.5 4.5M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07L12.5 19.5" strokeLinecap="round" strokeLinejoin="round" />
+  ),
   metas: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -115,6 +118,7 @@ const TABS = [
   { key: "honorarios", label: "Honorários / Multa", desc: "Percentuais e regras de cobrança" },
   { key: "usuarios", label: "Usuários", desc: "Acessos e permissões da equipe" },
   { key: "numeros", label: "Números", desc: "WhatsApp conectados e cobrança automática" },
+  { key: "campanhas", label: "Links (UTM)", desc: "Links de rastreamento por campanha/região" },
   { key: "tags", label: "Tags / Auto-tag", desc: "Etiquetas e regras automáticas" },
   { key: "tarefas", label: "Tipos de Tarefa", desc: "Categorias das tarefas dos leads" },
   { key: "metas", label: "Metas", desc: "Regra da meta diária de recebimento" },
@@ -205,6 +209,7 @@ export default function Configuracoes() {
             {tab === "honorarios" && <Honorarios />}
             {tab === "usuarios" && <Usuarios />}
             {tab === "numeros" && <Numeros />}
+            {tab === "campanhas" && <Campanhas />}
             {tab === "tags" && <TagsConfig />}
             {tab === "tarefas" && <TiposTarefaConfig />}
             {tab === "metas" && <MetasConfig />}
@@ -1501,6 +1506,206 @@ function Numeros() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------------- Links de rastreamento (UTM) ---------------- */
+// Cada campanha vira uma URL curta "/l/slug" que redireciona pro WhatsApp do
+// número escolhido, contando cliques e marcando o lead que chegar por ela
+// (via tag injetada na mensagem, detectada no webhook — lib/webhookCommon.js).
+function Campanhas() {
+  const [campanhas, setCampanhas] = useState([]);
+  const [numeros, setNumeros] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [copiadoId, setCopiadoId] = useState(null);
+  const [form, setForm] = useState({
+    nome: "", numeroId: "", regiao: "", utmSource: "", utmMedium: "", utmCampaign: "", mensagem: "",
+  });
+
+  const load = useCallback(async () => {
+    const [c, n] = await Promise.all([
+      fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
+      fetch("/api/numbers").then((r) => r.json()).catch(() => []),
+    ]);
+    setCampanhas(Array.isArray(c) ? c : []);
+    setNumeros(Array.isArray(n) ? n : []);
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function criar(e) {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    const res = await fetch("/api/campanhas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (!res.ok) { setError(data.error || "Falha ao criar."); return; }
+    setForm({ nome: "", numeroId: "", regiao: "", utmSource: "", utmMedium: "", utmCampaign: "", mensagem: "" });
+    setShowForm(false);
+    load();
+  }
+
+  async function remover(id) {
+    if (!confirm("Remover este link? Os leads já atribuídos a ele continuam no CRM, só perdem a referência.")) return;
+    await fetch(`/api/campanhas/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  function urlDe(slug) {
+    return `${window.location.origin}/l/${slug}`;
+  }
+
+  async function copiar(campanha) {
+    try {
+      await navigator.clipboard.writeText(urlDe(campanha.slug));
+      setCopiadoId(campanha.id);
+      setTimeout(() => setCopiadoId(null), 1500);
+    } catch {}
+  }
+
+  if (loading) return <p className="text-sm text-slate-400">Carregando…</p>;
+
+  return (
+    <div className="max-w-3xl space-y-5">
+      <SectionCard
+        title="Links de rastreamento"
+        desc={
+          <>
+            Gere um link curto pra cada campanha/anúncio/região. Quem clica é redirecionado pro WhatsApp do número
+            escolhido, e o lead que chegar por esse link fica automaticamente marcado com a origem — dá pra cruzar
+            isso nos Relatórios. Contagem de cliques inclusa.
+          </>
+        }
+      >
+        {numeros.length === 0 ? (
+          <p className="text-sm text-amber-600">Cadastre pelo menos um número WhatsApp (aba Números) antes de criar links.</p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+          >
+            {showForm ? "Cancelar" : "+ Novo link"}
+          </button>
+        )}
+
+        {showForm && (
+          <form onSubmit={criar} className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+            <label className="block">
+              <span className="text-xs font-medium text-slate-500">Nome da campanha</span>
+              <input
+                value={form.nome}
+                onChange={set("nome")}
+                placeholder="Ex.: Instagram SP - Stories Julho"
+                required
+                className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-slate-500">Número de destino (WhatsApp)</span>
+              <select
+                value={form.numeroId}
+                onChange={set("numeroId")}
+                required
+                className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+              >
+                <option value="">— Escolha —</option>
+                {numeros.map((n) => (
+                  <option key={n.id} value={n.id}>{n.label} ({n.number})</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-slate-500">Região</span>
+              <input
+                value={form.regiao}
+                onChange={set("regiao")}
+                placeholder="Ex.: SP, SC, capital, interior…"
+                className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+              />
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <label className="block">
+                <span className="text-xs font-medium text-slate-500">UTM source</span>
+                <input value={form.utmSource} onChange={set("utmSource")} placeholder="instagram" className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-slate-500">UTM medium</span>
+                <input value={form.utmMedium} onChange={set("utmMedium")} placeholder="cpc" className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-slate-500">UTM campaign</span>
+                <input value={form.utmCampaign} onChange={set("utmCampaign")} placeholder="julho-sp" className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Os campos UTM são só pra sua própria organização/etiqueta — não aparecem no link nem em anúncios, ficam
+              guardados junto do link pra você lembrar de onde veio.
+            </p>
+            <label className="block">
+              <span className="text-xs font-medium text-slate-500">Mensagem pré-preenchida (opcional)</span>
+              <textarea
+                value={form.mensagem}
+                onChange={set("mensagem")}
+                rows={2}
+                placeholder="Ex.: Olá! Vi o anúncio e quero saber mais sobre o empréstimo."
+                className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
+              />
+            </label>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <button
+              disabled={saving}
+              className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+            >
+              {saving ? "Criando…" : "Criar link"}
+            </button>
+          </form>
+        )}
+      </SectionCard>
+
+      <SectionCard title={`Links criados (${campanhas.length})`}>
+        {campanhas.length === 0 ? (
+          <p className="text-sm text-slate-400">Nenhum link criado ainda.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {campanhas.map((c) => (
+              <li key={c.id} className="py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-700 truncate">{c.nome}</p>
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">
+                    {c.numero?.label} ({c.numero?.number}){c.regiao ? ` · ${c.regiao}` : ""}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => copiar(c)}
+                    className="mt-1.5 text-xs text-sky-600 hover:text-sky-700 font-mono bg-sky-50 rounded px-2 py-1 truncate max-w-full"
+                    title="Copiar link"
+                  >
+                    {copiadoId === c.id ? "✓ Copiado!" : urlDe(c.slug)}
+                  </button>
+                  <p className="text-[11px] text-slate-400 mt-1.5">
+                    {c.cliques} clique{c.cliques === 1 ? "" : "s"} · {c._count?.leads || 0} lead{(c._count?.leads || 0) === 1 ? "" : "s"} gerado{(c._count?.leads || 0) === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <button onClick={() => remover(c.id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">
+                  Excluir
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionCard>
     </div>
   );
 }

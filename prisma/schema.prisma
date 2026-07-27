@@ -69,8 +69,33 @@ model Contact {
   puxadaFileName String?
   puxadaEm       DateTime?
 
+  // Link de rastreamento (UTM) que trouxe esse lead — atribuição de primeiro
+  // toque: setado uma vez, na criação, a partir da tag "[ref:slug]" que o
+  // redirecionamento /l/[slug] injeta na mensagem pré-preenchida do WhatsApp.
+  campanha   LinkCampanha? @relation(fields: [campanhaId], references: [id], onDelete: SetNull)
+  campanhaId String?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+// Link de redirecionamento pro WhatsApp (com UTM/região) pra rastrear de onde
+// vêm as leads — cada campanha vira uma URL curta "/l/slug" que conta cliques
+// e injeta uma tag na 1ª mensagem pra atribuir o lead a ela automaticamente.
+model LinkCampanha {
+  id          String         @id @default(cuid())
+  nome        String
+  slug        String         @unique
+  numero      WhatsappNumber @relation(fields: [numeroId], references: [id], onDelete: Cascade)
+  numeroId    String
+  regiao      String? // livre — UF, cidade, nome da praça de mídia, etc.
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  mensagem    String? // texto pré-preenchido no wa.me (além da tag de rastreio, automática)
+  cliques     Int            @default(0)
+  leads       Contact[]
+  createdAt   DateTime       @default(now())
 }
 
 // Parcela diária de cobrança (10 por empréstimo)
@@ -274,6 +299,7 @@ model WhatsappNumber {
   conectadoEm    DateTime?
   desconectadoEm DateTime?
   logs           ConexaoLog[]
+  campanhas      LinkCampanha[]
 
   createdAt          DateTime @default(now())
 }

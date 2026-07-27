@@ -109,6 +109,34 @@ export default function Relatorios() {
   const adimplenciaPorGenero = useMemo(() => agruparAdimplencia("genero", GENERO_LABEL), [stages]);
   const adimplenciaPorTipoCliente = useMemo(() => agruparAdimplencia("tipoCliente", TIPO_CLIENTE_LABEL), [stages]);
 
+  // Leads por link de rastreamento (UTM/campanha) — de onde vieram e como
+  // estão pagando. "Sem origem" = leads que não chegaram por nenhum link
+  // (mensagem direta, indicação, etc.).
+  const leadsPorCampanha = useMemo(() => {
+    const hoje = hojeStr();
+    const map = new Map();
+    for (const s of stages) {
+      for (const c of s.contacts || []) {
+        const chave = c.campanha?.id || "__sem__";
+        if (!map.has(chave)) {
+          map.set(chave, {
+            chave,
+            label: c.campanha ? `${c.campanha.nome}${c.campanha.regiao ? ` (${c.campanha.regiao})` : ""}` : "Sem origem (direto/indicação)",
+            leads: 0,
+            adimplentes: 0,
+            inadimplentes: 0,
+          });
+        }
+        const row = map.get(chave);
+        row.leads++;
+        if (c.parcelas && c.parcelas.length > 0) {
+          if (c.parcelas.some((p) => parcelaAtrasada(p, hoje))) row.inadimplentes++; else row.adimplentes++;
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.leads - a.leads);
+  }, [stages]);
+
   // Cruza QUANDO o lead foi CRIADO (Contact.createdAt) com adimplência/
   // recebimento — em 3 granularidades escolhíveis (dia da semana, hora do dia,
   // dia do mês) — ajuda a enxergar se leads captados numa certa época pagam
@@ -670,6 +698,33 @@ export default function Relatorios() {
                 { label: "Inadimplentes", value: inadimplentes, color: "#ef4444" },
               ]}
             />
+          )}
+        </div>
+      </section>
+
+      {/* Leads por link de rastreamento (UTM/campanha) */}
+      <section className="xl:col-span-2">
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Leads por link de rastreamento <span className="text-slate-400 font-normal">— origem via /l/… configurado em Configurações</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+          {leadsPorCampanha.length === 0 ? (
+            <p className="text-sm text-slate-400 p-5">Nenhum lead ainda.</p>
+          ) : (
+            leadsPorCampanha.map((r) => {
+              const comEmprestimo = r.adimplentes + r.inadimplentes;
+              return (
+                <div key={r.chave} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-700 truncate">{r.label}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {r.leads} lead{r.leads === 1 ? "" : "s"}
+                      {comEmprestimo > 0 && ` · ${r.inadimplentes} inadimplente${r.inadimplentes === 1 ? "" : "s"} de ${comEmprestimo}`}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </section>

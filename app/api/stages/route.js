@@ -29,6 +29,7 @@ export async function GET() {
         include: {
           parcelas: { orderBy: { number: "asc" } },
           tags: { select: { id: true, name: true, color: true } },
+          campanha: { select: { id: true, nome: true, regiao: true } },
           _count: { select: { messages: { where: { fromMe: false, readAt: null } }, tasks: true } },
           tasks: { where: { done: false }, select: { dueDate: true } },
           messages: {

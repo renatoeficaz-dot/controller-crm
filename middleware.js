@@ -3,7 +3,10 @@ import { SESSION_COOKIE, verifySession } from "@/lib/auth";
 
 // Rotas públicas (não exigem login).
 // /api/webhook precisa ficar aberto para a Evolution entregar mensagens.
-const PUBLIC_PREFIXES = ["/api/auth/login", "/api/auth/logout", "/api/webhook", "/login"];
+// /l/ é o link público de rastreamento (redireciona pro WhatsApp) — não pode
+// exigir login, quem clica é o lead, não um usuário do CRM. Precisa da barra
+// no fim pra não bater com "/lancamentos" (que É protegida).
+const PUBLIC_PREFIXES = ["/api/auth/login", "/api/auth/logout", "/api/webhook", "/login", "/l/"];
 
 export async function middleware(req) {
   const { pathname } = req.nextUrl;
