@@ -89,6 +89,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       estado: data.estado || "",
       genero: data.genero || "",
       tipoCliente: data.tipoCliente || "",
+      cpf: data.cpf || "",
     });
     setMessages(data.messages || []);
     setParcelas(data.parcelas || []);
@@ -615,6 +616,18 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 <option value="uber">Uber</option>
                 <option value="comerciante">Comerciante</option>
               </select>
+            </label>
+
+            {/* CPF — a IA preenche sozinha ao ler um RG/CNH recebido; dá pra corrigir manualmente. */}
+            <label className="block">
+              <span className="text-xs text-slate-400">CPF</span>
+              <input
+                type="text"
+                value={form.cpf || ""}
+                onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value.replace(/\D/g, "").slice(0, 11) }))}
+                placeholder="Só números — a IA preenche pelo documento"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              />
             </label>
 
             {/* Puxada (consulta de crédito) em PDF — fixa no card, não depende do chat */}

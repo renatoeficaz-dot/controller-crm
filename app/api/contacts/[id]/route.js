@@ -46,7 +46,7 @@ export async function PATCH(req, { params }) {
   const { id } = await params;
   const body = await req.json();
   const data = {};
-  for (const f of ["name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente"]) {
+  for (const f of ["name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf"]) {
     if (f in body) data[f] = body[f] || null;
   }
   if ("valorCapital" in body) {

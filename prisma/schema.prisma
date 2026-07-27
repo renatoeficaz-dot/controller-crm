@@ -35,6 +35,8 @@ model Contact {
   genero    String?
   // Tipo de cliente ("motoboy" | "uber" | "comerciante") — cadastrado manualmente.
   tipoCliente String?
+  // CPF do lead — preenchido manualmente ou pela IA ao ler um documento (RG/CNH) recebido.
+  cpf String?
   notes     String?
   order     Int       @default(0)
   stage     Stage     @relation(fields: [stageId], references: [id])
