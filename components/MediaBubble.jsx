@@ -10,17 +10,33 @@ export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
   const isImagem = kind === "image" || (mimetype || "").startsWith("image/");
   const isPdf = mimetype === "application/pdf";
   const isPreviewable = isImagem || isPdf;
+  const [expandido, setExpandido] = useState(false);
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="max-w-3xl max-h-[85vh] w-full flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-        <div className="w-full flex justify-end mb-2">
+      <div
+        className={`${expandido ? "max-w-none w-[98vw] h-[95vh]" : "max-w-3xl max-h-[85vh] w-full"} flex flex-col items-center`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-full flex justify-end items-center gap-3 mb-2">
+          {isPdf && (
+            <button
+              onClick={() => setExpandido((v) => !v)}
+              className="text-white/80 hover:text-white text-xs border border-white/30 rounded px-2 py-1"
+            >
+              {expandido ? "Reduzir" : "⤢ Aumentar"}
+            </button>
+          )}
           <button onClick={onClose} className="text-white/80 hover:text-white text-2xl leading-none">×</button>
         </div>
         {isImagem && (
           <img src={url} alt={fileName || "imagem"} className="max-w-full max-h-[75vh] rounded-lg object-contain" />
         )}
         {!isImagem && isPdf && (
-          <iframe src={url} title={fileName || "documento"} className="w-full h-[75vh] rounded-lg bg-white" />
+          <iframe
+            src={url}
+            title={fileName || "documento"}
+            className={`w-full rounded-lg bg-white ${expandido ? "flex-1" : "h-[75vh]"}`}
+          />
         )}
         {!isPreviewable && (
           <div className="bg-white rounded-lg p-6 text-center text-sm text-slate-600">
