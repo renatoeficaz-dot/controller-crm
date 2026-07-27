@@ -620,6 +620,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             {/* Puxada (consulta de crédito) em PDF — fixa no card, não depende do chat */}
             <PuxadaAnexo
               contactId={contactId}
+              phone={contact?.phone}
               puxadaUrl={contact?.puxadaUrl}
               puxadaFileName={contact?.puxadaFileName}
               onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}
@@ -1102,11 +1103,24 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 // Anexo fixo de PDF (puxada/consulta de crédito) — sempre visível no card do
 // lead, independente do histórico de mensagens. Upload dispara na hora
 // (não depende do botão "Salvar" do resto do form).
-function PuxadaAnexo({ contactId, puxadaUrl, puxadaFileName, onChange }) {
+function PuxadaAnexo({ contactId, phone, puxadaUrl, puxadaFileName, onChange }) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const [aberta, setAberta] = useState(false);
   const inputRef = useRef(null);
+
+  // Abre o site de consulta (detetiveforense.com) numa aba nova e copia o
+  // telefone do lead pra área de transferência, pra só colar no campo de busca
+  // de lá — login/busca/exportação continuam manuais (o site não tem API e
+  // login automatizado por senha não é algo que a gente automatiza aqui).
+  async function consultar() {
+    if (phone) {
+      try {
+        await navigator.clipboard.writeText(phone.replace(/\D/g, ""));
+      } catch {}
+    }
+    window.open("https://detetiveforense.com", "_blank", "noopener,noreferrer");
+  }
 
   async function onFile(e) {
     const file = e.target.files?.[0];
@@ -1142,12 +1156,22 @@ function PuxadaAnexo({ contactId, puxadaUrl, puxadaFileName, onChange }) {
     <div className="border border-slate-200 rounded-lg p-2.5">
       <div className="flex items-center justify-between text-xs font-medium text-slate-600">
         <span>📎 Puxada (consulta de crédito)</span>
-        {puxadaUrl && (
-          <button type="button" onClick={remover} className="text-red-400 hover:text-red-600 font-normal">
-            Remover
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={consultar} className="text-sky-600 hover:text-sky-700 font-normal">
+            🔍 Puxada
           </button>
-        )}
+          {puxadaUrl && (
+            <button type="button" onClick={remover} className="text-red-400 hover:text-red-600 font-normal">
+              Remover
+            </button>
+          )}
+        </div>
       </div>
+      {phone && (
+        <p className="text-[10px] text-slate-400 mt-1">
+          "Puxada" abre o site e copia o telefone — é só colar lá.
+        </p>
+      )}
       {puxadaUrl ? (
         <button
           type="button"
