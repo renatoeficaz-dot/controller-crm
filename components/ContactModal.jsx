@@ -19,6 +19,17 @@ const money = (n) =>
 const fmtDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }) : "—";
 
+// Dia da semana + data + hora em que o lead entrou no funil — usado nos
+// relatórios pra cruzar inadimplência/recebimento com o dia de criação.
+function fmtCriacao(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const diaSemana = d.toLocaleDateString("pt-BR", { weekday: "long" });
+  const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)}, ${data} às ${hora}`;
+}
+
 function numberLabel(instance, numbers) {
   if (!instance) return null;
   const n = numbers.find((x) => x.instance === instance);
@@ -619,6 +630,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 <option value="comerciante">Comerciante</option>
               </select>
             </label>
+
+            {/* Criação — quando o lead entrou no funil (dia da semana, data e hora). Só leitura. */}
+            <div className="block">
+              <span className="text-xs text-slate-400">Criação</span>
+              <p className="mt-0.5 text-sm text-slate-600">{fmtCriacao(contact?.createdAt)}</p>
+            </div>
 
             {/* CPF — a IA preenche sozinha ao ler um RG/CNH recebido; dá pra corrigir manualmente. */}
             <label className="block">

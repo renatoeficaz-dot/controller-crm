@@ -13,6 +13,16 @@ function todayStr() {
   return new Date().toLocaleDateString("en-CA");
 }
 
+// Dia da semana + data + hora em que o lead entrou no funil.
+function fmtCriacao(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const diaSemana = d.toLocaleDateString("pt-BR", { weekday: "long" });
+  const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)}, ${data} às ${hora}`;
+}
+
 // Situação de cobrança do contato (mesma lógica do Kanban):
 //  "atrasado" = tem parcela vencida e não baixada
 //  "hoje"     = tem parcela que vence hoje e não baixada
@@ -865,6 +875,12 @@ export default function ChatView() {
                 <option value="feminino">Feminino</option>
               </select>
             </label>
+
+            {/* Criação — quando o lead entrou no funil (dia da semana, data e hora). Só leitura. */}
+            <div className="block">
+              <span className="text-[11px] text-slate-400">Criação</span>
+              <p className="mt-0.5 text-xs text-slate-600">{fmtCriacao(contact?.createdAt)}</p>
+            </div>
 
             {/* CPF — a IA preenche sozinha ao ler um RG/CNH recebido; dá pra corrigir manualmente. */}
             <label className="block">

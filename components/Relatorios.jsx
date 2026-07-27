@@ -109,6 +109,51 @@ export default function Relatorios() {
   const adimplenciaPorGenero = useMemo(() => agruparAdimplencia("genero", GENERO_LABEL), [stages]);
   const adimplenciaPorTipoCliente = useMemo(() => agruparAdimplencia("tipoCliente", TIPO_CLIENTE_LABEL), [stages]);
 
+  // Cruza o dia da semana em que o lead foi CRIADO (Contact.createdAt) com
+  // adimplência/recebimento — ajuda a enxergar se leads captados numa certa
+  // época da semana pagam melhor/pior ou trazem mais receita que outros.
+  const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+  const DIAS_SEMANA_ORDEM = [1, 2, 3, 4, 5, 6, 0]; // segunda primeiro, domingo por último
+
+  const inadimplenciaPorDiaCriacao = useMemo(() => {
+    const hoje = hojeStr();
+    const map = new Map();
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        if (!c.parcelas || c.parcelas.length === 0 || !c.createdAt) continue;
+        const dow = new Date(c.createdAt).getDay();
+        if (!map.has(dow)) map.set(dow, { adimplentes: 0, inadimplentes: 0 });
+        const row = map.get(dow);
+        if (c.parcelas.some((p) => parcelaAtrasada(p, hoje))) row.inadimplentes++; else row.adimplentes++;
+      }
+    }
+    return DIAS_SEMANA_ORDEM.map((dow) => {
+      const row = map.get(dow) || { adimplentes: 0, inadimplentes: 0 };
+      const total = row.adimplentes + row.inadimplentes;
+      return { label: DIAS_SEMANA[dow], value: total > 0 ? Math.round((row.inadimplentes / total) * 100) : 0, ...row };
+    });
+  }, [stagesFiltrados]);
+
+  const recebidoPorDiaCriacao = useMemo(() => {
+    const map = new Map();
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        if (!c.createdAt) continue;
+        const dow = new Date(c.createdAt).getDay();
+        const valor = (c.parcelas || [])
+          .filter((p) => {
+            if (!p.paid || !p.paidAt) return false;
+            const d = new Date(p.paidAt).toLocaleDateString("en-CA");
+            return d >= ini && d <= fim;
+          })
+          .reduce((acc, p) => acc + p.amount, 0);
+        if (valor <= 0) continue;
+        map.set(dow, (map.get(dow) || 0) + valor);
+      }
+    }
+    return DIAS_SEMANA_ORDEM.map((dow) => ({ label: DIAS_SEMANA[dow], value: Math.round((map.get(dow) || 0) * 100) / 100 }));
+  }, [stagesFiltrados, ini, fim]);
+
   // Lista de UFs presentes na base, pro seletor (só mostra o que existe).
   const ufsDisponiveis = useMemo(() => {
     const set = new Set();
@@ -655,6 +700,39 @@ export default function Relatorios() {
               ))}
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Cruzamento com o dia da semana em que o lead foi criado */}
+      <section className="xl:col-span-2">
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Por dia de criação da lead <span className="text-slate-400 font-normal">— dia da semana em que o lead entrou no funil</span>
+        </h2>
+        <div className="grid lg:grid-cols-2 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-xs text-slate-400 mb-2">% de inadimplência por dia de criação</p>
+            {inadimplenciaPorDiaCriacao.every((d) => d.adimplentes + d.inadimplentes === 0) ? (
+              <p className="text-sm text-slate-400 py-4">Nenhum cliente com empréstimo ativo.</p>
+            ) : (
+              <VBarChart
+                data={inadimplenciaPorDiaCriacao}
+                color="#ef4444"
+                tooltip={(d) => `${d.label}: ${d.value}% inadimplente (${d.inadimplentes} de ${d.adimplentes + d.inadimplentes})`}
+              />
+            )}
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-xs text-slate-400 mb-2">Recebido no período por dia de criação</p>
+            {recebidoPorDiaCriacao.every((d) => d.value === 0) ? (
+              <p className="text-sm text-slate-400 py-4">Nenhum recebimento no período selecionado.</p>
+            ) : (
+              <VBarChart
+                data={recebidoPorDiaCriacao}
+                color="#059669"
+                tooltip={(d) => `${d.label}: ${money(d.value)}`}
+              />
+            )}
+          </div>
         </div>
       </section>
 
