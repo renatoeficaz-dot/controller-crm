@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 // Popup pra ver a mídia direto no sistema, sem abrir aba nova nem forçar download.
-function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
+export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
   // Documento que na verdade é uma foto/scan (ex.: comprovante mandado como
   // "arquivo" em vez de "foto" no WhatsApp) — trata como imagem mesmo se o
   // kind salvo for "document", senão o modal só mostrava um link sem preview.

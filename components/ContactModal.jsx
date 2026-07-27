@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { resumoCobranca, valorParcelaAtual, parcelaAtrasada } from "@/lib/finance";
 import { UFS_BR } from "@/lib/ddd";
-import MediaBubble from "./MediaBubble";
+import MediaBubble, { MediaLightbox } from "./MediaBubble";
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -1105,6 +1105,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 function PuxadaAnexo({ contactId, puxadaUrl, puxadaFileName, onChange }) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
+  const [aberta, setAberta] = useState(false);
   const inputRef = useRef(null);
 
   async function onFile(e) {
@@ -1148,15 +1149,14 @@ function PuxadaAnexo({ contactId, puxadaUrl, puxadaFileName, onChange }) {
         )}
       </div>
       {puxadaUrl ? (
-        <a
-          href={puxadaUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-2 flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 rounded-md px-2.5 py-2 hover:bg-emerald-100 transition-colors truncate"
+        <button
+          type="button"
+          onClick={() => setAberta(true)}
+          className="mt-2 w-full flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 rounded-md px-2.5 py-2 hover:bg-emerald-100 transition-colors truncate text-left"
         >
           <span>📄</span>
           <span className="truncate">{puxadaFileName || "puxada.pdf"}</span>
-        </a>
+        </button>
       ) : (
         <button
           type="button"
@@ -1169,6 +1169,15 @@ function PuxadaAnexo({ contactId, puxadaUrl, puxadaFileName, onChange }) {
       )}
       {erro && <p className="text-[11px] text-red-500 mt-1">{erro}</p>}
       <input ref={inputRef} type="file" accept="application/pdf" onChange={onFile} className="hidden" />
+      {aberta && puxadaUrl && (
+        <MediaLightbox
+          url={puxadaUrl}
+          mimetype="application/pdf"
+          fileName={puxadaFileName}
+          kind="document"
+          onClose={() => setAberta(false)}
+        />
+      )}
     </div>
   );
 }
