@@ -617,6 +617,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </select>
             </label>
 
+            {/* Puxada (consulta de crédito) em PDF — fixa no card, não depende do chat */}
+            <PuxadaAnexo
+              contactId={contactId}
+              puxadaUrl={contact?.puxadaUrl}
+              puxadaFileName={contact?.puxadaFileName}
+              onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}
+            />
+
             {/* Mídias enviadas na conversa */}
             <MidiasEnviadas messages={messages} />
 
@@ -1087,6 +1095,80 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Anexo fixo de PDF (puxada/consulta de crédito) — sempre visível no card do
+// lead, independente do histórico de mensagens. Upload dispara na hora
+// (não depende do botão "Salvar" do resto do form).
+function PuxadaAnexo({ contactId, puxadaUrl, puxadaFileName, onChange }) {
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+  const inputRef = useRef(null);
+
+  async function onFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.type !== "application/pdf") { setErro("Só é permitido PDF."); return; }
+    setErro("");
+    setEnviando(true);
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const res = await fetch(`/api/contacts/${contactId}/puxada`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ base64, fileName: file.name, mimetype: file.type }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setEnviando(false);
+    if (!res.ok) { setErro(data.error || "Falha ao enviar."); return; }
+    onChange(data);
+  }
+
+  async function remover() {
+    if (!confirm("Remover a puxada anexada deste lead?")) return;
+    await fetch(`/api/contacts/${contactId}/puxada`, { method: "DELETE" });
+    onChange({ puxadaUrl: null, puxadaFileName: null });
+  }
+
+  return (
+    <div className="border border-slate-200 rounded-lg p-2.5">
+      <div className="flex items-center justify-between text-xs font-medium text-slate-600">
+        <span>📎 Puxada (consulta de crédito)</span>
+        {puxadaUrl && (
+          <button type="button" onClick={remover} className="text-red-400 hover:text-red-600 font-normal">
+            Remover
+          </button>
+        )}
+      </div>
+      {puxadaUrl ? (
+        <a
+          href={puxadaUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 rounded-md px-2.5 py-2 hover:bg-emerald-100 transition-colors truncate"
+        >
+          <span>📄</span>
+          <span className="truncate">{puxadaFileName || "puxada.pdf"}</span>
+        </a>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={enviando}
+          className="mt-2 w-full text-xs text-slate-500 border border-dashed border-slate-300 rounded-md py-2 hover:border-emerald-400 hover:text-emerald-600 transition-colors disabled:opacity-50"
+        >
+          {enviando ? "Enviando…" : "+ Anexar PDF"}
+        </button>
+      )}
+      {erro && <p className="text-[11px] text-red-500 mt-1">{erro}</p>}
+      <input ref={inputRef} type="file" accept="application/pdf" onChange={onFile} className="hidden" />
     </div>
   );
 }

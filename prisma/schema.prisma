@@ -61,6 +61,12 @@ model Contact {
   // pra gerar parcelas) — usado só pra contar "vendas do dia" na aba Metas.
   entrouRecebimentoEm DateTime?
 
+  // Puxada (consulta de crédito) em PDF — fica fixa no card do lead, sempre
+  // visível ao abrir, diferente da mídia trocada na conversa (que rola no chat).
+  puxadaUrl      String?
+  puxadaFileName String?
+  puxadaEm       DateTime?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
