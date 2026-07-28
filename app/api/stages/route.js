@@ -58,7 +58,11 @@ export async function GET() {
       tasksCount: c._count?.tasks || 0,
       tarefasPendentes: c.tasks || [],
       lastMessageAt: c.messages?.[0]?.createdAt || c.createdAt,
-      respondeu: (c.messages || []).some((m) => !m.fromMe),
+      // Quantas mensagens o CLIENTE mandou (limitado às últimas 50 da conversa).
+      // Não adianta um booleano "respondeu": todo lead nasce de uma mensagem
+      // recebida, então isso seria sempre true — o que separa lead real de
+      // lead fantasma é ter mandado mais de uma.
+      msgsCliente: (c.messages || []).filter((m) => !m.fromMe).length,
       messages: undefined,
       tasks: undefined,
       _count: undefined,

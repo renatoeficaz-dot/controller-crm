@@ -441,19 +441,22 @@ export default function Relatorios() {
     return dias;
   }, [contatosFiltrados]);
 
-  // 9. Volume de lead não vale nada se metade nunca responde — separa anúncio
-  // que traz gente interessada de anúncio que só queima orçamento.
-  const respostaPorOrigem = useMemo(() => {
+  // 9. Volume de lead não vale nada se a maioria manda um "oi" e some. Como
+  // todo lead aqui nasce de uma mensagem recebida, o que separa lead real de
+  // lead fantasma é ter mandado MAIS DE UMA mensagem.
+  const engajamentoPorOrigem = useMemo(() => {
     const map = new Map();
     for (const c of contatosFiltrados) {
       const chave = c.campanha?.nome || "Sem origem (direto/indicação)";
-      if (!map.has(chave)) map.set(chave, { origem: chave, leads: 0, responderam: 0 });
+      if (!map.has(chave)) map.set(chave, { origem: chave, leads: 0, engajaram: 0, soUmaMsg: 0 });
       const row = map.get(chave);
       row.leads++;
-      if (c.respondeu) row.responderam++;
+      const msgs = c.msgsCliente ?? 0;
+      if (msgs >= 2) row.engajaram++;
+      else row.soUmaMsg++;
     }
     return Array.from(map.values())
-      .map((r) => ({ ...r, taxa: r.leads > 0 ? Math.round((r.responderam / r.leads) * 100) : 0 }))
+      .map((r) => ({ ...r, taxa: r.leads > 0 ? Math.round((r.engajaram / r.leads) * 100) : 0 }))
       .sort((a, b) => b.leads - a.leads);
   }, [contatosFiltrados]);
 
@@ -1791,31 +1794,33 @@ export default function Relatorios() {
         </div>
       </section>
 
-      {/* Taxa de resposta por origem */}
+      {/* Engajamento por origem */}
       <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
-          Taxa de resposta por origem <span className="text-slate-400 font-normal">— quantos leads de cada canal realmente respondem</span>
+          Engajamento por origem <span className="text-slate-400 font-normal">— lead que conversou de verdade vs. quem mandou um "oi" e sumiu</span>
         </h2>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          {respostaPorOrigem.length === 0 ? (
+          {engajamentoPorOrigem.length === 0 ? (
             <p className="text-sm text-slate-400 py-4 px-5">Nenhum lead cadastrado.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[480px]">
+              <table className="w-full text-sm min-w-[560px]">
                 <thead>
                   <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
                     <th className="py-2.5 px-4 font-medium">Origem</th>
                     <th className="py-2.5 px-3 font-medium text-right">Leads</th>
-                    <th className="py-2.5 px-3 font-medium text-right">Responderam</th>
-                    <th className="py-2.5 px-4 font-medium text-right">Taxa de resposta</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Engajaram (2+ msgs)</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Só 1 mensagem</th>
+                    <th className="py-2.5 px-4 font-medium text-right">% Engajamento</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {respostaPorOrigem.map((r) => (
+                  {engajamentoPorOrigem.map((r) => (
                     <tr key={r.origem} className="border-b border-slate-50 last:border-0">
                       <td className="py-2 px-4 font-medium text-slate-700 truncate max-w-[260px]" title={r.origem}>{r.origem}</td>
                       <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.leads}</td>
-                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.responderam}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-emerald-600">{r.engajaram}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-400">{r.soUmaMsg}</td>
                       <td className={`py-2 px-4 text-right tabular-nums font-medium ${r.taxa >= 50 ? "text-emerald-600" : r.taxa >= 25 ? "text-amber-600" : "text-red-600"}`}>
                         {r.taxa}%
                       </td>
