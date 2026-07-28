@@ -19,7 +19,11 @@ export default function PuxadaAnexo({ contactId, cpf, puxadaUrl, puxadaFileName,
     }
     setErro("");
     setConsultando(true);
-    const res = await fetch(`/api/contacts/${contactId}/puxada/auto`, { method: "POST" });
+    const res = await fetch(`/api/contacts/${contactId}/puxada/auto`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cpf: cpfLimpo }),
+    });
     const data = await res.json().catch(() => ({}));
     setConsultando(false);
     if (!res.ok) { setErro(data.error || "Falha ao consultar a puxada."); return; }

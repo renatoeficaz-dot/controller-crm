@@ -6,16 +6,17 @@ import { gerarPuxadaPdfBuffer } from "@/lib/puxadaPdf";
 
 export const runtime = "nodejs";
 
-export async function POST(_req, { params }) {
+export async function POST(req, { params }) {
   const { id } = await params;
   try {
+    const body = await req.json().catch(() => ({}));
     const contact = await prisma.contact.findUnique({
       where: { id },
       select: { id: true, cpf: true },
     });
     if (!contact) return NextResponse.json({ error: "Lead nao encontrado." }, { status: 404 });
 
-    const cpf = String(contact.cpf || "").replace(/\D/g, "");
+    const cpf = String(body.cpf || contact.cpf || "").replace(/\D/g, "");
     if (cpf.length !== 11) {
       return NextResponse.json({ error: "Informe um CPF valido no card da lead antes de puxar." }, { status: 400 });
     }
@@ -27,8 +28,8 @@ export async function POST(_req, { params }) {
 
     const updated = await prisma.contact.update({
       where: { id },
-      data: { puxadaUrl: url, puxadaFileName: fileName, puxadaEm: new Date() },
-      select: { puxadaUrl: true, puxadaFileName: true, puxadaEm: true },
+      data: { cpf, puxadaUrl: url, puxadaFileName: fileName, puxadaEm: new Date() },
+      select: { cpf: true, puxadaUrl: true, puxadaFileName: true, puxadaEm: true },
     });
 
     return NextResponse.json(updated);
