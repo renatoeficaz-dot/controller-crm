@@ -673,6 +673,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               cpf={form.cpf || contact?.cpf}
               puxadaUrl={contact?.puxadaUrl}
               puxadaFileName={contact?.puxadaFileName}
+              puxadaScore={contact?.puxadaScore}
+              puxadaRisco={contact?.puxadaRisco}
+              puxadaLimite={contact?.puxadaLimite}
+              puxadaMotivos={contact?.puxadaMotivos}
+              puxadaRenda={contact?.puxadaRenda}
+              puxadaEmprestimos={contact?.puxadaEmprestimos}
+              puxadaCcf={contact?.puxadaCcf}
+              puxadaProcessos={contact?.puxadaProcessos}
               onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}
             />
 

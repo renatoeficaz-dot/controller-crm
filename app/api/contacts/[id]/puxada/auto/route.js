@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { saveMediaBuffer } from "@/lib/mediaStorage";
 import { consultarCpfDetetive } from "@/lib/detetiveForense";
 import { gerarPuxadaPdfBuffer } from "@/lib/puxadaPdf";
+import { extrairDadosPuxada, calcularScore } from "@/lib/scoreCredito";
 
 export const runtime = "nodejs";
 
@@ -26,10 +27,35 @@ export async function POST(req, { params }) {
     const fileName = `puxada-${cpf}.pdf`;
     const url = await saveMediaBuffer(pdf, "application/pdf", fileName);
 
+    // A mesma consulta que virou PDF também alimenta o score — assim o dado
+    // fica consultável no card e nos relatórios, não só dentro do arquivo.
+    const dados = extrairDadosPuxada(resultado);
+    const score = calcularScore(dados);
+
     const updated = await prisma.contact.update({
       where: { id },
-      data: { cpf, puxadaUrl: url, puxadaFileName: fileName, puxadaEm: new Date() },
-      select: { cpf: true, puxadaUrl: true, puxadaFileName: true, puxadaEm: true },
+      data: {
+        cpf,
+        puxadaUrl: url,
+        puxadaFileName: fileName,
+        puxadaEm: new Date(),
+        puxadaRenda: dados.renda,
+        puxadaClasse: dados.classe,
+        puxadaEmprestimos: dados.emprestimos,
+        puxadaCcf: dados.ccf,
+        puxadaProcessos: dados.processos,
+        puxadaObito: dados.obito,
+        puxadaScore: score.score,
+        puxadaRisco: score.risco,
+        puxadaLimite: score.limite,
+        puxadaMotivos: score.motivos.join("|"),
+      },
+      select: {
+        cpf: true, puxadaUrl: true, puxadaFileName: true, puxadaEm: true,
+        puxadaRenda: true, puxadaClasse: true, puxadaEmprestimos: true,
+        puxadaCcf: true, puxadaProcessos: true, puxadaObito: true,
+        puxadaScore: true, puxadaRisco: true, puxadaLimite: true, puxadaMotivos: true,
+      },
     });
 
     return NextResponse.json(updated);

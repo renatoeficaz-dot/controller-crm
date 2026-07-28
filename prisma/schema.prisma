@@ -69,6 +69,22 @@ model Contact {
   puxadaFileName String?
   puxadaEm       DateTime?
 
+  // Dados estruturados extraídos da mesma consulta que gera o PDF da puxada.
+  // Ficam em colunas próprias (e não só dentro do PDF) pra alimentar o score
+  // de risco e poderem ser cruzados nos relatórios depois.
+  puxadaRenda       Float?   // renda presumida mensal
+  puxadaClasse      String?  // classe social (A/B/C/D/E)
+  puxadaEmprestimos Int?     // empréstimos ativos (não quitados) em outros bancos
+  puxadaCcf         Int?     // registros de cheque sem fundo
+  puxadaProcessos   Int?     // processos judiciais encontrados
+  puxadaObito       Boolean? // flag de óbito na base da Receita
+  // Score 0-100 (quanto maior, melhor) calculado em lib/scoreCredito.js.
+  // É consultivo: aparece no card pra apoiar a decisão, não bloqueia nada.
+  puxadaScore       Int?
+  puxadaRisco       String?  // "baixo" | "medio" | "alto" | "bloqueio"
+  puxadaLimite      Float?   // limite de capital sugerido, em R$
+  puxadaMotivos     String?  // motivos do score, separados por "|"
+
   // Link de rastreamento (UTM) que trouxe esse lead — atribuição de primeiro
   // toque: setado uma vez, na criação, a partir da tag "[ref:slug]" que o
   // redirecionamento /l/[slug] injeta na mensagem pré-preenchida do WhatsApp.

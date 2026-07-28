@@ -2,9 +2,62 @@
 
 import { useRef, useState } from "react";
 import { MediaLightbox } from "./MediaBubble";
+import { RISCO_LABEL } from "@/lib/scoreCredito";
+
+const money = (n) =>
+  "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const RISCO_ESTILO = {
+  baixo: { fundo: "bg-emerald-50", borda: "border-emerald-200", texto: "text-emerald-700", barra: "bg-emerald-500" },
+  medio: { fundo: "bg-amber-50", borda: "border-amber-200", texto: "text-amber-700", barra: "bg-amber-500" },
+  alto: { fundo: "bg-red-50", borda: "border-red-200", texto: "text-red-700", barra: "bg-red-500" },
+  bloqueio: { fundo: "bg-red-100", borda: "border-red-300", texto: "text-red-800", barra: "bg-red-700" },
+};
+
+// Resultado do score de crédito calculado a partir da puxada. É consultivo:
+// mostra o porquê da nota pra apoiar a decisão, sem bloquear nada.
+function ScoreCredito({ score, risco, limite, motivos, renda, emprestimos, ccf, processos }) {
+  if (score == null || !risco) return null;
+  const st = RISCO_ESTILO[risco] || RISCO_ESTILO.medio;
+  const lista = (motivos || "").split("|").filter(Boolean);
+
+  return (
+    <div className={`mt-2 rounded-lg border p-2.5 ${st.fundo} ${st.borda}`}>
+      <div className="flex items-center justify-between">
+        <span className={`text-xs font-semibold ${st.texto}`}>{RISCO_LABEL[risco] || risco}</span>
+        <span className={`text-xs font-semibold ${st.texto}`}>{score}/100</span>
+      </div>
+      <div className="w-full bg-white/70 rounded-full h-1.5 mt-1.5">
+        <div className={`h-1.5 rounded-full ${st.barra}`} style={{ width: `${score}%` }} />
+      </div>
+      <p className={`text-[11px] mt-1.5 font-medium ${st.texto}`}>
+        Limite sugerido: {limite > 0 ? money(limite) : "não liberar"}
+      </p>
+      {lista.length > 0 && (
+        <ul className="mt-1 space-y-0.5">
+          {lista.map((m, i) => (
+            <li key={i} className="text-[10px] text-slate-500">• {m}</li>
+          ))}
+        </ul>
+      )}
+      <p className="text-[10px] text-slate-400 mt-1.5">
+        {[
+          renda != null && `Renda ${money(renda)}`,
+          emprestimos != null && `${emprestimos} empréstimo(s) ativo(s)`,
+          ccf ? `${ccf} CCF` : null,
+          processos ? `${processos} processo(s)` : null,
+        ].filter(Boolean).join(" · ")}
+      </p>
+    </div>
+  );
+}
 
 // Anexo fixo de PDF (puxada/consulta de credito), compartilhado entre Kanban e Chat.
-export default function PuxadaAnexo({ contactId, cpf, puxadaUrl, puxadaFileName, onChange }) {
+export default function PuxadaAnexo({
+  contactId, cpf, puxadaUrl, puxadaFileName, onChange,
+  puxadaScore, puxadaRisco, puxadaLimite, puxadaMotivos,
+  puxadaRenda, puxadaEmprestimos, puxadaCcf, puxadaProcessos,
+}) {
   const [enviando, setEnviando] = useState(false);
   const [consultando, setConsultando] = useState(false);
   const [erro, setErro] = useState("");
@@ -102,6 +155,16 @@ export default function PuxadaAnexo({ contactId, cpf, puxadaUrl, puxadaFileName,
           {enviando ? "Enviando..." : "+ Anexar PDF"}
         </button>
       )}
+      <ScoreCredito
+        score={puxadaScore}
+        risco={puxadaRisco}
+        limite={puxadaLimite}
+        motivos={puxadaMotivos}
+        renda={puxadaRenda}
+        emprestimos={puxadaEmprestimos}
+        ccf={puxadaCcf}
+        processos={puxadaProcessos}
+      />
       {erro && <p className="text-[11px] text-red-500 mt-1">{erro}</p>}
       <input ref={inputRef} type="file" accept="application/pdf" onChange={onFile} className="hidden" />
       {aberta && puxadaUrl && (
