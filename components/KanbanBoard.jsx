@@ -119,16 +119,6 @@ export default function KanbanBoard() {
   const [bulkValue, setBulkValue] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  // "+ Novo contato" mora no cabeçalho da página (NovoContatoButton), fora
-  // deste componente — escuta o evento global em vez de duplicar o botão.
-  useEffect(() => {
-    function onNovoContato() {
-      if (stages[0]) setAdding(stages[0].id);
-    }
-    window.addEventListener("kanban:novo-contato", onNovoContato);
-    return () => window.removeEventListener("kanban:novo-contato", onNovoContato);
-  }, [stages]);
-
   function toggleFiltro(sit) {
     setFiltros((prev) =>
       prev.includes(sit) ? prev.filter((s) => s !== sit) : [...prev, sit]
@@ -339,9 +329,12 @@ export default function KanbanBoard() {
 
   return (
     <>
-      {/* Busca, filtros e ações — tudo numa linha só, logo abaixo do título
-          (que vem de app/contatos/page.js), pra sobrar mais altura pro funil. */}
+      {/* Título, busca, filtros e ações — tudo numa linha só, pra sobrar mais altura pro funil. */}
       <div className="flex items-center gap-2 px-3 md:px-4 pt-3 flex-wrap">
+        <div className="mr-1 shrink-0">
+          <h1 className="font-semibold text-slate-800 text-sm md:text-base">Funil de contatos</h1>
+          <p className="text-xs text-slate-400 hidden lg:block">Arraste os cartões entre as colunas. Clique para abrir o chat.</p>
+        </div>
         <input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
@@ -419,7 +412,7 @@ export default function KanbanBoard() {
         <button
           onClick={() => setAdding(stages[0]?.id)}
           disabled={!stages[0]}
-          className="ml-auto sm:hidden flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 disabled:opacity-50 transition-colors shrink-0"
+          className="ml-auto flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 disabled:opacity-50 transition-colors shrink-0"
         >
           + Novo contato
         </button>
