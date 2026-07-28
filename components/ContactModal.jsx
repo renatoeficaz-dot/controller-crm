@@ -670,7 +670,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             {/* Puxada (consulta de crédito) em PDF — fixa no card, não depende do chat */}
             <PuxadaAnexo
               contactId={contactId}
-              phone={contact?.phone}
+              cpf={form.cpf || contact?.cpf}
               puxadaUrl={contact?.puxadaUrl}
               puxadaFileName={contact?.puxadaFileName}
               onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}

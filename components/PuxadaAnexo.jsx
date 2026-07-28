@@ -3,34 +3,34 @@
 import { useRef, useState } from "react";
 import { MediaLightbox } from "./MediaBubble";
 
-// Anexo fixo de PDF (puxada/consulta de crédito) — sempre visível no card do
-// lead, independente do histórico de mensagens. Upload dispara na hora
-// (não depende do botão "Salvar" do resto do form). Compartilhado entre o
-// modal do Kanban e o painel do Chat pra não duplicar (e desalinhar) a lógica.
-export default function PuxadaAnexo({ contactId, phone, puxadaUrl, puxadaFileName, onChange }) {
+// Anexo fixo de PDF (puxada/consulta de credito), compartilhado entre Kanban e Chat.
+export default function PuxadaAnexo({ contactId, cpf, puxadaUrl, puxadaFileName, onChange }) {
   const [enviando, setEnviando] = useState(false);
+  const [consultando, setConsultando] = useState(false);
   const [erro, setErro] = useState("");
   const [aberta, setAberta] = useState(false);
   const inputRef = useRef(null);
 
-  // Abre o site de consulta (detetiveforense.com) numa aba nova e copia o
-  // telefone do lead pra área de transferência, pra só colar no campo de busca
-  // de lá — login/busca/exportação continuam manuais (o site não tem API e
-  // login automatizado por senha não é algo que a gente automatiza aqui).
   async function consultar() {
-    if (phone) {
-      try {
-        await navigator.clipboard.writeText(phone.replace(/\D/g, ""));
-      } catch {}
+    const cpfLimpo = String(cpf || "").replace(/\D/g, "");
+    if (cpfLimpo.length !== 11) {
+      setErro("Informe o CPF da lead antes de puxar automaticamente.");
+      return;
     }
-    window.open("https://detetiveforense.com", "_blank", "noopener,noreferrer");
+    setErro("");
+    setConsultando(true);
+    const res = await fetch(`/api/contacts/${contactId}/puxada/auto`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setConsultando(false);
+    if (!res.ok) { setErro(data.error || "Falha ao consultar a puxada."); return; }
+    onChange(data);
   }
 
   async function onFile(e) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.type !== "application/pdf") { setErro("Só é permitido PDF."); return; }
+    if (file.type !== "application/pdf") { setErro("So e permitido PDF."); return; }
     setErro("");
     setEnviando(true);
     const base64 = await new Promise((resolve, reject) => {
@@ -61,8 +61,13 @@ export default function PuxadaAnexo({ contactId, phone, puxadaUrl, puxadaFileNam
       <div className="flex items-center justify-between text-xs font-medium text-slate-600">
         <span>📎 Puxada (consulta de crédito)</span>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={consultar} className="text-sky-600 hover:text-sky-700 font-normal">
-            🔍 Puxada
+          <button
+            type="button"
+            onClick={consultar}
+            disabled={consultando || enviando}
+            className="text-sky-600 hover:text-sky-700 font-normal disabled:opacity-50 disabled:cursor-wait"
+          >
+            {consultando ? "Consultando..." : "🔍 Puxada"}
           </button>
           {puxadaUrl && (
             <button type="button" onClick={remover} className="text-red-400 hover:text-red-600 font-normal">
@@ -71,11 +76,9 @@ export default function PuxadaAnexo({ contactId, phone, puxadaUrl, puxadaFileNam
           )}
         </div>
       </div>
-      {phone && (
-        <p className="text-[10px] text-slate-400 mt-1">
-          "Puxada" abre o site e copia o telefone — é só colar lá.
-        </p>
-      )}
+      <p className="text-[10px] text-slate-400 mt-1">
+        "Puxada" consulta pelo CPF e anexa o PDF automaticamente.
+      </p>
       {puxadaUrl ? (
         <button
           type="button"
@@ -89,10 +92,10 @@ export default function PuxadaAnexo({ contactId, phone, puxadaUrl, puxadaFileNam
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          disabled={enviando}
+          disabled={enviando || consultando}
           className="mt-2 w-full text-xs text-slate-500 border border-dashed border-slate-300 rounded-md py-2 hover:border-emerald-400 hover:text-emerald-600 transition-colors disabled:opacity-50"
         >
-          {enviando ? "Enviando…" : "+ Anexar PDF"}
+          {enviando ? "Enviando..." : "+ Anexar PDF"}
         </button>
       )}
       {erro && <p className="text-[11px] text-red-500 mt-1">{erro}</p>}
