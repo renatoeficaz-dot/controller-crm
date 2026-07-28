@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const links = [
-  { href: "/chat", label: "Chat", icon: "💬" },
-  { href: "/tarefas", label: "Tarefas", icon: "✅" },
-  { href: "/metas", label: "Metas", icon: "🎯" },
+  { href: "/chat", label: "Chat", icon: "💬", pagina: "chat" },
+  { href: "/tarefas", label: "Tarefas", icon: "✅", pagina: "tarefas" },
+  { href: "/metas", label: "Metas", icon: "🎯", pagina: "metas" },
   { href: "/lancamentos", label: "Lançamentos", icon: "💲", admin: true },
-  { href: "/contatos", label: "Contatos", icon: "👥" },
-  { href: "/relatorios", label: "Relatórios", icon: "📊" },
+  { href: "/contatos", label: "Contatos", icon: "👥", pagina: "contatos" },
+  { href: "/relatorios", label: "Relatórios", icon: "📊", pagina: "relatorios" },
   { href: "/configuracoes", label: "Configurações", icon: "⚙️", admin: true },
 ];
 
@@ -18,18 +18,26 @@ const links = [
 // principais, complementar ao menu do topo (mesmas rotas, visual compacto).
 export default function SideNav() {
   const pathname = usePathname();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
-      .then((u) => setIsAdmin(u?.role === "admin"))
+      .then(setUser)
       .catch(() => {});
   }, [pathname]);
 
   if (pathname === "/login") return null;
 
-  const visibleLinks = links.filter((l) => !l.admin || isAdmin);
+  const isAdmin = user?.role === "admin";
+  const paginasPermitidas = isAdmin || !user?.paginasVisiveis
+    ? null
+    : user.paginasVisiveis.split(",").map((s) => s.trim()).filter(Boolean);
+  const visibleLinks = links.filter((l) => {
+    if (l.admin) return isAdmin;
+    if (!l.pagina || !paginasPermitidas) return true;
+    return paginasPermitidas.includes(l.pagina);
+  });
 
   return (
     <nav className="hidden md:flex flex-col items-center gap-1 w-14 shrink-0 bg-white border-r border-slate-200 py-3">
