@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { aReceber, totalRecebido, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
-import { hojeStr, parcelaAtrasada, NUM_PARCELAS } from "@/lib/finance";
+import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS } from "@/lib/finance";
 import ContactModal from "@/components/ContactModal";
 
 const money = (n) =>
@@ -215,6 +215,280 @@ export default function Relatorios() {
       .sort((a, b) => b.mes.localeCompare(a.mes))
       .slice(0, 6);
   }, [stagesFiltrados]);
+
+  // Todos os contatos do filtro, achatados — várias métricas abaixo só precisam
+  // da lista de leads, não da estrutura de etapas.
+  const contatosFiltrados = useMemo(
+    () => stagesFiltrados.flatMap((s) => (s.contacts || []).map((c) => ({ ...c, _stage: s.name }))),
+    [stagesFiltrados]
+  );
+
+  // Soma do que já foi pago por um contato.
+  function recebidoDe(c) {
+    return (c.parcelas || []).filter((p) => p.paid).reduce((acc, p) => acc + (p.amountPago ?? p.amount), 0);
+  }
+
+  // Dias entre a liberação do capital e a parcela que fechou o payback (null
+  // se o cliente ainda não devolveu o capital emprestado).
+  function diasPaybackDe(c) {
+    if (!c.valorCapital || !c.pagamentoCapital) return null;
+    const pagas = (c.parcelas || [])
+      .filter((p) => p.paid && p.paidAt)
+      .slice()
+      .sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
+    let acumulado = 0;
+    const inicio = new Date(String(c.pagamentoCapital).slice(0, 10));
+    for (const p of pagas) {
+      acumulado += p.amountPago ?? p.amount;
+      if (acumulado >= c.valorCapital) {
+        return Math.max(0, Math.round((new Date(String(p.paidAt).slice(0, 10)) - inicio) / 86400000));
+      }
+    }
+    return null;
+  }
+
+  // 1. Aging: o valor em aberto separado por HÁ QUANTO TEMPO está vencido —
+  // R$ atrasado há 3 dias é fluxo de caixa, há 40 dias é quase perda.
+  const agingData = useMemo(() => {
+    const hoje = new Date(hojeStr());
+    const faixas = [
+      { label: "1-7 dias", max: 7, color: "#fbbf24" },
+      { label: "8-15 dias", max: 15, color: "#f59e0b" },
+      { label: "16-30 dias", max: 30, color: "#ef4444" },
+      { label: "+30 dias", max: Infinity, color: "#991b1b" },
+    ].map((f) => ({ ...f, value: 0, parcelas: 0, clientes: new Set() }));
+
+    for (const c of contatosFiltrados) {
+      for (const p of c.parcelas || []) {
+        if (p.paid) continue;
+        const dias = Math.round((hoje - new Date(dueStr(p))) / 86400000);
+        if (dias < 1) continue;
+        const faixa = faixas.find((f) => dias <= f.max);
+        if (!faixa) continue;
+        faixa.value += p.amount;
+        faixa.parcelas++;
+        faixa.clientes.add(c.id);
+      }
+    }
+    return faixas.map((f) => ({ ...f, clientes: f.clientes.size }));
+  }, [contatosFiltrados]);
+
+  // 2. Conversão etapa a etapa: onde o lead morre no funil. "Cravo" e
+  // "Aguardando Cobrador" já passaram por Recebimento; "Venda perdida" fica de
+  // fora porque não dá pra saber em que etapa o lead parou.
+  const conversaoFunil = useMemo(() => {
+    const SEQUENCIA = ["Novo", "Em conversa", "Documentação", "Análise", "Liberação pagamento", "Recebimento", "Pago"];
+    const idxRecebimento = SEQUENCIA.indexOf("Recebimento");
+    const indices = [];
+    for (const c of contatosFiltrados) {
+      if (c._stage === "Venda perdida") continue;
+      let idx = SEQUENCIA.indexOf(c._stage);
+      if (idx === -1) {
+        if (c._stage === "Cravo" || c._stage === "Aguardando Cobrador") idx = idxRecebimento;
+        else continue;
+      }
+      indices.push(idx);
+    }
+    const topo = indices.length;
+    return SEQUENCIA.map((nome, i) => {
+      const chegaram = indices.filter((idx) => idx >= i).length;
+      return { etapa: nome, chegaram, pctTopo: topo > 0 ? Math.round((chegaram / topo) * 100) : 0 };
+    }).map((r, i, arr) => {
+      const anterior = i > 0 ? arr[i - 1].chegaram : null;
+      return { ...r, pctAnterior: anterior > 0 ? Math.round((r.chegaram / anterior) * 100) : null };
+    });
+  }, [contatosFiltrados]);
+
+  // 3. Tempo do primeiro contato até o dinheiro sair — reduzir isso faz o
+  // capital girar mais vezes no mês sem precisar de mais dinheiro.
+  const tempoAteLiberacao = useMemo(() => {
+    const dias = [];
+    for (const c of contatosFiltrados) {
+      if (!c.createdAt || !c.pagamentoCapital) continue;
+      const d = Math.round(
+        (new Date(String(c.pagamentoCapital).slice(0, 10)) - new Date(String(c.createdAt).slice(0, 10))) / 86400000
+      );
+      if (d >= 0) dias.push(d);
+    }
+    return {
+      media: dias.length > 0 ? Math.round(dias.reduce((a, b) => a + b, 0) / dias.length) : null,
+      clientes: dias.length,
+    };
+  }, [contatosFiltrados]);
+
+  // 4. Giro: quantas vezes o mesmo dinheiro rodou no período. É o que traduz
+  // "80% de honorários" no retorno mensal real.
+  const giroCapital = useMemo(() => {
+    let capitalNaRua = 0;
+    let emprestadoNoPeriodo = 0;
+    for (const c of contatosFiltrados) {
+      if (!c.valorCapital) continue;
+      if ((c.parcelas || []).some((p) => !p.paid)) capitalNaRua += c.valorCapital;
+      if (c.pagamentoCapital) {
+        const d = String(c.pagamentoCapital).slice(0, 10);
+        if (d >= ini && d <= fim) emprestadoNoPeriodo += c.valorCapital;
+      }
+    }
+    return {
+      capitalNaRua,
+      emprestadoNoPeriodo,
+      giro: capitalNaRua > 0 ? Math.round((emprestadoNoPeriodo / capitalNaRua) * 10) / 10 : 0,
+    };
+  }, [contatosFiltrados, ini, fim]);
+
+  // 5. Faixa de ticket: acima de certo valor o calote costuma disparar — é o
+  // dado que define o limite de crédito, hoje decidido no feeling.
+  const porFaixaTicket = useMemo(() => {
+    const hoje = hojeStr();
+    const faixas = [
+      { label: "Até R$300", max: 300 },
+      { label: "R$301–500", max: 500 },
+      { label: "R$501–1.000", max: 1000 },
+      { label: "Acima de R$1.000", max: Infinity },
+    ].map((f) => ({ ...f, clientes: 0, emprestado: 0, recebido: 0, comParcelas: 0, inadimplentes: 0 }));
+
+    for (const c of contatosFiltrados) {
+      if (!c.valorCapital || c.valorCapital <= 0) continue;
+      const faixa = faixas.find((f) => c.valorCapital <= f.max);
+      if (!faixa) continue;
+      faixa.clientes++;
+      faixa.emprestado += c.valorCapital;
+      faixa.recebido += recebidoDe(c);
+      if ((c.parcelas || []).length > 0) {
+        faixa.comParcelas++;
+        if (c.parcelas.some((p) => parcelaAtrasada(p, hoje))) faixa.inadimplentes++;
+      }
+    }
+    return faixas
+      .filter((f) => f.clientes > 0)
+      .map((f) => ({
+        ...f,
+        lucro: f.recebido - f.emprestado,
+        pctInad: f.comParcelas > 0 ? Math.round((f.inadimplentes / f.comParcelas) * 100) : 0,
+      }));
+  }, [contatosFiltrados]);
+
+  // 6. Ciclo: se o renovado paga muito melhor que o primeiro empréstimo, vale
+  // mais renovar quem já provou que paga do que captar lead novo.
+  const porCiclo = useMemo(() => {
+    const hoje = hojeStr();
+    const map = new Map();
+    for (const c of contatosFiltrados) {
+      if (!c.valorCapital || c.valorCapital <= 0) continue;
+      const ciclo = c.cicloAtual || 1;
+      const chave = ciclo >= 3 ? "3+" : String(ciclo);
+      if (!map.has(chave)) {
+        map.set(chave, { chave, clientes: 0, emprestado: 0, recebido: 0, comParcelas: 0, inadimplentes: 0, paybacks: [] });
+      }
+      const row = map.get(chave);
+      row.clientes++;
+      row.emprestado += c.valorCapital;
+      row.recebido += recebidoDe(c);
+      if ((c.parcelas || []).length > 0) {
+        row.comParcelas++;
+        if (c.parcelas.some((p) => parcelaAtrasada(p, hoje))) row.inadimplentes++;
+      }
+      const pb = diasPaybackDe(c);
+      if (pb != null) row.paybacks.push(pb);
+    }
+    return Array.from(map.values())
+      .sort((a, b) => a.chave.localeCompare(b.chave))
+      .map((r) => ({
+        ...r,
+        lucro: r.recebido - r.emprestado,
+        pctInad: r.comParcelas > 0 ? Math.round((r.inadimplentes / r.comParcelas) * 100) : 0,
+        paybackMedio: r.paybacks.length > 0 ? Math.round(r.paybacks.reduce((a, b) => a + b, 0) / r.paybacks.length) : null,
+      }));
+  }, [contatosFiltrados]);
+
+  // 7. Quando pagam, atrasam quanto? Separa "mau pagador" de "pagador atrasado
+  // crônico" — o segundo é cliente rentável (ainda gera multa).
+  const atrasoDeQuemPaga = useMemo(() => {
+    const faixas = [
+      { label: "Em dia", max: 0, color: "#059669" },
+      { label: "1-3 dias", max: 3, color: "#84cc16" },
+      { label: "4-7 dias", max: 7, color: "#fbbf24" },
+      { label: "8-15 dias", max: 15, color: "#f59e0b" },
+      { label: "+15 dias", max: Infinity, color: "#ef4444" },
+    ].map((f) => ({ ...f, value: 0 }));
+    let soma = 0;
+    let total = 0;
+
+    for (const c of contatosFiltrados) {
+      for (const p of c.parcelas || []) {
+        if (!p.paid || !p.paidAt) continue;
+        const dias = Math.round((new Date(String(p.paidAt).slice(0, 10)) - new Date(dueStr(p))) / 86400000);
+        const faixa = faixas.find((f) => dias <= f.max);
+        if (faixa) faixa.value++;
+        soma += Math.max(0, dias);
+        total++;
+      }
+    }
+    return { faixas, media: total > 0 ? Math.round(soma / total) : null, parcelas: total };
+  }, [contatosFiltrados]);
+
+  // 8. Em que dia do mês o dinheiro entra — costuma seguir o calendário de
+  // salário/INSS, então mostra quando vale intensificar a cobrança.
+  const recebimentoPorDiaMes = useMemo(() => {
+    const dias = Array.from({ length: 31 }, (_, i) => ({ label: String(i + 1), value: 0 }));
+    for (const c of contatosFiltrados) {
+      for (const p of c.parcelas || []) {
+        if (!p.paid || !p.paidAt) continue;
+        const dia = new Date(p.paidAt).getDate();
+        if (dia >= 1 && dia <= 31) dias[dia - 1].value += p.amountPago ?? p.amount;
+      }
+    }
+    return dias;
+  }, [contatosFiltrados]);
+
+  // 9. Volume de lead não vale nada se metade nunca responde — separa anúncio
+  // que traz gente interessada de anúncio que só queima orçamento.
+  const respostaPorOrigem = useMemo(() => {
+    const map = new Map();
+    for (const c of contatosFiltrados) {
+      const chave = c.campanha?.nome || "Sem origem (direto/indicação)";
+      if (!map.has(chave)) map.set(chave, { origem: chave, leads: 0, responderam: 0 });
+      const row = map.get(chave);
+      row.leads++;
+      if (c.respondeu) row.responderam++;
+    }
+    return Array.from(map.values())
+      .map((r) => ({ ...r, taxa: r.leads > 0 ? Math.round((r.responderam / r.leads) * 100) : 0 }))
+      .sort((a, b) => b.leads - a.leads);
+  }, [contatosFiltrados]);
+
+  // 10. Nenhuma métrica isolada diz se você está melhorando — essa diz.
+  const comparativoMensal = useMemo(() => {
+    const map = new Map();
+    const garante = (mes) => {
+      if (!map.has(mes)) map.set(mes, { mes, vendas: 0, liberado: 0, recebido: 0 });
+      return map.get(mes);
+    };
+    for (const c of contatosFiltrados) {
+      if (c.entrouRecebimentoEm) garante(String(c.entrouRecebimentoEm).slice(0, 7)).vendas++;
+      if (c.pagamentoCapital && c.valorCapital) {
+        garante(String(c.pagamentoCapital).slice(0, 7)).liberado += c.valorCapital;
+      }
+      for (const p of c.parcelas || []) {
+        if (!p.paid || !p.paidAt) continue;
+        garante(String(p.paidAt).slice(0, 7)).recebido += p.amountPago ?? p.amount;
+      }
+    }
+    const linhas = Array.from(map.values())
+      .sort((a, b) => b.mes.localeCompare(a.mes))
+      .slice(0, 6)
+      .map((r) => ({ ...r, ticketMedio: r.vendas > 0 ? r.liberado / r.vendas : 0 }));
+    // A lista está do mais recente pro mais antigo, então o mês anterior no
+    // tempo é o PRÓXIMO item do array.
+    return linhas.map((r, i) => {
+      const anterior = linhas[i + 1];
+      return {
+        ...r,
+        deltaRecebido:
+          anterior && anterior.recebido > 0 ? Math.round(((r.recebido - anterior.recebido) / anterior.recebido) * 100) : null,
+      };
+    });
+  }, [contatosFiltrados]);
 
   // Leads por link de rastreamento (UTM/campanha) — de onde vieram e como
   // estão pagando. "Sem origem" = leads que não chegaram por nenhum link
@@ -565,9 +839,9 @@ export default function Relatorios() {
   if (loading) return <div className="p-6 text-slate-400">Carregando relatórios…</div>;
 
   return (
-    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 items-start">
+    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 flex flex-col gap-4 md:gap-6">
       {/* Botão único que abre o modal com todos os filtros */}
-      <div className="flex items-center gap-2 xl:col-span-2">
+      <div className="flex items-center gap-2">
         <button
           onClick={() => setFiltrosAbertos(true)}
           className={`flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border transition-colors ${
@@ -752,7 +1026,7 @@ export default function Relatorios() {
       </section>
 
       {/* A receber */}
-      <section className="xl:col-span-2">
+      <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">A receber</h2>
         <div className="grid sm:grid-cols-3 gap-4">
           <Card titulo="Hoje" valor={receber.dia} cor="emerald" />
@@ -765,7 +1039,7 @@ export default function Relatorios() {
       </section>
 
       {/* Total recebido por período — período agora é escolhido no botão "Filtros" no topo */}
-      <section className="xl:col-span-2">
+      <section>
         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
           <h2 className="text-sm font-semibold text-slate-700">Total recebido</h2>
           <button onClick={() => setFiltrosAbertos(true)} className="text-xs text-sky-600 hover:text-sky-700">
@@ -792,7 +1066,7 @@ export default function Relatorios() {
       </section>
 
       {/* Resumo por estado — comparação lado a lado, independente do filtro acima */}
-      <section className="xl:col-span-2">
+      <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Resumo por estado</h2>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {porEstado.length === 0 ? (
@@ -934,6 +1208,9 @@ export default function Relatorios() {
         </div>
       </section>
 
+      {/* Os 3 donuts de adimplência ficam lado a lado — sozinhos em largura
+          total sobra muito espaço branco em volta do gráfico. */}
+      <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
       {/* Adimplência vs inadimplência */}
       <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência</h2>
@@ -952,7 +1229,7 @@ export default function Relatorios() {
       </section>
 
       {/* Leads por link de rastreamento (UTM/campanha) */}
-      <section className="xl:col-span-2">
+      <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Leads por link de rastreamento <span className="text-slate-400 font-normal">— origem via /l/… configurado em Configurações</span>
         </h2>
@@ -1029,9 +1306,10 @@ export default function Relatorios() {
           )}
         </div>
       </section>
+      </div>
 
       {/* Lucro real por perfil: recebido - emprestado, não só % de inadimplência */}
-      <section className="xl:col-span-2">
+      <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Lucro real por perfil <span className="text-slate-400 font-normal">— recebido menos emprestado, não só % de inadimplência</span>
         </h2>
@@ -1054,7 +1332,7 @@ export default function Relatorios() {
       </section>
 
       {/* Curva de safra: clientes agrupados pelo mês em que o capital foi liberado */}
-      <section className="xl:col-span-2">
+      <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Curva de safra <span className="text-slate-400 font-normal">— carteira agrupada pelo mês de liberação do capital</span>
         </h2>
@@ -1099,7 +1377,7 @@ export default function Relatorios() {
       </section>
 
       {/* Cruzamento com quando o lead foi criado (dia da semana / hora / dia do mês) */}
-      <section className="xl:col-span-2">
+      <section>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
           <h2 className="text-sm font-semibold text-slate-700">
             Por criação da lead <span className="text-slate-400 font-normal">— quando o lead entrou no funil</span>
@@ -1152,7 +1430,7 @@ export default function Relatorios() {
       </section>
 
       {/* Em qual parcela o cliente parou de pagar */}
-      <section className="xl:col-span-2">
+      <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Parcela em que o cliente parou de pagar <span className="text-slate-400 font-normal">— clientes em atraso agora</span>
         </h2>
@@ -1172,7 +1450,7 @@ export default function Relatorios() {
       </section>
 
       {/* A receber por número de parcela */}
-      <section className="xl:col-span-2">
+      <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           A receber por parcela <span className="text-slate-400 font-normal">— quantas parcelas em aberto de cada número</span>
         </h2>
@@ -1190,7 +1468,7 @@ export default function Relatorios() {
       </section>
 
       {/* Payback: quanto foi liberado, quanto voltou e em quantos dias */}
-      <section className="xl:col-span-2">
+      <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Payback dos clientes <span className="text-slate-400 font-normal">— o que foi liberado, quanto voltou e em quanto tempo</span>
         </h2>
@@ -1265,7 +1543,7 @@ export default function Relatorios() {
       </section>
 
       {/* LTV: valor total já gerado por cada cliente (todos os ciclos) */}
-      <section className="xl:col-span-2">
+      <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           LTV dos clientes <span className="text-slate-400 font-normal">— total já recebido de cada um, somando todos os ciclos</span>
         </h2>
@@ -1281,6 +1559,314 @@ export default function Relatorios() {
               <p className="text-xs text-slate-400 mb-2">Top 10 clientes por LTV — clique numa barra pra abrir o lead</p>
               <HBarChart data={ltvTop10} valueFmt={money} onBarClick={(d) => setOpenContactId(d.id)} />
             </>
+          )}
+        </div>
+      </section>
+
+      {/* Aging da carteira */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Aging da carteira <span className="text-slate-400 font-normal">— valor em aberto por tempo de atraso</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          {agingData.every((f) => f.value === 0) ? (
+            <p className="text-sm text-slate-400 py-4">Nenhuma parcela vencida em aberto.</p>
+          ) : (
+            <>
+              <VBarChart
+                data={agingData}
+                tooltip={(d) => `${d.label}: ${money(d.value)} — ${d.parcelas} parcela(s) de ${d.clientes} cliente(s)`}
+              />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                {agingData.map((f) => (
+                  <div key={f.label}>
+                    <p className="text-[11px] text-slate-400">{f.label}</p>
+                    <p className="text-sm font-semibold" style={{ color: f.color }}>{money(f.value)}</p>
+                    <p className="text-[11px] text-slate-400">{f.clientes} cliente{f.clientes === 1 ? "" : "s"}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* Conversão etapa a etapa */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Conversão etapa a etapa <span className="text-slate-400 font-normal">— onde o lead para no funil (exclui Venda perdida)</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          {conversaoFunil[0]?.chegaram === 0 ? (
+            <p className="text-sm text-slate-400 py-4 px-5">Nenhum lead no funil.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[520px]">
+                <thead>
+                  <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                    <th className="py-2.5 px-4 font-medium">Etapa</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Chegaram</th>
+                    <th className="py-2.5 px-3 font-medium text-right">% do topo</th>
+                    <th className="py-2.5 px-4 font-medium text-right">% da etapa anterior</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conversaoFunil.map((r) => (
+                    <tr key={r.etapa} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2 px-4 font-medium text-slate-700">{r.etapa}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.chegaram}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-violet-600">{r.pctTopo}%</td>
+                      <td className={`py-2 px-4 text-right tabular-nums font-medium ${r.pctAnterior == null ? "text-slate-400" : r.pctAnterior >= 60 ? "text-emerald-600" : r.pctAnterior >= 30 ? "text-amber-600" : "text-red-600"}`}>
+                        {r.pctAnterior == null ? "—" : `${r.pctAnterior}%`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Velocidade e giro do capital */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Velocidade e giro do capital <span className="text-slate-400 font-normal">— quanto tempo até liberar e quantas vezes o dinheiro rodou</span>
+        </h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-xs text-slate-400">Tempo médio até liberar</p>
+            <p className="text-2xl font-semibold mt-1 text-sky-600">
+              {tempoAteLiberacao.media != null ? `${tempoAteLiberacao.media}d` : "—"}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1">Do 1º contato ao capital na mão</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-xs text-slate-400">Clientes considerados</p>
+            <p className="text-2xl font-semibold mt-1 text-slate-700">{tempoAteLiberacao.clientes}</p>
+          </div>
+          <Card titulo="Capital na rua" valor={giroCapital.capitalNaRua} cor="violet" />
+          <Card titulo="Emprestado no período" valor={giroCapital.emprestadoNoPeriodo} cor="emerald" />
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-xs text-slate-400">Giro no período</p>
+            <p className="text-2xl font-semibold mt-1 text-amber-600">
+              {String(giroCapital.giro).replace(".", ",")}x
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1">Emprestado ÷ capital na rua</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Faixa de ticket */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Inadimplência e lucro por faixa de ticket <span className="text-slate-400 font-normal">— até onde vale emprestar</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          {porFaixaTicket.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 px-5">Nenhum cliente com capital liberado.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[620px]">
+                <thead>
+                  <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                    <th className="py-2.5 px-4 font-medium">Faixa</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Clientes</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Emprestado</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Recebido</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Lucro</th>
+                    <th className="py-2.5 px-4 font-medium text-right">% Inadimplência</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {porFaixaTicket.map((f) => (
+                    <tr key={f.label} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2 px-4 font-medium text-slate-700">{f.label}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{f.clientes}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{money(f.emprestado)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{money(f.recebido)}</td>
+                      <td className={`py-2 px-3 text-right tabular-nums font-medium ${f.lucro >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {money(f.lucro)}
+                      </td>
+                      <td className={`py-2 px-4 text-right tabular-nums font-medium ${f.pctInad >= 50 ? "text-red-600" : f.pctInad >= 25 ? "text-amber-600" : "text-slate-500"}`}>
+                        {f.pctInad}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Comportamento por ciclo */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Comportamento por ciclo <span className="text-slate-400 font-normal">— 1º empréstimo vs. renovações</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          {porCiclo.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 px-5">Nenhum cliente com capital liberado.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[680px]">
+                <thead>
+                  <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                    <th className="py-2.5 px-4 font-medium">Ciclo</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Clientes</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Emprestado</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Recebido</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Lucro</th>
+                    <th className="py-2.5 px-3 font-medium text-right">% Inadimplência</th>
+                    <th className="py-2.5 px-4 font-medium text-right">Payback médio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {porCiclo.map((r) => (
+                    <tr key={r.chave} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2 px-4 font-medium text-slate-700">
+                        {r.chave === "1" ? "1º empréstimo" : r.chave === "2" ? "2º (1ª renovação)" : "3º ou mais"}
+                      </td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.clientes}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{money(r.emprestado)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{money(r.recebido)}</td>
+                      <td className={`py-2 px-3 text-right tabular-nums font-medium ${r.lucro >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {money(r.lucro)}
+                      </td>
+                      <td className={`py-2 px-3 text-right tabular-nums font-medium ${r.pctInad >= 50 ? "text-red-600" : r.pctInad >= 25 ? "text-amber-600" : "text-slate-500"}`}>
+                        {r.pctInad}%
+                      </td>
+                      <td className="py-2 px-4 text-right tabular-nums text-slate-500">
+                        {r.paybackMedio != null ? `${r.paybackMedio}d` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Atraso de quem paga */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Atraso de quem paga <span className="text-slate-400 font-normal">— separa mau pagador de pagador atrasado</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          {atrasoDeQuemPaga.parcelas === 0 ? (
+            <p className="text-sm text-slate-400 py-4">Nenhuma parcela paga ainda.</p>
+          ) : (
+            <>
+              <VBarChart
+                data={atrasoDeQuemPaga.faixas}
+                tooltip={(d) => `${d.label}: ${d.value} parcela${d.value === 1 ? "" : "s"}`}
+              />
+              <p className="text-xs text-slate-500 mt-3">
+                Quando pagam, os clientes atrasam em média {atrasoDeQuemPaga.media}d — considerando {atrasoDeQuemPaga.parcelas} parcelas já baixadas.
+              </p>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* Calendário de recebimento */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Calendário de recebimento <span className="text-slate-400 font-normal">— em que dia do mês o dinheiro entra</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 overflow-x-auto">
+          {recebimentoPorDiaMes.every((d) => d.value === 0) ? (
+            <p className="text-sm text-slate-400 py-4">Nenhum recebimento registrado.</p>
+          ) : (
+            <div style={{ minWidth: 900 }}>
+              <VBarChart
+                data={recebimentoPorDiaMes}
+                color="#059669"
+                tooltip={(d) => `Dia ${d.label}: ${money(d.value)}`}
+              />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Taxa de resposta por origem */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Taxa de resposta por origem <span className="text-slate-400 font-normal">— quantos leads de cada canal realmente respondem</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          {respostaPorOrigem.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 px-5">Nenhum lead cadastrado.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
+                <thead>
+                  <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                    <th className="py-2.5 px-4 font-medium">Origem</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Leads</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Responderam</th>
+                    <th className="py-2.5 px-4 font-medium text-right">Taxa de resposta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {respostaPorOrigem.map((r) => (
+                    <tr key={r.origem} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2 px-4 font-medium text-slate-700 truncate max-w-[260px]" title={r.origem}>{r.origem}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.leads}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.responderam}</td>
+                      <td className={`py-2 px-4 text-right tabular-nums font-medium ${r.taxa >= 50 ? "text-emerald-600" : r.taxa >= 25 ? "text-amber-600" : "text-red-600"}`}>
+                        {r.taxa}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Comparativo mês a mês */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Comparativo mês a mês <span className="text-slate-400 font-normal">— últimos 6 meses</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          {comparativoMensal.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 px-5">Sem histórico ainda.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[640px]">
+                <thead>
+                  <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                    <th className="py-2.5 px-4 font-medium">Mês</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Vendas</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Liberado</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Recebido</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Ticket médio</th>
+                    <th className="py-2.5 px-4 font-medium text-right">Δ Recebido</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparativoMensal.map((r) => (
+                    <tr key={r.mes} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2 px-4 font-medium text-slate-700 capitalize">
+                        {new Date(`${r.mes}-01T00:00:00`).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
+                      </td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.vendas}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{money(r.liberado)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{money(r.recebido)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{money(r.ticketMedio)}</td>
+                      <td className={`py-2 px-4 text-right tabular-nums font-medium ${r.deltaRecebido == null ? "text-slate-400" : r.deltaRecebido >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {r.deltaRecebido == null ? "—" : `${r.deltaRecebido >= 0 ? "+" : ""}${r.deltaRecebido}%`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </section>

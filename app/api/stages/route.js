@@ -32,10 +32,13 @@ export async function GET() {
           campanha: { select: { id: true, nome: true, regiao: true } },
           _count: { select: { messages: { where: { fromMe: false, readAt: null } }, tasks: true } },
           tasks: { where: { done: false }, select: { dueDate: true } },
+          // take: 50 (e não 1) porque além do horário da última mensagem o
+          // relatório precisa saber se o lead JÁ respondeu alguma vez — só o
+          // fromMe da última mensagem não diz isso.
           messages: {
             orderBy: { createdAt: "desc" },
-            take: 1,
-            select: { createdAt: true },
+            take: 50,
+            select: { createdAt: true, fromMe: true },
           },
         },
       },
@@ -55,6 +58,7 @@ export async function GET() {
       tasksCount: c._count?.tasks || 0,
       tarefasPendentes: c.tasks || [],
       lastMessageAt: c.messages?.[0]?.createdAt || c.createdAt,
+      respondeu: (c.messages || []).some((m) => !m.fromMe),
       messages: undefined,
       tasks: undefined,
       _count: undefined,
