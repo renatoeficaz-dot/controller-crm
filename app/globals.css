@@ -50,3 +50,103 @@ body {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+
+/* ---------------------------------------------------------------------------
+   Modo escuro
+   ---------------------------------------------------------------------------
+   O app foi escrito inteiro com cores fixas (bg-white, text-slate-700...) —
+   são ~1.400 ocorrências espalhadas por 15 componentes. Em vez de anotar cada
+   uma com `dark:`, aqui as próprias utilities são redefinidas quando o <html>
+   tem a classe .dark. Assim o tema vale pra tela inteira, inclusive telas que
+   forem criadas depois, sem precisar lembrar de anotar nada.
+
+   `html.dark` (0,2,0) tem mais especificidade que a utility sozinha (0,1,0),
+   então vence sem precisar de !important.
+
+   Nota: classes com barra (bg-white/70, bg-slate-900/40) são nomes diferentes
+   e NÃO são atingidas aqui — de propósito, porque são translúcidas e já
+   funcionam bem sobre fundo escuro (overlays de modal, badges).
+--------------------------------------------------------------------------- */
+html.dark {
+  --background: #0b1220;
+  --foreground: #e2e8f0;
+  color-scheme: dark;
+}
+
+/* Superfícies */
+html.dark .bg-white { background-color: #1e293b; }
+html.dark .bg-slate-50 { background-color: #172033; }
+html.dark .bg-slate-100 { background-color: #334155; }
+html.dark .bg-slate-200 { background-color: #475569; }
+html.dark .bg-slate-300 { background-color: #64748b; }
+html.dark .bg-slate-400 { background-color: #94a3b8; }
+/* Pills "ativas" (fundo escuro + texto branco no tema claro) precisam clarear,
+   senão somem contra o fundo escuro. */
+html.dark .bg-slate-700,
+html.dark .bg-slate-800,
+html.dark .bg-slate-900 { background-color: #475569; }
+
+/* Texto */
+html.dark .text-slate-300 { color: #64748b; }
+html.dark .text-slate-400 { color: #8296ae; }
+html.dark .text-slate-500 { color: #a3b3c7; }
+html.dark .text-slate-600 { color: #cbd5e1; }
+html.dark .text-slate-700 { color: #e2e8f0; }
+html.dark .text-slate-800 { color: #f1f5f9; }
+html.dark .text-slate-900 { color: #f8fafc; }
+
+/* Bordas e divisores */
+html.dark .border-white { border-color: #1e293b; }
+html.dark .border-slate-50 { border-color: #1e293b; }
+html.dark .border-slate-100 { border-color: #273349; }
+html.dark .border-slate-200 { border-color: #334155; }
+html.dark .border-slate-300 { border-color: #475569; }
+html.dark .border-slate-800,
+html.dark .border-slate-900 { border-color: #475569; }
+html.dark .ring-slate-200 { --tw-ring-color: #334155; }
+html.dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b; }
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #273349; }
+html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+
+/* Estados de hover (nomes escapados: .hover\:bg-slate-50:hover) */
+html.dark .hover\:bg-slate-50:hover { background-color: #172033; }
+html.dark .hover\:bg-slate-100:hover { background-color: #334155; }
+html.dark .hover\:border-slate-300:hover { border-color: #475569; }
+html.dark .hover\:text-slate-500:hover { color: #a3b3c7; }
+html.dark .hover\:text-slate-600:hover { color: #cbd5e1; }
+html.dark .hover\:text-slate-700:hover { color: #e2e8f0; }
+
+/* Tints coloridos de fundo (-50) viram versões translúcidas, senão ficam
+   claros demais e "furam" o tema escuro. */
+html.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.14); }
+html.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.14); }
+html.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.14); }
+html.dark .bg-sky-50 { background-color: rgba(14, 165, 233, 0.14); }
+html.dark .bg-violet-50 { background-color: rgba(139, 92, 246, 0.14); }
+html.dark .hover\:bg-emerald-100:hover { background-color: rgba(16, 185, 129, 0.22); }
+
+/* Textos de destaque clareiam pra manter contraste no escuro */
+html.dark .text-emerald-600 { color: #34d399; }
+html.dark .text-emerald-700 { color: #6ee7b7; }
+html.dark .text-red-500 { color: #f87171; }
+html.dark .text-red-600 { color: #f87171; }
+html.dark .text-red-700 { color: #fca5a5; }
+html.dark .text-amber-500 { color: #fbbf24; }
+html.dark .text-amber-600 { color: #fbbf24; }
+html.dark .text-amber-700 { color: #fcd34d; }
+html.dark .text-sky-600 { color: #38bdf8; }
+html.dark .text-sky-700 { color: #7dd3fc; }
+html.dark .text-violet-600 { color: #a78bfa; }
+
+/* Campos de formulário: muitos não declaram cor de fundo e herdariam o branco
+   padrão do navegador. */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: #64748b; }
+
+html.dark .thin-scroll::-webkit-scrollbar-thumb { background: #475569; }

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
 import { PAGINAS_SISTEMA } from "@/lib/paginas";
+import TemaToggle from "@/components/TemaToggle";
 
 // Posição (fixed, em relação à viewport) do EmojiPicker a partir do botão que
 // o abriu — mantém dentro da tela em qualquer largura (nada de calcular
@@ -98,6 +99,9 @@ const ICONS = {
   campanhas: (
     <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07L11.5 4.5M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07L12.5 19.5" strokeLinecap="round" strokeLinejoin="round" />
   ),
+  aparencia: (
+    <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36A5 5 0 0 1 12 3z" strokeLinecap="round" strokeLinejoin="round" />
+  ),
   metas: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -127,6 +131,7 @@ const TABS = [
   { key: "automacao", label: "Automação", desc: "Responsáveis automáticos por etapa" },
   { key: "ia", label: "IA", desc: "Agentes, modelos e chaves de API" },
   { key: "alteracoes", label: "Alterações", desc: "Log de mudanças em baixas já registradas" },
+  { key: "aparencia", label: "Aparência", desc: "Tema claro, escuro ou do sistema" },
 ];
 
 export default function Configuracoes() {
@@ -223,6 +228,14 @@ export default function Configuracoes() {
               </div>
             )}
             {tab === "alteracoes" && <AlteracoesLog />}
+            {tab === "aparencia" && (
+              <SectionCard
+                title="Tema do sistema"
+                desc="Vale só para este navegador/aparelho — cada pessoa da equipe escolhe o seu."
+              >
+                <TemaToggle />
+              </SectionCard>
+            )}
           </main>
         </div>
       </div>
