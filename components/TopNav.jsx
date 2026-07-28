@@ -5,12 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const links = [
-  { href: "/contatos", label: "Contatos" },
-  { href: "/chat", label: "Chat" },
-  { href: "/tarefas", label: "Tarefas" },
-  { href: "/metas", label: "Metas" },
+  { href: "/contatos", label: "Contatos", pagina: "contatos" },
+  { href: "/chat", label: "Chat", pagina: "chat" },
+  { href: "/tarefas", label: "Tarefas", pagina: "tarefas" },
+  { href: "/metas", label: "Metas", pagina: "metas" },
   { href: "/lancamentos", label: "Lançamentos", admin: true },
-  { href: "/relatorios", label: "Relatórios" },
+  { href: "/relatorios", label: "Relatórios", pagina: "relatorios" },
   { href: "/configuracoes", label: "Configurações", admin: true },
 ];
 
@@ -32,7 +32,14 @@ export default function TopNav() {
   if (pathname === "/login") return null;
 
   const isAdmin = user?.role === "admin";
-  const visibleLinks = links.filter((l) => !l.admin || isAdmin);
+  const paginasPermitidas = isAdmin || !user?.paginasVisiveis
+    ? null
+    : user.paginasVisiveis.split(",").map((s) => s.trim()).filter(Boolean);
+  const visibleLinks = links.filter((l) => {
+    if (l.admin) return isAdmin;
+    if (!l.pagina || !paginasPermitidas) return true;
+    return paginasPermitidas.includes(l.pagina);
+  });
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });

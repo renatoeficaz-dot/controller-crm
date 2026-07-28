@@ -281,6 +281,10 @@ model User {
   numeros         WhatsappNumber[] @relation("NumeroResponsavel")  // números atribuídos (ownership)
   numerosVisiveis WhatsappNumber[] @relation("NumeroVisibilidade") // WhatsApp cujas mensagens pode ver
   kanbansVisiveis Stage[]          @relation("UserKanbans")        // colunas do funil que pode ver
+  // Páginas do sistema que pode acessar (chaves de lib/paginas.js, separadas por
+  // vírgula — ex.: "contatos,chat"). Vazio/null = todas. Não cobre Lançamentos/
+  // Configurações, que continuam exclusivas de admin independente disso.
+  paginasVisiveis String?
   createdAt       DateTime         @default(now())
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
+import { PAGINAS_SISTEMA } from "@/lib/paginas";
 
 // Posição (fixed, em relação à viewport) do EmojiPicker a partir do botão que
 // o abriu — mantém dentro da tela em qualquer largura (nada de calcular
@@ -357,6 +358,7 @@ const EMPTY_USER = {
   verTodosLeads: false,
   kanbansVisiveis: [],
   numerosVisiveis: [],
+  paginasVisiveis: [],
 };
 
 const ROLE_LABEL = { admin: "Administrador", vendedor: "Vendedor", cobrador: "Cobrador" };
@@ -404,6 +406,7 @@ function Usuarios() {
       verTodosLeads: !!u.verTodosLeads,
       kanbansVisiveis: (u.kanbansVisiveis || []).map((k) => k.id),
       numerosVisiveis: (u.numerosVisiveis || []).map((n) => n.id),
+      paginasVisiveis: (u.paginasVisiveis || "").split(",").map((s) => s.trim()).filter(Boolean),
     });
     setError("");
     setShowPassword(false);
@@ -690,6 +693,24 @@ function Usuarios() {
                         );
                       })}
                       {numeros.length === 0 && <span className="text-[11px] text-slate-300 col-span-2">Nenhum número cadastrado.</span>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-xs text-slate-400">Locais que pode acessar</span>
+                    <p className="text-[11px] text-slate-300 mb-1.5">
+                      Nenhum marcado = acessa todas essas páginas. Lançamentos e Configurações continuam exclusivas de admin.
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {PAGINAS_SISTEMA.map((pg) => {
+                        const on = form.paginasVisiveis.includes(pg.key);
+                        return (
+                          <label key={pg.key} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" checked={on} onChange={() => toggleArr("paginasVisiveis", pg.key)} className="accent-emerald-500 shrink-0" />
+                            <span className="truncate">{pg.label}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 </>

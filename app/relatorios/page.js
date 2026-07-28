@@ -1,6 +1,11 @@
 import Relatorios from "@/components/Relatorios";
+import { getCurrentUser, podeAcessarPagina } from "@/lib/session";
 
-export default function RelatoriosPage() {
+export default async function RelatoriosPage() {
+  const user = await getCurrentUser();
+  if (!podeAcessarPagina(user, "relatorios")) {
+    return <div className="p-6 text-sm text-slate-500">Você não tem acesso a esta página.</div>;
+  }
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="px-6 pt-4">

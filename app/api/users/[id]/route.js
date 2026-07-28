@@ -32,8 +32,12 @@ export async function PATCH(req, { params }) {
   const ROLES = ["admin", "vendedor", "cobrador"];
   if ("role" in body && ROLES.includes(body.role)) data.role = body.role;
   if ("verTodosLeads" in body) data.verTodosLeads = !!body.verTodosLeads;
+  if ("paginasVisiveis" in body) data.paginasVisiveis = (body.paginasVisiveis || []).join(",") || null;
   // Admin sempre vê tudo (não faz sentido restringir)
-  if (data.role === "admin") data.verTodosLeads = true;
+  if (data.role === "admin") {
+    data.verTodosLeads = true;
+    data.paginasVisiveis = null;
+  }
   if ("kanbansVisiveis" in body) {
     data.kanbansVisiveis = { set: (body.kanbansVisiveis || []).map((kid) => ({ id: kid })) };
   }
@@ -50,6 +54,7 @@ export async function PATCH(req, { params }) {
       login: true,
       role: true,
       verTodosLeads: true,
+      paginasVisiveis: true,
       kanbansVisiveis: { select: { id: true } },
       numerosVisiveis: { select: { id: true } },
       createdAt: true,
