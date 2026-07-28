@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import ContactModal from "./ContactModal";
+import MetasMini from "./MetasMini";
 
 // Iniciais para o avatar do contato
 function initials(name) {
@@ -365,6 +366,8 @@ export default function KanbanBoard() {
             </span>
           )}
         </button>
+
+        <MetasMini />
 
         {/* Ações em massa sobre os leads do filtro — na mesma linha, pra não gastar altura extra */}
         <select
