@@ -138,6 +138,84 @@ export default function Relatorios() {
   const adimplenciaPorGenero = useMemo(() => agruparAdimplencia("genero", GENERO_LABEL), [stages]);
   const adimplenciaPorTipoCliente = useMemo(() => agruparAdimplencia("tipoCliente", TIPO_CLIENTE_LABEL), [stages]);
 
+  // Lucro real por perfil: recebido - emprestado, não só % de inadimplência —
+  // um perfil que atrasa mas recupera o capital é mais lucrativo que um que
+  // some cedo, e só olhar inadimplência não mostra essa diferença.
+  function agruparLucro(campo, rotulos) {
+    const map = new Map();
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        if (!c.valorCapital || c.valorCapital <= 0) continue;
+        const chave = c[campo] || "outros";
+        if (!map.has(chave)) map.set(chave, { chave, emprestado: 0, recebido: 0, clientes: 0 });
+        const row = map.get(chave);
+        row.emprestado += c.valorCapital;
+        row.recebido += (c.parcelas || [])
+          .filter((p) => p.paid)
+          .reduce((acc, p) => acc + (p.amountPago ?? p.amount), 0);
+        row.clientes++;
+      }
+    }
+    return Array.from(map.values())
+      .filter((r) => r.emprestado > 0)
+      .map((r) => {
+        const lucro = r.recebido - r.emprestado;
+        const label = rotulos ? rotulos[r.chave] || r.chave : r.chave === "outros" ? "Não identificado" : r.chave;
+        return { label, value: lucro, color: lucro >= 0 ? "#059669" : "#ef4444", ...r };
+      })
+      .sort((a, b) => b.value - a.value);
+  }
+
+  const lucroPorGenero = useMemo(() => agruparLucro("genero", GENERO_LABEL), [stagesFiltrados]);
+  const lucroPorTipoCliente = useMemo(() => agruparLucro("tipoCliente", TIPO_CLIENTE_LABEL), [stagesFiltrados]);
+  const lucroPorEstado = useMemo(() => agruparLucro("estado", null), [stagesFiltrados]);
+
+  // Curva de safra: agrupa clientes pelo mês em que o capital foi liberado —
+  // mostra se a carteira está melhorando ou piorando ao longo do tempo (uma
+  // safra recente recuperando menos que a anterior, no mesmo prazo, é sinal
+  // de alerta antes de virar inadimplência de verdade).
+  const safras = useMemo(() => {
+    const map = new Map();
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        if (!c.valorCapital || !c.pagamentoCapital) continue;
+        const mes = String(c.pagamentoCapital).slice(0, 7); // "YYYY-MM"
+        if (!map.has(mes)) map.set(mes, { mes, clientes: 0, emprestado: 0, recuperado: 0, temposPayback: [] });
+        const row = map.get(mes);
+        row.clientes++;
+        row.emprestado += c.valorCapital;
+
+        const pagas = (c.parcelas || [])
+          .filter((p) => p.paid && p.paidAt)
+          .slice()
+          .sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
+        let acumulado = 0;
+        const inicio = new Date(c.pagamentoCapital);
+        for (const p of pagas) {
+          const valor = p.amountPago ?? p.amount;
+          acumulado += valor;
+          row.recuperado += valor;
+          if (acumulado >= c.valorCapital && row.temposPayback.length < row.clientes) {
+            row.temposPayback.push(Math.max(0, Math.round((new Date(p.paidAt) - inicio) / 86400000)));
+          }
+        }
+      }
+    }
+    return Array.from(map.values())
+      .map((r) => ({
+        mes: r.mes,
+        clientes: r.clientes,
+        emprestado: r.emprestado,
+        recuperado: r.recuperado,
+        pctRecuperado: r.emprestado > 0 ? Math.round((r.recuperado / r.emprestado) * 100) : 0,
+        diasMedios: r.temposPayback.length
+          ? Math.round(r.temposPayback.reduce((acc, d) => acc + d, 0) / r.temposPayback.length)
+          : null,
+      }))
+      .sort((a, b) => b.mes.localeCompare(a.mes))
+      .slice(0, 6);
+  }, [stagesFiltrados]);
+
   // Leads por link de rastreamento (UTM/campanha) — de onde vieram e como
   // estão pagando. "Sem origem" = leads que não chegaram por nenhum link
   // (mensagem direta, indicação, etc.).
@@ -297,6 +375,14 @@ export default function Relatorios() {
   // Em qual parcela o cliente parou de pagar: menor número de parcela vencida
   // e não paga (a partir dela ele deixou de honrar as cobranças em sequência).
   // Só considera quem está com atraso ativo agora.
+  // Parcela em que o capital emprestado volta pro caixa — com 80% de
+  // honorários, cada parcela cobre capital/10 + juro, então em ~6 parcelas
+  // (10 / (1 + honorarios/100)) o capital já foi todo recuperado.
+  const parcelaEquilibrio = useMemo(
+    () => Math.ceil(NUM_PARCELAS / (1 + (cfg?.honorariosPct ?? 30) / 100)),
+    [cfg]
+  );
+
   const paradaData = useMemo(() => {
     const hoje = hojeStr();
     const counts = Array.from({ length: NUM_PARCELAS }, () => 0);
@@ -308,8 +394,21 @@ export default function Relatorios() {
         if (stopAt >= 1 && stopAt <= NUM_PARCELAS) counts[stopAt - 1]++;
       }
     }
-    return counts.map((v, i) => ({ label: `${i + 1}ª`, value: v }));
-  }, [stagesFiltrados]);
+    return counts.map((v, i) => ({
+      label: `${i + 1}ª`,
+      value: v,
+      number: i + 1,
+      color: i + 1 < parcelaEquilibrio ? "#ef4444" : "#f59e0b",
+    }));
+  }, [stagesFiltrados, parcelaEquilibrio]);
+
+  // % de clientes em atraso que pararam ANTES do capital voltar — o prejuízo
+  // de verdade (depois do ponto de equilíbrio já foi lucro que deixou de vir).
+  const paradaAntesEquilibrio = useMemo(() => {
+    const total = paradaData.reduce((acc, d) => acc + d.value, 0);
+    const antes = paradaData.filter((d) => d.number < parcelaEquilibrio).reduce((acc, d) => acc + d.value, 0);
+    return { total, antes, pct: total > 0 ? Math.round((antes / total) * 100) : 0 };
+  }, [paradaData, parcelaEquilibrio]);
 
   // A receber por parcela: quantas parcelas em aberto (não pagas, de qualquer
   // vencimento) existem de cada número — 1ª, 2ª, 3ª... — e a soma de cada uma.
@@ -931,6 +1030,74 @@ export default function Relatorios() {
         </div>
       </section>
 
+      {/* Lucro real por perfil: recebido - emprestado, não só % de inadimplência */}
+      <section className="xl:col-span-2">
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Lucro real por perfil <span className="text-slate-400 font-normal">— recebido menos emprestado, não só % de inadimplência</span>
+        </h2>
+        <div className="grid lg:grid-cols-3 gap-4">
+          {[
+            { titulo: "Gênero", dados: lucroPorGenero },
+            { titulo: "Tipo de cliente", dados: lucroPorTipoCliente },
+            { titulo: "Região", dados: lucroPorEstado },
+          ].map(({ titulo, dados }) => (
+            <div key={titulo} className="bg-white rounded-xl border border-slate-200 p-5">
+              <p className="text-xs font-medium text-slate-500 mb-3">{titulo}</p>
+              {dados.length === 0 ? (
+                <p className="text-sm text-slate-400 py-4">Nenhum cliente com capital liberado.</p>
+              ) : (
+                <HBarChart data={dados} valueFmt={money} />
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Curva de safra: clientes agrupados pelo mês em que o capital foi liberado */}
+      <section className="xl:col-span-2">
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Curva de safra <span className="text-slate-400 font-normal">— carteira agrupada pelo mês de liberação do capital</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          {safras.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 px-5">Nenhum capital liberado ainda.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[560px]">
+                <thead>
+                  <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                    <th className="py-2.5 px-4 font-medium">Safra</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Clientes</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Emprestado</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Recuperado</th>
+                    <th className="py-2.5 px-3 font-medium text-right">% Recuperado</th>
+                    <th className="py-2.5 px-4 font-medium text-right">Payback médio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {safras.map((r) => (
+                    <tr key={r.mes} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2 px-4 font-medium text-slate-700 capitalize">
+                        {new Date(`${r.mes}-01T00:00:00`).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
+                      </td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{r.clientes}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{money(r.emprestado)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">{money(r.recuperado)}</td>
+                      <td className={`py-2 px-3 text-right tabular-nums font-medium ${r.pctRecuperado >= 100 ? "text-emerald-600" : r.pctRecuperado >= 70 ? "text-amber-600" : "text-red-600"}`}>
+                        {r.pctRecuperado}%
+                      </td>
+                      <td className="py-2 px-4 text-right tabular-nums text-slate-500">
+                        {r.diasMedios != null ? `${r.diasMedios}d` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Cruzamento com quando o lead foi criado (dia da semana / hora / dia do mês) */}
       <section className="xl:col-span-2">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -993,7 +1160,13 @@ export default function Relatorios() {
           {paradaData.every((d) => d.value === 0) ? (
             <p className="text-sm text-slate-400 py-4">Nenhum cliente em atraso no momento.</p>
           ) : (
-            <VBarChart data={paradaData} color="#f59e0b" />
+            <>
+              <VBarChart data={paradaData} color="#f59e0b" />
+              <p className="text-xs text-slate-500 mt-3">
+                {paradaAntesEquilibrio.antes} de {paradaAntesEquilibrio.total} clientes em atraso ({paradaAntesEquilibrio.pct}%)
+                pararam antes da parcela {parcelaEquilibrio} — abaixo dessa parcela o capital emprestado ainda não voltou.
+              </p>
+            </>
           )}
         </div>
       </section>
@@ -1198,7 +1371,7 @@ function VBarChart({ data, color = "#7c3aed", height = 160, tooltip }) {
             <span className="text-[11px] text-slate-500 tabular-nums mb-1 h-4">{d.value > 0 ? d.value : ""}</span>
             <div
               className="w-full rounded-t-[4px]"
-              style={{ height: h, background: color, maxWidth: 28, opacity: hover === null || hover === i ? 1 : 0.55, transition: "opacity .15s" }}
+              style={{ height: h, background: d.color || color, maxWidth: 28, opacity: hover === null || hover === i ? 1 : 0.55, transition: "opacity .15s" }}
             />
             <span className="text-[10px] text-slate-400 mt-1.5 text-center truncate w-full">{d.label}</span>
           </div>
