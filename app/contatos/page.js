@@ -10,7 +10,9 @@ export default function ContatosPage() {
           <h1 className="font-semibold text-slate-800 text-sm md:text-base">Funil de contatos</h1>
           <p className="text-xs text-slate-400 hidden md:block">Arraste os cartões entre as colunas. Clique para abrir o chat.</p>
         </div>
-        <div className="w-full sm:w-auto sm:justify-self-center">
+        {/* Some no mobile (igual ao subtítulo) — os cards de meta ocupam ~124px
+            de altura ali, empurrando busca/filtros pra baixo sem necessidade. */}
+        <div className="hidden md:block md:justify-self-center">
           <MetasMini />
         </div>
         <div className="hidden sm:flex justify-end">
