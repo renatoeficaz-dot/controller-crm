@@ -5,6 +5,7 @@ import { resumoCobranca, valorParcelaAtual, parcelaAtrasada } from "@/lib/financ
 import { UFS_BR } from "@/lib/ddd";
 import MediaBubble, { MediaLightbox } from "./MediaBubble";
 import PuxadaAnexo from "./PuxadaAnexo";
+import CobrancaLead from "./CobrancaLead";
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -683,6 +684,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               puxadaProcessos={contact?.puxadaProcessos}
               onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}
             />
+
+            <CobrancaLead contactId={contactId} contact={contact} />
 
             {/* Mídias enviadas na conversa */}
             <MidiasEnviadas messages={messages} />

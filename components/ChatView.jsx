@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import MediaBubble from "./MediaBubble";
 import PuxadaAnexo from "./PuxadaAnexo";
+import CobrancaLead from "./CobrancaLead";
 import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
 import { interpolarVariaveis } from "@/lib/variaveis";
 import { parcelaAtrasada } from "@/lib/finance";
@@ -997,6 +998,8 @@ export default function ChatView() {
               puxadaProcessos={contact?.puxadaProcessos}
               onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}
             />
+
+            <CobrancaLead contactId={selectedId} contact={contact} />
 
             {/* Tarefas do lead */}
             <div className="border border-slate-200 rounded-lg p-2.5">

@@ -52,6 +52,7 @@ model Contact {
   parcelas         Parcela[]
   tasks            Task[]
   lancamentos      Lancamento[]
+  tentativas       TentativaContato[]
 
   // Atendimento manual: enquanto true, a IA não responde esse lead — o
   // humano assumiu a conversa. É ligado automaticamente ao mover o lead pra
@@ -242,6 +243,13 @@ model Config {
   // IA: DeepInfra hospeda texto (Llama) e transcrição (Whisper), compartilhados por
   // todos os agentes. Cada agente pode escolher usar áudio da DeepInfra também, ou
   // de um provedor de voz dedicado (Fish Audio / ElevenLabs) usando o token abaixo.
+  // Oferta de quitação à vista pra quem já está bem atrasado — recuperar parte
+  // vale mais que insistir num valor cheio que provavelmente não vem.
+  descontoAtivo    Boolean @default(false)
+  descontoPct      Float   @default(20) // % de desconto sobre o total em aberto
+  descontoDiasMin  Int     @default(15) // só oferece a partir de X dias de atraso
+  descontoMensagem String?
+
   deepinfraApiKey  String? // token da conta em https://deepinfra.com/dash
   fishAudioApiKey  String? // token da conta em https://fish.audio
   elevenLabsApiKey String? // token da conta em https://elevenlabs.io
@@ -353,6 +361,32 @@ model ConexaoLog {
 }
 
 // Log de lembretes de cobrança já enviados (evita mandar 2x no mesmo dia).
+// Régua de cobrança: qual mensagem enviar conforme os dias de atraso. É global
+// (o número de WhatsApp define QUEM envia, pelo estadosCobranca; a régua define
+// O QUE dizer). Sem nenhuma regra ativa, o lembrete cai no comportamento antigo
+// de usar a mensagem única do próprio número.
+model RegraCobranca {
+  id       String  @id @default(cuid())
+  diasMin  Int     // -1 = véspera do vencimento, 0 = vence hoje, 1+ = dias de atraso
+  diasMax  Int?    // null = sem teto (faixa final, ex.: "+16 dias")
+  mensagem String
+  ativa    Boolean @default(true)
+  ordem    Int     @default(0)
+}
+
+// Cada tentativa de contato feita pelo cobrador (ligou, foi no endereço...) —
+// serve pra medir esforço real gasto por cliente, não só o resultado.
+model TentativaContato {
+  id        String   @id @default(cuid())
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String
+  tipo      String   // "ligacao" | "whatsapp" | "presencial"
+  resultado String   // "atendeu" | "nao_atendeu" | "prometeu" | "recusou" | "numero_errado"
+  notas     String?
+  usuario   String?  // quem registrou
+  createdAt DateTime @default(now())
+}
+
 model LembreteCobrancaLog {
   id        String   @id @default(cuid())
   contactId String

@@ -39,6 +39,10 @@ export async function PATCH(req) {
   if ("metaVendasMinima" in body) data.metaVendasMinima = Math.max(0, Number(body.metaVendasMinima) || 0);
   if ("metaVendasMedia" in body) data.metaVendasMedia = Math.max(0, Number(body.metaVendasMedia) || 0);
   if ("metaVendasDia" in body) data.metaVendasDia = Math.max(0, Number(body.metaVendasDia) || 0);
+  if ("descontoAtivo" in body) data.descontoAtivo = !!body.descontoAtivo;
+  if ("descontoPct" in body) data.descontoPct = Math.min(100, Math.max(0, Number(body.descontoPct) || 0));
+  if ("descontoDiasMin" in body) data.descontoDiasMin = Math.max(0, Number(body.descontoDiasMin) || 0);
+  if ("descontoMensagem" in body) data.descontoMensagem = (body.descontoMensagem || "").trim() || null;
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }

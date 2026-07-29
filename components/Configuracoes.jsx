@@ -102,6 +102,19 @@ const ICONS = {
   aparencia: (
     <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36A5 5 0 0 1 12 3z" strokeLinecap="round" strokeLinejoin="round" />
   ),
+  regua: (
+    <>
+      <path d="M3 5h18M3 12h12M3 19h6" strokeLinecap="round" />
+    </>
+  ),
+  desconto: (
+    <>
+      <path d="M9 15l6-6" strokeLinecap="round" />
+      <circle cx="9.5" cy="9.5" r="1.5" />
+      <circle cx="14.5" cy="14.5" r="1.5" />
+      <rect x="3" y="3" width="18" height="18" rx="4" />
+    </>
+  ),
   metas: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -130,6 +143,8 @@ const TABS = [
   { key: "mensagens", label: "Mensagens prontas", desc: "Modelos de texto, mídia e contato" },
   { key: "automacao", label: "Automação", desc: "Responsáveis automáticos por etapa" },
   { key: "ia", label: "IA", desc: "Agentes, modelos e chaves de API" },
+  { key: "regua", label: "Régua de cobrança", desc: "Mensagem por faixa de atraso" },
+  { key: "desconto", label: "Quitação à vista", desc: "Oferta de desconto pra quem está atrasado" },
   { key: "alteracoes", label: "Alterações", desc: "Log de mudanças em baixas já registradas" },
   { key: "aparencia", label: "Aparência", desc: "Tema claro, escuro ou do sistema" },
 ];
@@ -227,6 +242,8 @@ export default function Configuracoes() {
                 <AgentesIa />
               </div>
             )}
+            {tab === "regua" && <ReguaCobranca />}
+            {tab === "desconto" && <QuitacaoAVista />}
             {tab === "alteracoes" && <AlteracoesLog />}
             {tab === "aparencia" && (
               <SectionCard
@@ -1808,6 +1825,300 @@ function Campanhas() {
         )}
       </SectionCard>
     </div>
+  );
+}
+
+/* ---------------- Régua de cobrança ---------------- */
+// Faixas sugeridas: o tom sobe conforme o atraso, em vez da mensagem única
+// que hoje vai igual pra quem atrasou 1 dia e pra quem atrasou 20.
+const REGUA_SUGERIDA = [
+  { diasMin: -1, diasMax: -1, ordem: 1, mensagem: "Oi {{nome}}, tudo bem? Passando só pra lembrar que sua parcela de {{valor_parcela}} vence amanhã. Qualquer coisa é só chamar aqui. 😊" },
+  { diasMin: 0, diasMax: 0, ordem: 2, mensagem: "Bom dia {{nome}}! Sua parcela de {{valor_parcela}} vence hoje. Assim que pagar me manda o comprovante, por favor." },
+  { diasMin: 1, diasMax: 3, ordem: 3, mensagem: "{{nome}}, sua parcela de {{valor_parcela}} está em atraso há {{dias_atraso}} dia(s). Consegue acertar hoje?" },
+  { diasMin: 4, diasMax: 7, ordem: 4, mensagem: "{{nome}}, já são {{dias_atraso}} dias de atraso e o valor em aberto está em {{valor_aberto}}. Se não der pra pagar tudo, me fala que a gente vê uma forma de resolver." },
+  { diasMin: 8, diasMax: 15, ordem: 5, mensagem: "{{nome}}, seu débito de {{valor_aberto}} está com {{dias_atraso}} dias de atraso. Preciso de um retorno hoje, senão vou ter que encaminhar pra cobrança." },
+  { diasMin: 16, diasMax: null, ordem: 6, mensagem: "{{nome}}, seu débito de {{valor_aberto}} está com {{dias_atraso}} dias em aberto. Essa é a última tentativa de acordo antes de seguir com as medidas de cobrança." },
+];
+
+function ReguaCobranca() {
+  const [regras, setRegras] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [nova, setNova] = useState({ diasMin: "", diasMax: "", mensagem: "" });
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    const d = await fetch("/api/regras-cobranca").then((r) => r.json()).catch(() => []);
+    setRegras(Array.isArray(d) ? d : []);
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function criar(e) {
+    e.preventDefault();
+    setError("");
+    if (!nova.mensagem.trim()) { setError("Escreva a mensagem da faixa."); return; }
+    setSalvando(true);
+    const res = await fetch("/api/regras-cobranca", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...nova, ordem: regras.length + 1 }),
+    });
+    setSalvando(false);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error || "Erro ao salvar."); return; }
+    setNova({ diasMin: "", diasMax: "", mensagem: "" });
+    load();
+  }
+
+  async function criarSugerida() {
+    if (regras.length && !confirm("Isso adiciona as 6 faixas sugeridas às que já existem. Continuar?")) return;
+    setSalvando(true);
+    for (const r of REGUA_SUGERIDA) {
+      await fetch("/api/regras-cobranca", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(r),
+      });
+    }
+    setSalvando(false);
+    load();
+  }
+
+  async function atualizar(id, campo, valor) {
+    setRegras((prev) => prev.map((r) => (r.id === id ? { ...r, [campo]: valor } : r)));
+    await fetch(`/api/regras-cobranca/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [campo]: valor }),
+    });
+  }
+
+  async function remover(id) {
+    if (!confirm("Remover esta faixa da régua?")) return;
+    await fetch(`/api/regras-cobranca/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  function rotuloFaixa(r) {
+    if (r.diasMin < 0) return "Véspera do vencimento";
+    if (r.diasMin === 0 && r.diasMax === 0) return "Vence hoje";
+    if (r.diasMax == null) return `${r.diasMin}+ dias de atraso`;
+    if (r.diasMin === r.diasMax) return `${r.diasMin} dia(s) de atraso`;
+    return `${r.diasMin}-${r.diasMax} dias de atraso`;
+  }
+
+  if (loading) return <p className="text-sm text-slate-400">Carregando…</p>;
+
+  return (
+    <div className="max-w-3xl space-y-5">
+      <SectionCard
+        title="Régua de cobrança"
+        desc={
+          <>
+            Define a mensagem enviada conforme os <strong className="text-slate-600">dias de atraso</strong> do cliente.
+            O número de WhatsApp continua definindo <em>quem</em> envia (pelos estados que atende); a régua define{" "}
+            <em>o que</em> dizer. Sem nenhuma faixa cadastrada, o sistema volta a usar a mensagem única de cada número.
+          </>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={criarSugerida}
+            disabled={salvando}
+            className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-2 font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+          >
+            {salvando ? "Criando…" : "Criar régua sugerida (6 faixas)"}
+          </button>
+          <span className="text-[11px] text-slate-400">Você pode editar tudo depois.</span>
+        </div>
+        <p className="text-[11px] text-slate-400 mt-3">
+          Variáveis: {VARIAVEIS_DISPONIVEIS.map((v) => `{{${v.key}}}`).join(", ")}
+        </p>
+      </SectionCard>
+
+      <SectionCard title={`Faixas (${regras.length})`}>
+        {regras.length === 0 ? (
+          <p className="text-sm text-slate-400">Nenhuma faixa cadastrada — a cobrança está usando a mensagem única de cada número.</p>
+        ) : (
+          <ul className="space-y-3">
+            {regras.map((r) => (
+              <li key={r.id} className="border border-slate-200 rounded-xl p-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-slate-700">{rotuloFaixa(r)}</span>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <input
+                        type="checkbox"
+                        checked={r.ativa}
+                        onChange={(e) => atualizar(r.id, "ativa", e.target.checked)}
+                        className="accent-emerald-500"
+                      />
+                      Ativa
+                    </label>
+                    <button onClick={() => remover(r.id)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <label className="block w-24">
+                    <span className="text-[11px] text-slate-400">De (dias)</span>
+                    <input
+                      type="number"
+                      defaultValue={r.diasMin}
+                      onBlur={(e) => atualizar(r.id, "diasMin", Number(e.target.value))}
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                  <label className="block w-24">
+                    <span className="text-[11px] text-slate-400">Até (vazio = sem teto)</span>
+                    <input
+                      type="number"
+                      defaultValue={r.diasMax ?? ""}
+                      onBlur={(e) => atualizar(r.id, "diasMax", e.target.value === "" ? null : Number(e.target.value))}
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                </div>
+                <textarea
+                  defaultValue={r.mensagem}
+                  onBlur={(e) => atualizar(r.id, "mensagem", e.target.value)}
+                  rows={3}
+                  className="mt-2 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionCard>
+
+      <SectionCard title="Adicionar faixa">
+        <form onSubmit={criar} className="space-y-3">
+          <div className="flex gap-2">
+            <label className="block w-28">
+              <span className="text-xs text-slate-400">De (dias)</span>
+              <input
+                type="number"
+                value={nova.diasMin}
+                onChange={(e) => setNova((n) => ({ ...n, diasMin: e.target.value }))}
+                placeholder="0"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+            <label className="block w-28">
+              <span className="text-xs text-slate-400">Até (opcional)</span>
+              <input
+                type="number"
+                value={nova.diasMax}
+                onChange={(e) => setNova((n) => ({ ...n, diasMax: e.target.value }))}
+                placeholder="3"
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+          </div>
+          <textarea
+            value={nova.mensagem}
+            onChange={(e) => setNova((n) => ({ ...n, mensagem: e.target.value }))}
+            rows={3}
+            placeholder="Mensagem enviada nessa faixa de atraso…"
+            className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
+          />
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <button
+            disabled={salvando}
+            className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+          >
+            {salvando ? "Salvando…" : "Adicionar faixa"}
+          </button>
+        </form>
+      </SectionCard>
+    </div>
+  );
+}
+
+/* ---------------- Quitação à vista ---------------- */
+function QuitacaoAVista() {
+  const [form, setForm] = useState({ descontoAtivo: false, descontoPct: "20", descontoDiasMin: "15", descontoMensagem: "" });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/config").then((r) => r.json()).then((c) =>
+      setForm({
+        descontoAtivo: !!c.descontoAtivo,
+        descontoPct: String(c.descontoPct ?? 20),
+        descontoDiasMin: String(c.descontoDiasMin ?? 15),
+        descontoMensagem: c.descontoMensagem || "",
+      })
+    );
+  }, []);
+
+  async function save(e) {
+    e.preventDefault();
+    await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        descontoAtivo: form.descontoAtivo,
+        descontoPct: Number(form.descontoPct),
+        descontoDiasMin: Number(form.descontoDiasMin),
+        descontoMensagem: form.descontoMensagem,
+      }),
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  return (
+    <form onSubmit={save} className="max-w-xl space-y-5">
+      <SectionCard
+        title="Oferta de quitação à vista"
+        desc="Para quem já está bem atrasado, recuperar parte costuma valer mais que insistir num valor cheio que provavelmente não vem. A oferta aparece no card do lead pro cobrador copiar — nada é enviado automaticamente."
+      >
+        <label className="flex items-center justify-between gap-2 py-1">
+          <span className="text-sm text-slate-600">Ativar oferta de quitação</span>
+          <button
+            type="button"
+            onClick={() => setForm((f) => ({ ...f, descontoAtivo: !f.descontoAtivo }))}
+            className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${form.descontoAtivo ? "bg-emerald-500" : "bg-slate-200"}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.descontoAtivo ? "translate-x-4" : ""}`} />
+          </button>
+        </label>
+
+        <div className="flex flex-wrap gap-4 mt-3">
+          <NumberField
+            label="Desconto"
+            value={form.descontoPct}
+            onChange={(e) => setForm((f) => ({ ...f, descontoPct: e.target.value }))}
+            suffix="%"
+            width="w-24"
+          />
+          <NumberField
+            label="A partir de"
+            value={form.descontoDiasMin}
+            onChange={(e) => setForm((f) => ({ ...f, descontoDiasMin: e.target.value }))}
+            suffix="dias"
+            width="w-28"
+          />
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Mensagem da oferta">
+        <textarea
+          value={form.descontoMensagem}
+          onChange={(e) => setForm((f) => ({ ...f, descontoMensagem: e.target.value }))}
+          rows={4}
+          placeholder="Ex.: {{nome}}, consigo fechar seu débito de {{valor_aberto}} por {{valor_quitacao}} se você quitar hoje ({{pct_desconto}} de desconto). Topa?"
+          className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
+        />
+        <p className="text-[11px] text-slate-400 mt-2">
+          Variáveis: {VARIAVEIS_DISPONIVEIS.map((v) => `{{${v.key}}}`).join(", ")}
+        </p>
+      </SectionCard>
+
+      <button className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-emerald-600 transition-colors">
+        {saved ? "Salvo!" : "Salvar"}
+      </button>
+    </form>
   );
 }
 
