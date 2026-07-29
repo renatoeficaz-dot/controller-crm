@@ -13,6 +13,7 @@ const links = [
   { href: "/lancamentos", label: "Lançamentos", admin: true },
   { href: "/relatorios", label: "Relatórios", pagina: "relatorios" },
   { href: "/configuracoes", label: "Configurações", admin: true },
+  { href: "/aprender", label: "Aprender" },
 ];
 
 export default function TopNav() {

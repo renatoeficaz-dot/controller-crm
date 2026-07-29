@@ -452,6 +452,7 @@ model LancamentoCategoria {
   name        String
   type        String       // "entrada" | "saida"
   lancamentos Lancamento[]
+  contasPagar ContaPagar[]
   createdAt   DateTime     @default(now())
 }
 
@@ -460,12 +461,45 @@ model Banco {
   id              String       @id @default(cuid())
   name            String
   lancamentos     Lancamento[]
+  contasPagar     ContaPagar[]
   configsLibera   Config[]     @relation("ContaLiberacao")
   configsRecebe   Config[]     @relation("ContaRecebimento")
   createdAt       DateTime     @default(now())
 }
 
 // Lançamento financeiro (entrada ou saída). Pagamentos de parcelas geram lançamentos automáticos.
+// Conta a pagar: despesa PREVISTA, com vencimento no futuro. Fica separada de
+// Lancamento (que é o dinheiro que de fato entrou/saiu) — ao marcar como paga,
+// gera o Lancamento de saída correspondente e o saldo só muda nessa hora.
+model ContaPagar {
+  id          String    @id @default(cuid())
+  descricao   String
+  valor       Float
+  vencimento  DateTime
+  pago        Boolean   @default(false)
+  pagoEm      DateTime?
+  observacao  String?
+
+  categoria   LancamentoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  categoriaId String?
+  banco       Banco?    @relation(fields: [bancoId], references: [id], onDelete: SetNull)
+  bancoId     String?
+  // Lançamento gerado quando a conta foi paga (some junto se ela for estornada).
+  lancamentoId String?
+
+  // Recorrência: a conta "mãe" guarda a regra e as ocorrências apontam pra ela.
+  // recorrenciaMeses = null numa conta recorrente significa ILIMITADA — nesse
+  // caso o job diário vai criando as próximas conforme o tempo passa, em vez
+  // de gerar infinitas linhas de uma vez.
+  recorrente       Boolean @default(false)
+  recorrenciaMeses Int?
+  origem      ContaPagar?  @relation("Recorrencia", fields: [origemId], references: [id], onDelete: Cascade)
+  origemId    String?
+  ocorrencias ContaPagar[] @relation("Recorrencia")
+
+  createdAt   DateTime  @default(now())
+}
+
 model Lancamento {
   id           String              @id @default(cuid())
   type         String              // "entrada" | "saida"

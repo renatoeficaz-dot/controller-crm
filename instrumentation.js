@@ -8,6 +8,7 @@ export async function register() {
   const { recalcularScoresComportamentais } = await import("@/lib/atualizarScoreComportamental");
   const { rodarBackup } = await import("@/lib/backup");
   const { checarResumoDiario, checarAlertasCriticos } = await import("@/lib/alertas");
+  const { estenderRecorrenciasIlimitadas } = await import("@/lib/contasPagar");
   const CINCO_MIN = 5 * 60 * 1000;
 
   // Rotinas de 1x por dia guardam aqui o dia da última execução — o intervalo
@@ -34,6 +35,11 @@ export async function register() {
       rodarBackup()
         .then((r) => console.log(`[backup] ${r.arquivo} (${r.bytes} bytes)`))
         .catch((err) => console.error("[backup] erro:", err.message));
+      // Conta recorrente "ilimitada" não pode gerar linhas infinitas de uma
+      // vez: a janela de 12 meses é empurrada pra frente aqui, todo dia.
+      estenderRecorrenciasIlimitadas()
+        .then((n) => n && console.log(`[contasPagar] ${n} ocorrência(s) criada(s)`))
+        .catch((err) => console.error("[contasPagar] erro:", err.message));
     }
   }, CINCO_MIN);
 }

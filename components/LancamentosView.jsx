@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import ContactModal from "./ContactModal";
+import ContasPagarView from "@/components/ContasPagarView";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -129,6 +130,7 @@ export default function LancamentosView() {
   const [error, setError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [aba, setAba] = useState("lancamentos");
 
   // Filtros aplicados (o que a API realmente usa) vs. rascunho (o que o usuário está mexendo)
   const [filtros, setFiltros] = useState(EMPTY_FILTROS);
@@ -398,19 +400,49 @@ export default function LancamentosView() {
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6">
-      <div className="flex items-start justify-between gap-3 mb-4 md:mb-6">
+      <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-lg font-semibold text-slate-800">Lançamentos</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Acompanhe entradas, saídas e o saldo financeiro da sua operação.</p>
+          <h1 className="text-lg font-semibold text-slate-800">
+            {aba === "lancamentos" ? "Lançamentos" : "Contas a pagar"}
+          </h1>
+          <p className="text-sm text-slate-400 mt-0.5">
+            {aba === "lancamentos"
+              ? "Acompanhe entradas, saídas e o saldo financeiro da sua operação."
+              : "Despesas previstas. O saldo só muda quando você marca a conta como paga."}
+          </p>
         </div>
-        <button
-          onClick={abrirNovo}
-          className="shrink-0 flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 transition-colors"
-        >
-          + Novo lançamento
-        </button>
+        {aba === "lancamentos" && (
+          <button
+            onClick={abrirNovo}
+            className="shrink-0 flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 transition-colors"
+          >
+            + Novo lançamento
+          </button>
+        )}
       </div>
 
+      {/* Contas a pagar é o que ainda VAI sair; lançamento é o que já saiu.
+          Separar em abas evita misturar previsão com caixa realizado. */}
+      <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5 mb-4 md:mb-6 w-fit">
+        {[
+          { key: "lancamentos", label: "Lançamentos" },
+          { key: "contas", label: "Contas a pagar" },
+        ].map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setAba(t.key)}
+            className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
+              aba === t.key ? "bg-white shadow-sm text-slate-700 font-medium" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {aba === "contas" ? (
+        <ContasPagarView />
+      ) : (
       <div className="grid lg:grid-cols-[300px_1fr] gap-4 md:gap-6 items-start">
         {/* -------- Sidebar: filtros + categorias + bancos -------- */}
         <div className="space-y-4 md:space-y-6">
@@ -708,6 +740,7 @@ export default function LancamentosView() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Modal de novo lançamento / edição */}
       {formOpen && (

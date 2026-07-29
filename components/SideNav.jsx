@@ -13,6 +13,7 @@ const links = [
   { href: "/contatos", label: "Contatos", icon: "👥", pagina: "contatos" },
   { href: "/relatorios", label: "Relatórios", icon: "📊", pagina: "relatorios" },
   { href: "/configuracoes", label: "Configurações", icon: "⚙️", admin: true },
+  { href: "/aprender", label: "Aprender", icon: "🎓" },
 ];
 
 // Trilho de ícones fixo à esquerda — atalho rápido entre as seções
