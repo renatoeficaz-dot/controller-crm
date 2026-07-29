@@ -120,6 +120,11 @@ export default function ChatView() {
   const [instanceFiltro, setInstanceFiltro] = useState(""); // número/instância que está conversando
   const [ordem, setOrdem] = useState("recentes"); // "recentes" | "antigas" | "nome"
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [modoBusca, setModoBusca] = useState("conversas"); // conversas | mensagens
+  const [resultadosMsg, setResultadosMsg] = useState([]);
+  const [buscandoMsg, setBuscandoMsg] = useState(false);
+  const [resumoIa, setResumoIa] = useState(null);
+  const [resumindo, setResumindo] = useState(false);
 
   const loadConversations = useCallback(async () => {
     const data = await fetch("/api/chat").then((r) => r.json()).catch(() => []);
@@ -174,6 +179,36 @@ export default function ChatView() {
   );
 
   // Aplica busca + filtros + ordenação na lista de conversas
+  // Busca dentro das conversas (inclui transcrição de áudio, que fica no body).
+  // Com debounce pra não disparar uma consulta por tecla digitada.
+  useEffect(() => {
+    if (modoBusca !== "mensagens") return;
+    const termo = busca.trim();
+    if (termo.length < 3) { setResultadosMsg([]); return; }
+    setBuscandoMsg(true);
+    const t = setTimeout(() => {
+      fetch(`/api/mensagens/busca?q=${encodeURIComponent(termo)}`)
+        .then((r) => r.json())
+        .then((d) => setResultadosMsg(Array.isArray(d) ? d : []))
+        .catch(() => setResultadosMsg([]))
+        .finally(() => setBuscandoMsg(false));
+    }, 400);
+    return () => clearTimeout(t);
+  }, [busca, modoBusca]);
+
+  // Resumo é sempre do histórico atual — some ao trocar de conversa.
+  useEffect(() => { setResumoIa(null); }, [selectedId]);
+
+  async function gerarResumo() {
+    if (!selectedId) return;
+    setResumindo(true);
+    setResumoIa(null);
+    const res = await fetch(`/api/contacts/${selectedId}/resumo`, { method: "POST" });
+    const d = await res.json().catch(() => ({}));
+    setResumindo(false);
+    setResumoIa(res.ok ? d.resumo : `Erro: ${d.error || "não foi possível resumir."}`);
+  }
+
   const chatFiltrosAtivosCount =
     (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0);
 
@@ -539,11 +574,27 @@ export default function ChatView() {
             <h2 className="font-semibold text-slate-800 text-sm">Conversas</h2>
             <span className="text-[11px] text-slate-400">{conversasFiltradas.length}</span>
           </div>
+          <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+            {[
+              { key: "conversas", label: "Conversas" },
+              { key: "mensagens", label: "Mensagens" },
+            ].map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setModoBusca(m.key)}
+                className={`flex-1 text-[11px] px-2 py-1 rounded-md transition-colors ${
+                  modoBusca === m.key ? "bg-white shadow-sm text-slate-700 font-medium" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
           <div className="flex items-center gap-1.5">
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar por nome ou telefone…"
+              placeholder={modoBusca === "mensagens" ? "Buscar dentro das conversas…" : "Buscar por nome ou telefone…"}
               className="flex-1 min-w-0 text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
             />
             <button
@@ -667,6 +718,37 @@ export default function ChatView() {
           </div>
         )}
 
+        {modoBusca === "mensagens" ? (
+          <div className="flex-1 overflow-y-auto thin-scroll">
+            {busca.trim().length < 3 ? (
+              <p className="text-xs text-slate-400 p-4">Digite ao menos 3 letras pra buscar dentro das conversas.</p>
+            ) : buscandoMsg ? (
+              <p className="text-xs text-slate-400 p-4">Buscando…</p>
+            ) : resultadosMsg.length === 0 ? (
+              <p className="text-xs text-slate-400 p-4">Nada encontrado.</p>
+            ) : (
+              resultadosMsg.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => { setSelectedId(m.contactId); setContact(null); setMessages([]); setShowInfo(false); }}
+                  className="w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-slate-700 truncate">{m.contactName}</span>
+                    <span className="text-[10px] text-slate-400 shrink-0">
+                      {new Date(m.createdAt).toLocaleDateString("pt-BR")}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
+                    {m.kind === "audio" && <span title="veio de um áudio">🎧 </span>}
+                    {m.fromMe ? "Você: " : ""}
+                    {m.body}
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
+        ) : (
         <div className="flex-1 overflow-y-auto thin-scroll">
           {conversasFiltradas.map((c) => (
             <button
@@ -706,6 +788,7 @@ export default function ChatView() {
             <p className="text-sm text-slate-400 text-center py-8">Nenhuma conversa encontrada.</p>
           )}
         </div>
+        )}
       </div>
 
       {/* Painel central: chat */}
@@ -726,6 +809,14 @@ export default function ChatView() {
                 <p className="text-sm font-medium text-slate-800 truncate">{selected.name}</p>
                 {selected.phone && <p className="text-xs text-slate-400">{selected.phone}</p>}
               </div>
+              <button
+                onClick={gerarResumo}
+                disabled={resumindo}
+                title="Resumir a conversa com IA"
+                className="shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {resumindo ? "Resumindo…" : "✨ Resumir"}
+              </button>
               {selected.phone && (
                 <a
                   href={`https://wa.me/${selected.phone.replace(/\D/g, "")}`}
@@ -757,6 +848,15 @@ export default function ChatView() {
                 {showInfo ? "Ocultar" : "Dados"}
               </button>
             </div>
+            {resumoIa && (
+              <div className="mx-4 mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 shrink-0">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs font-semibold text-sky-700">✨ Resumo da conversa</p>
+                  <button onClick={() => setResumoIa(null)} className="text-sky-400 hover:text-sky-600 text-sm leading-none">×</button>
+                </div>
+                <p className="text-xs text-slate-600 mt-1.5 whitespace-pre-line">{resumoIa}</p>
+              </div>
+            )}
             <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-2">
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.fromMe ? "justify-end" : "justify-start"}`}>

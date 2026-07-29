@@ -344,6 +344,12 @@ model WhatsappNumber {
   proxyUsername String?
   proxyPassword String?
 
+  // Aquecimento: número recém-conectado que dispara volume alto é banido na
+  // hora. Enquanto ativo, o envio automático respeita um teto que cresce com
+  // os dias de uso (ver lib/aquecimento.js).
+  aquecimentoAtivo Boolean   @default(false)
+  aquecimentoDesde DateTime?
+
   // Número padrão (só um por vez) — destacado na lista.
   padrao         Boolean   @default(false)
   // Rastreamento de conexão: usado pra mostrar "Conectado em ..." /

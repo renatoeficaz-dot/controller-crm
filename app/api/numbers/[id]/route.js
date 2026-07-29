@@ -14,6 +14,12 @@ export async function PATCH(req, { params }) {
   if ("provider" in body) data.provider = body.provider === "waha" ? "waha" : "evolution";
   if ("estadosCobranca" in body) data.estadosCobranca = (body.estadosCobranca || "").trim() || null;
   if ("mensagemCobranca" in body) data.mensagemCobranca = (body.mensagemCobranca || "").trim() || null;
+  if ("aquecimentoAtivo" in body) {
+    data.aquecimentoAtivo = !!body.aquecimentoAtivo;
+    // Liga o cronômetro no momento em que o aquecimento é ativado — sem data,
+    // não dá pra saber em que degrau da escada o número está.
+    if (body.aquecimentoAtivo) data.aquecimentoDesde = new Date();
+  }
   if ("proxyServer" in body) data.proxyServer = (body.proxyServer || "").trim() || null;
   if ("proxyUsername" in body) data.proxyUsername = (body.proxyUsername || "").trim() || null;
   if ("proxyPassword" in body) data.proxyPassword = (body.proxyPassword || "").trim() || null;

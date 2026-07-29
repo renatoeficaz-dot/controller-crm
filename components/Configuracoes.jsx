@@ -1454,6 +1454,10 @@ function Numeros() {
                   </label>
                 </div>
 
+                <AquecimentoNumero numero={n} onChange={(patch) => {
+                  setNumeros((prev) => prev.map((x) => (x.id === n.id ? { ...x, ...patch } : x)));
+                }} />
+
                 <div className="bg-slate-50 rounded-xl p-3.5 space-y-3">
                   <p className="text-xs font-medium text-slate-500">
                     Proxy dedicado — evita bloqueio do WhatsApp ao conectar
@@ -1824,6 +1828,69 @@ function Campanhas() {
           </ul>
         )}
       </SectionCard>
+    </div>
+  );
+}
+
+/* ---------------- Aquecimento de número ---------------- */
+function AquecimentoNumero({ numero, onChange }) {
+  const [enviadas, setEnviadas] = useState(null);
+  const dias = useMemo(() => {
+    if (!numero.aquecimentoDesde) return null;
+    const inicio = new Date(String(numero.aquecimentoDesde).slice(0, 10));
+    const hoje = new Date(new Date().toLocaleDateString("en-CA"));
+    return Math.floor((hoje - inicio) / 86400000) + 1;
+  }, [numero.aquecimentoDesde]);
+
+  const limite = useMemo(() => {
+    if (!numero.aquecimentoAtivo || dias == null) return null;
+    if (dias <= 3) return 20;
+    if (dias <= 7) return 50;
+    if (dias <= 14) return 100;
+    return null; // concluído
+  }, [numero.aquecimentoAtivo, dias]);
+
+  useEffect(() => {
+    if (!numero.aquecimentoAtivo) return;
+    fetch(`/api/numbers/${numero.id}/enviadas-hoje`)
+      .then((r) => r.json())
+      .then((d) => setEnviadas(d.enviadas))
+      .catch(() => {});
+  }, [numero.id, numero.aquecimentoAtivo]);
+
+  async function alternar() {
+    const ativo = !numero.aquecimentoAtivo;
+    onChange({ aquecimentoAtivo: ativo, aquecimentoDesde: ativo ? new Date().toISOString() : numero.aquecimentoDesde });
+    await fetch(`/api/numbers/${numero.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aquecimentoAtivo: ativo }),
+    });
+  }
+
+  return (
+    <div className="bg-slate-50 rounded-xl p-3.5 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-slate-500">Aquecimento — protege número novo de banimento</p>
+        <button
+          type="button"
+          onClick={alternar}
+          className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${numero.aquecimentoAtivo ? "bg-emerald-500" : "bg-slate-200"}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${numero.aquecimentoAtivo ? "translate-x-4" : ""}`} />
+        </button>
+      </div>
+      <p className="text-[11px] text-slate-400">
+        Limita o envio automático (cobrança e follow-up da IA) enquanto o número é novo: até 20/dia nos
+        3 primeiros dias, 50 até o 7º, 100 até o 14º, sem limite depois. Mensagem que você manda na mão
+        pelo chat não entra na conta.
+      </p>
+      {numero.aquecimentoAtivo && dias != null && (
+        <p className="text-[11px] font-medium text-emerald-700">
+          Dia {dias} · {limite == null ? "aquecimento concluído, sem limite" : `limite ${limite}/dia`}
+          {enviadas != null && limite != null ? ` · ${enviadas} enviada(s) hoje` : ""}
+        </p>
+      )}
     </div>
   );
 }
