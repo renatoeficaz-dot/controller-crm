@@ -6,16 +6,21 @@ export async function register() {
   const { checarLembretesCobranca } = await import("@/lib/lembreteCobranca");
   const { checarFollowUp30min, checarMensagensSemResposta } = await import("@/lib/followUp");
   const { recalcularScoresComportamentais } = await import("@/lib/atualizarScoreComportamental");
+  const { rodarBackup } = await import("@/lib/backup");
+  const { checarResumoDiario, checarAlertasCriticos } = await import("@/lib/alertas");
   const CINCO_MIN = 5 * 60 * 1000;
 
   // Rotinas de 1x por dia guardam aqui o dia da última execução — o intervalo
   // é de 5 min, então sem essa trava rodariam 288 vezes por dia.
   let ultimoDiaScores = null;
+  let ultimoDiaBackup = null;
 
   setInterval(() => {
     checarLembretesCobranca().catch((err) => console.error("[lembreteCobranca] erro:", err.message));
     checarFollowUp30min().catch((err) => console.error("[followUp30min] erro:", err.message));
     checarMensagensSemResposta().catch((err) => console.error("[mensagensSemResposta] erro:", err.message));
+    checarResumoDiario().catch((err) => console.error("[resumoDiario] erro:", err.message));
+    checarAlertasCriticos().catch((err) => console.error("[alertasCriticos] erro:", err.message));
 
     const hoje = new Date().toLocaleDateString("en-CA");
     if (ultimoDiaScores !== hoje) {
@@ -23,6 +28,12 @@ export async function register() {
       recalcularScoresComportamentais().catch((err) =>
         console.error("[scoresComportamentais] erro:", err.message)
       );
+    }
+    if (ultimoDiaBackup !== hoje) {
+      ultimoDiaBackup = hoje;
+      rodarBackup()
+        .then((r) => console.log(`[backup] ${r.arquivo} (${r.bytes} bytes)`))
+        .catch((err) => console.error("[backup] erro:", err.message));
     }
   }, CINCO_MIN);
 }

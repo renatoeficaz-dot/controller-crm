@@ -256,6 +256,14 @@ model Config {
   descontoDiasMin  Int     @default(15) // só oferece a partir de X dias de atraso
   descontoMensagem String?
 
+  // Alertas no WhatsApp do dono: resumo do dia no horário escolhido e avisos
+  // na hora quando acontece algo crítico (número caiu, calote grande).
+  alertaWhatsapp     String?
+  alertaResumoDiario Boolean @default(false)
+  alertaHora         String? // "HH:MM"
+  alertaCriticos     Boolean @default(true)
+  alertaCapitalMin   Float   @default(500) // só avisa calote acima disso
+
   deepinfraApiKey  String? // token da conta em https://deepinfra.com/dash
   fishAudioApiKey  String? // token da conta em https://fish.audio
   elevenLabsApiKey String? // token da conta em https://elevenlabs.io

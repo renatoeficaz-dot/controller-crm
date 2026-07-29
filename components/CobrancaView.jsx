@@ -27,6 +27,8 @@ export default function CobrancaView() {
   const [responsavel, setResponsavel] = useState("");
   const [openContactId, setOpenContactId] = useState(null);
   const [tentativaDe, setTentativaDe] = useState(null);
+  const [modoFoco, setModoFoco] = useState(false);
+  const [indiceFoco, setIndiceFoco] = useState(0);
 
   const load = useCallback(async () => {
     const data = await fetch("/api/cobranca/fila").then((r) => r.json()).catch(() => []);
@@ -57,17 +59,121 @@ export default function CobrancaView() {
     [filtrada]
   );
 
-  async function darBaixa(item) {
+  async function darBaixa(item, avancar = false) {
     if (!confirm(`Dar baixa na ${item.proximaParcelaNumero}ª parcela de ${item.name} (${money(item.proximaParcelaValor)})?`)) return;
     await fetch(`/api/parcelas/${item.proximaParcelaId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paid: true }),
     });
+    if (avancar) proximo();
     load();
   }
 
+  // No modo foco a lista muda embaixo do índice conforme as baixas acontecem,
+  // então limita ao tamanho atual em vez de deixar estourar.
+  function proximo() {
+    setIndiceFoco((i) => Math.min(i + 1, Math.max(0, filtrada.length - 1)));
+  }
+
   if (loading) return <div className="p-6 text-slate-400">Carregando fila…</div>;
+
+  // Modo foco: um cliente por vez, alvo de toque grande — feito pra usar no
+  // celular durante a rota de cobrança.
+  if (modoFoco) {
+    const item = filtrada[Math.min(indiceFoco, filtrada.length - 1)];
+    if (!item) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
+          <p className="text-sm text-slate-400">Fila concluída. 🎉</p>
+          <button onClick={() => setModoFoco(false)} className="text-sm text-emerald-600">Voltar para a lista</button>
+        </div>
+      );
+    }
+    const tel = String(item.phone || "").replace(/\D/g, "");
+    return (
+      <div className="flex-1 overflow-y-auto thin-scroll p-4 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <button onClick={() => setModoFoco(false)} className="text-sm text-slate-500">← Lista</button>
+          <span className="text-xs text-slate-400">
+            {Math.min(indiceFoco + 1, filtrada.length)} de {filtrada.length}
+          </span>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
+          <p className="text-xl font-semibold text-slate-800">{item.name}</p>
+          <p className="text-sm text-slate-400 mt-0.5">{item.phone}</p>
+          <p className={`text-sm font-semibold mt-3 ${corAtraso(item.diasAtraso)}`}>
+            {item.diasAtraso} dias de atraso · {item.parcelasAtrasadas} parcela(s)
+          </p>
+          <p className="text-3xl font-bold text-slate-800 mt-2">{money(item.valorAberto)}</p>
+          <p className="text-xs text-slate-400">em aberto</p>
+          {item.tentativasHoje > 0 && (
+            <p className="text-[11px] text-amber-600 mt-2">
+              Já houve {item.tentativasHoje} tentativa(s) com esse cliente hoje
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <a
+            href={`https://wa.me/${tel}`}
+            target="_blank"
+            rel="noreferrer"
+            className="bg-emerald-500 text-white rounded-xl py-4 text-center font-medium hover:bg-emerald-600 transition-colors"
+          >
+            WhatsApp
+          </a>
+          <a
+            href={`tel:${tel}`}
+            className="border border-slate-200 text-slate-600 rounded-xl py-4 text-center font-medium hover:bg-slate-50 transition-colors"
+          >
+            Ligar
+          </a>
+          <button
+            onClick={() => setTentativaDe(item)}
+            className="border border-slate-200 text-slate-600 rounded-xl py-4 font-medium hover:bg-slate-50 transition-colors"
+          >
+            Registrar tentativa
+          </button>
+          <button
+            onClick={() => darBaixa(item, true)}
+            className="border border-emerald-200 text-emerald-600 rounded-xl py-4 font-medium hover:bg-emerald-50 transition-colors"
+          >
+            Dar baixa
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <button
+            onClick={() => setIndiceFoco((i) => Math.max(0, i - 1))}
+            disabled={indiceFoco === 0}
+            className="text-sm text-slate-500 disabled:opacity-40"
+          >
+            ← Anterior
+          </button>
+          <button onClick={() => setOpenContactId(item.id)} className="text-sm text-sky-600">
+            Abrir ficha
+          </button>
+          <button onClick={proximo} className="text-sm text-slate-600 font-medium">
+            Pular →
+          </button>
+        </div>
+
+        {tentativaDe && (
+          <TentativaModal
+            contactId={tentativaDe.id}
+            contactName={tentativaDe.name}
+            onClose={() => setTentativaDe(null)}
+            onSalvou={() => { setTentativaDe(null); proximo(); load(); }}
+          />
+        )}
+        {openContactId && (
+          <ContactModal contactId={openContactId} onClose={() => setOpenContactId(null)} onChanged={load} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 flex flex-col gap-4">
@@ -78,7 +184,14 @@ export default function CobrancaView() {
             Ordenada por prioridade — quem atrasou menos aparece antes, porque tem mais chance de pagar.
           </p>
         </div>
-        <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5 ml-auto">
+        <button
+          onClick={() => { setIndiceFoco(0); setModoFoco(true); }}
+          disabled={filtrada.length === 0}
+          className="ml-auto text-xs rounded-full px-3.5 py-1.5 bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40 transition-colors shrink-0"
+        >
+          🎯 Modo foco
+        </button>
+        <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
           {FAIXAS.map((f) => (
             <button
               key={f.key || "todos"}

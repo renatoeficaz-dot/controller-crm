@@ -115,6 +115,15 @@ const ICONS = {
       <rect x="3" y="3" width="18" height="18" rx="4" />
     </>
   ),
+  alertas: (
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+  backup: (
+    <>
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5M3 12c0 1.66 4 3 9 3s9-1.34 9-3" strokeLinecap="round" />
+    </>
+  ),
   metas: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -147,6 +156,8 @@ const TABS = [
   { key: "desconto", label: "Quitação à vista", desc: "Oferta de desconto pra quem está atrasado" },
   { key: "alteracoes", label: "Alterações", desc: "Log de mudanças em baixas já registradas" },
   { key: "aparencia", label: "Aparência", desc: "Tema claro, escuro ou do sistema" },
+  { key: "alertas", label: "Alertas", desc: "Resumo diário e avisos críticos no seu WhatsApp" },
+  { key: "backup", label: "Backup", desc: "Cópias automáticas do banco de dados" },
 ];
 
 export default function Configuracoes() {
@@ -242,6 +253,8 @@ export default function Configuracoes() {
                 <AgentesIa />
               </div>
             )}
+            {tab === "alertas" && <AlertasWhatsapp />}
+            {tab === "backup" && <BackupBanco />}
             {tab === "regua" && <ReguaCobranca />}
             {tab === "desconto" && <QuitacaoAVista />}
             {tab === "alteracoes" && <AlteracoesLog />}
@@ -1823,6 +1836,219 @@ function Campanhas() {
                     )}
                   </div>
                 )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionCard>
+    </div>
+  );
+}
+
+/* ---------------- Alertas no WhatsApp ---------------- */
+function AlertasWhatsapp() {
+  const [form, setForm] = useState({
+    alertaWhatsapp: "", alertaResumoDiario: false, alertaHora: "19:00",
+    alertaCriticos: true, alertaCapitalMin: "500",
+  });
+  const [saved, setSaved] = useState(false);
+  const [testando, setTestando] = useState(false);
+  const [msgTeste, setMsgTeste] = useState("");
+
+  useEffect(() => {
+    fetch("/api/config").then((r) => r.json()).then((c) =>
+      setForm({
+        alertaWhatsapp: c.alertaWhatsapp || "",
+        alertaResumoDiario: !!c.alertaResumoDiario,
+        alertaHora: c.alertaHora || "19:00",
+        alertaCriticos: c.alertaCriticos !== false,
+        alertaCapitalMin: String(c.alertaCapitalMin ?? 500),
+      })
+    );
+  }, []);
+
+  async function save(e) {
+    e.preventDefault();
+    await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, alertaCapitalMin: Number(form.alertaCapitalMin) }),
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  async function testar() {
+    setTestando(true);
+    setMsgTeste("");
+    // Salva antes: sem isso o teste usaria o número antigo se você acabou de digitar.
+    await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alertaWhatsapp: form.alertaWhatsapp }),
+    });
+    const res = await fetch("/api/alertas/teste", { method: "POST" });
+    const d = await res.json().catch(() => ({}));
+    setTestando(false);
+    setMsgTeste(res.ok ? "Enviado! Confira seu WhatsApp." : d.error || "Falha ao enviar.");
+  }
+
+  return (
+    <form onSubmit={save} className="max-w-xl space-y-5">
+      <SectionCard
+        title="Alertas no seu WhatsApp"
+        desc="Um resumo do dia no horário que você escolher, e avisos na hora quando algo crítico acontece. Enviados pelo número marcado como padrão em Números."
+      >
+        <Field
+          label="Número que recebe os alertas (com DDD)"
+          value={form.alertaWhatsapp}
+          onChange={(v) => setForm((f) => ({ ...f, alertaWhatsapp: v }))}
+          placeholder="5511999998888"
+        />
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          <button
+            type="button"
+            onClick={testar}
+            disabled={testando || !form.alertaWhatsapp}
+            className="text-sm border border-slate-200 text-slate-600 rounded-lg px-3 py-2 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+          >
+            {testando ? "Enviando…" : "Enviar teste agora"}
+          </button>
+          {msgTeste && <span className="text-xs text-slate-500">{msgTeste}</span>}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Resumo diário">
+        <label className="flex items-center justify-between gap-2 py-1">
+          <span className="text-sm text-slate-600">Receber resumo todo dia</span>
+          <button
+            type="button"
+            onClick={() => setForm((f) => ({ ...f, alertaResumoDiario: !f.alertaResumoDiario }))}
+            className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${form.alertaResumoDiario ? "bg-emerald-500" : "bg-slate-200"}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.alertaResumoDiario ? "translate-x-4" : ""}`} />
+          </button>
+        </label>
+        <label className="block mt-3">
+          <span className="text-xs font-medium text-slate-500">Horário do resumo</span>
+          <input
+            type="time"
+            value={form.alertaHora}
+            onChange={(e) => setForm((f) => ({ ...f, alertaHora: e.target.value }))}
+            className="mt-1 block w-36 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+          />
+        </label>
+        <p className="text-[11px] text-slate-400 mt-2">
+          Traz recebido do dia, quantos pagaram, vendas, total em atraso e como está a meta.
+        </p>
+      </SectionCard>
+
+      <SectionCard title="Avisos críticos">
+        <label className="flex items-center justify-between gap-2 py-1">
+          <span className="text-sm text-slate-600">Avisar na hora quando acontecer</span>
+          <button
+            type="button"
+            onClick={() => setForm((f) => ({ ...f, alertaCriticos: !f.alertaCriticos }))}
+            className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${form.alertaCriticos ? "bg-emerald-500" : "bg-slate-200"}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.alertaCriticos ? "translate-x-4" : ""}`} />
+          </button>
+        </label>
+        <p className="text-[11px] text-slate-400 mt-1">
+          Número de WhatsApp desconectado, e lead entrando em Cravo com capital acima do limite abaixo.
+        </p>
+        <div className="mt-3">
+          <NumberField
+            label="Avisar calote a partir de"
+            value={form.alertaCapitalMin}
+            onChange={(e) => setForm((f) => ({ ...f, alertaCapitalMin: e.target.value }))}
+            suffix="R$"
+            width="w-32"
+          />
+        </div>
+      </SectionCard>
+
+      <button className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-emerald-600 transition-colors">
+        {saved ? "Salvo!" : "Salvar"}
+      </button>
+    </form>
+  );
+}
+
+/* ---------------- Backup do banco ---------------- */
+function BackupBanco() {
+  const [lista, setLista] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [gerando, setGerando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/backup");
+    const d = await res.json().catch(() => []);
+    setLista(Array.isArray(d) ? d : []);
+    if (!res.ok) setErro(d.error || "");
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function gerar() {
+    setGerando(true);
+    setErro("");
+    const res = await fetch("/api/backup", { method: "POST" });
+    const d = await res.json().catch(() => ({}));
+    setGerando(false);
+    if (!res.ok) { setErro(d.error || "Falha ao gerar backup."); return; }
+    load();
+  }
+
+  const mb = (b) => (b / 1024 / 1024).toFixed(2) + " MB";
+
+  return (
+    <div className="max-w-2xl space-y-5">
+      <SectionCard
+        title="Backup do banco de dados"
+        desc="Uma cópia é gerada automaticamente uma vez por dia e as últimas 14 ficam guardadas. Use o download pra manter uma cópia fora do servidor — backup que só existe na mesma máquina não protege contra perder a máquina."
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={gerar}
+            disabled={gerando}
+            className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-2 font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+          >
+            {gerando ? "Gerando…" : "Gerar backup agora"}
+          </button>
+          <a
+            href="/api/backup/download"
+            className="text-sm border border-slate-200 text-slate-600 rounded-lg px-3.5 py-2 hover:bg-slate-50 transition-colors"
+          >
+            Baixar o mais recente
+          </a>
+        </div>
+        {erro && <p className="text-xs text-red-500 mt-2">{erro}</p>}
+      </SectionCard>
+
+      <SectionCard title={`Backups disponíveis (${lista.length})`}>
+        {loading ? (
+          <p className="text-sm text-slate-400">Carregando…</p>
+        ) : lista.length === 0 ? (
+          <p className="text-sm text-slate-400">Nenhum backup ainda — gere o primeiro acima.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {lista.map((b) => (
+              <li key={b.nome} className="py-2.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-700 truncate">{b.nome}</p>
+                  <p className="text-[11px] text-slate-400">
+                    {mb(b.bytes)} · {new Date(b.em).toLocaleString("pt-BR")}
+                  </p>
+                </div>
+                <a
+                  href={`/api/backup/download?nome=${encodeURIComponent(b.nome)}`}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 shrink-0"
+                >
+                  Baixar
+                </a>
               </li>
             ))}
           </ul>

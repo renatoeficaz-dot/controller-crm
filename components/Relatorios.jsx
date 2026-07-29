@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { aReceber, totalRecebido, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
 import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS } from "@/lib/finance";
 import ContactModal from "@/components/ContactModal";
+import { baixarCsv, numeroCsv } from "@/lib/exportar";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,6 +43,7 @@ export default function Relatorios() {
   const [criacaoIni, setCriacaoIni] = useState("");
   const [criacaoFim, setCriacaoFim] = useState("");
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
   const [openContactId, setOpenContactId] = useState(null);
 
   const load = useCallback(async () => {
@@ -839,12 +841,61 @@ export default function Relatorios() {
     return { novasVendas: nv, renovacoes: ren };
   }, [stagesFiltrados, ini, fim]);
 
+  // Manda pro servidor os indicadores JÁ calculados aqui — refazer as contas
+  // no backend abriria espaço pro PDF divergir do que está na tela.
+  async function exportarPdf() {
+    setGerandoPdf(true);
+    try {
+      const res = await fetch("/api/relatorios/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          periodo: `${ini} a ${fim}`,
+          filtros: [
+            estadoFiltro && `Estado: ${estadoFiltro}`,
+            etapaFiltro && `Etapa: ${stages.find((s) => s.id === etapaFiltro)?.name || ""}`,
+            generoFiltroRel && `Gênero: ${GENERO_LABEL[generoFiltroRel] || generoFiltroRel}`,
+            tipoClienteFiltroRel && `Tipo: ${TIPO_CLIENTE_LABEL[tipoClienteFiltroRel] || tipoClienteFiltroRel}`,
+          ].filter(Boolean).join(" · ") || "nenhum",
+          novasVendas, renovacoes,
+          receberDia: receber.dia, receberSemana: receber.semana, receberMes: receber.mes,
+          recebido,
+          inadCapital: inad.pendenteCapital, inadTotal: inad.pendenteTotal,
+          adimplentes, inadimplentes,
+          giro: giroCapital,
+          tempoMedioLiberacao: tempoAteLiberacao.media,
+          aging: agingData.map((f) => ({ label: f.label, value: f.value, parcelas: f.parcelas, clientes: f.clientes })),
+          safras,
+          porCiclo: porCiclo.map((c) => ({
+            rotulo: c.chave === "1" ? "1º empréstimo" : c.chave === "2" ? "2º (1ª renov.)" : "3º ou mais",
+            clientes: c.clientes, emprestado: c.emprestado, recebido: c.recebido, lucro: c.lucro, pctInad: c.pctInad,
+          })),
+          comparativo: comparativoMensal.map((m) => ({
+            mes: new Date(`${m.mes}-01T00:00:00`).toLocaleDateString("pt-BR", { month: "short", year: "numeric" }),
+            vendas: m.vendas, liberado: m.liberado, recebido: m.recebido,
+            ticketMedio: m.ticketMedio, deltaRecebido: m.deltaRecebido,
+          })),
+        }),
+      });
+      if (!res.ok) { alert("Não foi possível gerar o PDF."); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `relatorio-${hojeStr()}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setGerandoPdf(false);
+    }
+  }
+
   if (loading) return <div className="p-6 text-slate-400">Carregando relatórios…</div>;
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 flex flex-col gap-4 md:gap-6">
       {/* Botão único que abre o modal com todos os filtros */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setFiltrosAbertos(true)}
           className={`flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border transition-colors ${
@@ -862,6 +913,14 @@ export default function Relatorios() {
               {filtrosAtivosCount}
             </span>
           )}
+        </button>
+
+        <button
+          onClick={exportarPdf}
+          disabled={gerandoPdf}
+          className="flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors disabled:opacity-50"
+        >
+          {gerandoPdf ? "Gerando…" : "📄 Exportar PDF"}
         </button>
       </div>
 
@@ -1336,9 +1395,26 @@ export default function Relatorios() {
 
       {/* Curva de safra: clientes agrupados pelo mês em que o capital foi liberado */}
       <section>
-        <h2 className="text-sm font-semibold text-slate-700 mb-2">
-          Curva de safra <span className="text-slate-400 font-normal">— carteira agrupada pelo mês de liberação do capital</span>
-        </h2>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h2 className="text-sm font-semibold text-slate-700">
+            Curva de safra <span className="text-slate-400 font-normal">— carteira agrupada pelo mês de liberação do capital</span>
+          </h2>
+          {safras.length > 0 && (
+            <button
+              onClick={() => baixarCsv("safras", [
+                { label: "Safra", chave: "mes" },
+                { label: "Clientes", chave: "clientes" },
+                { label: "Emprestado", valor: (r) => numeroCsv(r.emprestado) },
+                { label: "Recuperado", valor: (r) => numeroCsv(r.recuperado) },
+                { label: "% Recuperado", chave: "pctRecuperado" },
+                { label: "Payback medio (dias)", valor: (r) => r.diasMedios ?? "" },
+              ], safras)}
+              className="text-xs text-slate-500 hover:text-emerald-600 shrink-0"
+            >
+              ⬇ CSV
+            </button>
+          )}
+        </div>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {safras.length === 0 ? (
             <p className="text-sm text-slate-400 py-4 px-5">Nenhum capital liberado ainda.</p>
@@ -1835,9 +1911,26 @@ export default function Relatorios() {
 
       {/* Comparativo mês a mês */}
       <section>
-        <h2 className="text-sm font-semibold text-slate-700 mb-2">
-          Comparativo mês a mês <span className="text-slate-400 font-normal">— últimos 6 meses</span>
-        </h2>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h2 className="text-sm font-semibold text-slate-700">
+            Comparativo mês a mês <span className="text-slate-400 font-normal">— últimos 6 meses</span>
+          </h2>
+          {comparativoMensal.length > 0 && (
+            <button
+              onClick={() => baixarCsv("comparativo-mensal", [
+                { label: "Mes", chave: "mes" },
+                { label: "Vendas", chave: "vendas" },
+                { label: "Liberado", valor: (r) => numeroCsv(r.liberado) },
+                { label: "Recebido", valor: (r) => numeroCsv(r.recebido) },
+                { label: "Ticket medio", valor: (r) => numeroCsv(r.ticketMedio) },
+                { label: "Delta recebido (%)", valor: (r) => r.deltaRecebido ?? "" },
+              ], comparativoMensal)}
+              className="text-xs text-slate-500 hover:text-emerald-600 shrink-0"
+            >
+              ⬇ CSV
+            </button>
+          )}
+        </div>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {comparativoMensal.length === 0 ? (
             <p className="text-sm text-slate-400 py-4 px-5">Sem histórico ainda.</p>

@@ -43,6 +43,11 @@ export async function PATCH(req) {
   if ("descontoPct" in body) data.descontoPct = Math.min(100, Math.max(0, Number(body.descontoPct) || 0));
   if ("descontoDiasMin" in body) data.descontoDiasMin = Math.max(0, Number(body.descontoDiasMin) || 0);
   if ("descontoMensagem" in body) data.descontoMensagem = (body.descontoMensagem || "").trim() || null;
+  if ("alertaWhatsapp" in body) data.alertaWhatsapp = (body.alertaWhatsapp || "").replace(/\D/g, "") || null;
+  if ("alertaResumoDiario" in body) data.alertaResumoDiario = !!body.alertaResumoDiario;
+  if ("alertaHora" in body) data.alertaHora = (body.alertaHora || "").trim() || null;
+  if ("alertaCriticos" in body) data.alertaCriticos = !!body.alertaCriticos;
+  if ("alertaCapitalMin" in body) data.alertaCapitalMin = Math.max(0, Number(body.alertaCapitalMin) || 0);
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }
