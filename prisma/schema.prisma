@@ -86,6 +86,12 @@ model Contact {
   puxadaLimite      Float?   // limite de capital sugerido, em R$
   puxadaMotivos     String?  // motivos do score, separados por "|"
 
+  // Score comportamental: como o cliente paga NA SUA carteira (o da puxada vem
+  // de bureau externo). Recalculado a cada baixa e uma vez por dia.
+  scoreComportamental Int?
+  scoreComportMotivos String?
+  scoreComportEm      DateTime?
+
   // Link de rastreamento (UTM) que trouxe esse lead — atribuição de primeiro
   // toque: setado uma vez, na criação, a partir da tag "[ref:slug]" que o
   // redirecionamento /l/[slug] injeta na mensagem pré-preenchida do WhatsApp.

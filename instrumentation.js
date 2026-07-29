@@ -5,10 +5,24 @@ export async function register() {
 
   const { checarLembretesCobranca } = await import("@/lib/lembreteCobranca");
   const { checarFollowUp30min, checarMensagensSemResposta } = await import("@/lib/followUp");
+  const { recalcularScoresComportamentais } = await import("@/lib/atualizarScoreComportamental");
   const CINCO_MIN = 5 * 60 * 1000;
+
+  // Rotinas de 1x por dia guardam aqui o dia da última execução — o intervalo
+  // é de 5 min, então sem essa trava rodariam 288 vezes por dia.
+  let ultimoDiaScores = null;
+
   setInterval(() => {
     checarLembretesCobranca().catch((err) => console.error("[lembreteCobranca] erro:", err.message));
     checarFollowUp30min().catch((err) => console.error("[followUp30min] erro:", err.message));
     checarMensagensSemResposta().catch((err) => console.error("[mensagensSemResposta] erro:", err.message));
+
+    const hoje = new Date().toLocaleDateString("en-CA");
+    if (ultimoDiaScores !== hoje) {
+      ultimoDiaScores = hoje;
+      recalcularScoresComportamentais().catch((err) =>
+        console.error("[scoresComportamentais] erro:", err.message)
+      );
+    }
   }, CINCO_MIN);
 }

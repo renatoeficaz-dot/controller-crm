@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
+import { atualizarScoreDoContato } from "@/lib/atualizarScoreComportamental";
 
 // Marca uma parcela como paga / pendente.
 // body.amountPago (opcional): valor realmente cobrado — permite ao cobrador
@@ -74,5 +75,10 @@ export async function PATCH(req, { params }) {
   } else {
     await prisma.lancamento.deleteMany({ where: { parcelaId: parcela.id } });
   }
+
+  // O score comportamental depende do histórico de pagamento — recalcula aqui
+  // pra refletir a baixa na hora, sem esperar a varredura diária.
+  await atualizarScoreDoContato(parcela.contactId).catch(() => {});
+
   return NextResponse.json(parcela);
 }

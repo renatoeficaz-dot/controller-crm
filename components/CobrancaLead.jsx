@@ -3,9 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { interpolarVariaveis, situacaoCobranca } from "@/lib/variaveis";
 import TentativaModal, { RESULTADO_LABEL, TIPO_LABEL } from "@/components/TentativaModal";
+import { faixaComportamental, FAIXA_COMPORT_LABEL } from "@/lib/scoreComportamental";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const COR_COMPORT = {
+  bom: { texto: "text-emerald-700", barra: "bg-emerald-500", fundo: "bg-emerald-50", borda: "border-emerald-200" },
+  regular: { texto: "text-amber-700", barra: "bg-amber-500", fundo: "bg-amber-50", borda: "border-amber-200" },
+  ruim: { texto: "text-red-700", barra: "bg-red-500", fundo: "bg-red-50", borda: "border-red-200" },
+};
 
 const COR_RESULTADO = {
   atendeu: "text-emerald-600",
@@ -63,6 +70,29 @@ export default function CobrancaLead({ contactId, contact }) {
           + Tentativa
         </button>
       </div>
+
+      {contact?.scoreComportamental != null && (() => {
+        const faixa = faixaComportamental(contact.scoreComportamental);
+        const st = COR_COMPORT[faixa] || COR_COMPORT.regular;
+        const lista = (contact.scoreComportMotivos || "").split("|").filter(Boolean);
+        return (
+          <div className={`mt-2 rounded-lg border p-2.5 ${st.fundo} ${st.borda}`}>
+            <div className="flex items-center justify-between">
+              <span className={`text-xs font-semibold ${st.texto}`}>{FAIXA_COMPORT_LABEL[faixa]}</span>
+              <span className={`text-xs font-semibold ${st.texto}`}>{contact.scoreComportamental}/100</span>
+            </div>
+            <div className="w-full bg-white/70 rounded-full h-1.5 mt-1.5">
+              <div className={`h-1.5 rounded-full ${st.barra}`} style={{ width: `${contact.scoreComportamental}%` }} />
+            </div>
+            {lista.length > 0 && (
+              <ul className="mt-1.5 space-y-0.5">
+                {lista.map((m, i) => (<li key={i} className="text-[10px] text-slate-500">• {m}</li>))}
+              </ul>
+            )}
+            <p className="text-[10px] text-slate-400 mt-1.5">Baseado no histórico de pagamento nesta carteira.</p>
+          </div>
+        );
+      })()}
 
       {qualifica && (
         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">

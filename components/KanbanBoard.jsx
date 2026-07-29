@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import ContactModal from "./ContactModal";
 import MetasMini from "./MetasMini";
+import SimuladorModal from "./SimuladorModal";
 
 // Iniciais para o avatar do contato
 function initials(name) {
@@ -114,6 +115,7 @@ export default function KanbanBoard() {
   const [generoFiltro, setGeneroFiltro] = useState(""); // "" = todos; "masculino" | "feminino"
   const [tipoClienteFiltro, setTipoClienteFiltro] = useState(""); // "" = todos; "motoboy" | "uber" | "comerciante"
   const [filtrosAbertos, setFiltrosAbertos] = useState(false); // modal com todos os filtros
+  const [simuladorAberto, setSimuladorAberto] = useState(false);
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
   const [bulkAction, setBulkAction] = useState(""); // "", stage, responsavel, unit, delete
   const [bulkValue, setBulkValue] = useState("");
@@ -358,6 +360,13 @@ export default function KanbanBoard() {
               {filtrosAtivosCount}
             </span>
           )}
+        </button>
+
+        <button
+          onClick={() => setSimuladorAberto(true)}
+          className="flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors shrink-0"
+        >
+          🧮 Simular
         </button>
 
         <MetasMini />
@@ -865,6 +874,8 @@ export default function KanbanBoard() {
       <div className="flex items-center justify-end px-3 md:px-4 py-2 border-t border-slate-100 text-xs text-slate-500 shrink-0">
         Total de contatos: <span className="font-medium text-slate-700 ml-1">{totalContatos}</span>
       </div>
+
+      {simuladorAberto && <SimuladorModal onClose={() => setSimuladorAberto(false)} />}
 
       {openId && (
         <ContactModal
