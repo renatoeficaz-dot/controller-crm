@@ -21,7 +21,11 @@ function hojeStr() {
   return new Date().toLocaleDateString("en-CA");
 }
 
-const EMPTY_FORM = { type: "entrada", amount: "", description: "", date: hojeStr(), categoriaId: "", bancoId: "", contactId: "" };
+const EMPTY_FORM = {
+  type: "entrada", amount: "", description: "", date: hojeStr(), categoriaId: "", bancoId: "", contactId: "",
+  // Recorrência só se aplica a saída nova (vira Conta a pagar em vez de lançamento imediato).
+  recorrente: false, tipoRecorrencia: "meses", recorrenciaMeses: "12",
+};
 const EMPTY_FILTROS = {
   type: "", categoriaId: "", bancoId: "", responsavel: "", tagId: "",
   ini: inicioMesStr(), fim: hojeStr(), valorMin: "", valorMax: "", sort: "recentes",
@@ -338,6 +342,32 @@ export default function LancamentosView() {
     setError("");
     if (!form.amount || Number(form.amount) <= 0) { setError("Valor obrigatório."); return; }
     setSaving(true);
+
+    // Saída nova marcada como recorrente não é um lançamento imediato — é uma
+    // despesa PREVISTA, então cai em Contas a pagar (não mexe no saldo até
+    // ser marcada como paga) em vez de virar caixa realizado na hora.
+    if (!editingId && form.type === "saida" && form.recorrente) {
+      const res = await fetch("/api/contas-pagar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          descricao: form.description,
+          valor: Number(form.amount),
+          vencimento: form.date,
+          categoriaId: form.categoriaId,
+          bancoId: form.bancoId,
+          recorrente: true,
+          recorrenciaMeses: form.tipoRecorrencia === "meses" ? form.recorrenciaMeses : null,
+        }),
+      });
+      setSaving(false);
+      if (!res.ok) { setError((await res.json().catch(() => ({}))).error || "Erro."); return; }
+      setFormOpen(false);
+      setForm(EMPTY_FORM);
+      setAba("contas");
+      return;
+    }
+
     const url = editingId ? `/api/lancamentos/${editingId}` : "/api/lancamentos";
     const res = await fetch(url, {
       method: editingId ? "PATCH" : "POST",
@@ -752,7 +782,11 @@ export default function LancamentosView() {
             </div>
             <label className="block">
               <span className="text-xs text-slate-400">Tipo</span>
-              <select value={form.type} onChange={set("type")} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+              <select
+                value={form.type}
+                onChange={(e) => setForm((f) => ({ ...f, type: e.target.value, recorrente: e.target.value === "saida" ? f.recorrente : false }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+              >
                 <option value="entrada">Entrada</option>
                 <option value="saida">Saída</option>
               </select>
@@ -766,7 +800,7 @@ export default function LancamentosView() {
               <input value={form.description} onChange={set("description")} placeholder="Ex.: Pagamento fornecedor" className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
             </label>
             <label className="block">
-              <span className="text-xs text-slate-400">Data</span>
+              <span className="text-xs text-slate-400">{form.recorrente ? "Vencimento" : "Data"}</span>
               <input type="date" value={form.date} onChange={set("date")} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
             </label>
             <label className="block">
@@ -783,6 +817,68 @@ export default function LancamentosView() {
                 {bancos.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
               </select>
             </label>
+
+            {/* Só faz sentido numa saída nova: recorrência transforma o lançamento
+                em Conta a pagar (previsão), então não existe em edição nem em entrada. */}
+            {!editingId && form.type === "saida" && (
+              <div className="bg-slate-50 rounded-xl p-3.5">
+                <label className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-slate-600">Repetir todo mês (vira conta a pagar)</span>
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, recorrente: !f.recorrente }))}
+                    className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${form.recorrente ? "bg-emerald-500" : "bg-slate-200"}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.recorrente ? "translate-x-4" : ""}`} />
+                  </button>
+                </label>
+
+                {form.recorrente && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex gap-1.5">
+                      {[
+                        { key: "meses", label: "Por X meses" },
+                        { key: "ilimitada", label: "Ilimitada" },
+                      ].map((o) => (
+                        <button
+                          key={o.key}
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, tipoRecorrencia: o.key }))}
+                          className={`flex-1 text-xs rounded-lg py-2 border transition-colors ${
+                            form.tipoRecorrencia === o.key
+                              ? "bg-slate-800 text-white border-slate-800"
+                              : "bg-white text-slate-600 border-slate-200"
+                          }`}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                    {form.tipoRecorrencia === "meses" ? (
+                      <label className="block">
+                        <span className="text-xs text-slate-400">Quantas vezes no total</span>
+                        <input
+                          type="number"
+                          min="2"
+                          max="120"
+                          value={form.recorrenciaMeses}
+                          onChange={(e) => setForm((f) => ({ ...f, recorrenciaMeses: e.target.value }))}
+                          className="mt-0.5 w-32 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+                        />
+                      </label>
+                    ) : (
+                      <p className="text-[11px] text-slate-400">
+                        Fica sempre com os próximos 12 meses em aberto — a lista se renova sozinha.
+                      </p>
+                    )}
+                    <p className="text-[11px] text-amber-600">
+                      Vira uma Conta a pagar: não muda seu saldo agora, só quando for marcada como paga.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <label className="block">
               <span className="text-xs text-slate-400">Lead (opcional)</span>
               <div className="flex gap-1.5 mt-0.5">
@@ -799,7 +895,7 @@ export default function LancamentosView() {
             </label>
             {error && <p className="text-xs text-red-500">{error}</p>}
             <button disabled={saving} className="w-full bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors">
-              {saving ? "Salvando…" : editingId ? "Salvar alterações" : "Lançar"}
+              {saving ? "Salvando…" : editingId ? "Salvar alterações" : form.recorrente ? "Criar conta a pagar" : "Lançar"}
             </button>
           </form>
         </div>
