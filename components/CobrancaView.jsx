@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ContactModal from "@/components/ContactModal";
 import TentativaModal from "@/components/TentativaModal";
+import Icone from "@/components/Icones";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -85,7 +86,7 @@ export default function CobrancaView() {
     if (!item) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
-          <p className="text-sm text-slate-400">Fila concluída. 🎉</p>
+          <p className="text-sm text-slate-400 flex items-center justify-center gap-1.5">Fila concluída. <Icone nome="trofeu" className="w-4 h-4" /></p>
           <button onClick={() => setModoFoco(false)} className="text-sm text-emerald-600">Voltar para a lista</button>
         </div>
       );
@@ -187,9 +188,9 @@ export default function CobrancaView() {
         <button
           onClick={() => { setIndiceFoco(0); setModoFoco(true); }}
           disabled={filtrada.length === 0}
-          className="ml-auto text-xs rounded-full px-3.5 py-1.5 bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40 transition-colors shrink-0"
+          className="ml-auto flex items-center gap-1 text-xs rounded-full px-3.5 py-1.5 bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40 transition-colors shrink-0"
         >
-          🎯 Modo foco
+          <Icone nome="meta" className="w-3.5 h-3.5" /> Modo foco
         </button>
         <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
           {FAIXAS.map((f) => (
@@ -229,7 +230,7 @@ export default function CobrancaView() {
 
       {filtrada.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
-          <p className="text-sm text-slate-400">Nenhum cliente a cobrar com esses filtros. 🎉</p>
+          <p className="text-sm text-slate-400 flex items-center justify-center gap-1.5">Nenhum cliente a cobrar com esses filtros. <Icone nome="trofeu" className="w-4 h-4" /></p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">

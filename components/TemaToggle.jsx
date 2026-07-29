@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Icone from "@/components/Icones";
 
 export const TEMA_STORAGE_KEY = "crm-tema";
 
@@ -14,9 +15,9 @@ export function aplicarTema(tema) {
 }
 
 const OPCOES = [
-  { valor: "claro", label: "Claro", icone: "☀️" },
-  { valor: "escuro", label: "Escuro", icone: "🌙" },
-  { valor: "sistema", label: "Do sistema", icone: "🖥️" },
+  { valor: "claro", label: "Claro", icone: "sol" },
+  { valor: "escuro", label: "Escuro", icone: "lua" },
+  { valor: "sistema", label: "Do sistema", icone: "monitor" },
 ];
 
 export default function TemaToggle() {
@@ -56,7 +57,7 @@ export default function TemaToggle() {
                 : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
             }`}
           >
-            <span className="block text-xl mb-1">{o.icone}</span>
+            <Icone nome={o.icone} className="w-5 h-5 mx-auto mb-1" />
             {o.label}
           </button>
         );

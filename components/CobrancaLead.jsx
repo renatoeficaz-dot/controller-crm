@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { interpolarVariaveis, situacaoCobranca } from "@/lib/variaveis";
 import TentativaModal, { RESULTADO_LABEL, TIPO_LABEL } from "@/components/TentativaModal";
 import { faixaComportamental, FAIXA_COMPORT_LABEL } from "@/lib/scoreComportamental";
+import Icone from "@/components/Icones";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -61,7 +62,7 @@ export default function CobrancaLead({ contactId, contact }) {
   return (
     <div className="border border-slate-200 rounded-lg p-2.5">
       <div className="flex items-center justify-between text-xs font-medium text-slate-600">
-        <span>📞 Cobrança</span>
+        <span className="flex items-center gap-1"><Icone nome="cobranca" className="w-3.5 h-3.5" /> Cobrança</span>
         <button
           type="button"
           onClick={() => setModalAberto(true)}

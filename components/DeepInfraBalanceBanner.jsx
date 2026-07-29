@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Icone from "@/components/Icones";
 
 const CINCO_MINUTOS = 5 * 60 * 1000;
 const LIMITE_SALDO = 1; // US$ — abaixo disso, avisa
@@ -35,7 +36,7 @@ export default function DeepInfraBalanceBanner() {
 
   return (
     <div className="shrink-0 bg-red-600 text-white text-xs px-4 py-2 flex items-center gap-2 flex-wrap">
-      <span className="font-semibold">⚠️ Saldo da DeepInfra baixo:</span>
+      <span className="font-semibold flex items-center gap-1"><Icone nome="alerta" className="w-3.5 h-3.5" /> Saldo da DeepInfra baixo:</span>
       <span className="bg-red-700/60 rounded-full px-2 py-0.5">US$ {saldo.saldo.toFixed(2)}</span>
       <span className="text-red-100">— a IA pode parar de responder. Adicione crédito em deepinfra.com/dash</span>
     </div>

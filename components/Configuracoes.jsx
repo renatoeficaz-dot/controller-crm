@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
 import { PAGINAS_SISTEMA } from "@/lib/paginas";
 import TemaToggle from "@/components/TemaToggle";
+import Icone from "@/components/Icones";
 
 // Posição (fixed, em relação à viewport) do EmojiPicker a partir do botão que
 // o abriu — mantém dentro da tela em qualquer largura (nada de calcular
@@ -406,9 +407,9 @@ const EMPTY_USER = {
 
 const ROLE_LABEL = { admin: "Administrador", vendedor: "Vendedor", cobrador: "Cobrador" };
 const ROLE_OPTIONS = [
-  { value: "admin", label: "Administrador", icon: "🛡️" },
-  { value: "vendedor", label: "Vendedor", icon: "🧑‍💼" },
-  { value: "cobrador", label: "Cobrador", icon: "💰" },
+  { value: "admin", label: "Administrador", icon: "escudo" },
+  { value: "vendedor", label: "Vendedor", icon: "mala" },
+  { value: "cobrador", label: "Cobrador", icon: "dinheiro" },
 ];
 
 function initials(name) {
@@ -532,10 +533,10 @@ function Usuarios() {
     <div className="space-y-5">
       {/* Cards de resumo */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon="👥" value={stats.total} label="Total de usuários" hint="Todos os usuários cadastrados" />
-        <StatCard icon="🛡️" value={stats.admins} label="Administradores" hint="Acesso total ao sistema" tint="violet" />
-        <StatCard icon="🧑‍💼" value={stats.vendedores} label="Vendedores" hint="Acesso limitado" tint="sky" />
-        <StatCard icon="💰" value={stats.cobradores} label="Cobradores" hint="Cobrança e recebimento" tint="amber" />
+        <StatCard icon="pessoas" value={stats.total} label="Total de usuários" hint="Todos os usuários cadastrados" />
+        <StatCard icon="escudo" value={stats.admins} label="Administradores" hint="Acesso total ao sistema" tint="violet" />
+        <StatCard icon="mala" value={stats.vendedores} label="Vendedores" hint="Acesso limitado" tint="sky" />
+        <StatCard icon="dinheiro" value={stats.cobradores} label="Cobradores" hint="Cobrança e recebimento" tint="amber" />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
@@ -553,7 +554,7 @@ function Usuarios() {
         {/* Busca + filtro */}
         <div className="flex flex-wrap items-center gap-2.5 px-5 py-4">
           <div className="relative flex-1 min-w-[180px]">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-sm">🔍</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"><Icone nome="lupa" className="w-3.5 h-3.5" /></span>
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
@@ -659,10 +660,10 @@ function Usuarios() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 text-xs"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500"
                     tabIndex={-1}
                   >
-                    {showPassword ? "🙈" : "👁️"}
+                    <Icone nome={showPassword ? "olho-fechado" : "olho"} className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </label>
@@ -790,7 +791,7 @@ function StatCard({ icon, value, label, hint, tint = "emerald" }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4">
       <div className="flex items-center gap-3">
-        <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 ${tints[tint]}`}>{icon}</span>
+        <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tints[tint]}`}><Icone nome={icon} className="w-4.5 h-4.5" /></span>
         <span className="text-xl font-semibold text-slate-800">{value}</span>
       </div>
       <p className="text-xs font-medium text-slate-600 mt-2">{label}</p>
@@ -1042,7 +1043,7 @@ function Numeros() {
         {!editingEvo ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <SectionHeader
-              icon="🔗"
+              icon="link"
               title="Servidor Evolution"
               subtitle={evo.evolutionUrl ? "URL e API Key configurados e ativos" : "Nenhum servidor configurado ainda"}
             />
@@ -1057,14 +1058,14 @@ function Numeros() {
               <button type="button" onClick={() => setEditingEvo(true)} className="text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors">
                 Editar servidor
               </button>
-              <button type="button" onClick={testConnection} disabled={testing} className="text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
-                {testing ? "Testando…" : "📶 Testar conexão"}
+              <button type="button" onClick={testConnection} disabled={testing} className="flex items-center gap-1 text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
+                {testing ? "Testando…" : (<><Icone nome="sinal" className="w-3.5 h-3.5" /> Testar conexão</>)}
               </button>
             </div>
           </div>
         ) : (
           <form onSubmit={saveEvolution}>
-            <SectionHeader icon="🔗" title="URL do servidor Evolution" subtitle="Informe a URL e a API Key do seu servidor Evolution para integração." />
+            <SectionHeader icon="link" title="URL do servidor Evolution" subtitle="Informe a URL e a API Key do seu servidor Evolution para integração." />
             <div className="grid md:grid-cols-3 gap-3 items-end mt-4">
               <Field label="URL do servidor Evolution" value={evo.evolutionUrl} onChange={(v) => setEvo((s) => ({ ...s, evolutionUrl: v }))} placeholder="https://evo.exemplo.com" />
               <label className="block">
@@ -1102,7 +1103,7 @@ function Numeros() {
         {!editingWaha ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <SectionHeader
-              icon="🟢"
+              icon="bolinha"
               title="Servidor WAHA"
               subtitle={waha.wahaUrl ? "URL e API Key configurados e ativos" : "Nenhum servidor configurado ainda"}
             />
@@ -1117,14 +1118,14 @@ function Numeros() {
               <button type="button" onClick={() => setEditingWaha(true)} className="text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors">
                 Editar servidor
               </button>
-              <button type="button" onClick={testWahaConnectionFn} disabled={testingWaha} className="text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
-                {testingWaha ? "Testando…" : "📶 Testar conexão"}
+              <button type="button" onClick={testWahaConnectionFn} disabled={testingWaha} className="flex items-center gap-1 text-xs font-medium border border-slate-200 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
+                {testingWaha ? "Testando…" : (<><Icone nome="sinal" className="w-3.5 h-3.5" /> Testar conexão</>)}
               </button>
             </div>
           </div>
         ) : (
           <form onSubmit={saveWaha}>
-            <SectionHeader icon="🟢" title="URL do servidor WAHA" subtitle="Informe a URL e a API Key do seu servidor WAHA para integração." />
+            <SectionHeader icon="bolinha" title="URL do servidor WAHA" subtitle="Informe a URL e a API Key do seu servidor WAHA para integração." />
             <div className="grid md:grid-cols-3 gap-3 items-end mt-4">
               <Field label="URL do servidor WAHA" value={waha.wahaUrl} onChange={(v) => setWaha((s) => ({ ...s, wahaUrl: v }))} placeholder="http://185.101.104.154:3001" />
               <label className="block">
@@ -1160,7 +1161,7 @@ function Numeros() {
       <div>
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <SectionHeader icon="📶" title={`Números conectados (${numeros.length})`} subtitle="Gerencie os números já conectados ao sistema." />
+            <SectionHeader icon="sinal" title={`Números conectados (${numeros.length})`} subtitle="Gerencie os números já conectados ao sistema." />
             <button
               type="button"
               onClick={() => { setError(""); setConnectModalOpen(true); }}
@@ -1180,7 +1181,7 @@ function Numeros() {
                     onClick={() => setConfiguringId(n.id)}
                     className="w-full flex items-center gap-3 p-3 text-left rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-colors"
                   >
-                    <span className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center text-base shrink-0">💬</span>
+                    <span className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0"><Icone nome="chat" className="w-4.5 h-4.5" /></span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-slate-700 truncate flex items-center gap-1.5">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${conectado ? "bg-emerald-500" : "bg-red-500"}`} />
@@ -1249,7 +1250,7 @@ function Numeros() {
             onClick={openHistory}
             className="w-full flex items-center justify-between text-xs text-slate-500 hover:text-slate-700 border-t border-slate-100 mt-4 pt-3"
           >
-            <span className="flex items-center gap-1.5">🕓 Ver histórico de conexões</span>
+            <span className="flex items-center gap-1.5"><Icone nome="relogio" className="w-3.5 h-3.5" /> Ver histórico de conexões</span>
             <span>›</span>
           </button>
         </div>
@@ -1287,7 +1288,7 @@ function Numeros() {
           <form onSubmit={create} onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-3.5 max-h-[88vh] overflow-y-auto thin-scroll">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
-                <span className="text-lg">📞</span>
+                <Icone nome="cobranca" className="w-4.5 h-4.5" />
                 <h3 className="font-semibold text-slate-800">Conectar número</h3>
               </div>
               <button type="button" onClick={() => setConnectModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
@@ -1357,7 +1358,7 @@ function Numeros() {
               disabled={saving}
               className="w-full flex items-center justify-center gap-2 bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
             >
-              <span>💬</span> {saving ? "Conectando…" : "Conectar número (gera QR)"}
+              <Icone nome="chat" className="w-3.5 h-3.5" /> {saving ? "Conectando…" : "Conectar número (gera QR)"}
             </button>
             <p className="flex items-start gap-2 text-[11px] text-sky-700 bg-sky-50 rounded-lg p-2.5">
               <span>ℹ️</span> Após conectar, um QR Code será gerado para autenticação do número no WhatsApp.
@@ -1543,7 +1544,7 @@ function Numeros() {
 
             {qr.connected ? (
               <div className="py-8">
-                <div className="text-4xl mb-2">✅</div>
+                <div className="flex justify-center mb-2 text-emerald-500"><Icone nome="check" className="w-9 h-9" /></div>
                 <p className="text-emerald-600 font-medium">Número conectado!</p>
               </div>
             ) : qr.error ? (
@@ -2433,7 +2434,7 @@ function AlteracoesLog() {
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
       <SectionHeader
-        icon="📝"
+        icon="lapis"
         title="Alterações em baixas"
         subtitle="Toda vez que o valor de uma baixa já registrada é mudado, ou ela é desmarcada, fica registrado aqui com o motivo."
       />
@@ -2520,7 +2521,7 @@ function MetasConfig() {
     <form onSubmit={save} className="space-y-6 max-w-md">
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
         <SectionHeader
-          icon="🎯"
+          icon="meta"
           title="Meta diária de vendas"
           subtitle="Quantos leads devem cair na etapa 'Recebimento' (empréstimo liberado) no dia. 3 níveis: mínima, média e meta cheia."
         />
@@ -2560,7 +2561,7 @@ function MetasConfig() {
 
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
         <SectionHeader
-          icon="💰"
+          icon="dinheiro"
           title="Meta diária de recebimento"
           subtitle='Regra: X% de todos os leads que estão atualmente na etapa "Recebimento" precisam pagar (dar baixa numa parcela) hoje. 3 níveis: mínima, média e meta cheia.'
         />
@@ -2642,7 +2643,7 @@ function TiposTarefaConfig() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
-        <SectionHeader icon="✅" title="Novo tipo de tarefa" subtitle="Categorias pra organizar as tarefas dos leads (ex.: Ligação, Visita, Cobrança extra)." />
+        <SectionHeader icon="tarefa" title="Novo tipo de tarefa" subtitle="Categorias pra organizar as tarefas dos leads (ex.: Ligação, Visita, Cobrança extra)." />
         <div className="flex gap-2">
           <div className="block shrink-0 w-16 relative">
             <span className="text-xs text-slate-400">Emoji</span>
@@ -3044,7 +3045,7 @@ function MensagensProntas() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
-        <SectionHeader icon="💬" title={editando ? "Editar mensagem" : "Nova mensagem pronta"} />
+        <SectionHeader icon="chat" title={editando ? "Editar mensagem" : "Nova mensagem pronta"} />
         <label className="block">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-400">Título (aparece no seletor)</span>
@@ -3079,10 +3080,14 @@ function MensagensProntas() {
                 <button type="button" title="Negrito" onClick={() => inserirNoTexto("*", "*")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm font-bold text-slate-500">B</button>
                 <button type="button" title="Itálico" onClick={() => inserirNoTexto("_", "_")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm italic text-slate-500">I</button>
                 <span className="w-px h-4 bg-slate-200 mx-0.5" />
-                <button type="button" title="Lista com marcadores" onClick={() => inserirNoTexto("\n- ")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500">☰</button>
+                <button type="button" title="Lista com marcadores" onClick={() => inserirNoTexto("\n- ")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-slate-500 flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="w-4 h-4"><path d="M8 6h12M8 12h12M8 18h12" /><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" /></svg>
+                </button>
                 <button type="button" title="Lista numerada" onClick={() => inserirNoTexto("\n1. ")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-xs text-slate-500">1.</button>
                 <span className="w-px h-4 bg-slate-200 mx-0.5" />
-                <button type="button" title="Link" onClick={() => inserirNoTexto("", " (https://)")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500">🔗</button>
+                <button type="button" title="Link" onClick={() => inserirNoTexto("", " (https://)")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-slate-500 flex items-center justify-center">
+                  <Icone nome="link" className="w-3.5 h-3.5" />
+                </button>
                 <div className="relative">
                   <button
                     type="button"
@@ -3208,9 +3213,9 @@ function MensagensProntas() {
 
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <SectionHeader icon="🗂️" title={`Mensagens cadastradas (${templates.length})`} />
+          <SectionHeader icon="pasta" title={`Mensagens cadastradas (${templates.length})`} />
           <div className="relative w-44 shrink-0">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-xs">🔍</span>
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300"><Icone nome="lupa" className="w-3 h-3" /></span>
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
@@ -3305,12 +3310,12 @@ function MensagensProntas() {
 /* ---------------- Automação do funil (responsável por etapa) ---------------- */
 // Ícone por etapa (só estética — cai num ícone genérico se o nome não bater).
 const STAGE_ICON = {
-  "novo": "✨", "em conversa": "💬", "documentação": "📄", "análise": "📈",
-  "liberação pagamento": "💲", "recebimento": "✅", "pago": "🏦",
-  "cravo": "⛔", "venda perdida": "⛔", "aguardando cobrador": "⏳",
+  "novo": "estrela", "em conversa": "chat", "documentação": "documento", "análise": "grafico",
+  "liberação pagamento": "dinheiro", "recebimento": "check", "pago": "banco",
+  "cravo": "proibido", "venda perdida": "proibido", "aguardando cobrador": "ampulheta",
 };
 function iconeEtapa(nome) {
-  return STAGE_ICON[(nome || "").toLowerCase()] || "🔹";
+  return STAGE_ICON[(nome || "").toLowerCase()] || "bolinha";
 }
 
 function AutomacaoFunil() {
@@ -3389,7 +3394,7 @@ function AutomacaoFunil() {
             <li key={s.id} className="py-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                <span className="text-base shrink-0">{iconeEtapa(s.name)}</span>
+                <span className="shrink-0 text-slate-500"><Icone nome={iconeEtapa(s.name)} className="w-4 h-4" /></span>
                 <span className="text-sm text-slate-700 truncate">{s.name}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -3412,7 +3417,7 @@ function AutomacaoFunil() {
       </div>
 
       <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-5">
-        <span className="w-10 h-10 rounded-xl bg-white text-emerald-600 flex items-center justify-center text-lg shadow-sm">🛡️</span>
+        <span className="w-10 h-10 rounded-xl bg-white text-emerald-600 flex items-center justify-center shadow-sm"><Icone nome="escudo" className="w-5 h-5" /></span>
         <h3 className="font-semibold text-slate-800 mt-3">Como funciona?</h3>
         <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
           O responsável será atribuído automaticamente sempre que um lead entrar na etapa correspondente.
@@ -3431,7 +3436,7 @@ function AutomacaoFunil() {
           onClick={() => setShowHorario(true)}
           className="w-full flex items-center justify-center gap-1.5 bg-white border border-emerald-200 text-emerald-700 rounded-lg py-2 text-sm font-medium mt-4 hover:bg-emerald-50 transition-colors"
         >
-          🕓 Configurar horário comercial
+          <Icone nome="relogio" className="w-3.5 h-3.5" /> Configurar horário comercial
         </button>
         <button
           type="button"
@@ -3771,7 +3776,7 @@ function AgentesIa() {
       {/* Lista compacta — clicar num agente abre o modal de edição */}
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <SectionHeader icon="🤖" title="Agentes" />
+          <SectionHeader icon="robo" title="Agentes" />
           <button onClick={() => setNewAgentModalOpen(true)} className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5">
             + Novo
           </button>
@@ -3783,7 +3788,7 @@ function AgentesIa() {
                 onClick={() => selectAgent(a.id)}
                 className="w-full flex items-center gap-3 p-3 text-left rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-colors"
               >
-                <span className="w-9 h-9 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-base shrink-0">🤖</span>
+                <span className="w-9 h-9 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center shrink-0"><Icone nome="robo" className="w-4.5 h-4.5" /></span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-slate-700 truncate">{a.name}</p>
                   <span className="text-[11px] text-emerald-600">Ativo</span>
@@ -3794,7 +3799,7 @@ function AgentesIa() {
           ))}
           {agents.length === 0 && (
             <li className="py-8 text-center text-sm text-slate-400">
-              <p className="text-3xl mb-2">🤖</p>
+              <p className="flex justify-center mb-2 text-slate-300"><Icone nome="robo" className="w-9 h-9" /></p>
               Nenhum agente ainda. Crie um pra automatizar o atendimento.
             </li>
           )}
@@ -3817,7 +3822,7 @@ function AgentesIa() {
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
               <div className="flex items-center gap-2">
-                <span className="text-lg">🤖</span>
+                <Icone nome="robo" className="w-4.5 h-4.5" />
                 <h3 className="font-semibold text-slate-800">Editar agente</h3>
               </div>
               <button onClick={() => setEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
@@ -3964,7 +3969,7 @@ function AgentesIa() {
             <h3 className="text-sm font-medium text-slate-700">Funções (a IA decide sozinha quando usar)</h3>
             {(form.toolSendContact || form.toolSendTemplate || form.toolMoveStage) && form.textModel === TEXT_MODELS[0].value && (
               <p className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1.5">
-                ⚠️ O modelo "8B Instruct" (padrão) não chama funções de forma confiável — troque pro "8B Instruct Turbo" ou "70B Instruct" acima.
+                <Icone nome="alerta" className="w-3.5 h-3.5 inline-block align-text-bottom" /> O modelo "8B Instruct" (padrão) não chama funções de forma confiável — troque pro "8B Instruct Turbo" ou "70B Instruct" acima.
               </p>
             )}
 
@@ -4114,8 +4119,8 @@ function NewAgentModal({ onCreate, onClose }) {
 function SectionHeader({ icon, title, subtitle }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base shrink-0">
-        {icon}
+      <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+        <Icone nome={icon} className="w-4.5 h-4.5" />
       </span>
       <div className="min-w-0">
         <h2 className="font-semibold text-slate-800 truncate">{title}</h2>

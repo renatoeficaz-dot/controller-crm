@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import ContactModal from "./ContactModal";
 import ContasPagarView from "@/components/ContasPagarView";
+import Icone from "@/components/Icones";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -103,7 +104,7 @@ function PieChart({ data, title, periodo, onPeriodo }) {
 function StatCard({ icon, label, value, color, onEdit }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 flex items-center gap-3 relative">
-      <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-base shrink-0 ${color}`}>{icon}</span>
+      <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}><Icone nome={icon} className="w-5 h-5" /></span>
       <div className="min-w-0">
         <p className="text-xs text-slate-400 truncate">{label}</p>
         <p className="text-lg font-semibold text-slate-800 truncate">{value}</p>
@@ -113,9 +114,9 @@ function StatCard({ icon, label, value, color, onEdit }) {
           type="button"
           onClick={onEdit}
           title="Editar saldo"
-          className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:text-emerald-600 hover:border-emerald-300 text-xs shadow-sm"
+          className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:text-emerald-600 hover:border-emerald-300 shadow-sm"
         >
-          ✎
+          <Icone nome="lapis" className="w-3 h-3" />
         </button>
       )}
     </div>
@@ -478,8 +479,8 @@ export default function LancamentosView() {
         <div className="space-y-4 md:space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4">
             <button type="button" onClick={() => setFiltrosAbertos((v) => !v)} className="w-full flex items-center justify-between mb-1">
-              <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">🔽 Filtros</span>
-              <span className="text-slate-400 text-xs">{filtrosAbertos ? "▲" : "▼"}</span>
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-800"><Icone nome="funil" className="w-3.5 h-3.5" /> Filtros</span>
+              <Icone nome="seta" className={`w-3.5 h-3.5 text-slate-400 transition-transform ${filtrosAbertos ? "rotate-180" : ""}`} />
             </button>
             {filtrosAbertos && (
               <div className="space-y-3 mt-3">
@@ -663,15 +664,15 @@ export default function LancamentosView() {
         <div className="space-y-4 md:space-y-6 min-w-0">
           <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <StatCard
-              icon="👛"
+              icon="carteira"
               label="Saldo atual da conta"
               value={saldoAtual ? money(saldoAtual.saldo) : "—"}
               color="bg-slate-100"
               onEdit={() => setEditandoSaldo({ novoSaldo: String((saldoAtual?.saldo ?? 0).toFixed(2)), motivo: "" })}
             />
-            <StatCard icon="↑" label="Entradas" value={money(resumo.entradas)} color="bg-emerald-50 text-emerald-600" />
-            <StatCard icon="↓" label="Saídas" value={money(resumo.saidas)} color="bg-red-50 text-red-600" />
-            <StatCard icon="📅" label="Saldo do período" value={money(resumo.saldo)} color="bg-sky-50 text-sky-600" />
+            <StatCard icon="seta-cima" label="Entradas" value={money(resumo.entradas)} color="bg-emerald-50 text-emerald-600" />
+            <StatCard icon="seta-baixo" label="Saídas" value={money(resumo.saidas)} color="bg-red-50 text-red-600" />
+            <StatCard icon="calendario" label="Saldo do período" value={money(resumo.saldo)} color="bg-sky-50 text-sky-600" />
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4 md:gap-6">
@@ -684,7 +685,7 @@ export default function LancamentosView() {
               <h2 className="text-sm font-semibold text-slate-800">Lançamentos</h2>
               <div className="flex items-center gap-2">
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-xs">🔍</span>
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300"><Icone nome="lupa" className="w-3 h-3" /></span>
                   <input
                     value={buscaLanc}
                     onChange={(e) => { setBuscaLanc(e.target.value); setPage(1); }}
@@ -697,7 +698,7 @@ export default function LancamentosView() {
                   onClick={exportarCsv}
                   className="flex items-center gap-1.5 text-xs font-medium border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-50 shrink-0"
                 >
-                  ⬇ Exportar
+                  <Icone nome="baixar" className="w-3.5 h-3.5" /> Exportar
                 </button>
               </div>
             </div>
@@ -741,7 +742,7 @@ export default function LancamentosView() {
                       </td>
                       <td className="px-2">
                         <div className="flex items-center gap-2">
-                          <button onClick={() => abrirEdicao(l)} title="Editar" className="text-xs text-slate-400 hover:text-emerald-600">✎</button>
+                          <button onClick={() => abrirEdicao(l)} title="Editar" className="text-slate-400 hover:text-emerald-600"><Icone nome="lapis" className="w-3.5 h-3.5" /></button>
                           <button onClick={() => removeLanc(l.id)} title="Excluir" className="text-xs text-red-400 hover:text-red-600">×</button>
                         </div>
                       </td>
@@ -887,8 +888,8 @@ export default function LancamentosView() {
                   {contacts.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                 </select>
                 {form.contactId && (
-                  <button type="button" onClick={() => setOpenContactId(form.contactId)} title="Ver conversa deste lead" className="shrink-0 text-sm border border-slate-200 rounded-lg px-2 text-slate-500 hover:bg-slate-50">
-                    💬
+                  <button type="button" onClick={() => setOpenContactId(form.contactId)} title="Ver conversa deste lead" className="shrink-0 flex items-center justify-center border border-slate-200 rounded-lg px-2 text-slate-500 hover:bg-slate-50">
+                    <Icone nome="chat" className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>

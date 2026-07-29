@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Icone from "@/components/Icones";
 
 const UM_MINUTO = 60 * 1000;
 
@@ -37,7 +38,7 @@ export default function ConnectionStatusBanner() {
 
   return (
     <div className="shrink-0 bg-red-600 text-white text-xs px-4 py-2 flex items-center gap-2 flex-wrap">
-      <span className="font-semibold">⚠️ WhatsApp desconectado:</span>
+      <span className="font-semibold flex items-center gap-1"><Icone nome="alerta" className="w-3.5 h-3.5" /> WhatsApp desconectado:</span>
       {desconectados.map((n) => (
         <span key={n.id} className="bg-red-700/60 rounded-full px-2 py-0.5">
           {n.label} ({n.number})

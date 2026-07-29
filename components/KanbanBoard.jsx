@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import ContactModal from "./ContactModal";
 import MetasMini from "./MetasMini";
 import SimuladorModal from "./SimuladorModal";
+import Icone from "@/components/Icones";
 
 // Iniciais para o avatar do contato
 function initials(name) {
@@ -366,7 +367,7 @@ export default function KanbanBoard() {
           onClick={() => setSimuladorAberto(true)}
           className="flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors shrink-0"
         >
-          🧮 Simular
+          <Icone nome="calculadora" className="w-3.5 h-3.5" /> Simular
         </button>
 
         <MetasMini />
@@ -428,8 +429,8 @@ export default function KanbanBoard() {
       </div>
 
       {notify && (
-        <div className="mx-4 mt-2 rounded-lg bg-amber-50 border border-amber-300 text-amber-700 text-sm px-3 py-2">
-          ⚠️ {notify}
+        <div className="mx-4 mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-700 text-sm px-3 py-2">
+          <Icone nome="alerta" className="w-4 h-4 shrink-0" /> {notify}
         </div>
       )}
 
@@ -800,12 +801,12 @@ export default function KanbanBoard() {
                                   }`}
                                   title={c.genero === "feminino" ? "Feminino" : "Masculino"}
                                 >
-                                  {c.genero === "feminino" ? "♀" : "♂"}
+                                  <Icone nome={c.genero === "feminino" ? "genero-f" : "genero-m"} className="w-2.5 h-2.5" />
                                 </span>
                               )}
                               {c.estado && (
-                                <span className="text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full px-1.5 py-0.5">
-                                  📍 {c.estado}
+                                <span className="flex items-center gap-0.5 text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full px-1.5 py-0.5">
+                                  <Icone nome="local" className="w-2.5 h-2.5" /> {c.estado}
                                 </span>
                               )}
                             </span>

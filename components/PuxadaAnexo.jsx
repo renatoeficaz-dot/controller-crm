@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { MediaLightbox } from "./MediaBubble";
 import { RISCO_LABEL } from "@/lib/scoreCredito";
+import Icone from "@/components/Icones";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -116,15 +117,15 @@ export default function PuxadaAnexo({
   return (
     <div className="border border-slate-200 rounded-lg p-2.5">
       <div className="flex items-center justify-between text-xs font-medium text-slate-600">
-        <span>📎 Puxada (consulta de crédito)</span>
+        <span className="flex items-center gap-1"><Icone nome="clipe" className="w-3.5 h-3.5" /> Puxada (consulta de crédito)</span>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={consultar}
             disabled={consultando || enviando}
-            className="text-sky-600 hover:text-sky-700 font-normal disabled:opacity-50 disabled:cursor-wait"
+            className="flex items-center gap-1 text-sky-600 hover:text-sky-700 font-normal disabled:opacity-50 disabled:cursor-wait"
           >
-            {consultando ? "Consultando..." : "🔍 Puxada"}
+            {consultando ? "Consultando..." : (<><Icone nome="lupa" className="w-3.5 h-3.5" /> Puxada</>)}
           </button>
           {puxadaUrl && (
             <button type="button" onClick={remover} className="text-red-400 hover:text-red-600 font-normal">
@@ -142,7 +143,7 @@ export default function PuxadaAnexo({
           onClick={() => setAberta(true)}
           className="mt-2 w-full flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 rounded-md px-2.5 py-2 hover:bg-emerald-100 transition-colors truncate text-left"
         >
-          <span>📄</span>
+          <Icone nome="documento" className="w-3.5 h-3.5 shrink-0" />
           <span className="truncate">{puxadaFileName || "puxada.pdf"}</span>
         </button>
       ) : (

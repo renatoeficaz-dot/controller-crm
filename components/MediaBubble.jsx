@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Icone from "@/components/Icones";
 
 // Popup pra ver a mídia direto no sistema, sem abrir aba nova nem forçar download.
 export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
@@ -133,7 +134,7 @@ export default function MediaBubble({ message }) {
         rel="noreferrer"
         className="flex items-center gap-1.5 underline text-sm"
       >
-        📍 {label || "Ver localização no mapa"}
+        <Icone nome="local" className="w-3.5 h-3.5 shrink-0" /> {label || "Ver localização no mapa"}
       </a>
     );
   }

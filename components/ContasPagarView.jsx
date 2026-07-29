@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Icone from "@/components/Icones";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -294,8 +295,8 @@ export default function ContasPagarView() {
                       </span>
                       <span className={`text-[10px] rounded-full px-2 py-0.5 ${s.cor}`}>{s.label}</span>
                       {(c.recorrente || c.origemId) && (
-                        <span className="text-[10px] rounded-full px-2 py-0.5 bg-sky-50 text-sky-600" title="Faz parte de uma recorrência">
-                          🔁 {c.recorrente && c.recorrenciaMeses == null ? "ilimitada" : "recorrente"}
+                        <span className="flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 bg-sky-50 text-sky-600" title="Faz parte de uma recorrência">
+                          <Icone nome="repetir" className="w-2.5 h-2.5" /> {c.recorrente && c.recorrenciaMeses == null ? "ilimitada" : "recorrente"}
                         </span>
                       )}
                     </div>

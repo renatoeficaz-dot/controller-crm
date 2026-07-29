@@ -5,6 +5,7 @@ import { aReceber, totalRecebido, inadimplenciaCravo, fimSemanaStr, fimMesStr } 
 import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS } from "@/lib/finance";
 import ContactModal from "@/components/ContactModal";
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
+import Icone from "@/components/Icones";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -920,7 +921,7 @@ export default function Relatorios() {
           disabled={gerandoPdf}
           className="flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors disabled:opacity-50"
         >
-          {gerandoPdf ? "Gerando…" : "📄 Exportar PDF"}
+          {gerandoPdf ? "Gerando…" : (<><Icone nome="documento" className="w-3.5 h-3.5" /> Exportar PDF</>)}
         </button>
       </div>
 
@@ -1409,9 +1410,9 @@ export default function Relatorios() {
                 { label: "% Recuperado", chave: "pctRecuperado" },
                 { label: "Payback medio (dias)", valor: (r) => r.diasMedios ?? "" },
               ], safras)}
-              className="text-xs text-slate-500 hover:text-emerald-600 shrink-0"
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 shrink-0"
             >
-              ⬇ CSV
+              <Icone nome="baixar" className="w-3 h-3" /> CSV
             </button>
           )}
         </div>
@@ -1925,9 +1926,9 @@ export default function Relatorios() {
                 { label: "Ticket medio", valor: (r) => numeroCsv(r.ticketMedio) },
                 { label: "Delta recebido (%)", valor: (r) => r.deltaRecebido ?? "" },
               ], comparativoMensal)}
-              className="text-xs text-slate-500 hover:text-emerald-600 shrink-0"
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 shrink-0"
             >
-              ⬇ CSV
+              <Icone nome="baixar" className="w-3 h-3" /> CSV
             </button>
           )}
         </div>

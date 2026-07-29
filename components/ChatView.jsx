@@ -8,6 +8,7 @@ import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
 import { interpolarVariaveis } from "@/lib/variaveis";
 import { parcelaAtrasada } from "@/lib/finance";
 import { UFS_BR } from "@/lib/ddd";
+import Icone from "@/components/Icones";
 
 // Data de hoje (local) como "YYYY-MM-DD"
 function todayStr() {
@@ -740,7 +741,7 @@ export default function ChatView() {
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
-                    {m.kind === "audio" && <span title="veio de um áudio">🎧 </span>}
+                    {m.kind === "audio" && <span title="veio de um áudio" className="inline-flex align-middle mr-1"><Icone nome="fone" className="w-3 h-3" /></span>}
                     {m.fromMe ? "Você: " : ""}
                     {m.body}
                   </p>
@@ -813,9 +814,9 @@ export default function ChatView() {
                 onClick={gerarResumo}
                 disabled={resumindo}
                 title="Resumir a conversa com IA"
-                className="shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
               >
-                {resumindo ? "Resumindo…" : "✨ Resumir"}
+                {resumindo ? "Resumindo…" : (<><Icone nome="estrela" className="w-3 h-3" /> Resumir</>)}
               </button>
               {selected.phone && (
                 <a
@@ -823,9 +824,9 @@ export default function ChatView() {
                   target="_blank"
                   rel="noreferrer"
                   title="Abrir conversa no WhatsApp pra ligar pro cliente (o sistema não faz a chamada sozinho)"
-                  className="shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
+                  className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
                 >
-                  📞 Ligar
+                  <Icone nome="cobranca" className="w-3 h-3" /> Ligar
                 </a>
               )}
               {contact && (
@@ -838,7 +839,7 @@ export default function ChatView() {
                       : "bg-emerald-50 text-emerald-600 border-emerald-200"
                   }`}
                 >
-                  {contact.iaPausada ? "🤖 IA desligada" : "🤖 IA ligada"}
+                  <span className="flex items-center gap-1"><Icone nome="robo" className="w-3.5 h-3.5" /> {contact.iaPausada ? "IA desligada" : "IA ligada"}</span>
                 </button>
               )}
               <button
@@ -851,7 +852,7 @@ export default function ChatView() {
             {resumoIa && (
               <div className="mx-4 mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 shrink-0">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-semibold text-sky-700">✨ Resumo da conversa</p>
+                  <p className="flex items-center gap-1 text-xs font-semibold text-sky-700"><Icone nome="estrela" className="w-3 h-3" /> Resumo da conversa</p>
                   <button onClick={() => setResumoIa(null)} className="text-sky-400 hover:text-sky-600 text-sm leading-none">×</button>
                 </div>
                 <p className="text-xs text-slate-600 mt-1.5 whitespace-pre-line">{resumoIa}</p>
@@ -868,8 +869,8 @@ export default function ChatView() {
                     }`}
                   >
                     {m.instance && instanciasNaConversa.size > 1 && (
-                      <p className={`text-[10px] mb-0.5 ${m.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
-                        📱 {numberLabel(m.instance, numbers)}
+                      <p className={`flex items-center gap-1 text-[10px] mb-0.5 ${m.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
+                        <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(m.instance, numbers)}
                       </p>
                     )}
                     {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && <MediaBubble message={m} />}
@@ -931,9 +932,9 @@ export default function ChatView() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading || recording}
                   title="Enviar anexo"
-                  className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 text-lg"
+                  className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
                 >
-                  📎
+                  <Icone nome="clipe" className="w-4 h-4" />
                 </button>
                 <input
                   value={text}
@@ -947,13 +948,13 @@ export default function ChatView() {
                   onClick={recording ? stopRecording : startRecording}
                   disabled={uploading}
                   title={recording ? "Parar gravação" : "Gravar áudio"}
-                  className={`shrink-0 w-9 h-9 rounded-lg border text-lg disabled:opacity-40 ${
+                  className={`shrink-0 w-9 h-9 rounded-lg border flex items-center justify-center disabled:opacity-40 ${
                     recording
                       ? "border-red-300 bg-red-50 text-red-600 animate-pulse"
                       : "border-slate-200 text-slate-500 hover:bg-slate-50"
                   }`}
                 >
-                  {recording ? "⏹" : "🎙"}
+                  <Icone nome={recording ? "parar" : "microfone"} className="w-4 h-4" />
                 </button>
                 <button
                   disabled={sending || !text.trim()}
@@ -1027,7 +1028,7 @@ export default function ChatView() {
             {/* Estado do lead — a IA já preenche pelo DDD do telefone (ou pelo
                 que o cliente contar na conversa); dá pra corrigir manualmente. */}
             <label className="block">
-              <span className="text-[11px] text-slate-400">📍 Estado (UF)</span>
+              <span className="flex items-center gap-1 text-[11px] text-slate-400"><Icone nome="local" className="w-3 h-3" /> Estado (UF)</span>
               <select value={form.estado || ""} onChange={set("estado")} className={selectCls}>
                 <option value="">— Não identificado —</option>
                 {UFS_BR.map((uf) => (
@@ -1074,9 +1075,9 @@ export default function ChatView() {
                       } catch {}
                     }}
                     title="Copiar CPF"
-                    className="shrink-0 text-xs border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
+                    className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
                   >
-                    {cpfCopiado ? "✓" : "📋"}
+                    <Icone nome={cpfCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>

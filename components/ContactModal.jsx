@@ -6,6 +6,7 @@ import { UFS_BR } from "@/lib/ddd";
 import MediaBubble, { MediaLightbox } from "./MediaBubble";
 import PuxadaAnexo from "./PuxadaAnexo";
 import CobrancaLead from "./CobrancaLead";
+import Icone from "@/components/Icones";
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -590,7 +591,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             {/* Estado do lead — a IA já preenche pelo DDD do telefone (ou pelo
                 que o cliente contar na conversa); dá pra corrigir manualmente. */}
             <label className="block">
-              <span className="text-xs text-slate-400">📍 Estado (UF)</span>
+              <span className="flex items-center gap-1 text-xs text-slate-400"><Icone nome="local" className="w-3 h-3" /> Estado (UF)</span>
               <select
                 value={form.estado || ""}
                 onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
@@ -660,9 +661,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       } catch {}
                     }}
                     title="Copiar CPF"
-                    className="shrink-0 text-xs border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
+                    className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
                   >
-                    {cpfCopiado ? "✓" : "📋"}
+                    <Icone nome={cpfCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
@@ -870,7 +871,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                                 title="Mudar o valor dessa baixa (pede motivo)"
                                 className="text-slate-300 hover:text-emerald-600"
                               >
-                                ✎
+                                <Icone nome="lapis" className="w-3 h-3" />
                               </button>
                             )}
                           </span>
@@ -941,8 +942,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                                 Ciclo {p.ciclo || 1} · {p.number}ª · {fmtDate(p.dueDate)}
                                 {atrasado && <span className="ml-1 text-[9px] font-semibold">ATRASADO</span>}
                               </span>
-                              <span className={atrasado ? "text-red-600" : "text-emerald-600"}>
-                                {money(p.amount)} {atrasado ? "⚠" : "✓"}
+                              <span className={`flex items-center gap-1 ${atrasado ? "text-red-600" : "text-emerald-600"}`}>
+                                {money(p.amount)} <Icone nome={atrasado ? "alerta" : "check"} className="w-3 h-3" />
                               </span>
                             </li>
                           );
@@ -973,8 +974,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
         {/* Coluna direita: chat WhatsApp */}
         <div className="w-full md:w-1/2 flex flex-col bg-slate-50 flex-1 min-h-0">
           <div className="px-5 py-4 border-b border-slate-200 bg-white flex items-center gap-2">
-            <span className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-sm">
-              ✆
+            <span className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+              <Icone nome="cobranca" className="w-3.5 h-3.5" />
             </span>
             <div className="flex-1 min-w-0">
               <h2 className="font-semibold text-slate-800 text-sm leading-tight">WhatsApp</h2>
@@ -991,7 +992,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   : "bg-emerald-50 text-emerald-600 border-emerald-200"
               }`}
             >
-              {contact?.iaPausada ? "🤖 IA desligada" : "🤖 IA ligada"}
+              <span className="flex items-center gap-1"><Icone nome="robo" className="w-3.5 h-3.5" /> {contact?.iaPausada ? "IA desligada" : "IA ligada"}</span>
             </button>
           </div>
 
@@ -1011,8 +1012,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 }`}
               >
                 {m.instance && numbers.length > 1 && (
-                  <p className={`text-[10px] mb-0.5 ${m.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
-                    📱 {numberLabel(m.instance, numbers)}
+                  <p className={`flex items-center gap-1 text-[10px] mb-0.5 ${m.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
+                    <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(m.instance, numbers)}
                   </p>
                 )}
                 {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && (
@@ -1066,9 +1067,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || recording}
               title="Enviar anexo"
-              className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 text-lg"
+              className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
             >
-              📎
+              <Icone nome="clipe" className="w-4 h-4" />
             </button>
             <textarea
               value={text}
@@ -1089,13 +1090,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               onClick={recording ? stopRecording : startRecording}
               disabled={uploading}
               title={recording ? "Parar gravação" : "Gravar áudio"}
-              className={`shrink-0 w-9 h-9 rounded-lg border text-lg disabled:opacity-40 ${
+              className={`shrink-0 w-9 h-9 rounded-lg border flex items-center justify-center disabled:opacity-40 ${
                 recording
                   ? "border-red-300 bg-red-50 text-red-600 animate-pulse"
                   : "border-slate-200 text-slate-500 hover:bg-slate-50"
               }`}
             >
-              {recording ? "⏹" : "🎙"}
+              <Icone nome={recording ? "parar" : "microfone"} className="w-4 h-4" />
             </button>
             <button
               onClick={send}
@@ -1177,8 +1178,8 @@ function MidiasEnviadas({ messages }) {
         onClick={() => setAberto((v) => !v)}
         className="w-full flex items-center justify-between text-xs font-medium text-slate-600"
       >
-        <span>🖼️ Mídias enviadas ({midias.length})</span>
-        <span className="text-slate-400">{aberto ? "︿" : "﹀"}</span>
+        <span className="flex items-center gap-1"><Icone nome="imagem" className="w-3.5 h-3.5" /> Mídias enviadas ({midias.length})</span>
+        <Icone nome="seta" className={`w-3.5 h-3.5 text-slate-400 transition-transform ${aberto ? "rotate-180" : ""}`} />
       </button>
       {aberto && (
         midias.length === 0 ? (

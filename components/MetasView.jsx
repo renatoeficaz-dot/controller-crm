@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import ContactModal from "@/components/ContactModal";
+import Icone from "@/components/Icones";
 
 function fmtHora(iso) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -38,7 +39,7 @@ function nivelDe(atual, minima, media, meta) {
 
 const NIVEL_BARRA = { abaixo: "bg-red-500", minima: "bg-amber-500", media: "bg-sky-500", meta: "bg-emerald-500" };
 const NIVEL_TEXTO = { abaixo: "text-red-600", minima: "text-amber-600", media: "text-sky-600", meta: "text-emerald-600" };
-const NIVEL_LABEL = { abaixo: "Abaixo da mínima", minima: "Bateu a mínima", media: "Bateu a média", meta: "Meta cheia batida! 🎉" };
+const NIVEL_LABEL = { abaixo: "Abaixo da mínima", minima: "Bateu a mínima", media: "Bateu a média", meta: "Meta cheia batida!" };
 
 // % que ainda falta pra alcançar um limiar (mínima/média), em pontos
 // percentuais do próprio limiar — null quando já foi alcançado.
@@ -72,7 +73,9 @@ function NivelBar({ atual, minima, media, meta, unidade, unidadePlural }) {
         <span>Média {media}</span>
         <span>Meta {meta}</span>
       </div>
-      <p className={`text-xs font-medium mt-2 ${NIVEL_TEXTO[nivel]}`}>{NIVEL_LABEL[nivel]}</p>
+      <p className={`flex items-center gap-1 text-xs font-medium mt-2 ${NIVEL_TEXTO[nivel]}`}>
+        {NIVEL_LABEL[nivel]} {nivel === "meta" && <Icone nome="trofeu" className="w-3.5 h-3.5" />}
+      </p>
       {faltaPctMinima != null && <p className="text-xs text-red-500 mt-0.5">Faltam {faltaPctMinima}% pra mínima</p>}
       {faltaPctMedia != null && <p className="text-xs text-amber-500 mt-0.5">Faltam {faltaPctMedia}% pra média</p>}
       {faltaMeta > 0 && (
