@@ -46,3 +46,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# backups locais gerados pelo job diário (produção guarda os dela em /data/backups)
+backups/

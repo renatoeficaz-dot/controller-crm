@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import Icone from "@/components/Icones";
 
 const links = [
-  { href: "/chat", label: "Chat", icon: "💬", pagina: "chat" },
-  { href: "/tarefas", label: "Tarefas", icon: "✅", pagina: "tarefas" },
-  { href: "/cobranca", label: "Cobrança", icon: "📞", pagina: "cobranca" },
-  { href: "/metas", label: "Metas", icon: "🎯", pagina: "metas" },
-  { href: "/lancamentos", label: "Lançamentos", icon: "💲", admin: true },
-  { href: "/contatos", label: "Contatos", icon: "👥", pagina: "contatos" },
-  { href: "/relatorios", label: "Relatórios", icon: "📊", pagina: "relatorios" },
-  { href: "/configuracoes", label: "Configurações", icon: "⚙️", admin: true },
-  { href: "/aprender", label: "Aprender", icon: "🎓" },
+  { href: "/chat", label: "Chat", icon: "chat", pagina: "chat" },
+  { href: "/tarefas", label: "Tarefas", icon: "tarefa", pagina: "tarefas" },
+  { href: "/cobranca", label: "Cobrança", icon: "cobranca", pagina: "cobranca" },
+  { href: "/metas", label: "Metas", icon: "meta", pagina: "metas" },
+  { href: "/lancamentos", label: "Lançamentos", icon: "dinheiro", admin: true },
+  { href: "/contatos", label: "Contatos", icon: "funil", pagina: "contatos" },
+  { href: "/relatorios", label: "Relatórios", icon: "grafico", pagina: "relatorios" },
+  { href: "/configuracoes", label: "Configurações", icon: "engrenagem", admin: true },
+  { href: "/aprender", label: "Aprender", icon: "formatura" },
 ];
 
 // Trilho de ícones fixo à esquerda — atalho rápido entre as seções
@@ -50,11 +51,11 @@ export default function SideNav() {
             key={l.href}
             href={l.href}
             title={l.label}
-            className={`group relative w-10 h-10 flex items-center justify-center rounded-xl text-lg transition-colors ${
+            className={`group relative w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${
               active ? "bg-emerald-50 text-emerald-600" : "text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             }`}
           >
-            {l.icon}
+            <Icone nome={l.icon} className="w-5 h-5" />
             <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-slate-800 text-white text-xs px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
               {l.label}
             </span>

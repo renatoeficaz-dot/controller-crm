@@ -84,10 +84,51 @@ function NivelBar({ atual, minima, media, meta, unidade, unidadePlural }) {
   );
 }
 
+// Modal genérico de lista — usado tanto pras vendas fechadas hoje quanto pros
+// recebimentos de hoje, pra não duplicar o esqueleto (backdrop, header, vazio).
+function ListaModal({ titulo, itens, vazio, onClose, onAbrirContato, renderItem }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto thin-scroll"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+          <h3 className="font-semibold text-slate-800">
+            {titulo} <span className="text-slate-400 font-normal">({itens.length})</span>
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+        <div className="p-5">
+          {itens.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 text-center">{vazio}</p>
+          ) : (
+            <ul className="divide-y divide-slate-50">
+              {itens.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => onAbrirContato(item.contactId)}
+                    className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-slate-50/80 transition-colors rounded-lg px-1.5 -mx-1.5"
+                  >
+                    {renderItem(item)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MetasView() {
   const [resumo, setResumo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [openContactId, setOpenContactId] = useState(null);
+  const [modalVendas, setModalVendas] = useState(false);
+  const [modalRecebimentos, setModalRecebimentos] = useState(false);
 
   const load = useCallback(async () => {
     const data = await fetch("/api/metas/resumo").then((r) => r.json()).catch(() => null);
@@ -115,7 +156,12 @@ export default function MetasView() {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+      <button
+        type="button"
+        onClick={() => setModalVendas(true)}
+        title="Ver as vendas fechadas hoje"
+        className="text-left bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 hover:border-emerald-300 transition-colors"
+      >
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-slate-700">Meta de vendas hoje</p>
           <p className="text-sm text-slate-500">{resumo.vendasHoje} / {resumo.metaVendasDia}</p>
@@ -127,11 +173,17 @@ export default function MetasView() {
           meta={resumo.metaVendasDia}
           unidade="venda"
         />
-      </div>
+        <p className="text-[11px] text-emerald-600 mt-2">Clique para ver as vendas fechadas hoje →</p>
+      </button>
 
       <Card titulo="Leads atualmente em Recebimento" valor={resumo.totalEmRecebimento} sub="Base do cálculo da meta de recebimento de hoje" cor="violet" />
 
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 xl:col-span-2">
+      <button
+        type="button"
+        onClick={() => setModalRecebimentos(true)}
+        title="Ver o que foi recebido hoje"
+        className="text-left bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 xl:col-span-2 hover:border-emerald-300 transition-colors"
+      >
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-slate-700">Meta de recebimentos hoje ({resumo.metaPctRecebimento}%)</p>
           <p className="text-sm text-slate-500">
@@ -148,9 +200,10 @@ export default function MetasView() {
         />
         <p className="text-[11px] text-slate-400 mt-2">
           A meta conta <strong>clientes distintos</strong> que pagaram hoje, não o número de parcelas — se um cliente
-          quitar 2 dias de atraso de uma vez, conta como 1 aqui (mas como 2 nas "baixas" abaixo).
+          quitar 2 dias de atraso de uma vez, conta como 1 aqui (mas como 2 nas baixas).
         </p>
-      </div>
+        <p className="text-[11px] text-emerald-600 mt-2">Clique para ver o que foi recebido hoje →</p>
+      </button>
 
       <Card
         titulo="Baixas de parcela hoje"
@@ -160,33 +213,43 @@ export default function MetasView() {
       />
       <Card titulo="Valor recebido hoje" valor={money(resumo.valorRecebidoHoje)} cor="emerald" />
 
-      {/* Quais foram as baixas de hoje — clique num lead abre o card dele */}
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 xl:col-span-2">
-        <p className="text-sm font-semibold text-slate-700 mb-2">
-          Baixas de hoje <span className="text-slate-400 font-normal">({resumo.baixasDetalhe?.length || 0})</span>
-        </p>
-        {!resumo.baixasDetalhe || resumo.baixasDetalhe.length === 0 ? (
-          <p className="text-sm text-slate-400 py-2">Nenhuma baixa registrada hoje ainda.</p>
-        ) : (
-          <ul className="divide-y divide-slate-50">
-            {resumo.baixasDetalhe.map((b) => (
-              <li key={b.id}>
-                <button
-                  type="button"
-                  onClick={() => setOpenContactId(b.contactId)}
-                  className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-slate-50/80 transition-colors rounded-lg px-1.5 -mx-1.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-700 truncate">{b.nome || "Sem nome"}</p>
-                    <p className="text-xs text-slate-400 truncate">{b.phone || "sem telefone"} · Parcela {b.parcela}ª · {fmtHora(b.paidAt)}</p>
-                  </div>
-                  <span className="text-sm font-medium text-emerald-600 shrink-0">{money(b.valor)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {modalVendas && (
+        <ListaModal
+          titulo="Vendas fechadas hoje"
+          itens={resumo.vendasDetalhe || []}
+          vazio="Nenhuma venda fechada hoje ainda."
+          onClose={() => setModalVendas(false)}
+          onAbrirContato={(id) => { setModalVendas(false); setOpenContactId(id); }}
+          renderItem={(v) => (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-700 truncate">{v.nome || "Sem nome"}</p>
+                <p className="text-xs text-slate-400 truncate">{v.phone || "sem telefone"} · {fmtHora(v.entrouRecebimentoEm)}</p>
+              </div>
+              <span className="text-sm font-medium text-emerald-600 shrink-0">{money(v.valorCapital)}</span>
+            </>
+          )}
+        />
+      )}
+
+      {modalRecebimentos && (
+        <ListaModal
+          titulo="Recebido hoje"
+          itens={resumo.baixasDetalhe || []}
+          vazio="Nenhuma baixa registrada hoje ainda."
+          onClose={() => setModalRecebimentos(false)}
+          onAbrirContato={(id) => { setModalRecebimentos(false); setOpenContactId(id); }}
+          renderItem={(b) => (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-700 truncate">{b.nome || "Sem nome"}</p>
+                <p className="text-xs text-slate-400 truncate">{b.phone || "sem telefone"} · Parcela {b.parcela}ª · {fmtHora(b.paidAt)}</p>
+              </div>
+              <span className="text-sm font-medium text-emerald-600 shrink-0">{money(b.valor)}</span>
+            </>
+          )}
+        />
+      )}
 
       {openContactId && (
         <ContactModal

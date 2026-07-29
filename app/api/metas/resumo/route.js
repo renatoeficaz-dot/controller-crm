@@ -15,7 +15,7 @@ export async function GET() {
   const inicioHoje = inicioDiaUTC(0);
   const inicioAmanha = inicioDiaUTC(1);
 
-  const [cfg, stageRecebimento, valorRecebidoHoje, pagantesHoje, baixasHoje, vendasHoje, baixasDetalhe] = await Promise.all([
+  const [cfg, stageRecebimento, valorRecebidoHoje, pagantesHoje, baixasHoje, vendasHoje, baixasDetalhe, vendasDetalhe] = await Promise.all([
     prisma.config.findUnique({ where: { id: "singleton" } }),
     prisma.stage.findFirst({ where: { name: "Recebimento" } }),
     prisma.parcela.aggregate({
@@ -47,6 +47,12 @@ export async function GET() {
         paidAt: true,
         contact: { select: { id: true, name: true, phone: true } },
       },
+    }),
+    // Vendas de hoje = leads que entraram em Recebimento hoje (capital liberado).
+    prisma.contact.findMany({
+      where: { entrouRecebimentoEm: { gte: inicioHoje, lt: inicioAmanha } },
+      orderBy: { entrouRecebimentoEm: "desc" },
+      select: { id: true, name: true, phone: true, valorCapital: true, entrouRecebimentoEm: true },
     }),
   ]);
 
@@ -83,6 +89,14 @@ export async function GET() {
       parcela: p.number,
       valor: p.amountPago,
       paidAt: p.paidAt,
+    })),
+    vendasDetalhe: vendasDetalhe.map((c) => ({
+      id: c.id,
+      contactId: c.id,
+      nome: c.name,
+      phone: c.phone,
+      valorCapital: c.valorCapital,
+      entrouRecebimentoEm: c.entrouRecebimentoEm,
     })),
     valorRecebidoHoje: valorRecebidoHoje._sum.amountPago || 0,
     metaRecebimentosMinima,

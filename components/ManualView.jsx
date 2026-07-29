@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { TRILHAS, TOTAL_PASSOS } from "@/lib/manual";
+import Icone from "@/components/Icones";
 
 const STORAGE_KEY = "crm-manual-concluidos";
 
@@ -63,7 +64,7 @@ export default function ManualView() {
         <header className="mb-6">
           <h1 className="text-xl md:text-2xl font-semibold text-slate-900 tracking-tight">Aprender a usar</h1>
           <p className="text-sm text-slate-500 mt-1">
-            O caminho completo, do primeiro número conectado até acompanhar o resultado. Marque os passos conforme fizer.
+            Um tópico para cada tela do sistema, na mesma ordem do menu. Marque os passos conforme fizer.
           </p>
           <div className="mt-4 max-w-md">
             <div className="flex items-center justify-between text-xs mb-1">
@@ -77,7 +78,7 @@ export default function ManualView() {
         </header>
 
         <div className="md:grid md:grid-cols-[240px_1fr] md:gap-8 md:items-start">
-          {/* Trilhas */}
+          {/* Um tópico por módulo do menu */}
           <nav className="flex md:flex-col gap-1.5 mb-5 md:mb-0 overflow-x-auto pb-1 md:pb-0 md:sticky md:top-6">
             {TRILHAS.map((t) => {
               const feitos = concluidosDa(t);
@@ -92,9 +93,15 @@ export default function ManualView() {
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-base">{t.emoji}</span>
+                    <span className={ativa ? "text-emerald-600" : "text-slate-400"}>
+                      <Icone nome={t.icone} className="w-[18px] h-[18px]" />
+                    </span>
                     <span className={`text-sm font-medium ${ativa ? "text-slate-900" : "text-slate-600"}`}>{t.titulo}</span>
-                    {completa && <span className="text-emerald-500 text-xs ml-auto">✓</span>}
+                    {completa && (
+                      <span className="text-emerald-500 ml-auto">
+                        <Icone nome="check" className="w-3.5 h-3.5" />
+                      </span>
+                    )}
                   </div>
                   <span className="block text-[11px] text-slate-400 mt-0.5 md:block hidden">
                     {feitos}/{t.passos.length} passos
@@ -104,10 +111,13 @@ export default function ManualView() {
             })}
           </nav>
 
-          {/* Passos da trilha */}
+          {/* Passos do módulo */}
           <main className="min-w-0">
             <div className="mb-4">
-              <h2 className="font-semibold text-slate-800">{trilha.emoji} {trilha.titulo}</h2>
+              <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+                <span className="text-emerald-600"><Icone nome={trilha.icone} className="w-5 h-5" /></span>
+                {trilha.titulo}
+              </h2>
               <p className="text-sm text-slate-500 mt-0.5">{trilha.resumo}</p>
             </div>
 
@@ -126,7 +136,7 @@ export default function ManualView() {
                           feito ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 text-transparent hover:border-emerald-400"
                         }`}
                       >
-                        ✓
+                        <Icone nome="check" className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setAberto(expandido ? null : chave)}
@@ -135,13 +145,17 @@ export default function ManualView() {
                         <p className={`text-sm font-medium ${feito ? "text-slate-400 line-through" : "text-slate-800"}`}>
                           {i + 1}. {p.titulo}
                         </p>
-                        <p className="text-[11px] text-sky-600 mt-0.5">📍 {p.onde}</p>
+                        <span className="flex items-center gap-1 text-[11px] text-sky-600 mt-0.5">
+                          <Icone nome="local" className="w-3 h-3 shrink-0" />
+                          {p.onde}
+                        </span>
                       </button>
                       <button
                         onClick={() => setAberto(expandido ? null : chave)}
-                        className="text-slate-400 hover:text-slate-600 shrink-0 text-sm"
+                        className="text-slate-400 hover:text-slate-600 shrink-0"
+                        title={expandido ? "Fechar" : "Abrir"}
                       >
-                        {expandido ? "▲" : "▼"}
+                        <Icone nome="seta" className={`w-4 h-4 transition-transform ${expandido ? "rotate-180" : ""}`} />
                       </button>
                     </div>
 
@@ -166,8 +180,11 @@ export default function ManualView() {
 
             {concluidosDa(trilha) === trilha.passos.length && (
               <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-                <p className="text-sm font-medium text-emerald-700">Trilha concluída! 🎉</p>
-                <p className="text-xs text-emerald-600 mt-0.5">Escolha a próxima ao lado.</p>
+                <p className="text-sm font-medium text-emerald-700 flex items-center justify-center gap-2">
+                  <Icone nome="trofeu" className="w-4 h-4" />
+                  Tópico concluído!
+                </p>
+                <p className="text-xs text-emerald-600 mt-0.5">Escolha o próximo ao lado.</p>
               </div>
             )}
           </main>
