@@ -30,7 +30,7 @@ export async function GET() {
     where,
     include: {
       parcelas: { orderBy: { number: "asc" } },
-      tentativas: { where: { createdAt: { gte: inicioHoje } }, select: { id: true } },
+      tentativas: { orderBy: { createdAt: "desc" }, select: { id: true, resultado: true, dataPromessa: true, createdAt: true } },
     },
   });
 
@@ -39,11 +39,19 @@ export async function GET() {
     const atrasadas = (c.parcelas || []).filter((p) => parcelaAtrasada(p, hoje));
     if (!atrasadas.length) continue;
 
-    const abertas = (c.parcelas || []).filter((p) => !p.paid);
+    const abertas = (c.parcelas || []).filter((p) => !p.paid && !p.renegociada);
     const valorAberto = abertas.reduce((acc, p) => acc + p.amount, 0);
     const maisAntiga = atrasadas.slice().sort((a, b) => dueStr(a).localeCompare(dueStr(b)))[0];
     const dias = Math.round((new Date(hoje) - new Date(dueStr(maisAntiga))) / 86400000);
     const stage = stages.find((s) => s.id === c.stageId);
+    const tentativasHoje = c.tentativas.filter((t) => new Date(t.createdAt) >= inicioHoje).length;
+
+    // Promessa quebrada: prometeu pagar até uma data que já passou e a parcela
+    // mais antiga continua aberta. Só conta a promessa mais recente — uma
+    // promessa nova substitui a anterior.
+    const ultimaPromessa = c.tentativas.find((t) => t.resultado === "prometeu" && t.dataPromessa);
+    const promessaQuebrada =
+      !!ultimaPromessa && dueStr({ dueDate: ultimaPromessa.dataPromessa }) < hoje;
 
     fila.push({
       id: c.id,
@@ -57,8 +65,12 @@ export async function GET() {
       proximaParcelaId: maisAntiga.id,
       proximaParcelaNumero: maisAntiga.number,
       proximaParcelaValor: maisAntiga.amount,
-      tentativasHoje: c.tentativas.length,
-      prioridade: Math.round(valorAberto * pesoAtraso(dias)),
+      tentativasHoje,
+      promessaQuebrada,
+      dataPromessa: ultimaPromessa?.dataPromessa || null,
+      // Quem prometeu e não cumpriu vai pro topo: já houve contato e
+      // compromisso, então é o caso mais quente da fila.
+      prioridade: Math.round(valorAberto * pesoAtraso(dias)) * (promessaQuebrada ? 10 : 1),
     });
   }
 

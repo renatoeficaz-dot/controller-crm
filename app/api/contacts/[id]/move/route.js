@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { regenerarParcelas, lancarLiberacaoCapital } from "@/lib/cobranca";
 import { sendRecebimentoNotice } from "@/lib/ia";
 import { dentroDoHorarioComercial } from "@/lib/horarioComercial";
+import { limiteEscalonado } from "@/lib/escalonamento";
+import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
+import { registrarAuditoria } from "@/lib/auditoria";
+import { getSession } from "@/lib/session";
 
 // Data local de hoje como UTC-midnight (evita drift de fuso nas parcelas)
 function hojeUTC() {
@@ -13,11 +17,15 @@ function hojeUTC() {
 // Move o contato para outra coluna (drag and drop do Kanban)
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const { stageId } = await req.json();
+  const { stageId, forcar: forcarPedido } = await req.json();
+  const session = await getSession();
+  // Só admin pode forçar (ignorar bloqueio de CPF / limite de escalonamento).
+  const forcar = !!forcarPedido && session?.role === "admin";
 
-  const [contact, stage] = await Promise.all([
+  const [contact, stage, config] = await Promise.all([
     prisma.contact.findUnique({ where: { id }, include: { parcelas: true } }),
     prisma.stage.findUnique({ where: { id: stageId } }),
+    prisma.config.findUnique({ where: { id: "singleton" } }),
   ]);
   if (!contact || !stage) {
     return NextResponse.json({ error: "Contato ou coluna não encontrados." }, { status: 404 });
@@ -29,6 +37,46 @@ export async function PATCH(req, { params }) {
       { error: "Preencha o Valor do capital antes de mover para Liberação pagamento." },
       { status: 422 }
     );
+  }
+
+  const indoParaAnaliseOuAlem = ["Análise", "Liberação pagamento", "Recebimento"].includes(stage.name);
+  const trocandoDeEtapa = contact.stageId !== stageId;
+
+  // Bloqueio de CPF reincidente: esse CPF já deu calote noutro cadastro.
+  // Admin pode forçar (força de vontade > sistema); vendedor/cobrador não.
+  if (config?.bloqueioCpfAtivo !== false && indoParaAnaliseOuAlem && trocandoDeEtapa && contact.cpf && !forcar) {
+    const calote = await contatoComCaloteMesmoCpf(contact.cpf, contact.id);
+    if (calote) {
+      return NextResponse.json(
+        {
+          error: `Esse CPF já deu calote no cadastro "${calote.name}" (${calote.phone || "sem telefone"}).`,
+          bloqueioCpf: true,
+          calote,
+        },
+        { status: 422 }
+      );
+    }
+  }
+
+  // Capital escalonado: acima do limite do ciclo atual, só admin libera (com forçar=true).
+  if (
+    config?.escalonamentoAtivo &&
+    stage.name === "Liberação pagamento" &&
+    trocandoDeEtapa &&
+    contact.valorCapital &&
+    !forcar
+  ) {
+    const limite = limiteEscalonado(contact.cicloAtual, config);
+    if (contact.valorCapital > limite) {
+      return NextResponse.json(
+        {
+          error: `Valor do capital (R$ ${contact.valorCapital}) acima do limite do ciclo ${contact.cicloAtual || 1} (R$ ${limite}). Só um administrador pode liberar acima do limite.`,
+          escalonamentoExcedido: true,
+          limite,
+        },
+        { status: 422 }
+      );
+    }
   }
 
   const last = await prisma.contact.findFirst({
@@ -49,9 +97,12 @@ export async function PATCH(req, { params }) {
   }
 
   // Ao entrar em "Cravo" (perda/inadimplência), a IA para automaticamente —
-  // esse lead passa a ser tratado manualmente.
+  // esse lead passa a ser tratado manualmente. deuCalote fica marcado pra
+  // sempre, mesmo que ele saia de Cravo depois — alimenta o bloqueio de CPF
+  // reincidente noutro cadastro.
   if (stage.name === "Cravo" && contact.stageId !== stageId) {
     data.iaPausada = true;
+    data.deuCalote = true;
   }
 
   // Ao ENTRAR em Recebimento: define o pagamento de capital como hoje
@@ -68,6 +119,16 @@ export async function PATCH(req, { params }) {
   }
 
   const updated = await prisma.contact.update({ where: { id }, data });
+
+  if (trocandoDeEtapa) {
+    registrarAuditoria({
+      usuario: session?.name,
+      acao: "mover_etapa",
+      entidade: "Contact",
+      entidadeId: id,
+      detalhe: `${updated.name}: mudou para "${stage.name}"${forcar ? " (forçado, ignorando bloqueio)" : ""}`,
+    });
+  }
 
   if (autoAtribuiu) {
     await prisma.atribuicaoLog.create({

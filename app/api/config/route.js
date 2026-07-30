@@ -48,6 +48,35 @@ export async function PATCH(req) {
   if ("alertaHora" in body) data.alertaHora = (body.alertaHora || "").trim() || null;
   if ("alertaCriticos" in body) data.alertaCriticos = !!body.alertaCriticos;
   if ("alertaCapitalMin" in body) data.alertaCapitalMin = Math.max(0, Number(body.alertaCapitalMin) || 0);
+
+  // Capital escalonado por ciclo. O teto aceita null ("sem teto"), então não
+  // pode cair no `|| 0` — zeraria o limite e travaria tudo.
+  if ("escalonamentoAtivo" in body) data.escalonamentoAtivo = !!body.escalonamentoAtivo;
+  if ("escalonamentoBase" in body) data.escalonamentoBase = Math.max(0, Number(body.escalonamentoBase) || 0);
+  if ("escalonamentoIncremento" in body) data.escalonamentoIncremento = Math.max(0, Number(body.escalonamentoIncremento) || 0);
+  if ("escalonamentoTeto" in body) {
+    data.escalonamentoTeto =
+      body.escalonamentoTeto === null || body.escalonamentoTeto === "" ? null : Math.max(0, Number(body.escalonamentoTeto) || 0);
+  }
+  if ("bloqueioCpfAtivo" in body) data.bloqueioCpfAtivo = !!body.bloqueioCpfAtivo;
+  // Dias null = escalonamento por atraso desligado.
+  if ("escalonamentoAtrasoDias" in body) {
+    data.escalonamentoAtrasoDias =
+      body.escalonamentoAtrasoDias === null || body.escalonamentoAtrasoDias === ""
+        ? null
+        : Math.max(1, Number(body.escalonamentoAtrasoDias) || 1);
+  }
+  if ("escalonamentoAtrasoResponsavel" in body) {
+    data.escalonamentoAtrasoResponsavel = (body.escalonamentoAtrasoResponsavel || "").trim() || null;
+  }
+  if ("capitalOciosoDias" in body) data.capitalOciosoDias = Math.max(0, Number(body.capitalOciosoDias) || 0);
+
+  const pct = (v) => Math.min(100, Math.max(0, Number(v) || 0));
+  if ("provisaoPct0a7" in body) data.provisaoPct0a7 = pct(body.provisaoPct0a7);
+  if ("provisaoPct8a15" in body) data.provisaoPct8a15 = pct(body.provisaoPct8a15);
+  if ("provisaoPct16a30" in body) data.provisaoPct16a30 = pct(body.provisaoPct16a30);
+  if ("provisaoPct31mais" in body) data.provisaoPct31mais = pct(body.provisaoPct31mais);
+
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }

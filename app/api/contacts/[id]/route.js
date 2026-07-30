@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { getCurrentUser, mensagensWhere } from "@/lib/session";
+import { getCurrentUser, getSession, mensagensWhere } from "@/lib/session";
+import { registrarAuditoria } from "@/lib/auditoria";
+import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
 
 // Busca um contato com suas mensagens (conforme permissão de WhatsApp) e parcelas.
 // mediaUrl (base64) fica de fora — mídia é carregada sob demanda via /api/messages/[id]/media.
@@ -57,12 +59,31 @@ export async function PATCH(req, { params }) {
   }
   if ("iaPausada" in body) data.iaPausada = !!body.iaPausada;
   const contact = await prisma.contact.update({ where: { id }, data });
-  return NextResponse.json(contact);
+
+  // Não bloqueia salvar o CPF em si (só bloqueia avançar no funil, no
+  // /move) — mas já avisa na hora se bate com outro cadastro que deu calote.
+  let caloteAviso = null;
+  if ("cpf" in body && contact.cpf) {
+    caloteAviso = await contatoComCaloteMesmoCpf(contact.cpf, id);
+  }
+
+  return NextResponse.json({ ...contact, caloteAviso });
 }
 
 // Remove o contato
 export async function DELETE(_req, { params }) {
   const { id } = await params;
+  const [session, contact] = await Promise.all([
+    getSession(),
+    prisma.contact.findUnique({ where: { id }, select: { name: true } }),
+  ]);
   await prisma.contact.delete({ where: { id } });
+  registrarAuditoria({
+    usuario: session?.name,
+    acao: "excluir_contato",
+    entidade: "Contact",
+    entidadeId: id,
+    detalhe: contact?.name,
+  });
   return NextResponse.json({ ok: true });
 }

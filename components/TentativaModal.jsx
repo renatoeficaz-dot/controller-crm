@@ -19,9 +19,12 @@ export const RESULTADOS = [
 export const RESULTADO_LABEL = Object.fromEntries(RESULTADOS.map((r) => [r.valor, r.label]));
 export const TIPO_LABEL = Object.fromEntries(TIPOS.map((t) => [t.valor, t.label]));
 
+const hojeStr = () => new Date().toLocaleDateString("en-CA");
+
 export default function TentativaModal({ contactId, contactName, onClose, onSalvou }) {
   const [tipo, setTipo] = useState("ligacao");
   const [resultado, setResultado] = useState("nao_atendeu");
+  const [dataPromessa, setDataPromessa] = useState(hojeStr());
   const [notas, setNotas] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
@@ -33,7 +36,9 @@ export default function TentativaModal({ contactId, contactName, onClose, onSalv
     const res = await fetch(`/api/contacts/${contactId}/tentativas`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tipo, resultado, notas }),
+      // dataPromessa só faz sentido quando ele prometeu pagar — nos outros
+      // resultados vai null pra não criar promessa fantasma na fila.
+      body: JSON.stringify({ tipo, resultado, notas, dataPromessa: resultado === "prometeu" ? dataPromessa : null }),
     });
     setSalvando(false);
     if (!res.ok) {
@@ -92,6 +97,21 @@ export default function TentativaModal({ contactId, contactName, onClose, onSalv
             ))}
           </div>
         </div>
+
+        {resultado === "prometeu" && (
+          <label className="block">
+            <span className="text-xs text-slate-400">Prometeu pagar em que dia?</span>
+            <input
+              type="date"
+              value={dataPromessa}
+              onChange={(e) => setDataPromessa(e.target.value)}
+              className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+            <span className="block text-[10px] text-slate-400 mt-0.5">
+              Se passar dessa data sem pagar, ele sobe pro topo da fila de cobrança.
+            </span>
+          </label>
+        )}
 
         <label className="block">
           <span className="text-xs text-slate-400">Observação (opcional)</span>

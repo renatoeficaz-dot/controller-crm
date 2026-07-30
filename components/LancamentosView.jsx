@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import ContactModal from "./ContactModal";
 import ContasPagarView from "@/components/ContasPagarView";
+import FilaLiberacaoView from "@/components/FilaLiberacaoView";
 import Icone from "@/components/Icones";
 
 const money = (n) =>
@@ -434,12 +435,14 @@ export default function LancamentosView() {
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
           <h1 className="text-lg font-semibold text-slate-800">
-            {aba === "lancamentos" ? "Lançamentos" : "Contas a pagar"}
+            {aba === "lancamentos" ? "Lançamentos" : aba === "contas" ? "Contas a pagar" : "Fila de liberação"}
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
             {aba === "lancamentos"
               ? "Acompanhe entradas, saídas e o saldo financeiro da sua operação."
-              : "Despesas previstas. O saldo só muda quando você marca a conta como paga."}
+              : aba === "contas"
+              ? "Despesas previstas. O saldo só muda quando você marca a conta como paga."
+              : "Quem está aprovado esperando o capital sair, e até onde o saldo de hoje alcança."}
           </p>
         </div>
         {aba === "lancamentos" && (
@@ -458,6 +461,7 @@ export default function LancamentosView() {
         {[
           { key: "lancamentos", label: "Lançamentos" },
           { key: "contas", label: "Contas a pagar" },
+          { key: "fila", label: "Fila de liberação" },
         ].map((t) => (
           <button
             key={t.key}
@@ -473,6 +477,8 @@ export default function LancamentosView() {
 
       {aba === "contas" ? (
         <ContasPagarView />
+      ) : aba === "fila" ? (
+        <FilaLiberacaoView />
       ) : (
       <div className="grid lg:grid-cols-[300px_1fr] gap-4 md:gap-6 items-start">
         {/* -------- Sidebar: filtros + categorias + bancos -------- */}

@@ -5,6 +5,21 @@ import { interpolarVariaveis, situacaoCobranca } from "@/lib/variaveis";
 import TentativaModal, { RESULTADO_LABEL, TIPO_LABEL } from "@/components/TentativaModal";
 import { faixaComportamental, FAIXA_COMPORT_LABEL } from "@/lib/scoreComportamental";
 import Icone from "@/components/Icones";
+import AcordoModal from "@/components/AcordoModal";
+
+const NEGOCIACAO_LABEL = {
+  acordo_parcelado: "Acordo parcelado",
+  desconto_aceito: "Desconto aceito",
+  desconto_recusado: "Desconto recusado",
+  outro: "Anotação",
+};
+
+const NEGOCIACAO_COR = {
+  acordo_parcelado: "text-sky-600",
+  desconto_aceito: "text-emerald-600",
+  desconto_recusado: "text-red-500",
+  outro: "text-slate-500",
+};
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -26,16 +41,22 @@ const COR_RESULTADO = {
 // Bloco de cobrança do card do lead: oferta de quitação à vista (quando o
 // cliente se qualifica) e histórico de tentativas de contato. Compartilhado
 // entre o modal do Kanban e o painel do Chat.
-export default function CobrancaLead({ contactId, contact }) {
+export default function CobrancaLead({ contactId, contact, onChanged }) {
   const [cfg, setCfg] = useState(null);
   const [tentativas, setTentativas] = useState([]);
+  const [negociacoes, setNegociacoes] = useState([]);
   const [modalAberto, setModalAberto] = useState(false);
+  const [acordoAberto, setAcordoAberto] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
   const load = useCallback(async () => {
     if (!contactId) return;
-    const d = await fetch(`/api/contacts/${contactId}/tentativas`).then((r) => r.json()).catch(() => []);
-    setTentativas(Array.isArray(d) ? d : []);
+    const [t, n] = await Promise.all([
+      fetch(`/api/contacts/${contactId}/tentativas`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/contacts/${contactId}/negociacoes`).then((r) => r.json()).catch(() => []),
+    ]);
+    setTentativas(Array.isArray(t) ? t : []);
+    setNegociacoes(Array.isArray(n) ? n : []);
   }, [contactId]);
 
   useEffect(() => { load(); }, [load]);
@@ -63,13 +84,24 @@ export default function CobrancaLead({ contactId, contact }) {
     <div className="border border-slate-200 rounded-lg p-2.5">
       <div className="flex items-center justify-between text-xs font-medium text-slate-600">
         <span className="flex items-center gap-1"><Icone nome="cobranca" className="w-3.5 h-3.5" /> Cobrança</span>
-        <button
-          type="button"
-          onClick={() => setModalAberto(true)}
-          className="text-sky-600 hover:text-sky-700 font-normal"
-        >
-          + Tentativa
-        </button>
+        <div className="flex items-center gap-2">
+          {s.valorAberto > 0 && (
+            <button
+              type="button"
+              onClick={() => setAcordoAberto(true)}
+              className="text-sky-600 hover:text-sky-700 font-normal"
+            >
+              + Acordo
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setModalAberto(true)}
+            className="text-sky-600 hover:text-sky-700 font-normal"
+          >
+            + Tentativa
+          </button>
+        </div>
       </div>
 
       {contact?.scoreComportamental != null && (() => {
@@ -139,12 +171,44 @@ export default function CobrancaLead({ contactId, contact }) {
         <p className="text-[11px] text-slate-400 mt-2">Nenhuma tentativa de contato registrada.</p>
       )}
 
+      {negociacoes.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-slate-100">
+          <p className="text-[11px] font-medium text-slate-500 mb-1">Negociações ({negociacoes.length})</p>
+          <ul className="space-y-1">
+            {negociacoes.slice(0, 5).map((n) => (
+              <li key={n.id} className="text-[11px] text-slate-500 flex items-start gap-1.5">
+                <span className={`font-medium shrink-0 ${NEGOCIACAO_COR[n.tipo] || "text-slate-500"}`}>
+                  {NEGOCIACAO_LABEL[n.tipo] || n.tipo}
+                </span>
+                <span className="text-slate-400 truncate">
+                  {n.valorNegociado != null && `· ${money(n.valorNegociado)}`}
+                  {n.parcelas ? ` em ${n.parcelas}x` : ""}
+                  {" · "}{new Date(n.createdAt).toLocaleDateString("pt-BR")}
+                  {n.usuario ? ` · ${n.usuario}` : ""}
+                  {n.notas ? ` — ${n.notas}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {modalAberto && (
         <TentativaModal
           contactId={contactId}
           contactName={contact?.name}
           onClose={() => setModalAberto(false)}
           onSalvou={() => { setModalAberto(false); load(); }}
+        />
+      )}
+
+      {acordoAberto && (
+        <AcordoModal
+          contactId={contactId}
+          contactName={contact?.name}
+          valorAberto={s.valorAberto}
+          onClose={() => setAcordoAberto(false)}
+          onSalvou={() => { setAcordoAberto(false); load(); onChanged?.(); }}
         />
       )}
     </div>

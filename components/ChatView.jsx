@@ -541,7 +541,7 @@ export default function ChatView() {
   const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === (contact?.cicloAtual || 1));
   const pagas = parcelasAtuais.filter((p) => p.paid).length;
   const totalParcelas = parcelasAtuais.length;
-  const faltaQuitar = parcelasAtuais.filter((p) => !p.paid).reduce((s, p) => s + p.amount, 0);
+  const faltaQuitar = parcelasAtuais.filter((p) => !p.paid && !p.renegociada).reduce((s, p) => s + p.amount, 0);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const inputCls = "w-full text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400";
@@ -1100,7 +1100,7 @@ export default function ChatView() {
               onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}
             />
 
-            <CobrancaLead contactId={selectedId} contact={contact} />
+            <CobrancaLead contactId={selectedId} contact={contact} onChanged={loadContact} />
 
             {/* Tarefas do lead */}
             <div className="border border-slate-200 rounded-lg p-2.5">

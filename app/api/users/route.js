@@ -12,8 +12,15 @@ const USER_SELECT = {
   paginasVisiveis: true,
   kanbansVisiveis: { select: { id: true } },
   numerosVisiveis: { select: { id: true } },
+  metaVendasMinimaPropria: true,
+  metaVendasMediaPropria: true,
+  metaVendasDiaPropria: true,
   createdAt: true,
 };
+
+// Meta individual: campo vazio significa "usa a meta global" — por isso null,
+// e não 0 (que seria uma meta de zero vendas).
+const metaOuNull = (v) => (v === "" || v == null ? null : Number(v) || null);
 
 // Lista os usuários (sem expor o hash da senha), com nível e permissões
 export async function GET() {
@@ -49,6 +56,9 @@ export async function POST(req) {
       paginasVisiveis: role === "admin" ? null : (body.paginasVisiveis || []).join(",") || null,
       kanbansVisiveis: { connect: (body.kanbansVisiveis || []).map((id) => ({ id })) },
       numerosVisiveis: { connect: (body.numerosVisiveis || []).map((id) => ({ id })) },
+      metaVendasMinimaPropria: metaOuNull(body.metaVendasMinimaPropria),
+      metaVendasMediaPropria: metaOuNull(body.metaVendasMediaPropria),
+      metaVendasDiaPropria: metaOuNull(body.metaVendasDiaPropria),
     },
     select: USER_SELECT,
   });

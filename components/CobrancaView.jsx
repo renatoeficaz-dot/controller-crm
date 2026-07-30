@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import ContactModal from "@/components/ContactModal";
 import TentativaModal from "@/components/TentativaModal";
 import Icone from "@/components/Icones";
+import ComissaoPainel from "@/components/ComissaoPainel";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -109,6 +110,12 @@ export default function CobrancaView() {
           </p>
           <p className="text-3xl font-bold text-slate-800 mt-2">{money(item.valorAberto)}</p>
           <p className="text-xs text-slate-400">em aberto</p>
+          {item.promessaQuebrada && (
+            <p className="flex items-center justify-center gap-1 text-[11px] text-red-600 font-semibold mt-2">
+              <Icone nome="alerta" className="w-3 h-3" />
+              Prometeu pagar em {new Date(item.dataPromessa).toLocaleDateString("pt-BR", { timeZone: "UTC" })} e não pagou
+            </p>
+          )}
           {item.tentativasHoje > 0 && (
             <p className="text-[11px] text-amber-600 mt-2">
               Já houve {item.tentativasHoje} tentativa(s) com esse cliente hoje
@@ -217,6 +224,8 @@ export default function CobrancaView() {
         )}
       </div>
 
+      <ComissaoPainel />
+
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <p className="text-xs text-slate-400">Clientes na fila</p>
@@ -248,6 +257,14 @@ export default function CobrancaView() {
                   </span>
                   {item.etapa === "Cravo" && (
                     <span className="text-[10px] rounded-full px-2 py-0.5 bg-red-50 text-red-600">Cravo</span>
+                  )}
+                  {item.promessaQuebrada && (
+                    <span
+                      className="flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 bg-red-100 text-red-700 font-semibold"
+                      title={`Prometeu pagar em ${new Date(item.dataPromessa).toLocaleDateString("pt-BR", { timeZone: "UTC" })} e não pagou`}
+                    >
+                      <Icone nome="alerta" className="w-2.5 h-2.5" /> promessa quebrada
+                    </span>
                   )}
                   {item.tentativasHoje > 0 && (
                     <span className="text-[10px] rounded-full px-2 py-0.5 bg-slate-100 text-slate-500">

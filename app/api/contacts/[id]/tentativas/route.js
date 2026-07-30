@@ -25,6 +25,12 @@ export async function POST(req, { params }) {
       contactId: id,
       tipo: body.tipo,
       resultado: body.resultado,
+      // Só grava a promessa quando o resultado é "prometeu" — nos outros casos
+      // a data que vem do cliente é ignorada.
+      dataPromessa:
+        body.resultado === "prometeu" && body.dataPromessa
+          ? new Date(String(body.dataPromessa).slice(0, 10) + "T00:00:00.000Z")
+          : null,
       notas: (body.notas || "").trim() || null,
       usuario: user?.name || null,
     },

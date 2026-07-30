@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { atualizarScoreDoContato } from "@/lib/atualizarScoreComportamental";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 // Marca uma parcela como paga / pendente.
 // body.amountPago (opcional): valor realmente cobrado — permite ao cobrador
@@ -20,6 +21,8 @@ export async function PATCH(req, { params }) {
   });
   if (!parcelaAtual) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
 
+  const user = await getCurrentUser().catch(() => null);
+
   const amountPago = paid
     ? (body.amountPago != null && body.amountPago !== "" ? Number(body.amountPago) : parcelaAtual.amount)
     : null;
@@ -32,7 +35,6 @@ export async function PATCH(req, { params }) {
     if (!motivo) {
       return NextResponse.json({ error: "Informe o motivo da alteração." }, { status: 400 });
     }
-    const user = await getCurrentUser().catch(() => null);
     await prisma.alteracaoBaixa.create({
       data: {
         parcelaId: id,
@@ -48,7 +50,15 @@ export async function PATCH(req, { params }) {
 
   const parcela = await prisma.parcela.update({
     where: { id },
-    data: { paid, paidAt: paid ? (parcelaAtual.paidAt || new Date()) : null, amountPago },
+    data: {
+      paid,
+      paidAt: paid ? (parcelaAtual.paidAt || new Date()) : null,
+      amountPago,
+      // Quem deu a baixa — base da comissão e do comparativo entre cobradores.
+      // Preserva o autor original numa alteração de valor: quem recuperou foi
+      // quem cobrou, não quem corrigiu o valor depois.
+      baixadoPor: paid ? (parcelaAtual.baixadoPor || user?.name || null) : null,
+    },
     include: { contact: { select: { id: true, name: true } } },
   });
   // Baixar a parcela conclui a tarefa de cobrança vinculada
@@ -79,6 +89,14 @@ export async function PATCH(req, { params }) {
   // O score comportamental depende do histórico de pagamento — recalcula aqui
   // pra refletir a baixa na hora, sem esperar a varredura diária.
   await atualizarScoreDoContato(parcela.contactId).catch(() => {});
+
+  registrarAuditoria({
+    usuario: user?.name,
+    acao: paid ? "dar_baixa" : "estornar_baixa",
+    entidade: "Parcela",
+    entidadeId: id,
+    detalhe: `${parcela.contact?.name || ""} — parcela ${parcela.number}ª${paid ? ` baixada em R$ ${amountPago}` : " desmarcada"}`,
+  });
 
   return NextResponse.json(parcela);
 }

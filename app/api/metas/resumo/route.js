@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getCurrentUser, isAdmin } from "@/lib/session";
 
 function inicioDiaUTC(offsetDias = 0) {
   const hoje = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
@@ -69,11 +70,23 @@ export async function GET() {
   const metaRecebimentosHoje = Math.ceil((totalEmRecebimento * pct) / 100);
   const recebimentosHoje = pagantesHoje.length;
 
-  const metaVendasMinima = cfg?.metaVendasMinima ?? 2;
-  const metaVendasMedia = cfg?.metaVendasMedia ?? 3;
-  const metaVendasDia = cfg?.metaVendasDia ?? 5;
+  // Meta de vendas: quem não é admin e tem meta própria configurada usa a dela;
+  // os 3 níveis vêm juntos (só vale a meta pessoal se todos estiverem
+  // definidos, senão misturaria mínima pessoal com meta cheia global).
+  const user = await getCurrentUser();
+  const temMetaPropria =
+    user &&
+    !isAdmin(user) &&
+    user.metaVendasMinimaPropria != null &&
+    user.metaVendasMediaPropria != null &&
+    user.metaVendasDiaPropria != null;
+
+  const metaVendasMinima = temMetaPropria ? user.metaVendasMinimaPropria : cfg?.metaVendasMinima ?? 2;
+  const metaVendasMedia = temMetaPropria ? user.metaVendasMediaPropria : cfg?.metaVendasMedia ?? 3;
+  const metaVendasDia = temMetaPropria ? user.metaVendasDiaPropria : cfg?.metaVendasDia ?? 5;
 
   return NextResponse.json({
+    metaVendasPropria: !!temMetaPropria,
     vendasHoje,
     metaVendasMinima,
     metaVendasMedia,

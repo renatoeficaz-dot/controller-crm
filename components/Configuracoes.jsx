@@ -6,6 +6,7 @@ import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
 import { PAGINAS_SISTEMA } from "@/lib/paginas";
 import TemaToggle from "@/components/TemaToggle";
 import Icone from "@/components/Icones";
+import { ComissaoConfig, RiscoConfig, AuditoriaLog } from "@/components/ConfigGestao";
 
 // Posição (fixed, em relação à viewport) do EmojiPicker a partir do botão que
 // o abriu — mantém dentro da tela em qualquer largura (nada de calcular
@@ -150,12 +151,15 @@ const TABS = [
   { key: "tags", label: "Tags / Auto-tag", desc: "Etiquetas e regras automáticas" },
   { key: "tarefas", label: "Tipos de Tarefa", desc: "Categorias das tarefas dos leads" },
   { key: "metas", label: "Metas", desc: "Regra da meta diária de recebimento" },
+  { key: "comissao", label: "Comissão", desc: "Bônus dos cobradores por meta batida" },
+  { key: "risco", label: "Risco / Limites", desc: "Capital escalonado, CPF bloqueado e provisão" },
   { key: "mensagens", label: "Mensagens prontas", desc: "Modelos de texto, mídia e contato" },
   { key: "automacao", label: "Automação", desc: "Responsáveis automáticos por etapa" },
   { key: "ia", label: "IA", desc: "Agentes, modelos e chaves de API" },
   { key: "regua", label: "Régua de cobrança", desc: "Mensagem por faixa de atraso" },
   { key: "desconto", label: "Quitação à vista", desc: "Oferta de desconto pra quem está atrasado" },
   { key: "alteracoes", label: "Alterações", desc: "Log de mudanças em baixas já registradas" },
+  { key: "auditoria", label: "Auditoria", desc: "Quem fez o quê no sistema" },
   { key: "aparencia", label: "Aparência", desc: "Tema claro, escuro ou do sistema" },
   { key: "alertas", label: "Alertas", desc: "Resumo diário e avisos críticos no seu WhatsApp" },
   { key: "backup", label: "Backup", desc: "Cópias automáticas do banco de dados" },
@@ -246,6 +250,9 @@ export default function Configuracoes() {
             {tab === "tags" && <TagsConfig />}
             {tab === "tarefas" && <TiposTarefaConfig />}
             {tab === "metas" && <MetasConfig />}
+            {tab === "comissao" && <ComissaoConfig />}
+            {tab === "risco" && <RiscoConfig />}
+            {tab === "auditoria" && <AuditoriaLog />}
             {tab === "mensagens" && <MensagensProntas />}
             {tab === "automacao" && <AutomacaoFunil />}
             {tab === "ia" && (
@@ -403,6 +410,10 @@ const EMPTY_USER = {
   kanbansVisiveis: [],
   numerosVisiveis: [],
   paginasVisiveis: [],
+  // Vazio = usa a meta global de vendas.
+  metaVendasMinimaPropria: "",
+  metaVendasMediaPropria: "",
+  metaVendasDiaPropria: "",
 };
 
 const ROLE_LABEL = { admin: "Administrador", vendedor: "Vendedor", cobrador: "Cobrador" };
@@ -451,6 +462,9 @@ function Usuarios() {
       kanbansVisiveis: (u.kanbansVisiveis || []).map((k) => k.id),
       numerosVisiveis: (u.numerosVisiveis || []).map((n) => n.id),
       paginasVisiveis: (u.paginasVisiveis || "").split(",").map((s) => s.trim()).filter(Boolean),
+      metaVendasMinimaPropria: u.metaVendasMinimaPropria ?? "",
+      metaVendasMediaPropria: u.metaVendasMediaPropria ?? "",
+      metaVendasDiaPropria: u.metaVendasDiaPropria ?? "",
     });
     setError("");
     setShowPassword(false);
@@ -706,6 +720,32 @@ function Usuarios() {
                       <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.verTodosLeads ? "translate-x-4" : ""}`} />
                     </button>
                   </label>
+
+                  <div className="border border-slate-200 rounded-lg p-2.5">
+                    <span className="text-xs text-slate-600">Meta de vendas própria</span>
+                    <p className="text-[11px] text-slate-400 mb-1.5">
+                      Deixe em branco pra usar a meta global. Os 3 níveis precisam estar preenchidos pra valer.
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { k: "metaVendasMinimaPropria", label: "Mínima", cor: "text-red-500" },
+                        { k: "metaVendasMediaPropria", label: "Média", cor: "text-amber-500" },
+                        { k: "metaVendasDiaPropria", label: "Meta", cor: "text-emerald-600" },
+                      ].map((c) => (
+                        <label key={c.k} className="block">
+                          <span className={`text-[11px] ${c.cor}`}>{c.label}</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={form[c.k]}
+                            onChange={(e) => setForm((f) => ({ ...f, [c.k]: e.target.value }))}
+                            placeholder="global"
+                            className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
 
                   <div>
                     <span className="text-xs text-slate-400">Kanbans que pode ver</span>

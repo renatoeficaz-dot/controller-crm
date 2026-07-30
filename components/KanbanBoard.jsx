@@ -30,7 +30,7 @@ const money = (n) =>
 function valorAReceber(contact) {
   const ciclo = contact.cicloAtual || 1;
   return (contact.parcelas || [])
-    .filter((p) => (p.ciclo || 1) === ciclo && !p.paid)
+    .filter((p) => (p.ciclo || 1) === ciclo && !p.paid && !p.renegociada)
     .reduce((sum, p) => sum + p.amount, 0);
 }
 
@@ -158,7 +158,7 @@ export default function KanbanBoard() {
     fetch("/api/tags").then((r) => r.json()).then(setTags).catch(() => {});
   }, []);
 
-  async function moveContact(contactId, toStageId) {
+  async function moveContact(contactId, toStageId, forcar = false) {
     // Atualização otimista
     setStages((prev) => {
       let moved;
@@ -180,13 +180,21 @@ export default function KanbanBoard() {
     const res = await fetch(`/api/contacts/${contactId}/move`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stageId: toStageId }),
+      body: JSON.stringify({ stageId: toStageId, forcar }),
     });
 
-    // Se o backend recusar (ex.: regra do capital), reverte recarregando
+    // Se o backend recusar (ex.: regra do capital, CPF que já deu calote),
+    // reverte recarregando. Bloqueios com "forçar" perguntam se quer insistir
+    // — só admin de fato passa no servidor, então é seguro oferecer pra todos.
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      flash(data.error || "Não foi possível mover o contato.");
+      if ((data.bloqueioCpf || data.escalonamentoExcedido) && !forcar) {
+        if (confirm(`${data.error}\n\nForçar mesmo assim? (só administrador consegue)`)) {
+          return moveContact(contactId, toStageId, true);
+        }
+      } else {
+        flash(data.error || "Não foi possível mover o contato.");
+      }
       load();
     }
   }

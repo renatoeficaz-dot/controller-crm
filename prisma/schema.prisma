@@ -92,6 +92,13 @@ model Contact {
   scoreComportMotivos String?
   scoreComportEm      DateTime?
 
+  // true quando esse lead chegou a entrar em "Cravo" (parou de pagar) alguma
+  // vez — fica marcado pra sempre, mesmo que ele saia de Cravo depois, pra
+  // alimentar o bloqueio de CPF reincidente noutro cadastro.
+  deuCalote Boolean @default(false)
+
+  negociacoes Negociacao[]
+
   // Link de rastreamento (UTM) que trouxe esse lead — atribuição de primeiro
   // toque: setado uma vez, na criação, a partir da tag "[ref:slug]" que o
   // redirecionamento /l/[slug] injeta na mensagem pré-preenchida do WhatsApp.
@@ -155,8 +162,35 @@ model Parcela {
   // cobrador escolhe baixar SEM o juro de atraso, pra aliviar o cliente).
   // null = ainda não paga.
   amountPago Float?
+  // Nome de quem deu a baixa — alimenta o comparativo entre cobradores e o
+  // cálculo de comissão (quem efetivamente recuperou o valor).
+  baixadoPor String?
+  // true = essa parcela foi substituída por um acordo parcelado (Negociacao) e
+  // não deve mais contar como "em aberto" nem entrar em cobrança — o valor
+  // dela virou as novas parcelas do acordo.
+  renegociada Boolean @default(false)
+  // true = essa parcela foi GERADA por um acordo parcelado (em vez de fazer
+  // parte do plano original de 10). Numeração própria (1000+) pra não colidir.
+  deAcordo    Boolean @default(false)
   task      Task?
   alteracoes AlteracaoBaixa[]
+}
+
+// Registro de cada negociação feita com o cliente — acordo parcelado aceito,
+// desconto de quitação à vista oferecido/recusado, ou anotação livre do
+// cobrador. Histórico consultável na ficha do lead.
+model Negociacao {
+  id             String   @id @default(cuid())
+  contact        Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId      String
+  tipo           String   // "acordo_parcelado" | "desconto_aceito" | "desconto_recusado" | "outro"
+  valorOriginal  Float?
+  valorNegociado Float?
+  parcelas       Int?     // nº de parcelas do acordo, quando tipo = acordo_parcelado
+  aceito         Boolean  @default(true)
+  notas          String?
+  usuario        String?
+  createdAt      DateTime @default(now())
 }
 
 // Log de alterações feitas numa baixa já registrada (mudar o valor cobrado,
@@ -277,6 +311,45 @@ model Config {
   // automático em Lançamentos ao dar baixa numa parcela).
   contaRecebimento   Banco?  @relation("ContaRecebimento", fields: [contaRecebimentoId], references: [id], onDelete: SetNull)
   contaRecebimentoId String?
+
+  // Capital escalonado: 1º empréstimo trava num valor baixo, e só sobe a cada
+  // ciclo pago (renovação). limite(ciclo) = escalonamentoBase +
+  // escalonamentoIncremento * (ciclo - 1), até escalonamentoTeto (se definido).
+  escalonamentoAtivo      Boolean @default(false)
+  escalonamentoBase       Float   @default(300)
+  escalonamentoIncremento Float   @default(200)
+  escalonamentoTeto       Float?
+
+  // Bloqueio de CPF reincidente: ao tentar avançar um lead cujo CPF já deu
+  // calote noutro cadastro (Contact.deuCalote), avisa/bloqueia.
+  bloqueioCpfAtivo Boolean @default(true)
+
+  // Escalonamento por tempo de atraso: passou de X dias, o responsável pela
+  // lead muda automaticamente pro cobrador sênior configurado aqui.
+  escalonamentoAtrasoDias        Int?
+  escalonamentoAtrasoResponsavel String?
+
+  // Capital ocioso: avisa se o saldo em caixa fica X dias sem nenhuma
+  // liberação de capital (saída de Lançamento vinculada a um lead).
+  capitalOciosoDias  Int @default(3)
+
+  // Provisão pra devedores duvidosos — % da carteira aberta que se espera
+  // NÃO recuperar, por faixa de atraso (referência pra decisão de quanto
+  // emprestar, não é lançamento contábil automático).
+  provisaoPct0a7    Float @default(2)
+  provisaoPct8a15   Float @default(10)
+  provisaoPct16a30  Float @default(35)
+  provisaoPct31mais Float @default(70)
+}
+
+// Configuração de comissão dos cobradores — bônus por bater a meta de valor
+// recuperado no dia e/ou na semana (segunda a sábado, dia de folga é domingo).
+model ComissaoConfig {
+  id                   String @id @default("singleton")
+  metaDiariaValor      Float  @default(0) // R$ recuperados no dia pra bater a meta diária
+  bonusDiario          Float  @default(0) // quanto ganha ao bater
+  metaSemanalValor     Float  @default(0) // R$ recuperados na semana (seg-sáb) pra bater a meta semanal
+  bonusSemanal         Float  @default(0)
 }
 
 // Um "agente" de IA: prompt + modelos próprios. Cada número de WhatsApp escolhe
@@ -323,6 +396,13 @@ model User {
   // vírgula — ex.: "contatos,chat"). Vazio/null = todas. Não cobre Lançamentos/
   // Configurações, que continuam exclusivas de admin independente disso.
   paginasVisiveis String?
+
+  // Meta de vendas individual (vendedor) — null em qualquer um dos 3 campos
+  // significa "usa a meta global" (Config.metaVendas*).
+  metaVendasMinimaPropria Int?
+  metaVendasMediaPropria  Int?
+  metaVendasDiaPropria    Int?
+
   createdAt       DateTime         @default(now())
 }
 
@@ -402,6 +482,9 @@ model TentativaContato {
   contactId String
   tipo      String   // "ligacao" | "whatsapp" | "presencial"
   resultado String   // "atendeu" | "nao_atendeu" | "prometeu" | "recusou" | "numero_errado"
+  // Data prometida de pagamento, quando resultado = "prometeu" — usado pra
+  // sinalizar promessa quebrada na fila de cobrança se passar sem pagamento.
+  dataPromessa DateTime?
   notas     String?
   usuario   String?  // quem registrou
   createdAt DateTime @default(now())
@@ -514,6 +597,19 @@ model Lancamento {
   contactId    String?
   parcelaId    String?             // referência à parcela (se gerado automaticamente)
   createdAt    DateTime            @default(now())
+}
+
+// Log de auditoria — quem fez o quê, quando. Cobre as ações mais sensíveis
+// (mudar etapa, excluir, dar/desfazer baixa, mudar permissão), não literalmente
+// tudo, pra não virar ruído.
+model AuditLog {
+  id        String   @id @default(cuid())
+  usuario   String?
+  acao      String   // "mover_etapa" | "excluir_contato" | "dar_baixa" | "estornar_baixa" | "excluir_lancamento" | "alterar_permissao" | "excluir_usuario" | ...
+  entidade  String   // "Contact" | "Parcela" | "Lancamento" | "User" | ...
+  entidadeId String?
+  detalhe   String?
+  createdAt DateTime @default(now())
 }
 
 // Mensagem trocada com o contato pelo WhatsApp (Evolution API)

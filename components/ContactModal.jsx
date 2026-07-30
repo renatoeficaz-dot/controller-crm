@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { resumoCobranca, valorParcelaAtual, parcelaAtrasada } from "@/lib/finance";
+import { limiteEscalonado } from "@/lib/escalonamento";
 import { UFS_BR } from "@/lib/ddd";
 import MediaBubble, { MediaLightbox } from "./MediaBubble";
 import PuxadaAnexo from "./PuxadaAnexo";
@@ -48,6 +49,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [editandoBaixa, setEditandoBaixa] = useState(null); // { parcela, modo: "valor"|"desfazer", novoValor, motivo }
   const [honorariosPct, setHonorariosPct] = useState(30);
   const [multaPct, setMultaPct] = useState(50);
+  const [escalonamentoCfg, setEscalonamentoCfg] = useState(null);
+  const [caloteAviso, setCaloteAviso] = useState(null);
   const [horaLimite, setHoraLimite] = useState("");
   const [form, setForm] = useState({});
   const [text, setText] = useState("");
@@ -113,6 +116,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     if (cfg?.honorariosPct != null) setHonorariosPct(cfg.honorariosPct);
     if (cfg?.multaPct != null) setMultaPct(cfg.multaPct);
     setHoraLimite(cfg?.pagamentoHoraLimite || "");
+    setEscalonamentoCfg(cfg?.escalonamentoAtivo ? cfg : null);
   }, [contactId]);
 
   useEffect(() => {
@@ -235,11 +239,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   }, [messages]);
 
   async function saveContact() {
-    await fetch(`/api/contacts/${contactId}`, {
+    const res = await fetch(`/api/contacts/${contactId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    const data = await res.json().catch(() => null);
+    setCaloteAviso(data?.caloteAviso || null);
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1500);
     onChanged?.();
@@ -478,11 +484,15 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
   const isRecebimento = contact?.stage?.name === "Recebimento";
   const resumo = resumoCobranca(form.valorCapital, honorariosPct);
+  // Limite de capital do ciclo atual, quando o escalonamento está ligado.
+  const limiteCiclo = escalonamentoCfg ? limiteEscalonado(cicloAtual, escalonamentoCfg) : null;
+  const acimaDoLimite = limiteCiclo != null && Number(form.valorCapital || 0) > limiteCiclo;
+  const limiteProximoCiclo = escalonamentoCfg ? limiteEscalonado(cicloAtual + 1, escalonamentoCfg) : null;
   const multaOpts = { multaPct, horaLimite }; // multa por atraso + horário limite (config)
   const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === cicloAtual);
   const parcelasHistorico = parcelas.filter((p) => (p.ciclo || 1) < cicloAtual);
   const totalPago = parcelasAtuais.filter((p) => p.paid).reduce((s, p) => s + p.amount, 0);
-  const faltaQuitar = parcelasAtuais.filter((p) => !p.paid).reduce((s, p) => s + p.amount, 0);
+  const faltaQuitar = parcelasAtuais.filter((p) => !p.paid && !p.renegociada).reduce((s, p) => s + p.amount, 0);
   const todasPagas = parcelasAtuais.length > 0 && parcelasAtuais.every((p) => p.paid);
 
   function field(label, key, type = "text") {
@@ -686,7 +696,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}
             />
 
-            <CobrancaLead contactId={contactId} contact={contact} />
+            <CobrancaLead contactId={contactId} contact={contact} onChanged={() => { loadContact(); onChanged?.(); }} />
 
             {/* Mídias enviadas na conversa */}
             <MidiasEnviadas messages={messages} />
@@ -778,6 +788,17 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </div>
             )}
 
+            {/* Aviso de CPF que já deu calote em outro cadastro */}
+            {caloteAviso && (
+              <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2.5">
+                <Icone nome="alerta" className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  Esse CPF já deu calote no cadastro <strong>{caloteAviso.name}</strong>
+                  {caloteAviso.phone ? ` (${caloteAviso.phone})` : ""}. Avançar no funil vai exigir liberação de um administrador.
+                </span>
+              </div>
+            )}
+
             {/* Dados financeiros do empréstimo */}
             <div className="border-t border-slate-100 pt-3 grid grid-cols-2 gap-3">
               <label className="block">
@@ -789,6 +810,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   onChange={(e) => setForm((f) => ({ ...f, valorCapital: e.target.value }))}
                   className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
                 />
+                {limiteCiclo != null && (
+                  <span className={`block text-[10px] mt-0.5 ${acimaDoLimite ? "text-red-600 font-medium" : "text-slate-400"}`}>
+                    Limite do ciclo {cicloAtual}: {money(limiteCiclo)}
+                    {acimaDoLimite ? " — acima do limite, precisa de admin" : ""}
+                  </span>
+                )}
               </label>
               <label className="block">
                 <span className="text-xs text-slate-400">Pagamento de capital</span>
@@ -886,8 +913,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     {/* Renovação — aparece só quando todas as parcelas do ciclo estão pagas */}
                     {todasPagas && (
                       <div className="mt-3 pt-3 border-t border-emerald-100 space-y-2">
-                        <p className="text-xs font-medium text-emerald-700">Todas as parcelas foram pagas!</p>
-                        <p className="text-[11px] text-slate-500">Preencha os dados abaixo para iniciar uma <strong>renovação</strong>.</p>
+                        <p className="text-xs font-medium text-emerald-700">Ciclo {cicloAtual} quitado — cliente pronto pra renovar</p>
+                        <p className="text-[11px] text-slate-500">
+                          Cliente que renova costuma pagar bem melhor que o primeiro empréstimo.
+                          {limiteProximoCiclo != null && (
+                            <> Pelo escalonamento, o ciclo {cicloAtual + 1} libera até <strong>{money(limiteProximoCiclo)}</strong>.</>
+                          )}
+                        </p>
                         <div className="grid grid-cols-2 gap-2">
                           <label className="block">
                             <span className="text-[11px] text-slate-400">Novo capital (R$)</span>
@@ -898,6 +930,15 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                               onChange={(e) => setRenovForm((f) => ({ ...f, valorCapital: e.target.value }))}
                               className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400"
                             />
+                            {limiteProximoCiclo != null && (
+                              <button
+                                type="button"
+                                onClick={() => setRenovForm((f) => ({ ...f, valorCapital: String(limiteProximoCiclo) }))}
+                                className="text-[10px] text-emerald-600 hover:underline mt-0.5"
+                              >
+                                usar {money(limiteProximoCiclo)}
+                              </button>
+                            )}
                           </label>
                           <label className="block">
                             <span className="text-[11px] text-slate-400">Data de pagamento</span>

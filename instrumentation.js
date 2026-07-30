@@ -7,8 +7,9 @@ export async function register() {
   const { checarFollowUp30min, checarMensagensSemResposta } = await import("@/lib/followUp");
   const { recalcularScoresComportamentais } = await import("@/lib/atualizarScoreComportamental");
   const { rodarBackup } = await import("@/lib/backup");
-  const { checarResumoDiario, checarAlertasCriticos } = await import("@/lib/alertas");
+  const { checarResumoDiario, checarAlertasCriticos, checarCapitalOcioso } = await import("@/lib/alertas");
   const { estenderRecorrenciasIlimitadas } = await import("@/lib/contasPagar");
+  const { escalonarAtrasos } = await import("@/lib/escalonamentoAtraso");
   const CINCO_MIN = 5 * 60 * 1000;
 
   // Rotinas de 1x por dia guardam aqui o dia da última execução — o intervalo
@@ -40,6 +41,12 @@ export async function register() {
       estenderRecorrenciasIlimitadas()
         .then((n) => n && console.log(`[contasPagar] ${n} ocorrência(s) criada(s)`))
         .catch((err) => console.error("[contasPagar] erro:", err.message));
+      // Cobrança velha troca de mão: passou do limite de dias, vai pro sênior.
+      escalonarAtrasos()
+        .then((n) => n && console.log(`[escalonamentoAtraso] ${n} lead(s) reatribuído(s)`))
+        .catch((err) => console.error("[escalonamentoAtraso] erro:", err.message));
+      // Dinheiro parado em caixa sem liberar capital não gira — avisa o dono.
+      checarCapitalOcioso().catch((err) => console.error("[capitalOcioso] erro:", err.message));
     }
   }, CINCO_MIN);
 }

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { gerarParcelas } from "@/lib/finance";
+import { limiteEscalonado } from "@/lib/escalonamento";
+import { getSession } from "@/lib/session";
 
 // Renova o empréstimo: incrementa o ciclo, gera novas parcelas com os dados fornecidos.
 // Exige que TODAS as parcelas do ciclo atual estejam pagas.
@@ -32,6 +34,17 @@ export async function POST(req, { params }) {
   const novoCiclo = contact.cicloAtual + 1;
   const config = await prisma.config.findUnique({ where: { id: "singleton" } });
   const pct = config?.honorariosPct ?? 30;
+
+  if (config?.escalonamentoAtivo && !body.forcar) {
+    const session = await getSession();
+    const limite = limiteEscalonado(novoCiclo, config);
+    if (valorCapital > limite && session?.role !== "admin") {
+      return NextResponse.json(
+        { error: `Valor acima do limite do ciclo ${novoCiclo} (R$ ${limite}). Só um administrador pode liberar acima do limite.`, escalonamentoExcedido: true, limite },
+        { status: 422 }
+      );
+    }
+  }
   const novasParcelas = gerarParcelas(valorCapital, pct, pagamentoCapital);
 
   // Atualiza o contato (novo ciclo + novos valores de capital)

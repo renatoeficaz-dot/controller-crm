@@ -6,6 +6,7 @@ import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS } from "@/lib/finance";
 import ContactModal from "@/components/ContactModal";
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
 import Icone from "@/components/Icones";
+import RelatoriosGestao from "@/components/RelatoriosGestao";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -326,7 +327,7 @@ export default function Relatorios() {
     let emprestadoNoPeriodo = 0;
     for (const c of contatosFiltrados) {
       if (!c.valorCapital) continue;
-      if ((c.parcelas || []).some((p) => !p.paid)) capitalNaRua += c.valorCapital;
+      if ((c.parcelas || []).some((p) => !p.paid && !p.renegociada)) capitalNaRua += c.valorCapital;
       if (c.pagamentoCapital) {
         const d = String(c.pagamentoCapital).slice(0, 10);
         if (d >= ini && d <= fim) emprestadoNoPeriodo += c.valorCapital;
@@ -1969,6 +1970,10 @@ export default function Relatorios() {
           )}
         </div>
       </section>
+
+      {/* Relatórios de gestão (cobradores, provisão, rentabilidade) — só admin;
+          a própria API recusa pra quem não é, então aqui só monta o bloco. */}
+      <RelatoriosGestao />
 
       {openContactId && (
         <ContactModal
