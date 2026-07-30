@@ -25,6 +25,33 @@ function todayStr() {
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Tempo parado na etapa atual, formato curto "2d 5h 30m". Mostra no máximo as
+// duas maiores unidades — "3d 7h" é o que interessa, o minuto ali é ruído.
+// Cai no createdAt pros leads antigos, que entraram antes desse campo existir.
+function tempoNaEtapa(contact) {
+  const base = contact.entrouEtapaEm || contact.createdAt;
+  if (!base) return null;
+  const ms = Date.now() - new Date(base).getTime();
+  if (ms < 0) return null;
+  const min = Math.floor(ms / 60000);
+  const d = Math.floor(min / 1440);
+  const h = Math.floor((min % 1440) / 60);
+  const m = min % 60;
+  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return `${m}m`;
+}
+
+// Cor do tempo na etapa: quanto mais tempo parado, mais chama atenção.
+function corTempo(contact) {
+  const base = contact.entrouEtapaEm || contact.createdAt;
+  if (!base) return "bg-slate-100 text-slate-500";
+  const dias = (Date.now() - new Date(base).getTime()) / 86400000;
+  if (dias >= 7) return "bg-red-50 text-red-600";
+  if (dias >= 3) return "bg-amber-50 text-amber-600";
+  return "bg-slate-100 text-slate-500";
+}
+
 // Soma das parcelas do ciclo atual que ainda não foram marcadas como pagas
 // (o valor que falta receber desse lead).
 function valorAReceber(contact) {
@@ -810,6 +837,14 @@ export default function KanbanBoard() {
                                   title={c.genero === "feminino" ? "Feminino" : "Masculino"}
                                 >
                                   <Icone nome={c.genero === "feminino" ? "genero-f" : "genero-m"} className="w-2.5 h-2.5" />
+                                </span>
+                              )}
+                              {tempoNaEtapa(c) && (
+                                <span
+                                  className={`flex items-center gap-0.5 text-[10px] font-medium rounded-full px-1.5 py-0.5 ${corTempo(c)}`}
+                                  title={`Nesta etapa há ${tempoNaEtapa(c)}${c.entrouEtapaEm ? "" : " (contado desde a criação do lead)"}`}
+                                >
+                                  <Icone nome="relogio" className="w-2.5 h-2.5" /> {tempoNaEtapa(c)}
                                 </span>
                               )}
                               {c.estado && (

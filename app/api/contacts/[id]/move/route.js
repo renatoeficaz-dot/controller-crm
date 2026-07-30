@@ -86,6 +86,10 @@ export async function PATCH(req, { params }) {
 
   const data = { stageId, order: (last?.order ?? -1) + 1 };
 
+  // Zera o cronômetro da etapa só quando a coluna muda de fato — reordenar o
+  // card dentro da mesma coluna não deveria "rejuvenescer" o lead.
+  if (trocandoDeEtapa) data.entrouEtapaEm = new Date();
+
   // Automação: se a etapa de destino tem um responsável automático configurado,
   // atribui o lead a ele (só ao trocar de etapa de fato, e só dentro do
   // horário comercial configurado — fora dele, fica sem responsável até

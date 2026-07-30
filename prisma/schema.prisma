@@ -59,6 +59,11 @@ model Contact {
   // "Cravo", e pode ser ligado/desligado manualmente pelo botão no chat/popup do lead.
   iaPausada Boolean @default(false)
 
+  // Quando o lead entrou na etapa ATUAL — reseta a cada mudança de coluna.
+  // Serve pro contador "há quanto tempo está parado aqui" no card do funil.
+  // Não usa updatedAt porque aquele muda a cada edição de qualquer campo.
+  entrouEtapaEm DateTime?
+
   // Timestamp de quando o lead ENTROU na etapa "Recebimento" (venda concluída).
   // Independente do pagamentoCapital (que tem sua própria lógica condicional
   // pra gerar parcelas) — usado só pra contar "vendas do dia" na aba Metas.

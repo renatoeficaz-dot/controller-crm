@@ -2,19 +2,31 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 
-function inicioDiaUTC(offsetDias = 0) {
-  const hoje = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
-  const d = new Date(hoje + "T00:00:00.000Z");
+// Início do dia (UTC-midnight) a partir de uma data local "YYYY-MM-DD".
+function inicioDiaUTC(diaBase, offsetDias = 0) {
+  const d = new Date(diaBase + "T00:00:00.000Z");
   d.setUTCDate(d.getUTCDate() + offsetDias);
   return d;
 }
 
-// Resumo do dia pra aba Metas:
+const hojeLocal = () => new Date().toLocaleDateString("en-CA");
+
+// Resumo de um dia pra aba Metas (padrão: hoje; ?dia=YYYY-MM-DD pra ver outro).
 // - Vendas: meta fixa configurável de quantos leads devem cair em "Recebimento" no dia.
-// - Recebimentos: meta é X% de todos os leads atualmente em "Recebimento" pagando hoje.
-export async function GET() {
-  const inicioHoje = inicioDiaUTC(0);
-  const inicioAmanha = inicioDiaUTC(1);
+// - Recebimentos: meta é X% de todos os leads atualmente em "Recebimento" pagando no dia.
+export async function GET(req) {
+  const hoje = hojeLocal();
+  const pedido = new URL(req.url).searchParams.get("dia");
+  // Só aceita o formato exato; qualquer outra coisa cai em hoje em vez de virar
+  // "Invalid Date" e zerar tudo silenciosamente.
+  const valido = /^\d{4}-\d{2}-\d{2}$/.test(pedido || "") ? pedido : hoje;
+  // Dia futuro não tem meta pra mostrar — trava em hoje (a tela já impede, mas
+  // a URL é acessível direto).
+  const dia = valido > hoje ? hoje : valido;
+  const ehHoje = dia === hoje;
+
+  const inicioHoje = inicioDiaUTC(dia, 0);
+  const inicioAmanha = inicioDiaUTC(dia, 1);
 
   const [cfg, stageRecebimento, valorRecebidoHoje, pagantesHoje, baixasHoje, vendasHoje, baixasDetalhe, vendasDetalhe] = await Promise.all([
     prisma.config.findUnique({ where: { id: "singleton" } }),
@@ -86,6 +98,13 @@ export async function GET() {
   const metaVendasDia = temMetaPropria ? user.metaVendasDiaPropria : cfg?.metaVendasDia ?? 5;
 
   return NextResponse.json({
+    dia,
+    ehHoje,
+    // A meta de recebimento é X% de quem está AGORA em "Recebimento". Pra um dia
+    // passado essa base não é reconstituível (não guardamos o tamanho histórico
+    // da carteira), então a meta de dias anteriores é só referência — o número
+    // que vale de verdade é o que foi recebido.
+    baseMetaAproximada: !ehHoje,
     metaVendasPropria: !!temMetaPropria,
     vendasHoje,
     metaVendasMinima,

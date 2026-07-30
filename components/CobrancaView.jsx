@@ -16,6 +16,12 @@ const FAIXAS = [
   { key: "16+", label: "+15 dias", min: 16, max: Infinity },
 ];
 
+const ORDENS = [
+  { key: "prioridade", label: "Prioridade" },
+  { key: "atraso", label: "Mais atrasados" },
+  { key: "valor", label: "Maior valor" },
+];
+
 function corAtraso(dias) {
   if (dias <= 7) return "text-amber-600";
   if (dias <= 15) return "text-red-500";
@@ -26,6 +32,7 @@ export default function CobrancaView() {
   const [fila, setFila] = useState([]);
   const [loading, setLoading] = useState(true);
   const [faixa, setFaixa] = useState("");
+  const [ordem, setOrdem] = useState("prioridade");
   const [responsavel, setResponsavel] = useState("");
   const [openContactId, setOpenContactId] = useState(null);
   const [tentativaDe, setTentativaDe] = useState(null);
@@ -46,12 +53,21 @@ export default function CobrancaView() {
 
   const filtrada = useMemo(() => {
     const f = FAIXAS.find((x) => x.key === faixa);
-    return fila.filter((item) => {
+    const base = fila.filter((item) => {
       if (f && f.min != null && (item.diasAtraso < f.min || item.diasAtraso > f.max)) return false;
       if (responsavel && item.responsavel !== responsavel) return false;
       return true;
     });
-  }, [fila, faixa, responsavel]);
+    // A fila já vem por prioridade do servidor; as outras ordens reordenam aqui.
+    // Empate desfeito pelo valor em aberto, pra ordem não ficar instável.
+    if (ordem === "atraso") {
+      return [...base].sort((a, b) => b.diasAtraso - a.diasAtraso || b.valorAberto - a.valorAberto);
+    }
+    if (ordem === "valor") {
+      return [...base].sort((a, b) => b.valorAberto - a.valorAberto || b.diasAtraso - a.diasAtraso);
+    }
+    return base;
+  }, [fila, faixa, responsavel, ordem]);
 
   const totais = useMemo(
     () => ({
@@ -189,7 +205,11 @@ export default function CobrancaView() {
         <div className="mr-1">
           <h1 className="font-semibold text-slate-800 text-sm md:text-base">Fila de cobrança</h1>
           <p className="text-xs text-slate-400 hidden sm:block">
-            Ordenada por prioridade — quem atrasou menos aparece antes, porque tem mais chance de pagar.
+            {ordem === "prioridade"
+              ? "Ordenada por prioridade — quem atrasou menos aparece antes, porque tem mais chance de pagar."
+              : ordem === "atraso"
+              ? "Ordenada pelos mais atrasados primeiro."
+              : "Ordenada pelo maior valor em aberto."}
           </p>
         </div>
         <button
@@ -209,6 +229,26 @@ export default function CobrancaView() {
               }`}
             >
               {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+          {ORDENS.map((o) => (
+            <button
+              key={o.key}
+              onClick={() => setOrdem(o.key)}
+              title={
+                o.key === "prioridade"
+                  ? "Valor em aberto x urgência do atraso — quem atrasou menos vem antes, porque tem mais chance de pagar"
+                  : o.key === "atraso"
+                  ? "Do atraso maior pro menor"
+                  : "Do maior valor em aberto pro menor"
+              }
+              className={`text-xs px-2.5 py-1 rounded-md transition-colors ${
+                ordem === o.key ? "bg-white shadow-sm text-slate-700 font-medium" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {o.label}
             </button>
           ))}
         </div>

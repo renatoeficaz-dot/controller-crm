@@ -58,7 +58,9 @@ export async function POST(req) {
         if (!contact || contact.stageId === value) continue;
 
         const last = await prisma.contact.findFirst({ where: { stageId: value }, orderBy: { order: "desc" } });
-        const data = { stageId: value, order: (last?.order ?? -1) + 1 };
+        // Só chega aqui quando a coluna muda de fato (o continue acima já
+        // descartou quem já estava nela), então o cronômetro da etapa reseta.
+        const data = { stageId: value, order: (last?.order ?? -1) + 1, entrouEtapaEm: new Date() };
         const aindaSemPlano = contact.parcelas.length === 0;
         if (contact.valorCapital && aindaSemPlano && !contact.pagamentoCapital) {
           data.pagamentoCapital = hoje;
@@ -77,8 +79,18 @@ export async function POST(req) {
     }
 
     // Ao entrar em "Cravo" (perda/inadimplência), a IA para automaticamente.
-    const bulkData = stage.name === "Cravo" ? { stageId: value, iaPausada: true } : { stageId: value };
-    const r = await prisma.contact.updateMany({ where: { id: { in: alvo } }, data: bulkData });
+    // Cravo também marca deuCalote (alimenta o bloqueio de CPF reincidente) —
+    // aqui era o único caminho de mudança de etapa que ainda não fazia isso.
+    const bulkData =
+      stage.name === "Cravo"
+        ? { stageId: value, iaPausada: true, deuCalote: true, entrouEtapaEm: new Date() }
+        : { stageId: value, entrouEtapaEm: new Date() };
+    // updateMany não deixa filtrar "só quem mudou de coluna", então exclui quem
+    // já está na etapa — senão o cronômetro deles zeraria sem nada ter mudado.
+    const r = await prisma.contact.updateMany({
+      where: { id: { in: alvo }, NOT: { stageId: value } },
+      data: bulkData,
+    });
     return NextResponse.json({ ok: true, moved: r.count, skipped });
   }
 

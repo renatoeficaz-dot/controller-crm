@@ -5,13 +5,15 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Icone from "@/components/Icones";
 
+// Mesma ordem do menu do topo (TopNav) — os dois menus levam aos mesmos
+// lugares, então divergir na ordem só confunde quem procura pelo ícone.
 const links = [
+  { href: "/contatos", label: "Contatos", icon: "funil", pagina: "contatos" },
   { href: "/chat", label: "Chat", icon: "chat", pagina: "chat" },
   { href: "/tarefas", label: "Tarefas", icon: "tarefa", pagina: "tarefas" },
   { href: "/cobranca", label: "Cobrança", icon: "cobranca", pagina: "cobranca" },
   { href: "/metas", label: "Metas", icon: "meta", pagina: "metas" },
   { href: "/lancamentos", label: "Lançamentos", icon: "dinheiro", admin: true },
-  { href: "/contatos", label: "Contatos", icon: "funil", pagina: "contatos" },
   { href: "/relatorios", label: "Relatórios", icon: "grafico", pagina: "relatorios" },
   { href: "/configuracoes", label: "Configurações", icon: "engrenagem", admin: true },
   { href: "/aprender", label: "Aprender", icon: "formatura" },

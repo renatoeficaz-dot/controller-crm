@@ -11,6 +11,17 @@ function fmtHora(iso) {
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const hojeStr = () => new Date().toLocaleDateString("en-CA");
+
+// "2026-07-28" -> "terça-feira, 28/07/2026". Interpreta como UTC pra não perder
+// um dia por causa do fuso.
+function fmtDiaLongo(iso) {
+  const d = new Date(iso + "T00:00:00.000Z");
+  const semana = d.toLocaleDateString("pt-BR", { weekday: "long", timeZone: "UTC" });
+  const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+  return `${semana}, ${data}`;
+}
+
 function Card({ titulo, valor, sub, cor = "slate" }) {
   const cores = {
     emerald: "text-emerald-600",
@@ -132,18 +143,31 @@ export default function MetasView() {
   const [openContactId, setOpenContactId] = useState(null);
   const [modalVendas, setModalVendas] = useState(false);
   const [modalRecebimentos, setModalRecebimentos] = useState(false);
+  const [dia, setDia] = useState(hojeStr());
 
   const load = useCallback(async () => {
-    const data = await fetch("/api/metas/resumo").then((r) => r.json()).catch(() => null);
+    const data = await fetch(`/api/metas/resumo?dia=${dia}`).then((r) => r.json()).catch(() => null);
     setResumo(data);
     setLoading(false);
-  }, []);
+  }, [dia]);
 
   useEffect(() => {
     load();
+    // Só fica atualizando sozinho no dia de hoje — dia passado não muda mais.
+    if (dia !== hojeStr()) return;
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
-  }, [load]);
+  }, [load, dia]);
+
+  function mudarDia(offset) {
+    const d = new Date(dia + "T00:00:00.000Z");
+    d.setUTCDate(d.getUTCDate() + offset);
+    const novo = d.toISOString().slice(0, 10);
+    // Não deixa navegar pro futuro: não existe meta de dia que não aconteceu.
+    if (novo > hojeStr()) return;
+    setDia(novo);
+    setLoading(true);
+  }
 
   if (loading) return <div className="p-6 text-slate-400">Carregando metas…</div>;
   if (!resumo) return <div className="p-6 text-slate-400">Não foi possível carregar as metas.</div>;
@@ -151,22 +175,73 @@ export default function MetasView() {
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 items-start">
       <div className="xl:col-span-2">
-        <h1 className="text-lg font-semibold text-slate-800">Metas</h1>
-        <p className="text-sm text-slate-500 mt-0.5">
-          Meta de recebimento do dia. Regra atual: <strong>{resumo.metaPctRecebimento}%</strong> de todos os
-          leads que estão na etapa Recebimento precisam pagar hoje (mínima {resumo.metaPctRecebimentoMinima}%, média {resumo.metaPctRecebimentoMedia}%).
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-lg font-semibold text-slate-800">Metas</h1>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => mudarDia(-1)}
+              title="Dia anterior"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
+            >
+              <Icone nome="seta" className="w-4 h-4 rotate-90" />
+            </button>
+            <input
+              type="date"
+              value={dia}
+              max={hojeStr()}
+              onChange={(e) => { if (e.target.value) { setDia(e.target.value); setLoading(true); } }}
+              className="text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+            />
+            <button
+              type="button"
+              onClick={() => mudarDia(1)}
+              disabled={dia >= hojeStr()}
+              title="Dia seguinte"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600 disabled:opacity-40 disabled:hover:border-slate-200 transition-colors"
+            >
+              <Icone nome="seta" className="w-4 h-4 -rotate-90" />
+            </button>
+            {dia !== hojeStr() && (
+              <button
+                type="button"
+                onClick={() => { setDia(hojeStr()); setLoading(true); }}
+                className="text-xs text-emerald-600 hover:underline ml-1"
+              >
+                Hoje
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-sm text-slate-500 mt-1">
+          {resumo.ehHoje ? "Metas de hoje" : `Metas de ${fmtDiaLongo(resumo.dia)}`}. Regra atual:{" "}
+          <strong>{resumo.metaPctRecebimento}%</strong> de todos os leads que estão na etapa Recebimento precisam
+          pagar no dia (mínima {resumo.metaPctRecebimentoMinima}%, média {resumo.metaPctRecebimentoMedia}%).
           <a href="/configuracoes?tab=metas" className="text-emerald-600 hover:underline ml-1">Configurar</a>
         </p>
+
+        {resumo.baseMetaAproximada && (
+          <p className="flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 mt-2">
+            <Icone nome="alerta" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>
+              O que <strong>foi recebido e vendido</strong> neste dia é histórico real. Já a <strong>meta</strong> de
+              recebimento é recalculada sobre a carteira de hoje ({resumo.totalEmRecebimento} leads em Recebimento) —
+              o sistema não guarda o tamanho que a carteira tinha naquele dia, então trate a meta como referência.
+            </span>
+          </p>
+        )}
       </div>
 
       <button
         type="button"
         onClick={() => setModalVendas(true)}
-        title="Ver as vendas fechadas hoje"
+        title="Ver as vendas fechadas neste dia"
         className="text-left bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 hover:border-emerald-300 transition-colors"
       >
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-slate-700">Meta de vendas hoje</p>
+          <p className="text-sm font-semibold text-slate-700">Vendas {resumo.ehHoje ? "hoje" : "no dia"}</p>
           <p className="text-sm text-slate-500">{resumo.vendasHoje} / {resumo.metaVendasDia}</p>
         </div>
         <NivelBar
@@ -176,19 +251,24 @@ export default function MetasView() {
           meta={resumo.metaVendasDia}
           unidade="venda"
         />
-        <p className="text-[11px] text-emerald-600 mt-2">Clique para ver as vendas fechadas hoje →</p>
+        <p className="text-[11px] text-emerald-600 mt-2">Clique para ver as vendas fechadas →</p>
       </button>
 
-      <Card titulo="Leads atualmente em Recebimento" valor={resumo.totalEmRecebimento} sub="Base do cálculo da meta de recebimento de hoje" cor="violet" />
+      <Card
+        titulo="Leads atualmente em Recebimento"
+        valor={resumo.totalEmRecebimento}
+        sub="Base do cálculo da meta de recebimento (situação de agora)"
+        cor="violet"
+      />
 
       <button
         type="button"
         onClick={() => setModalRecebimentos(true)}
-        title="Ver o que foi recebido hoje"
+        title="Ver o que foi recebido neste dia"
         className="text-left bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 xl:col-span-2 hover:border-emerald-300 transition-colors"
       >
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-slate-700">Meta de recebimentos hoje ({resumo.metaPctRecebimento}%)</p>
+          <p className="text-sm font-semibold text-slate-700">Recebimentos {resumo.ehHoje ? "hoje" : "no dia"} ({resumo.metaPctRecebimento}%)</p>
           <p className="text-sm text-slate-500">
             {resumo.recebimentosHoje} / {resumo.metaRecebimentosHoje} clientes
           </p>
@@ -202,25 +282,25 @@ export default function MetasView() {
           unidadePlural="clientes"
         />
         <p className="text-[11px] text-slate-400 mt-2">
-          A meta conta <strong>clientes distintos</strong> que pagaram hoje, não o número de parcelas — se um cliente
+          A meta conta <strong>clientes distintos</strong> que pagaram, não o número de parcelas — se um cliente
           quitar 2 dias de atraso de uma vez, conta como 1 aqui (mas como 2 nas baixas).
         </p>
-        <p className="text-[11px] text-emerald-600 mt-2">Clique para ver o que foi recebido hoje →</p>
+        <p className="text-[11px] text-emerald-600 mt-2">Clique para ver o que foi recebido →</p>
       </button>
 
       <Card
-        titulo="Baixas de parcela hoje"
+        titulo={`Baixas de parcela ${resumo.ehHoje ? "hoje" : "no dia"}`}
         valor={resumo.baixasHoje}
         sub={`${resumo.recebimentosHoje} cliente${resumo.recebimentosHoje === 1 ? "" : "s"} distinto${resumo.recebimentosHoje === 1 ? "" : "s"}`}
         cor="emerald"
       />
-      <Card titulo="Valor recebido hoje" valor={money(resumo.valorRecebidoHoje)} cor="emerald" />
+      <Card titulo={`Valor recebido ${resumo.ehHoje ? "hoje" : "no dia"}`} valor={money(resumo.valorRecebidoHoje)} cor="emerald" />
 
       {modalVendas && (
         <ListaModal
-          titulo="Vendas fechadas hoje"
+          titulo={resumo.ehHoje ? "Vendas fechadas hoje" : `Vendas fechadas em ${fmtDiaLongo(resumo.dia)}`}
           itens={resumo.vendasDetalhe || []}
-          vazio="Nenhuma venda fechada hoje ainda."
+          vazio={resumo.ehHoje ? "Nenhuma venda fechada hoje ainda." : "Nenhuma venda fechada neste dia."}
           onClose={() => setModalVendas(false)}
           onAbrirContato={(id) => { setModalVendas(false); setOpenContactId(id); }}
           renderItem={(v) => (
@@ -237,9 +317,9 @@ export default function MetasView() {
 
       {modalRecebimentos && (
         <ListaModal
-          titulo="Recebido hoje"
+          titulo={resumo.ehHoje ? "Recebido hoje" : `Recebido em ${fmtDiaLongo(resumo.dia)}`}
           itens={resumo.baixasDetalhe || []}
-          vazio="Nenhuma baixa registrada hoje ainda."
+          vazio={resumo.ehHoje ? "Nenhuma baixa registrada hoje ainda." : "Nenhuma baixa registrada neste dia."}
           onClose={() => setModalRecebimentos(false)}
           onAbrirContato={(id) => { setModalRecebimentos(false); setOpenContactId(id); }}
           renderItem={(b) => (
