@@ -71,6 +71,15 @@ export async function PATCH(req) {
   }
   if ("capitalOciosoDias" in body) data.capitalOciosoDias = Math.max(0, Number(body.capitalOciosoDias) || 0);
 
+  // Metas de valor (R$) — 0 significa "meta desligada", então não há mínimo.
+  const rs = (v) => Math.max(0, Number(v) || 0);
+  for (const c of [
+    "metaValorVendasMinima", "metaValorVendasMedia", "metaValorVendasDia",
+    "metaRecuperacaoMinima", "metaRecuperacaoMedia", "metaRecuperacaoDia",
+  ]) {
+    if (c in body) data[c] = rs(body[c]);
+  }
+
   const pct = (v) => Math.min(100, Math.max(0, Number(v) || 0));
   if ("provisaoPct0a7" in body) data.provisaoPct0a7 = pct(body.provisaoPct0a7);
   if ("provisaoPct8a15" in body) data.provisaoPct8a15 = pct(body.provisaoPct8a15);

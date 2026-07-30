@@ -272,6 +272,20 @@ model Config {
   metaPctRecebimentoMinima Float @default(40)
   metaPctRecebimentoMedia  Float @default(55)
   metaPctRecebimento       Float @default(70)
+  // Meta diária de vendas em R$ liberado (complementa a meta por quantidade:
+  // 3 empréstimos de 300 e 3 de 900 contam igual na quantidade, mas não no
+  // dinheiro que saiu). 0 = meta de valor desligada.
+  metaValorVendasMinima Float @default(0)
+  metaValorVendasMedia  Float @default(0)
+  metaValorVendasDia    Float @default(0)
+
+  // Meta diária de RECUPERAÇÃO: quanto em R$ deve entrar de parcelas que já
+  // estavam atrasadas. Fica separada do recebimento normal porque cobrar quem
+  // atrasou é outro esforço. 0 = desligada.
+  metaRecuperacaoMinima Float @default(0)
+  metaRecuperacaoMedia  Float @default(0)
+  metaRecuperacaoDia    Float @default(0)
+
   // Meta diária de vendas: quantos leads devem cair em "Recebimento" no dia.
   // 3 níveis: mínima < média < meta (metaVendasDia = a meta cheia, já existia antes).
   metaVendasMinima Int @default(2)
@@ -602,6 +616,61 @@ model Lancamento {
   contactId    String?
   parcelaId    String?             // referência à parcela (se gerado automaticamente)
   createdAt    DateTime            @default(now())
+}
+
+// Retrato de como foi cada dia: as metas que estavam valendo, o tamanho da
+// carteira naquele momento e o que de fato aconteceu.
+//
+// Existe porque a meta de recebimento é uma % dos leads que estão em
+// "Recebimento" — um número que muda todo dia. Sem gravar, consultar um dia
+// passado recalculava a meta sobre a carteira de hoje e dava um número que
+// nunca foi a meta real daquele dia.
+model MetaDiaria {
+  id  String   @id @default(cuid())
+  dia DateTime @unique // meia-noite UTC da data local
+
+  // Metas de vendas vigentes no dia (quantidade de leads liberados).
+  metaVendasMinima Int
+  metaVendasMedia  Int
+  metaVendasDia    Int
+
+  // Regra de recebimento vigente (% da carteira) e a carteira daquele dia —
+  // este totalEmRecebimento é o dado que não dá pra recuperar depois.
+  metaPctRecebimentoMinima Float
+  metaPctRecebimentoMedia  Float
+  metaPctRecebimento       Float
+  totalEmRecebimento       Int
+
+  // Metas de recebimento em nº de clientes, já resolvidas pela carteira do dia.
+  metaRecebimentosMinima Int
+  metaRecebimentosMedia  Int
+  metaRecebimentosDia    Int
+
+  // Resultado do dia. Fica gravado pra montar histórico e gráfico sem varrer
+  // parcela por parcela — mas ao abrir um dia específico o sistema recalcula
+  // esses números do dado real, que é exato.
+  vendas           Int   @default(0)
+  recebimentos     Int   @default(0)
+  baixas           Int   @default(0)
+  valorRecebido    Float @default(0)
+  valorVendido     Float @default(0) // soma do capital liberado no dia
+  valorRecuperado  Float @default(0) // parte do recebido que estava ATRASADA
+
+  // Metas de valor vigentes no dia (em R$).
+  metaValorVendasMinima Float @default(0)
+  metaValorVendasMedia  Float @default(0)
+  metaValorVendasDia    Float @default(0)
+  metaRecuperacaoMinima Float @default(0)
+  metaRecuperacaoMedia  Float @default(0)
+  metaRecuperacaoDia    Float @default(0)
+
+  // Tamanho da carteira por responsável naquele dia, em JSON
+  // ({"Kabrito": 12, "Maria": 8}). É o que permite a meta de recebimento POR
+  // USUÁRIO em dias passados — igual ao total, não dá pra recuperar depois.
+  carteiraPorUsuario String?
+
+  atualizadoEm DateTime @updatedAt
+  createdAt    DateTime @default(now())
 }
 
 // Log de auditoria — quem fez o quê, quando. Cobre as ações mais sensíveis

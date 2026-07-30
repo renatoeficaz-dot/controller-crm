@@ -2526,6 +2526,13 @@ function MetasConfig() {
   const [pMinima, setPMinima] = useState(40);
   const [pMedia, setPMedia] = useState(55);
   const [pMeta, setPMeta] = useState(70);
+  // Metas em R$ — 0 desliga o acompanhamento na tela de Metas.
+  const [rvMinima, setRvMinima] = useState(0);
+  const [rvMedia, setRvMedia] = useState(0);
+  const [rvMeta, setRvMeta] = useState(0);
+  const [rcMinima, setRcMinima] = useState(0);
+  const [rcMedia, setRcMedia] = useState(0);
+  const [rcMeta, setRcMeta] = useState(0);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -2536,6 +2543,12 @@ function MetasConfig() {
       setPMinima(c?.metaPctRecebimentoMinima ?? 40);
       setPMedia(c?.metaPctRecebimentoMedia ?? 55);
       setPMeta(c?.metaPctRecebimento ?? 70);
+      setRvMinima(c?.metaValorVendasMinima ?? 0);
+      setRvMedia(c?.metaValorVendasMedia ?? 0);
+      setRvMeta(c?.metaValorVendasDia ?? 0);
+      setRcMinima(c?.metaRecuperacaoMinima ?? 0);
+      setRcMedia(c?.metaRecuperacaoMedia ?? 0);
+      setRcMeta(c?.metaRecuperacaoDia ?? 0);
     });
   }, []);
 
@@ -2551,6 +2564,12 @@ function MetasConfig() {
         metaPctRecebimentoMinima: pMinima,
         metaPctRecebimentoMedia: pMedia,
         metaPctRecebimento: pMeta,
+        metaValorVendasMinima: rvMinima,
+        metaValorVendasMedia: rvMedia,
+        metaValorVendasDia: rvMeta,
+        metaRecuperacaoMinima: rcMinima,
+        metaRecuperacaoMedia: rcMedia,
+        metaRecuperacaoDia: rcMeta,
       }),
     });
     setSaved(true);
@@ -2642,6 +2661,78 @@ function MetasConfig() {
         </div>
         <p className="text-[11px] text-slate-400">
           Exemplo: se hoje tem 40 leads em "Recebimento" e a meta é 70%, a meta cheia do dia é 28 baixas de parcela.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
+        <SectionHeader
+          icon="carteira"
+          title="Meta diária de capital liberado (R$)"
+          subtitle="Meta em dinheiro, além da meta por quantidade: 3 empréstimos de R$300 e 3 de R$900 contam igual na quantidade, mas não no caixa. Deixe 0 para desligar."
+        />
+        <div className="grid grid-cols-3 gap-3">
+          <label className="block">
+            <span className="text-xs text-red-500">Mínima (R$)</span>
+            <input
+              type="number" min={0} step="0.01" value={rvMinima}
+              onChange={(e) => setRvMinima(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-amber-500">Média (R$)</span>
+            <input
+              type="number" min={0} step="0.01" value={rvMedia}
+              onChange={(e) => setRvMedia(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-emerald-600">Meta (R$)</span>
+            <input
+              type="number" min={0} step="0.01" value={rvMeta}
+              onChange={(e) => setRvMeta(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
+        <SectionHeader
+          icon="cobranca"
+          title="Meta diária de recuperação (R$)"
+          subtitle="Quanto deve entrar por dia de parcelas que já estavam ATRASADAS. Fica separada do recebimento normal porque cobrar quem atrasou é outro esforço. Deixe 0 para desligar."
+        />
+        <div className="grid grid-cols-3 gap-3">
+          <label className="block">
+            <span className="text-xs text-red-500">Mínima (R$)</span>
+            <input
+              type="number" min={0} step="0.01" value={rcMinima}
+              onChange={(e) => setRcMinima(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-amber-500">Média (R$)</span>
+            <input
+              type="number" min={0} step="0.01" value={rcMedia}
+              onChange={(e) => setRcMedia(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-emerald-600">Meta (R$)</span>
+            <input
+              type="number" min={0} step="0.01" value={rcMeta}
+              onChange={(e) => setRcMeta(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Conta só parcela paga depois do vencimento. Dos seus atrasados, a maior parte está na faixa de 8 a 15 dias —
+          é onde a recuperação ainda costuma dar resultado.
         </p>
       </div>
 

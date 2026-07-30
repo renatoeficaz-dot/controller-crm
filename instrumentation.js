@@ -10,6 +10,7 @@ export async function register() {
   const { checarResumoDiario, checarAlertasCriticos, checarCapitalOcioso } = await import("@/lib/alertas");
   const { estenderRecorrenciasIlimitadas } = await import("@/lib/contasPagar");
   const { escalonarAtrasos } = await import("@/lib/escalonamentoAtraso");
+  const { registrarMetaDoDia } = await import("@/lib/metas");
   const CINCO_MIN = 5 * 60 * 1000;
 
   // Rotinas de 1x por dia guardam aqui o dia da última execução — o intervalo
@@ -17,7 +18,14 @@ export async function register() {
   let ultimoDiaScores = null;
   let ultimoDiaBackup = null;
 
+  // Grava o retrato do dia (metas vigentes + tamanho da carteira + resultado).
+  // Roda logo ao subir e a cada 5 min, então a última gravação antes da
+  // meia-noite é o fechamento daquele dia. Sem isso, a meta de recebimento de
+  // um dia passado teria que ser recalculada sobre a carteira de hoje.
+  registrarMetaDoDia().catch((err) => console.error("[metaDiaria] erro:", err.message));
+
   setInterval(() => {
+    registrarMetaDoDia().catch((err) => console.error("[metaDiaria] erro:", err.message));
     checarLembretesCobranca().catch((err) => console.error("[lembreteCobranca] erro:", err.message));
     checarFollowUp30min().catch((err) => console.error("[followUp30min] erro:", err.message));
     checarMensagensSemResposta().catch((err) => console.error("[mensagensSemResposta] erro:", err.message));

@@ -2,13 +2,18 @@
 
 import { useEffect, useState, useCallback } from "react";
 
-const NIVEL_COR = { abaixo: "text-red-600", minima: "text-amber-600", media: "text-sky-600", meta: "text-emerald-600" };
+const NIVEL_COR = {
+  abaixo: "text-red-600",
+  minima: "text-amber-600",
+  media: "text-sky-600",
+  meta: "text-emerald-600",
+};
 
-function nivelDe(atual, minima, media, meta) {
-  if (atual >= meta) return "meta";
-  if (atual >= media) return "media";
-  if (atual >= minima) return "minima";
-  return "abaixo";
+// % de avanço até a meta cheia. Sem meta configurada devolve null, pra mostrar
+// "—" em vez de dividir por zero.
+function pctDaMeta(atual, meta) {
+  if (!meta || meta <= 0) return null;
+  return Math.min(100, Math.round((atual / meta) * 100));
 }
 
 // Versão compacta e deitada (uma linha só, mesma altura de um botão/pill) dos
@@ -30,13 +35,11 @@ export default function MetasMini() {
 
   if (!resumo) return null;
 
-  const vendasPct = Math.min(100, Math.round((resumo.vendasHoje / Math.max(resumo.metaVendasDia, resumo.vendasHoje, 1)) * 100));
-  const vendasNivel = nivelDe(resumo.vendasHoje, resumo.metaVendasMinima, resumo.metaVendasMedia, resumo.metaVendasDia);
-  const recebimentosPct = Math.min(
-    100,
-    Math.round((resumo.recebimentosHoje / Math.max(resumo.metaRecebimentosHoje, resumo.recebimentosHoje, 1)) * 100)
-  );
-  const recebimentosNivel = nivelDe(resumo.recebimentosHoje, resumo.metaRecebimentosMinima, resumo.metaRecebimentosMedia, resumo.metaRecebimentosHoje);
+  // Os níveis vêm prontos da API — recalcular aqui duplicaria a regra, que foi
+  // justamente como esta pill já ficou dessincronizada da tela de Metas.
+  const niveis = resumo.niveis || {};
+  const vendasPct = pctDaMeta(resumo.vendasHoje, resumo.metaVendasDia);
+  const recebPct = pctDaMeta(resumo.recebimentosHoje, resumo.metaRecebimentosDia);
 
   return (
     <a
@@ -45,11 +48,17 @@ export default function MetasMini() {
       title="Ver metas do dia"
     >
       <span className="text-slate-400">
-        Vendas <strong className={NIVEL_COR[vendasNivel]}>{vendasPct}%</strong>
+        Vendas{" "}
+        <strong className={NIVEL_COR[niveis.vendas] || "text-slate-400"}>
+          {vendasPct == null ? "—" : `${vendasPct}%`}
+        </strong>
       </span>
       <span className="w-px h-3 bg-slate-200" />
       <span className="text-slate-400">
-        Recebimentos <strong className={NIVEL_COR[recebimentosNivel]}>{recebimentosPct}%</strong>
+        Recebimentos{" "}
+        <strong className={NIVEL_COR[niveis.recebimentos] || "text-slate-400"}>
+          {recebPct == null ? "—" : `${recebPct}%`}
+        </strong>
       </span>
     </a>
   );
