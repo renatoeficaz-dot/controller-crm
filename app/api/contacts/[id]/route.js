@@ -26,6 +26,7 @@ export async function GET(_req, { params }) {
           status: true,
           instance: true,
           readAt: true,
+          apagada: true,
           createdAt: true,
         },
       },
@@ -48,9 +49,15 @@ export async function PATCH(req, { params }) {
   const { id } = await params;
   const body = await req.json();
   const data = {};
-  for (const f of ["name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf"]) {
+  for (const f of [
+    "name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf",
+    "referenciaNome", "referenciaTelefone", "referenciaRelacao",
+  ]) {
     if (f in body) data[f] = body[f] || null;
   }
+  if ("chatFixado" in body) data.chatFixado = !!body.chatFixado;
+  if ("chatArquivado" in body) data.chatArquivado = !!body.chatArquivado;
+  if ("naoPerturbarAte" in body) data.naoPerturbarAte = body.naoPerturbarAte ? new Date(body.naoPerturbarAte) : null;
   if ("valorCapital" in body) {
     data.valorCapital = body.valorCapital === "" || body.valorCapital == null ? null : Number(body.valorCapital);
   }

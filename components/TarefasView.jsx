@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import ContactModal from "./ContactModal";
+import { useUndoDelete, UndoToast } from "./UndoToast";
 
 function hojeStr() {
   return new Date().toLocaleDateString("en-CA");
@@ -14,7 +15,7 @@ function addDaysStr(str, n) {
   return d.toLocaleDateString("en-CA");
 }
 
-const EMPTY_FORM = { title: "", notes: "", contactId: "", tipoId: "", dueDate: hojeStr(), dueTime: "09:00" };
+const EMPTY_FORM = { title: "", notes: "", contactId: "", tipoId: "", dueDate: hojeStr(), dueTime: "09:00", responsavel: "" };
 
 export default function TarefasView() {
   const [tasks, setTasks] = useState([]);
@@ -30,6 +31,12 @@ export default function TarefasView() {
   const [overCol, setOverCol] = useState(null);
   const [detailTask, setDetailTask] = useState(null); // tarefa aberta no modal de detalhes
   const [novaAberta, setNovaAberta] = useState(false); // modal de "Nova tarefa"
+  const [visao, setVisao] = useState("pipeline"); // "pipeline" | "calendario" (item 114)
+  const [mesCal, setMesCal] = useState(hojeStr().slice(0, 7)); // "YYYY-MM"
+  const [diaSelecionado, setDiaSelecionado] = useState(null);
+  const [draggingCalId, setDraggingCalId] = useState(null);
+  const [overDia, setOverDia] = useState(null);
+  const { pendente: exclusaoPendente, agendar: agendarExclusao, desfazer: desfazerExclusao } = useUndoDelete();
 
   const load = useCallback(async () => {
     const done = fStatus === "pendentes" ? "false" : fStatus === "concluidas" ? "true" : "";
@@ -40,14 +47,18 @@ export default function TarefasView() {
     setTasks(Array.isArray(data) ? data : []);
   }, [fStatus, fTipo]);
 
+  const [users, setUsers] = useState([]);
+
   const loadMeta = useCallback(async () => {
-    const [tp, stages] = await Promise.all([
+    const [tp, stages, us] = await Promise.all([
       fetch("/api/task-types").then((r) => r.json()).catch(() => []),
       fetch("/api/stages").then((r) => r.json()).catch(() => []),
+      fetch("/api/users").then((r) => r.json()).catch(() => []),
     ]);
     setTipos(Array.isArray(tp) ? tp : []);
     const allContacts = (Array.isArray(stages) ? stages : []).flatMap((s) => s.contacts || []);
     setContacts(allContacts.map((c) => ({ id: c.id, name: c.name })));
+    setUsers(Array.isArray(us) ? us : []);
   }, []);
 
   useEffect(() => { loadMeta(); }, [loadMeta]);
@@ -90,6 +101,7 @@ export default function TarefasView() {
       dueDate: d.toLocaleDateString("en-CA"),
       dueTime: d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       done: t.done,
+      responsavel: t.responsavel || "",
     });
   }
 
@@ -105,6 +117,7 @@ export default function TarefasView() {
         tipoId: detailTask.tipoId,
         dueDate: `${detailTask.dueDate}T${detailTask.dueTime || "09:00"}:00`,
         done: detailTask.done,
+        responsavel: detailTask.responsavel,
       }),
     });
     setSaving(false);
@@ -123,11 +136,19 @@ export default function TarefasView() {
     load();
   }
 
-  async function remove(id) {
-    if (!confirm("Excluir esta tarefa?")) return;
-    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+  function remove(id) {
+    const t = tasks.find((x) => x.id === id);
+    if (!t) return;
+    setTasks((prev) => prev.filter((x) => x.id !== id));
     if (detailTask?.id === id) setDetailTask(null);
-    load();
+    agendarExclusao(`Tarefa "${t.title}"`, async () => {
+      await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    });
+  }
+
+  function desfazerRemove() {
+    desfazerExclusao();
+    load(); // a exclusão nunca chegou a rodar no servidor — só recarrega a lista
   }
 
   const hoje = hojeStr();
@@ -177,6 +198,37 @@ export default function TarefasView() {
     });
     load();
   }
+
+  // Arrasta uma tarefa direto pra um DIA do calendário (item 115) — mesma
+  // ideia do moveTask acima, mas mira uma data exata em vez de um "bucket".
+  async function moveTaskToDay(taskId, diaStr) {
+    const t = tasks.find((x) => x.id === taskId);
+    if (!t) return;
+    const horario = new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const novaData = `${diaStr}T${horario}:00`;
+    setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, dueDate: novaData } : x)));
+    await fetch(`/api/tasks/${taskId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dueDate: novaData }),
+    });
+    load();
+  }
+
+  // Dias do mês em grade, alinhados na coluna certa da semana.
+  const diasDoMesCal = useMemo(() => {
+    const [ano, mes] = mesCal.split("-").map(Number);
+    const ultimo = new Date(ano, mes, 0).getDate();
+    return Array.from({ length: ultimo }, (_, i) => `${mesCal}-${String(i + 1).padStart(2, "0")}`);
+  }, [mesCal]);
+  const primeiroDiaSemana = new Date(mesCal + "-01T00:00:00").getDay();
+  const tasksPorDia = useMemo(() => {
+    const m = new Map();
+    for (const t of tasks) {
+      const d = t.dueDate.slice(0, 10);
+      if (!m.has(d)) m.set(d, []);
+      m.get(d).push(t);
+    }
+    return m;
+  }, [tasks]);
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 space-y-4 md:space-y-6">
@@ -300,16 +352,86 @@ export default function TarefasView() {
         <select
           value={fTipo}
           onChange={(e) => setFTipo(e.target.value)}
-          className="text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white outline-none ml-auto"
+          className="text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white outline-none"
         >
           <option value="">Todos os tipos</option>
           {tipos.map((t) => (
             <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
           ))}
         </select>
+        <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5 ml-auto">
+          {[{ k: "pipeline", l: "Pipeline" }, { k: "calendario", l: "Calendário" }].map((o) => (
+            <button
+              key={o.k}
+              onClick={() => setVisao(o.k)}
+              className={`text-xs px-3 py-1.5 rounded-md transition-colors ${visao === o.k ? "bg-white shadow-sm font-medium text-slate-700" : "text-slate-500"}`}
+            >
+              {o.l}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {visao === "calendario" && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <button
+              onClick={() => { const [a, m] = mesCal.split("-").map(Number); const d = new Date(a, m - 2, 1); setMesCal(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); }}
+              className="text-slate-400 hover:text-slate-600 px-2"
+            >‹</button>
+            <span className="text-sm font-semibold text-slate-700">
+              {new Date(mesCal + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+            </span>
+            <button
+              onClick={() => { const [a, m] = mesCal.split("-").map(Number); const d = new Date(a, m, 1); setMesCal(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); }}
+              className="text-slate-400 hover:text-slate-600 px-2"
+            >›</button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-[10px] text-slate-400 text-center pb-1">
+            {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <span key={i}>{d}</span>)}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: primeiroDiaSemana }).map((_, i) => <div key={"v" + i} />)}
+            {diasDoMesCal.map((dia) => {
+              const doDia = tasksPorDia.get(dia) || [];
+              const ehHoje = dia === hojeStr();
+              return (
+                <div
+                  key={dia}
+                  onDragOver={(e) => { e.preventDefault(); setOverDia(dia); }}
+                  onDragLeave={() => setOverDia((d) => (d === dia ? null : d))}
+                  onDrop={(e) => { e.preventDefault(); if (draggingCalId) moveTaskToDay(draggingCalId, dia); setDraggingCalId(null); setOverDia(null); }}
+                  onClick={() => setDiaSelecionado(dia)}
+                  className={`min-h-[64px] rounded-lg border p-1 text-left cursor-pointer transition-colors ${
+                    overDia === dia ? "border-emerald-400 bg-emerald-50" : ehHoje ? "border-emerald-300 bg-emerald-50/40" : "border-slate-100 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className={`text-[10px] ${ehHoje ? "font-bold text-emerald-700" : "text-slate-400"}`}>{Number(dia.slice(-2))}</span>
+                  <div className="space-y-0.5 mt-0.5">
+                    {doDia.slice(0, 2).map((t) => (
+                      <div
+                        key={t.id}
+                        draggable
+                        onDragStart={(e) => { e.stopPropagation(); setDraggingCalId(t.id); }}
+                        onClick={(e) => { e.stopPropagation(); openDetail(t); }}
+                        title={t.title}
+                        className={`text-[9px] truncate rounded px-1 py-0.5 cursor-grab ${t.done ? "bg-slate-100 text-slate-400 line-through" : "bg-emerald-100 text-emerald-700"}`}
+                      >
+                        {t.title}
+                      </div>
+                    ))}
+                    {doDia.length > 2 && <p className="text-[9px] text-slate-400">+{doDia.length - 2}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-3">Arraste uma tarefa pra outro dia pra reagendar.</p>
+        </div>
+      )}
+
       {/* Pipeline por data de vencimento — arraste um card pra reagendar. */}
+      {visao === "pipeline" && (
       <div className="flex gap-3 overflow-x-auto thin-scroll pb-2">
         {COLUNAS.map((col) => {
           const lista = grouped[col.key] || [];
@@ -413,6 +535,26 @@ export default function TarefasView() {
           );
         })}
       </div>
+      )}
+
+      {diaSelecionado && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setDiaSelecionado(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[70vh] overflow-y-auto thin-scroll p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-800">{new Date(diaSelecionado + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</h3>
+              <button onClick={() => setDiaSelecionado(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <ul className="space-y-1.5">
+              {(tasksPorDia.get(diaSelecionado) || []).map((t) => (
+                <li key={t.id} onClick={() => { setDiaSelecionado(null); openDetail(t); }} className={`text-sm rounded-lg px-3 py-2 cursor-pointer border border-slate-100 hover:bg-slate-50 ${t.done ? "text-slate-400 line-through" : "text-slate-700"}`}>
+                  {t.title}
+                </li>
+              ))}
+              {(tasksPorDia.get(diaSelecionado) || []).length === 0 && <p className="text-xs text-slate-400 py-2">Nenhuma tarefa nesse dia.</p>}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {openContactId && (
         <ContactModal
@@ -454,6 +596,17 @@ export default function TarefasView() {
                 {tipos.map((t) => (
                   <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
                 ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-400">Atribuída a</span>
+              <select
+                value={detailTask.responsavel || ""}
+                onChange={(e) => setDetailTask((d) => ({ ...d, responsavel: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="">— Segue o responsável do lead —</option>
+                {users.map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
               </select>
             </label>
             <div className="flex gap-2">
@@ -513,6 +666,8 @@ export default function TarefasView() {
           </div>
         </div>
       )}
+
+      <UndoToast pendente={exclusaoPendente} onDesfazer={desfazerRemove} />
     </div>
   );
 }

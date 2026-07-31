@@ -5,9 +5,14 @@ import { getCurrentUser, veTodosLeads, mensagensWhere } from "@/lib/session";
 // Lista conversas do usuário (contatos com mensagens, ordenados pela mais recente).
 // Cada item traz o contato + última mensagem + contagem de não lidas + dados
 // usados pelos filtros da tela de Chat (etapa, tags, parcelas, número de origem).
-export async function GET() {
+export async function GET(req) {
   const user = await getCurrentUser();
-  const contactWhere = { excluidoEm: null, ...(veTodosLeads(user) ? {} : { responsavel: user?.name || "__none__" }) };
+  const mostrarArquivadas = new URL(req.url).searchParams.get("arquivadas") === "1";
+  const contactWhere = {
+    excluidoEm: null,
+    chatArquivado: mostrarArquivadas, // item 82: por padrão só as não-arquivadas
+    ...(veTodosLeads(user) ? {} : { responsavel: user?.name || "__none__" }),
+  };
   const msgWhere = mensagensWhere(user);
 
   const contacts = await prisma.contact.findMany({
@@ -22,6 +27,8 @@ export async function GET() {
       tags: { select: { id: true, name: true, color: true } },
       parcelas: { select: { dueDate: true, paid: true, ciclo: true } },
       cicloAtual: true,
+      chatFixado: true,
+      chatArquivado: true,
       messages: {
         where: msgWhere,
         orderBy: { createdAt: "desc" },
@@ -45,11 +52,15 @@ export async function GET() {
       tags: c.tags,
       parcelas: c.parcelas,
       cicloAtual: c.cicloAtual,
+      chatFixado: c.chatFixado,
+      chatArquivado: c.chatArquivado,
       instance: c.messages[0]?.instance || null,
       lastMessage: c.messages[0] || null,
       unreadCount: c._count?.messages || 0,
     }))
     .sort((a, b) => {
+      // Fixada (item 81) sempre no topo, dentro disso ordena por mais recente.
+      if (a.chatFixado !== b.chatFixado) return a.chatFixado ? -1 : 1;
       const da = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt) : 0;
       const db = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt) : 0;
       return db - da;

@@ -30,6 +30,11 @@ export async function middleware(req) {
     if (isAdminPage && session.role !== "admin") {
       return NextResponse.redirect(new URL("/", req.url));
     }
+    // Modo somente leitura (item 146): vê tudo, mas o servidor recusa
+    // qualquer escrita — mesmo que a tela tente mandar por engano.
+    if (session.somenteLeitura && pathname.startsWith("/api/") && req.method !== "GET") {
+      return NextResponse.json({ error: "Seu usuário é somente leitura." }, { status: 403 });
+    }
     return NextResponse.next();
   }
 

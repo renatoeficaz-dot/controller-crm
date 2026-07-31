@@ -255,7 +255,12 @@ export default function Configuracoes() {
             {tab === "campanhas" && <Campanhas />}
             {tab === "tags" && <TagsConfig />}
             {tab === "tarefas" && <TiposTarefaConfig />}
-            {tab === "metas" && <MetasConfig />}
+            {tab === "metas" && (
+              <div className="space-y-4 max-w-md">
+                <MetasConfig />
+                <MetaDiaSemanaConfig />
+              </div>
+            )}
             {tab === "comissao" && <ComissaoConfig />}
             {tab === "equipe" && <ConfigEquipe />}
             {tab === "risco" && <RiscoConfig />}
@@ -424,6 +429,7 @@ const EMPTY_USER = {
   metaVendasMediaPropria: "",
   metaVendasDiaPropria: "",
   permissoesExtras: [],
+  somenteLeitura: false,
 };
 
 const ROLE_LABEL = { admin: "Administrador", vendedor: "Vendedor", cobrador: "Cobrador" };
@@ -476,6 +482,7 @@ function Usuarios() {
       metaVendasMediaPropria: u.metaVendasMediaPropria ?? "",
       metaVendasDiaPropria: u.metaVendasDiaPropria ?? "",
       permissoesExtras: (u.permissoesExtras || "").split(",").map((s) => s.trim()).filter(Boolean),
+      somenteLeitura: !!u.somenteLeitura,
     });
     setError("");
     setShowPassword(false);
@@ -604,6 +611,7 @@ function Usuarios() {
               <tr className="text-xs text-slate-400 border-y border-slate-100 bg-slate-50/60">
                 <th className="text-left font-medium px-5 py-2.5">Usuário</th>
                 <th className="text-left font-medium px-3 py-2.5">Login</th>
+                <th className="text-left font-medium px-3 py-2.5">Último acesso</th>
                 <th className="px-5 py-2.5"></th>
               </tr>
             </thead>
@@ -626,6 +634,11 @@ function Usuarios() {
                     </div>
                   </td>
                   <td className="px-3 py-3 text-slate-500">{u.login}</td>
+                  <td className="px-3 py-3 text-slate-400 text-xs">
+                    {u.ultimoAcessoEm
+                      ? new Date(u.ultimoAcessoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+                      : "nunca"}
+                  </td>
                   <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => startEdit(u)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium mr-3">
                       Editar
@@ -638,7 +651,7 @@ function Usuarios() {
               ))}
               {usersFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-400">
+                  <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-400">
                     {users.length === 0 ? "Nenhum usuário ainda." : "Nenhum usuário encontrado."}
                   </td>
                 </tr>
@@ -714,6 +727,17 @@ function Usuarios() {
                   })}
                 </div>
               </div>
+
+              <label className="flex items-center justify-between gap-2 py-1 bg-slate-50 rounded-lg px-2.5">
+                <span className="text-xs text-slate-600">Somente leitura <span className="text-slate-400">(vê tudo, mas o sistema recusa qualquer alteração — pra contador/auditoria)</span></span>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, somenteLeitura: !f.somenteLeitura }))}
+                  className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${form.somenteLeitura ? "bg-amber-500" : "bg-slate-200"}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.somenteLeitura ? "translate-x-4" : ""}`} />
+                </button>
+              </label>
 
               {isAdmin ? (
                 <p className="text-[11px] text-slate-400 bg-slate-50 rounded-lg p-2.5">
@@ -2850,6 +2874,86 @@ function MetasConfig() {
   );
 }
 
+/* ---------------- 118. Meta diferente por dia da semana ---------------- */
+const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+function MetaDiaSemanaConfig() {
+  const [linhas, setLinhas] = useState({});
+  const [abertoDia, setAbertoDia] = useState(null);
+  const [salvando, setSalvando] = useState(null);
+
+  const load = useCallback(() => {
+    fetch("/api/metas-dia-semana").then((r) => r.json()).then((rows) => {
+      const mapa = {};
+      for (const r of Array.isArray(rows) ? rows : []) mapa[r.diaSemana] = r;
+      setLinhas(mapa);
+    }).catch(() => {});
+  }, []);
+  useEffect(load, [load]);
+
+  function campo(dia, key) {
+    const v = linhas[dia]?.[key];
+    return v == null ? "" : v;
+  }
+  function setCampo(dia, key, valor) {
+    setLinhas((l) => ({ ...l, [dia]: { ...(l[dia] || { diaSemana: dia }), [key]: valor } }));
+  }
+
+  async function salvar(dia) {
+    setSalvando(dia);
+    const l = linhas[dia] || { diaSemana: dia };
+    await fetch("/api/metas-dia-semana", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ diaSemana: dia, ...l }),
+    });
+    setSalvando(null);
+    load();
+  }
+
+  const CAMPOS = [
+    { key: "metaVendasMinima", label: "Vendas mín." },
+    { key: "metaVendasMedia", label: "Vendas média" },
+    { key: "metaVendasDia", label: "Vendas meta" },
+    { key: "metaPctRecebimentoMinima", label: "Receb. mín. %" },
+    { key: "metaPctRecebimentoMedia", label: "Receb. média %" },
+    { key: "metaPctRecebimento", label: "Receb. meta %" },
+  ];
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-2">
+      <SectionHeader icon="calendario" title="Meta por dia da semana" subtitle='Ex.: sábado costuma render menos — dá pra colocar uma meta menor só pra ele. Dias sem meta própria usam a meta global de cima.' />
+      {DIAS_SEMANA.map((nome, dia) => (
+        <div key={dia} className="border border-slate-100 rounded-xl">
+          <button type="button" onClick={() => setAbertoDia(abertoDia === dia ? null : dia)} className="w-full flex items-center justify-between px-3 py-2 text-left">
+            <span className="text-sm text-slate-700">{nome}</span>
+            <span className="text-[11px] text-slate-400">{linhas[dia] ? "meta própria" : "meta global"}</span>
+          </button>
+          {abertoDia === dia && (
+            <div className="px-3 pb-3 space-y-2 border-t border-slate-100 pt-2">
+              <div className="grid grid-cols-3 gap-2">
+                {CAMPOS.map((c) => (
+                  <label key={c.key} className="block">
+                    <span className="text-[10px] text-slate-400">{c.label}</span>
+                    <input
+                      type="number" min={0}
+                      value={campo(dia, c.key)}
+                      onChange={(e) => setCampo(dia, c.key, e.target.value)}
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                ))}
+              </div>
+              <button type="button" disabled={salvando === dia} onClick={() => salvar(dia)} className="text-xs bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600 disabled:opacity-50">
+                {salvando === dia ? "Salvando…" : "Salvar"}
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function TiposTarefaConfig() {
   const [tipos, setTipos] = useState([]);
   const [form, setForm] = useState({ name: "", color: "#6366f1", emoji: "" });
@@ -4012,6 +4116,40 @@ function AgentesIa() {
     load();
   }
 
+  // Item 141: duplicar agente — cria um novo com o mesmo prompt/config, só
+  // muda o nome, pra usar de ponto de partida sem reconfigurar tudo de novo.
+  const [duplicando, setDuplicando] = useState(false);
+  async function duplicarAgent(id) {
+    setDuplicando(true);
+    const original = await fetch(`/api/ia/agents/${id}`).then((r) => r.json());
+    const novo = await fetch("/api/ia/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `${original.name} (cópia)` }),
+    }).then((r) => r.json());
+    await fetch(`/api/ia/agents/${novo.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: original.prompt || "",
+        textModel: original.textModel || undefined,
+        ttsProvider: original.ttsProvider || undefined,
+        ttsModel: original.ttsModel || undefined,
+        ttsVoice: original.ttsVoice || undefined,
+        modoResposta: original.modoResposta || undefined,
+        toolSendContact: !!original.toolSendContact,
+        toolContactName: original.toolContactName || "",
+        toolContactPhone: original.toolContactPhone || "",
+        toolSendTemplate: !!original.toolSendTemplate,
+        toolMoveStage: !!original.toolMoveStage,
+        stopAtStageId: original.stopAtStageId || "",
+      }),
+    });
+    setDuplicando(false);
+    await load();
+    selectAgent(novo.id);
+  }
+
   async function save(e) {
     e.preventDefault();
     if (!selectedId) return;
@@ -4318,6 +4456,9 @@ function AgentesIa() {
               className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
             >
               {saving ? "Salvando…" : saved ? "Salvo ✓" : "Salvar"}
+            </button>
+            <button type="button" disabled={duplicando} onClick={() => duplicarAgent(selectedId)} className="text-sm text-slate-500 hover:text-slate-700 px-3 disabled:opacity-50">
+              {duplicando ? "Duplicando…" : "Duplicar agente"}
             </button>
             <button type="button" onClick={() => removeAgent(selectedId)} className="text-sm text-red-400 hover:text-red-600 px-3">
               Excluir agente

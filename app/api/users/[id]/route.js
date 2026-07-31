@@ -41,6 +41,8 @@ export async function PATCH(req, { params }) {
     data.paginasVisiveis = null;
   }
   if ("permissoesExtras" in body) data.permissoesExtras = (body.permissoesExtras || []).join(",") || null;
+  if ("somenteLeitura" in body) data.somenteLeitura = !!body.somenteLeitura;
+  if ("equipeId" in body) data.equipeId = body.equipeId || null;
   if ("kanbansVisiveis" in body) {
     data.kanbansVisiveis = { set: (body.kanbansVisiveis || []).map((kid) => ({ id: kid })) };
   }

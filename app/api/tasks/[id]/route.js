@@ -11,6 +11,7 @@ export async function PATCH(req, { params }) {
   if ("done" in body) data.done = !!body.done;
   if ("tipoId" in body) data.tipoId = body.tipoId || null;
   if ("contactId" in body && body.contactId) data.contactId = body.contactId;
+  if ("responsavel" in body) data.responsavel = body.responsavel || null;
   const task = await prisma.task.update({
     where: { id },
     data,

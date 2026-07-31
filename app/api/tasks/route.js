@@ -14,6 +14,9 @@ export async function GET(req) {
   if (done === "false") where.done = false;
   if (tipoId) where.tipoId = tipoId;
 
+  const responsavel = searchParams.get("responsavel");
+  if (responsavel) where.responsavel = responsavel;
+
   const tasks = await prisma.task.findMany({
     where,
     orderBy: { dueDate: "asc" },
@@ -41,6 +44,7 @@ export async function POST(req) {
       notes: (body.notes || "").trim() || null,
       dueDate: body.dueDate ? new Date(body.dueDate) : new Date(),
       tipoId: body.tipoId || null,
+      responsavel: body.responsavel || null,
     },
     include: {
       contact: { select: { id: true, name: true, phone: true } },

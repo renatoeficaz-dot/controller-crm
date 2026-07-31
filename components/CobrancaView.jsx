@@ -91,6 +91,33 @@ export default function CobrancaView() {
     load();
   }
 
+  // Baixa em lote (item 94) — mesma baixa simples (sem juro, valor cheio da
+  // parcela) aplicada de uma vez pros selecionados. Casos com valor diferente
+  // continuam indo um a um, pela ficha do lead.
+  const [selecionados, setSelecionados] = useState(new Set());
+  const [baixandoLote, setBaixandoLote] = useState(false);
+  function toggleSelecionado(id) {
+    setSelecionados((prev) => {
+      const novo = new Set(prev);
+      novo.has(id) ? novo.delete(id) : novo.add(id);
+      return novo;
+    });
+  }
+  async function darBaixaLote() {
+    const itens = filtrada.filter((f) => selecionados.has(f.id));
+    if (!itens.length) return;
+    if (!confirm(`Dar baixa na parcela atual de ${itens.length} cliente(s) selecionado(s)?`)) return;
+    setBaixandoLote(true);
+    for (const item of itens) {
+      await fetch(`/api/parcelas/${item.proximaParcelaId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paid: true }),
+      });
+    }
+    setBaixandoLote(false);
+    setSelecionados(new Set());
+    load();
+  }
+
   // No modo foco a lista muda embaixo do índice conforme as baixas acontecem,
   // então limita ao tamanho atual em vez de deixar estourar.
   function proximo() {
@@ -286,6 +313,20 @@ export default function CobrancaView() {
         </div>
       </div>
 
+      {selecionados.size > 0 && (
+        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
+          <span className="text-xs text-emerald-700 font-medium">{selecionados.size} selecionado(s)</span>
+          <button
+            onClick={darBaixaLote}
+            disabled={baixandoLote}
+            className="text-xs bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600 disabled:opacity-50"
+          >
+            {baixandoLote ? "Dando baixa…" : "Dar baixa em lote"}
+          </button>
+          <button onClick={() => setSelecionados(new Set())} className="text-xs text-emerald-600 hover:text-emerald-800">Limpar seleção</button>
+        </div>
+      )}
+
       {filtrada.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
           <p className="text-sm text-slate-400 flex items-center justify-center gap-1.5">Nenhum cliente a cobrar com esses filtros. <Icone nome="trofeu" className="w-4 h-4" /></p>
@@ -294,6 +335,14 @@ export default function CobrancaView() {
         <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
           {filtrada.map((item) => (
             <div key={item.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <input
+                type="checkbox"
+                checked={selecionados.has(item.id)}
+                onChange={() => toggleSelecionado(item.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="accent-emerald-500 shrink-0 mt-1 sm:mt-0"
+                title="Selecionar pra baixa em lote"
+              />
               <button
                 type="button"
                 onClick={() => setOpenContactId(item.id)}

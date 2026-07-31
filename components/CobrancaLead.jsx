@@ -48,6 +48,28 @@ export default function CobrancaLead({ contactId, contact, onChanged }) {
   const [modalAberto, setModalAberto] = useState(false);
   const [acordoAberto, setAcordoAberto] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  const [naoPerturbarAberto, setNaoPerturbarAberto] = useState(false);
+  const [naoPerturbarData, setNaoPerturbarData] = useState("");
+
+  const naoPerturbandoAgora = !!contact?.naoPerturbarAte && new Date(contact.naoPerturbarAte) > new Date();
+
+  async function ativarNaoPerturbar() {
+    if (!naoPerturbarData) return;
+    setNaoPerturbarAberto(false);
+    const res = await fetch(`/api/contacts/${contactId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ naoPerturbarAte: naoPerturbarData }),
+    });
+    const d = await res.json().catch(() => ({}));
+    onChanged?.(d);
+  }
+
+  async function desativarNaoPerturbar() {
+    const res = await fetch(`/api/contacts/${contactId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ naoPerturbarAte: null }),
+    });
+    const d = await res.json().catch(() => ({}));
+    onChanged?.(d);
+  }
 
   const load = useCallback(async () => {
     if (!contactId) return;
@@ -101,8 +123,43 @@ export default function CobrancaLead({ contactId, contact, onChanged }) {
           >
             + Tentativa
           </button>
+          <button
+            type="button"
+            onClick={naoPerturbandoAgora ? desativarNaoPerturbar : () => setNaoPerturbarAberto(true)}
+            title="Pausa a cobrança automática deste lead até a data escolhida"
+            className={naoPerturbandoAgora ? "text-amber-600 hover:text-amber-700 font-normal" : "text-slate-400 hover:text-slate-600 font-normal"}
+          >
+            {naoPerturbandoAgora ? "🔕 Não perturbe" : "Não perturbar"}
+          </button>
         </div>
       </div>
+
+      {naoPerturbandoAgora && (
+        <p className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+          Cobrança automática pausada até {new Date(contact.naoPerturbarAte).toLocaleDateString("pt-BR")}.
+        </p>
+      )}
+
+      {naoPerturbarAberto && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setNaoPerturbarAberto(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Não perturbar até quando?</h3>
+            <p className="text-[11px] text-slate-400">A régua e o lembrete automático param de mandar mensagem pra esse lead até essa data. Atendimento manual continua normal.</p>
+            <input
+              type="date" autoFocus
+              value={naoPerturbarData}
+              onChange={(e) => setNaoPerturbarData(e.target.value)}
+              className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setNaoPerturbarAberto(false)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
+              <button disabled={!naoPerturbarData} onClick={ativarNaoPerturbar} className="text-sm bg-amber-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50">
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {contact?.scoreComportamental != null && (() => {
         const faixa = faixaComportamental(contact.scoreComportamental);

@@ -16,6 +16,9 @@ const USER_SELECT = {
   metaVendasMediaPropria: true,
   metaVendasDiaPropria: true,
   permissoesExtras: true,
+  somenteLeitura: true,
+  ultimoAcessoEm: true,
+  equipeId: true,
   createdAt: true,
 };
 
@@ -61,6 +64,8 @@ export async function POST(req) {
       metaVendasMediaPropria: metaOuNull(body.metaVendasMediaPropria),
       metaVendasDiaPropria: metaOuNull(body.metaVendasDiaPropria),
       permissoesExtras: (body.permissoesExtras || []).join(",") || null,
+      somenteLeitura: !!body.somenteLeitura,
+      equipeId: body.equipeId || null,
     },
     select: USER_SELECT,
   });

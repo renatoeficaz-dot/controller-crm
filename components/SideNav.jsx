@@ -24,12 +24,23 @@ const links = [
 export default function SideNav() {
   const pathname = usePathname();
   const [user, setUser] = useState(null);
+  const [naoLidas, setNaoLidas] = useState(0);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then(setUser)
       .catch(() => {});
+  }, [pathname]);
+
+  // Selo de não lidas no ícone do Chat (item 90) — atualiza a cada 20s, leve
+  // o bastante pra não pesar em background.
+  useEffect(() => {
+    if (pathname === "/login") return;
+    const carregar = () => fetch("/api/chat/nao-lidas").then((r) => r.json()).then((d) => setNaoLidas(d.total || 0)).catch(() => {});
+    carregar();
+    const t = setInterval(carregar, 20000);
+    return () => clearInterval(t);
   }, [pathname]);
 
   if (pathname === "/login") return null;
@@ -58,6 +69,11 @@ export default function SideNav() {
             }`}
           >
             <Icone nome={l.icon} className="w-5 h-5" />
+            {l.href === "/chat" && naoLidas > 0 && (
+              <span className="absolute top-1 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-medium">
+                {naoLidas > 99 ? "99+" : naoLidas}
+              </span>
+            )}
             <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-slate-800 text-white text-xs px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
               {l.label}
             </span>

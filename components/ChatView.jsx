@@ -76,6 +76,7 @@ function initials(name) {
 export default function ChatView() {
   const [conversations, setConversations] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [encaminharMsg, setEncaminharMsg] = useState(null); // mensagem sendo encaminhada | null
   const [contact, setContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -127,16 +128,34 @@ export default function ChatView() {
   const [resumoIa, setResumoIa] = useState(null);
   const [resumindo, setResumindo] = useState(false);
 
+  const [mostrarArquivadas, setMostrarArquivadas] = useState(false);
+
   const loadConversations = useCallback(async () => {
-    const data = await fetch("/api/chat").then((r) => r.json()).catch(() => []);
+    const data = await fetch(`/api/chat${mostrarArquivadas ? "?arquivadas=1" : ""}`).then((r) => r.json()).catch(() => []);
     setConversations(Array.isArray(data) ? data : []);
-  }, []);
+  }, [mostrarArquivadas]);
 
   useEffect(() => {
     loadConversations();
     const t = setInterval(loadConversations, 5000);
     return () => clearInterval(t);
   }, [loadConversations]);
+
+  async function toggleChatFixado(c) {
+    setConversations((prev) => prev.map((x) => (x.id === c.id ? { ...x, chatFixado: !x.chatFixado } : x)));
+    await fetch(`/api/contacts/${c.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatFixado: !c.chatFixado }),
+    });
+    loadConversations();
+  }
+
+  async function toggleChatArquivado(c) {
+    await fetch(`/api/contacts/${c.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatArquivado: !c.chatArquivado }),
+    });
+    if (!mostrarArquivadas) setConversations((prev) => prev.filter((x) => x.id !== c.id));
+    loadConversations();
+  }
 
   // Resumo financeiro (a receber / inadimplência) — recarrega periodicamente,
   // não só uma vez ao abrir a tela, senão fica desatualizado.
@@ -317,6 +336,28 @@ export default function ChatView() {
     lastMsgIdRef.current = lastId;
     chatEnd.current?.scrollIntoView({ behavior: firstLoad ? "auto" : "smooth" });
   }, [messages, selectedId]);
+
+  async function apagarMensagem(id) {
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, apagada: true } : m)));
+    await fetch(`/api/messages/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apagada: true }),
+    });
+  }
+
+  // Encaminha reaproveitando a mesma rota de envio de mensagem pronta — o
+  // destino recebe como se fosse enviada agora, com seu próprio número/data.
+  async function encaminharPara(destinoContactId) {
+    const m = encaminharMsg;
+    setEncaminharMsg(null);
+    if (!m || !destinoContactId) return;
+    await fetch(`/api/contacts/${destinoContactId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: m.kind === "text" || (!m.mediaUrl)
+        ? JSON.stringify({ body: m.body || "" })
+        : JSON.stringify({ mediaType: m.kind, mediaUrl: m.mediaUrl, mediaMimetype: m.mimeType, mediaFileName: m.fileName, body: m.body || "" }),
+    });
+  }
 
   async function send(e) {
     e.preventDefault();
@@ -616,6 +657,16 @@ export default function ChatView() {
                 </span>
               )}
             </button>
+            <button
+              type="button"
+              title={mostrarArquivadas ? "Ver conversas normais" : "Ver conversas arquivadas"}
+              onClick={() => setMostrarArquivadas((v) => !v)}
+              className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-full border transition-colors ${
+                mostrarArquivadas ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <Icone nome="documento" className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
@@ -752,38 +803,61 @@ export default function ChatView() {
         ) : (
         <div className="flex-1 overflow-y-auto thin-scroll">
           {conversasFiltradas.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => { setSelectedId(c.id); setContact(null); setMessages([]); setShowInfo(false); }}
-              className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors ${
-                selectedId === c.id ? "bg-emerald-50" : ""
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="relative w-9 h-9 shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center">
-                  {initials(c.name)}
-                  {c.unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white text-[8px] text-white font-bold flex items-center justify-center">
-                      {c.unreadCount > 9 ? "9+" : c.unreadCount}
-                    </span>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex justify-between items-baseline">
-                    <p className="text-sm font-medium text-slate-800 truncate">{c.name}</p>
-                    {c.lastMessage && (
-                      <span className="text-[10px] text-slate-400 shrink-0 ml-2">{fmtTime(c.lastMessage.createdAt)}</span>
+            <div key={c.id} className="group relative">
+              <button
+                onClick={() => { setSelectedId(c.id); setContact(null); setMessages([]); setShowInfo(false); }}
+                className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors ${
+                  selectedId === c.id ? "bg-emerald-50" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative w-9 h-9 shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center">
+                    {initials(c.name)}
+                    {c.unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white text-[8px] text-white font-bold flex items-center justify-center">
+                        {c.unreadCount > 9 ? "9+" : c.unreadCount}
+                      </span>
                     )}
                   </div>
-                  {c.lastMessage && (
-                    <p className="text-xs text-slate-400 truncate mt-0.5">
-                      {c.lastMessage.fromMe ? "Você: " : ""}
-                      {c.lastMessage.kind !== "text" ? `[${c.lastMessage.kind}]` : c.lastMessage.body?.slice(0, 50)}
-                    </p>
-                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex justify-between items-baseline gap-1">
+                      <p className="text-sm font-medium text-slate-800 truncate flex items-center gap-1">
+                        {c.chatFixado && <Icone nome="local" className="w-2.5 h-2.5 text-amber-500 shrink-0" />}
+                        {c.name}
+                      </p>
+                      {c.lastMessage && (
+                        <span className="text-[10px] text-slate-400 shrink-0 ml-2">{fmtTime(c.lastMessage.createdAt)}</span>
+                      )}
+                    </div>
+                    {c.lastMessage && (
+                      <p className="text-xs text-slate-400 truncate mt-0.5 pr-10">
+                        {c.lastMessage.fromMe ? "Você: " : ""}
+                        {c.lastMessage.kind !== "text" ? `[${c.lastMessage.kind}]` : c.lastMessage.body?.slice(0, 50)}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
+              {/* Fixar/arquivar (itens 81/82) — só aparece no hover, não rouba clique do item */}
+              <span className="absolute top-2.5 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  type="button"
+                  title={c.chatFixado ? "Desafixar" : "Fixar no topo"}
+                  onClick={(e) => { e.stopPropagation(); toggleChatFixado(c); }}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center ${c.chatFixado ? "text-amber-500" : "text-slate-300 hover:text-amber-500"}`}
+                >
+                  <Icone nome="local" className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title={c.chatArquivado ? "Desarquivar" : "Arquivar"}
+                  onClick={(e) => { e.stopPropagation(); toggleChatArquivado(c); }}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-slate-300 hover:text-slate-600"
+                >
+                  <Icone nome="documento" className="w-3.5 h-3.5" />
+                </button>
+              </span>
+            </div>
           ))}
           {conversasFiltradas.length === 0 && (
             <p className="text-sm text-slate-400 text-center py-8">Nenhuma conversa encontrada.</p>
@@ -860,7 +934,21 @@ export default function ChatView() {
             )}
             <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-2">
               {messages.map((m) => (
-                <div key={m.id} className={`flex ${m.fromMe ? "justify-end" : "justify-start"}`}>
+                <div key={m.id} className={`group flex items-center gap-1 ${m.fromMe ? "justify-end" : "justify-start"}`}>
+                  {/* Ações aparecem só no hover, e só pras nossas — encaminhar
+                      qualquer uma, apagar (item 88, só da nossa lista) só a nossa. */}
+                  {!m.apagada && (
+                    <span className={`shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${m.fromMe ? "order-first" : ""}`}>
+                      <button type="button" title="Encaminhar" onClick={() => setEncaminharMsg(m)} className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-emerald-600 hover:bg-slate-100">
+                        <Icone nome="seta" className="w-3 h-3 -rotate-90" />
+                      </button>
+                      {m.fromMe && (
+                        <button type="button" title="Apagar da minha lista" onClick={() => apagarMensagem(m.id)} className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-slate-100">
+                          <Icone nome="x" className="w-3 h-3" />
+                        </button>
+                      )}
+                    </span>
+                  )}
                   <div
                     className={`max-w-[70%] rounded-xl px-3 py-2 text-sm ${
                       m.fromMe
@@ -873,8 +961,14 @@ export default function ChatView() {
                         <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(m.instance, numbers)}
                       </p>
                     )}
-                    {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && <MediaBubble message={m} />}
-                    {m.kind !== "location" && (m.kind === "text" || m.body) && <p>{m.body}</p>}
+                    {m.apagada ? (
+                      <p className={`italic ${m.fromMe ? "text-emerald-100" : "text-slate-400"}`}>Mensagem apagada</p>
+                    ) : (
+                      <>
+                        {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && <MediaBubble message={m} />}
+                        {m.kind !== "location" && (m.kind === "text" || m.body) && <p>{m.body}</p>}
+                      </>
+                    )}
                     <p className={`text-[10px] mt-1 ${m.fromMe ? "text-emerald-200" : "text-slate-400"}`}>
                       {fmtTime(m.createdAt)}
                     </p>
@@ -936,13 +1030,32 @@ export default function ChatView() {
                 >
                   <Icone nome="clipe" className="w-4 h-4" />
                 </button>
-                <input
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  placeholder={recording ? "Gravando áudio…" : uploading ? "Enviando anexo…" : "Digite uma mensagem…"}
-                  disabled={recording}
-                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 disabled:bg-slate-50"
-                />
+                <div className="flex-1 relative min-w-0">
+                  <input
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder={recording ? "Gravando áudio…" : uploading ? "Enviando anexo…" : "Digite uma mensagem… (\"/\" pra mensagem pronta)"}
+                    disabled={recording}
+                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 disabled:bg-slate-50"
+                  />
+                  {text.startsWith("/") && (
+                    <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto thin-scroll z-10">
+                      {templates.filter((t) => t.title.toLowerCase().includes(text.slice(1).toLowerCase())).slice(0, 8).map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => { setText(""); pickTemplate(t.id); }}
+                          className="w-full text-left text-xs text-slate-700 hover:bg-emerald-50 px-3 py-2 truncate border-b border-slate-50 last:border-0"
+                        >
+                          {t.title}
+                        </button>
+                      ))}
+                      {templates.filter((t) => t.title.toLowerCase().includes(text.slice(1).toLowerCase())).length === 0 && (
+                        <p className="text-xs text-slate-400 px-3 py-2">Nenhuma mensagem pronta com esse nome.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={recording ? stopRecording : startRecording}
@@ -1262,6 +1375,31 @@ export default function ChatView() {
             >
               {saved ? "Salvo ✓" : saving ? "Salvando…" : "Salvar alterações"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Encaminhar mensagem (item 79) */}
+      {encaminharMsg && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEncaminharMsg(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800 mb-3">Encaminhar pra…</h3>
+            <div className="max-h-72 overflow-y-auto thin-scroll -mx-1 px-1 space-y-0.5">
+              {conversations
+                .filter((c) => c.id !== selectedId)
+                .map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => encaminharPara(c.id)}
+                    className="w-full text-left text-sm text-slate-700 hover:bg-slate-50 rounded-lg px-2.5 py-2 truncate"
+                  >
+                    {c.name} <span className="text-slate-400 text-xs">{c.phone}</span>
+                  </button>
+                ))}
+              {conversations.length <= 1 && <p className="text-xs text-slate-400 py-2">Nenhuma outra conversa pra encaminhar.</p>}
+            </div>
+            <button onClick={() => setEncaminharMsg(null)} className="mt-3 text-xs text-slate-400 hover:text-slate-600">Cancelar</button>
           </div>
         </div>
       )}

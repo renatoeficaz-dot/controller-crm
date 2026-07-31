@@ -5,6 +5,7 @@ import ContactModal from "./ContactModal";
 import ContasPagarView from "@/components/ContasPagarView";
 import FilaLiberacaoView from "@/components/FilaLiberacaoView";
 import Icone from "@/components/Icones";
+import { useUndoDelete, UndoToast } from "./UndoToast";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -126,8 +127,26 @@ function StatCard({ icon, label, value, color, onEdit }) {
 
 export default function LancamentosView() {
   const [lancamentos, setLancamentos] = useState([]);
+  const { pendente: exclusaoPendente, agendar: agendarExclusao, desfazer: desfazerExclusao } = useUndoDelete();
   const [categorias, setCategorias] = useState([]);
   const [bancos, setBancos] = useState([]);
+  const [transferAberta, setTransferAberta] = useState(null); // { origemId, destinoId, valor, descricao } | null
+  const [salvandoTransfer, setSalvandoTransfer] = useState(false);
+  const [erroTransfer, setErroTransfer] = useState("");
+
+  async function salvarTransferencia() {
+    setErroTransfer("");
+    setSalvandoTransfer(true);
+    const res = await fetch("/api/lancamentos/transferencia", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(transferAberta),
+    });
+    setSalvandoTransfer(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { setErroTransfer(d.error || "Erro ao transferir."); return; }
+    setTransferAberta(null);
+    loadLanc();
+    loadSaldo();
+  }
   const [contacts, setContacts] = useState([]);
   const [users, setUsers] = useState([]);
   const [tags, setTags] = useState([]);
@@ -267,6 +286,12 @@ export default function LancamentosView() {
   const lancamentosFiltrados = useMemo(() => {
     const q = buscaLanc.trim().toLowerCase();
     if (!q) return lancamentos;
+    // Busca por valor exato (item 136): "108" ou "108,50" acha o lançamento
+    // certo sem precisar rolar a lista procurando o número.
+    const comoValor = Number(q.replace(",", "."));
+    if (!Number.isNaN(comoValor) && /^[\d.,]+$/.test(q)) {
+      return lancamentos.filter((l) => Math.abs(l.amount - comoValor) < 0.005);
+    }
     return lancamentos.filter((l) =>
       (l.description || "").toLowerCase().includes(q) ||
       (l.categoria?.name || "").toLowerCase().includes(q) ||
@@ -385,11 +410,19 @@ export default function LancamentosView() {
     loadSaldo();
   }
 
-  async function removeLanc(id) {
-    if (!confirm("Excluir este lançamento?")) return;
-    await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
-    loadLanc();
-    loadSaldo();
+  function removeLanc(id) {
+    const l = lancamentos.find((x) => x.id === id);
+    if (!l) return;
+    setLancamentos((prev) => prev.filter((x) => x.id !== id));
+    agendarExclusao(`Lançamento "${l.description || money(l.amount)}"`, async () => {
+      await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
+      loadSaldo();
+    });
+  }
+
+  function desfazerRemoveLanc() {
+    desfazerExclusao();
+    loadLanc(); // a exclusão nunca chegou a rodar no servidor — só recarrega a lista
   }
 
   async function addCat(e) {
@@ -446,12 +479,20 @@ export default function LancamentosView() {
           </p>
         </div>
         {aba === "lancamentos" && (
-          <button
-            onClick={abrirNovo}
-            className="shrink-0 flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 transition-colors"
-          >
-            + Novo lançamento
-          </button>
+          <div className="shrink-0 flex items-center gap-2">
+            <button
+              onClick={() => setTransferAberta({ origemId: "", destinoId: "", valor: "", descricao: "" })}
+              className="flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-slate-50 transition-colors"
+            >
+              Transferir entre contas
+            </button>
+            <button
+              onClick={abrirNovo}
+              className="flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 transition-colors"
+            >
+              + Novo lançamento
+            </button>
+          </div>
         )}
       </div>
 
@@ -779,6 +820,47 @@ export default function LancamentosView() {
       </div>
       )}
 
+      {transferAberta && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setTransferAberta(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Transferir entre contas</h3>
+            <label className="block">
+              <span className="text-xs text-slate-400">De</span>
+              <select value={transferAberta.origemId} onChange={(e) => setTransferAberta((f) => ({ ...f, origemId: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                <option value="">— Conta de origem —</option>
+                {bancos.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-400">Para</span>
+              <select value={transferAberta.destinoId} onChange={(e) => setTransferAberta((f) => ({ ...f, destinoId: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                <option value="">— Conta de destino —</option>
+                {bancos.filter((b) => b.id !== transferAberta.origemId).map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-400">Valor</span>
+              <input type="number" step="0.01" value={transferAberta.valor} onChange={(e) => setTransferAberta((f) => ({ ...f, valor: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-400">Descrição (opcional)</span>
+              <input value={transferAberta.descricao} onChange={(e) => setTransferAberta((f) => ({ ...f, descricao: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+            </label>
+            {erroTransfer && <p className="text-xs text-red-500">{erroTransfer}</p>}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setTransferAberta(null)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
+              <button
+                disabled={salvandoTransfer || !transferAberta.origemId || !transferAberta.destinoId || !transferAberta.valor}
+                onClick={salvarTransferencia}
+                className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50"
+              >
+                {salvandoTransfer ? "Transferindo…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de novo lançamento / edição */}
       {formOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setFormOpen(false)}>
@@ -960,6 +1042,8 @@ export default function LancamentosView() {
           </div>
         </div>
       )}
+
+      <UndoToast pendente={exclusaoPendente} onDesfazer={desfazerRemoveLanc} />
     </div>
   );
 }

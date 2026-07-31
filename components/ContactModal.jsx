@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { resumoCobranca, valorParcelaAtual, parcelaAtrasada } from "@/lib/finance";
+import { resumoCobranca, valorParcelaAtual, parcelaAtrasada, NUM_PARCELAS } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
 import { validarCPF } from "@/lib/cpf";
 import { UFS_BR } from "@/lib/ddd";
@@ -53,6 +53,54 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [parcelas, setParcelas] = useState([]);
   const [editandoBaixa, setEditandoBaixa] = useState(null); // { parcela, modo: "valor"|"desfazer", novoValor, motivo }
   const [pixAberto, setPixAberto] = useState(null); // parcela | null
+  const [baixaParcialAberta, setBaixaParcialAberta] = useState(null); // parcela | null
+  const [parcelaAvulsaAberta, setParcelaAvulsaAberta] = useState(null); // { valor, vencimento, descricao } | null
+  const [salvandoAvulsa, setSalvandoAvulsa] = useState(false);
+  const [editandoVencimento, setEditandoVencimento] = useState(null); // { parcela, novoVencimento, motivo } | null
+  const [salvandoVencimento, setSalvandoVencimento] = useState(false);
+
+  async function salvarParcelaAvulsa() {
+    if (!parcelaAvulsaAberta?.valor || !parcelaAvulsaAberta?.vencimento) return;
+    setSalvandoAvulsa(true);
+    const res = await fetch(`/api/contacts/${contactId}/parcelas/avulsa`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parcelaAvulsaAberta),
+    });
+    setSalvandoAvulsa(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d.error || "Erro ao criar parcela."); return; }
+    setParcelas((prev) => [...prev, d]);
+    setParcelaAvulsaAberta(null);
+  }
+
+  async function salvarVencimento() {
+    if (!editandoVencimento?.novoVencimento || !editandoVencimento?.motivo?.trim()) return;
+    setSalvandoVencimento(true);
+    const res = await fetch(`/api/parcelas/${editandoVencimento.parcela.id}/vencimento`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ novoVencimento: editandoVencimento.novoVencimento, motivo: editandoVencimento.motivo }),
+    });
+    setSalvandoVencimento(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d.error || "Erro ao alterar vencimento."); return; }
+    setParcelas((prev) => prev.map((x) => (x.id === d.id ? d : x)));
+    setEditandoVencimento(null);
+  }
+  const [valorParcial, setValorParcial] = useState("");
+  const [enviandoParcial, setEnviandoParcial] = useState(false);
+
+  async function confirmarBaixaParcial() {
+    if (!baixaParcialAberta || !valorParcial || Number(valorParcial) <= 0) return;
+    setEnviandoParcial(true);
+    const res = await fetch(`/api/parcelas/${baixaParcialAberta.id}/baixa-parcial`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ valor: Number(valorParcial) }),
+    });
+    setEnviandoParcial(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d.error || "Erro ao registrar baixa parcial."); return; }
+    setParcelas((prev) => prev.map((x) => (x.id === baixaParcialAberta.id ? d.parcela : x)));
+    setBaixaParcialAberta(null);
+    setValorParcial("");
+  }
   const [documentosAberto, setDocumentosAberto] = useState(false);
   const [timelineAberta, setTimelineAberta] = useState(false);
   const [camposDef, setCamposDef] = useState([]);
@@ -928,10 +976,19 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
                 <button
                   onClick={gerarParcelas}
-                  className="w-full text-xs bg-emerald-500 text-white rounded py-1.5 hover:bg-emerald-600 mb-2"
+                  className="w-full text-xs bg-emerald-500 text-white rounded py-1.5 hover:bg-emerald-600 mb-1"
                 >
                   {parcelas.length ? "Atualizar parcelas" : "Gerar 10 parcelas"}
                 </button>
+                {parcelas.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setParcelaAvulsaAberta({ valor: "", vencimento: new Date().toLocaleDateString("en-CA"), descricao: "" })}
+                    className="w-full text-[11px] text-slate-500 hover:text-emerald-600 mb-2"
+                  >
+                    + Adicionar parcela avulsa (taxa extra, multa acordada...)
+                  </button>
+                )}
                 {cobrancaMsg && <p className="text-xs text-red-500 mb-2">{cobrancaMsg}</p>}
 
                 {cicloAtual > 1 && (
@@ -942,6 +999,10 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     <ul className="divide-y divide-emerald-100 text-xs">
                       {parcelasAtuais.map((p) => {
                         const atrasada = parcelaAtrasada(p, undefined, multaOpts);
+                        // Ponto de equilíbrio (item 106): parcela em que o capital
+                        // emprestado volta pro caixa — antes dela, cliente que
+                        // some ainda dá prejuízo.
+                        const noPontoEquilibrio = !p.deAcordo && p.number === Math.ceil(NUM_PARCELAS / (1 + honorariosPct / 100));
                         return (
                         <li key={p.id} className="flex items-center justify-between py-1.5">
                           <label className="flex items-center gap-2 cursor-pointer">
@@ -954,6 +1015,21 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                             <span className={p.paid ? "line-through text-slate-400" : "text-slate-600"}>
                               {p.number}ª · {fmtDate(p.dueDate)}
                             </span>
+                            {!p.paid && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); setEditandoVencimento({ parcela: p, novoVencimento: String(p.dueDate).slice(0, 10), motivo: "" }); }}
+                                title="Mudar o vencimento (pede motivo)"
+                                className="text-slate-300 hover:text-emerald-600"
+                              >
+                                <Icone nome="calendario" className="w-3 h-3" />
+                              </button>
+                            )}
+                            {noPontoEquilibrio && (
+                              <span title="Capital investido volta a partir daqui" className="text-[10px] font-semibold bg-violet-100 text-violet-700 rounded-full px-1.5 py-0.5">
+                                capital volta
+                              </span>
+                            )}
                             {atrasada && (
                               <span className="text-[10px] font-semibold bg-red-500 text-white rounded-full px-1.5 py-0.5">
                                 +{multaPct}%
@@ -962,18 +1038,33 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                           </label>
                           <span className="flex items-center gap-1.5">
                             {!p.paid && (
-                              <button
-                                type="button"
-                                onClick={() => setPixAberto(p)}
-                                title="Gerar Pix desta parcela"
-                                className="text-sky-400 hover:text-sky-600"
-                              >
-                                <Icone nome="dinheiro" className="w-3.5 h-3.5" />
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setBaixaParcialAberta(p)}
+                                  title="Registrar baixa parcial"
+                                  className="text-amber-400 hover:text-amber-600"
+                                >
+                                  <Icone nome="repetir" className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setPixAberto(p)}
+                                  title="Gerar Pix desta parcela"
+                                  className="text-sky-400 hover:text-sky-600"
+                                >
+                                  <Icone nome="dinheiro" className="w-3.5 h-3.5" />
+                                </button>
+                              </>
                             )}
                             <span className={`font-medium ${p.paid ? "text-emerald-600" : atrasada ? "text-red-600" : "text-slate-700"}`}>
                               {money(p.paid ? p.amountPago : valorParcelaAtual(p, undefined, multaOpts))}
                             </span>
+                            {!p.paid && p.valorPago > 0 && (
+                              <span className="text-[10px] text-amber-600 bg-amber-50 rounded-full px-1.5 py-0.5" title="Já pago desta parcela">
+                                {money(p.valorPago)} pago
+                              </span>
+                            )}
                             {p.paid && (
                               <button
                                 type="button"
@@ -1243,6 +1334,81 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
       {/* Alterar valor de uma baixa já registrada, ou desmarcá-la — sempre
           pede o motivo (fica logado em Configurações > Alterações). */}
+      {baixaParcialAberta && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setBaixaParcialAberta(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Baixa parcial — {baixaParcialAberta.number}ª parcela</h3>
+            <p className="text-xs text-slate-400">
+              Falta {money(valorParcelaAtual(baixaParcialAberta, undefined, multaOpts) - baixaParcialAberta.valorPago)}
+              {baixaParcialAberta.valorPago > 0 && <> ({money(baixaParcialAberta.valorPago)} já pago)</>}
+            </p>
+            <label className="block">
+              <span className="text-xs text-slate-500">Valor recebido agora</span>
+              <input
+                type="number" step="0.01" autoFocus
+                value={valorParcial}
+                onChange={(e) => setValorParcial(e.target.value)}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setBaixaParcialAberta(null)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
+              <button disabled={enviandoParcial} onClick={confirmarBaixaParcial} className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50">
+                {enviandoParcial ? "Salvando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {parcelaAvulsaAberta && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setParcelaAvulsaAberta(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Nova parcela avulsa</h3>
+            <label className="block">
+              <span className="text-xs text-slate-500">Descrição</span>
+              <input value={parcelaAvulsaAberta.descricao} onChange={(e) => setParcelaAvulsaAberta((f) => ({ ...f, descricao: e.target.value }))} placeholder="Ex.: taxa de atraso acordada" className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-500">Valor</span>
+              <input type="number" step="0.01" autoFocus value={parcelaAvulsaAberta.valor} onChange={(e) => setParcelaAvulsaAberta((f) => ({ ...f, valor: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-500">Vencimento</span>
+              <input type="date" value={parcelaAvulsaAberta.vencimento} onChange={(e) => setParcelaAvulsaAberta((f) => ({ ...f, vencimento: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setParcelaAvulsaAberta(null)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
+              <button disabled={salvandoAvulsa} onClick={salvarParcelaAvulsa} className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50">
+                {salvandoAvulsa ? "Salvando…" : "Adicionar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editandoVencimento && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEditandoVencimento(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Mudar vencimento — {editandoVencimento.parcela.number}ª parcela</h3>
+            <label className="block">
+              <span className="text-xs text-slate-500">Novo vencimento</span>
+              <input type="date" autoFocus value={editandoVencimento.novoVencimento} onChange={(e) => setEditandoVencimento((f) => ({ ...f, novoVencimento: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-500">Motivo</span>
+              <input value={editandoVencimento.motivo} onChange={(e) => setEditandoVencimento((f) => ({ ...f, motivo: e.target.value }))} placeholder="Ex.: cliente pediu pra adiar" className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditandoVencimento(null)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
+              <button disabled={salvandoVencimento || !editandoVencimento.motivo.trim()} onClick={salvarVencimento} className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50">
+                {salvandoVencimento ? "Salvando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pixAberto && <PixModal parcela={pixAberto} onClose={() => setPixAberto(null)} />}
       {documentosAberto && <DocumentosPopup contactId={contactId} messages={messages} onClose={() => setDocumentosAberto(false)} />}
       {agendarAberto && (

@@ -25,6 +25,7 @@ export async function GET(_req, { params }) {
       status: true,
       instance: true,
       readAt: true,
+      apagada: true,
       createdAt: true,
     },
   });

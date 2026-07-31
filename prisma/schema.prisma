@@ -114,6 +114,20 @@ model Contact {
   fixado  Boolean @default(false)
   corCard String?
 
+  // Contato de referência (item 73) — quem acionar quando o cliente some.
+  referenciaNome     String?
+  referenciaTelefone String?
+  referenciaRelacao  String? // "familiar" | "vizinho" | "amigo" | "trabalho" | "outro"
+
+  // Organização do Chat (itens 81/82) — independente do "fixado" do funil,
+  // porque fixar no Kanban e fixar no Chat são decisões de telas diferentes.
+  chatFixado    Boolean @default(false)
+  chatArquivado Boolean @default(false)
+
+  // "Não perturbe" temporário (item 98) — enquanto no futuro, a cobrança
+  // automática (régua/lembrete) pula esse lead. Não afeta atendimento manual.
+  naoPerturbarAte DateTime?
+
   // Exclusão reversível: contato "excluído" some das telas mas fica recuperável
   // por 24h antes de um job apagar de vez — é o "desfazer" depois de excluir.
   excluidoEm DateTime?
@@ -260,6 +274,10 @@ model Parcela {
   // cobrador escolhe baixar SEM o juro de atraso, pra aliviar o cliente).
   // null = ainda não paga.
   amountPago     Float?
+  // Soma de baixas PARCIAIS já recebidas dessa parcela (item 93) — enquanto
+  // for menor que o valor devido, a parcela continua `paid = false` mas já
+  // tem dinheiro registrado. Vira lançamento de entrada a cada incremento.
+  valorPago      Float            @default(0)
   // Nome de quem deu a baixa — alimenta o comparativo entre cobradores e o
   // cálculo de comissão (quem efetivamente recuperou o valor).
   baixadoPor     String?
@@ -276,6 +294,20 @@ model Parcela {
   deAcordo       Boolean          @default(false)
   task           Task?
   alteracoes     AlteracaoBaixa[]
+  ajustes        ParcelaAjuste[]
+}
+
+// Vencimento alterado ou parcela adiada (itens 103/104) — sempre com motivo,
+// mesmo padrão de auditoria do AlteracaoBaixa (que é só pra valor de baixa).
+model ParcelaAjuste {
+  id               String   @id @default(cuid())
+  parcela          Parcela  @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
+  parcelaId        String
+  vencimentoAntes  DateTime
+  vencimentoDepois DateTime
+  motivo           String
+  usuario          String?
+  createdAt        DateTime @default(now())
 }
 
 // Registro de cada negociação feita com o cliente — acordo parcelado aceito,
@@ -313,18 +345,22 @@ model AlteracaoBaixa {
 
 // Tarefa do responsável pela lead (uma por parcela, na data do pagamento)
 model Task {
-  id        String    @id @default(cuid())
-  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId String
-  parcela   Parcela?  @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
-  parcelaId String?   @unique
-  title     String
-  notes     String?
-  dueDate   DateTime
-  done      Boolean   @default(false)
-  tipo      TaskType? @relation(fields: [tipoId], references: [id], onDelete: SetNull)
-  tipoId    String?
-  createdAt DateTime  @default(now())
+  id          String    @id @default(cuid())
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId   String
+  parcela     Parcela?  @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
+  parcelaId   String?   @unique
+  title       String
+  notes       String?
+  dueDate     DateTime
+  done        Boolean   @default(false)
+  tipo        TaskType? @relation(fields: [tipoId], references: [id], onDelete: SetNull)
+  tipoId      String?
+  // A quem essa tarefa foi atribuída (item 111) — pode ser diferente do
+  // responsável pelo lead: um vendedor pode delegar uma visita ao cobrador.
+  // null = segue implícito o responsável do lead, como sempre foi.
+  responsavel String?
+  createdAt   DateTime  @default(now())
 }
 
 // Tipo de tarefa configurável (ex.: "Ligação", "Visita", "Cobrança extra")
@@ -548,7 +584,33 @@ model User {
   // específica sem virar admin.
   permissoesExtras String?
 
+  // Modo somente leitura (item 146) — vê tudo (contador, auditoria), mas o
+  // servidor recusa qualquer POST/PATCH/DELETE, mesmo se a tela tentar mandar.
+  somenteLeitura Boolean @default(false)
+
+  // Último login — mostrado em Configurações → Usuários (item 139).
+  ultimoAcessoEm DateTime?
+
+  // Equipe (item 117): meta agregada de um grupo, além da meta individual.
+  equipe   Equipe? @relation(fields: [equipeId], references: [id], onDelete: SetNull)
+  equipeId String?
+
   createdAt DateTime @default(now())
+}
+
+// Equipe de vendedores/cobradores — meta em cima do grupo, além da meta
+// individual de cada um. null nos campos = não define meta própria de equipe.
+model Equipe {
+  id                       String   @id @default(cuid())
+  nome                     String   @unique
+  metaVendasMinima         Int?
+  metaVendasMedia          Int?
+  metaVendasDia            Int?
+  metaPctRecebimentoMinima Float?
+  metaPctRecebimentoMedia  Float?
+  metaPctRecebimento       Float?
+  membros                  User[]
+  createdAt                DateTime @default(now())
 }
 
 // Número de WhatsApp conectado (uma instância da Evolution), atribuível a um usuário
@@ -751,19 +813,37 @@ model ContaPagar {
 }
 
 model Lancamento {
-  id          String               @id @default(cuid())
-  type        String // "entrada" | "saida"
-  amount      Float
-  description String?
-  date        DateTime             @default(now())
-  categoria   LancamentoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
-  categoriaId String?
-  banco       Banco?               @relation(fields: [bancoId], references: [id], onDelete: SetNull)
-  bancoId     String?
-  contact     Contact?             @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  contactId   String?
-  parcelaId   String? // referência à parcela (se gerado automaticamente)
-  createdAt   DateTime             @default(now())
+  id              String               @id @default(cuid())
+  type            String // "entrada" | "saida"
+  amount          Float
+  description     String?
+  date            DateTime             @default(now())
+  categoria       LancamentoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  categoriaId     String?
+  banco           Banco?               @relation(fields: [bancoId], references: [id], onDelete: SetNull)
+  bancoId         String?
+  contact         Contact?             @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId       String?
+  parcelaId       String? // referência à parcela (se gerado automaticamente)
+  // Vincula os dois lançamentos (saída na origem + entrada no destino) de uma
+  // transferência entre contas (item 133) — mesmo valor nos dois, pra achar
+  // o par e não deixar editar um lado sem o outro.
+  transferenciaId String?
+  createdAt       DateTime             @default(now())
+}
+
+// Meta específica de um dia da semana (item 118) — sábado não rende igual a
+// terça, então cada dia pode ter sua própria meta. Campo null = usa o padrão
+// global (Config) nesse dia. diaSemana: 0 = domingo ... 6 = sábado.
+model MetaDiaSemana {
+  id                       String @id @default(cuid())
+  diaSemana                Int    @unique
+  metaVendasMinima         Int?
+  metaVendasMedia          Int?
+  metaVendasDia            Int?
+  metaPctRecebimentoMinima Float?
+  metaPctRecebimentoMedia  Float?
+  metaPctRecebimento       Float?
 }
 
 // Retrato de como foi cada dia: as metas que estavam valendo, o tamanho da
@@ -939,5 +1019,9 @@ model Message {
   status    String    @default("sent")
   instance  String? // instância da Evolution que originou/enviou (controle de visibilidade por usuário)
   readAt    DateTime? // null = não visualizada pelo operador
+  // "Apagar" (item 88) só remove da NOSSA visualização — o WhatsApp não tem
+  // uma API confiável pra apagar "dos dois lados" sem risco de request
+  // malformado num provedor ao vivo, então isso fica só do nosso lado.
+  apagada   Boolean   @default(false)
   createdAt DateTime  @default(now())
 }

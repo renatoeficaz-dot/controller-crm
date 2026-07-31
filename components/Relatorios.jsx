@@ -48,6 +48,7 @@ export default function Relatorios() {
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [openContactId, setOpenContactId] = useState(null);
+  const [agingDrill, setAgingDrill] = useState(null); // faixa de aging clicada (item 123) | null
 
   const load = useCallback(async () => {
     const data = await fetch("/api/stages").then((r) => r.json()).catch(() => []);
@@ -59,6 +60,14 @@ export default function Relatorios() {
   }, [load]);
   useEffect(() => {
     fetch("/api/config").then((r) => r.json()).then(setCfg).catch(() => {});
+  }, []);
+
+  // Tempo médio por etapa (item 129) — vem do histórico real de mudanças
+  // (EtapaLog), então só existe dado a partir de quando essa tabela passou a
+  // ser gravada. Período curto = amostra pequena, é esperado.
+  const [tempoEtapas, setTempoEtapas] = useState([]);
+  useEffect(() => {
+    fetch("/api/relatorios/tempo-etapas").then((r) => r.json()).then((d) => setTempoEtapas(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   // Parâmetros de multa por atraso (vindos da config) para o cálculo "a receber".
@@ -261,7 +270,7 @@ export default function Relatorios() {
       { label: "8-15 dias", max: 15, color: "#f59e0b" },
       { label: "16-30 dias", max: 30, color: "#ef4444" },
       { label: "+30 dias", max: Infinity, color: "#991b1b" },
-    ].map((f) => ({ ...f, value: 0, parcelas: 0, clientes: new Set() }));
+    ].map((f) => ({ ...f, value: 0, parcelas: 0, clientes: new Set(), contatos: new Map() }));
 
     for (const c of contatosFiltrados) {
       for (const p of c.parcelas || []) {
@@ -273,9 +282,18 @@ export default function Relatorios() {
         faixa.value += p.amount;
         faixa.parcelas++;
         faixa.clientes.add(c.id);
+        // item 123 (drill-down): guarda o lead por trás do número, não só a contagem.
+        const acc = faixa.contatos.get(c.id) || { id: c.id, name: c.name, phone: c.phone, valor: 0, diasMax: 0 };
+        acc.valor += p.amount;
+        acc.diasMax = Math.max(acc.diasMax, dias);
+        faixa.contatos.set(c.id, acc);
       }
     }
-    return faixas.map((f) => ({ ...f, clientes: f.clientes.size }));
+    return faixas.map((f) => ({
+      ...f,
+      clientes: f.clientes.size,
+      contatos: [...f.contatos.values()].sort((a, b) => b.valor - a.valor),
+    }));
   }, [contatosFiltrados]);
 
   // 2. Conversão etapa a etapa: onde o lead morre no funil. "Cravo" e
@@ -1661,11 +1679,17 @@ export default function Relatorios() {
               />
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
                 {agingData.map((f) => (
-                  <div key={f.label}>
+                  <button
+                    key={f.label}
+                    type="button"
+                    onClick={() => f.clientes > 0 && setAgingDrill(f)}
+                    disabled={f.clientes === 0}
+                    className="text-left disabled:cursor-default rounded-lg -m-1 p-1 hover:bg-slate-50 transition-colors disabled:hover:bg-transparent"
+                  >
                     <p className="text-[11px] text-slate-400">{f.label}</p>
                     <p className="text-sm font-semibold" style={{ color: f.color }}>{money(f.value)}</p>
-                    <p className="text-[11px] text-slate-400">{f.clientes} cliente{f.clientes === 1 ? "" : "s"}</p>
-                  </div>
+                    <p className="text-[11px] text-slate-400 underline decoration-dotted">{f.clientes} cliente{f.clientes === 1 ? "" : "s"}</p>
+                  </button>
                 ))}
               </div>
             </>
@@ -1706,6 +1730,36 @@ export default function Relatorios() {
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+      </section>
+
+      {/* Tempo médio por etapa (item 129) */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Tempo médio em cada etapa <span className="text-slate-400 font-normal">— do histórico real de mudanças de coluna</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          {tempoEtapas.length === 0 ? (
+            <p className="text-sm text-slate-400">
+              Ainda sem dado suficiente — esse indicador só conta a partir de quando o sistema passou a registrar a mudança de etapa.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {tempoEtapas.map((r) => (
+                <li key={r.etapa} className="flex items-center gap-3">
+                  <span className="text-xs text-slate-600 w-40 shrink-0 truncate">{r.etapa}</span>
+                  <div className="flex-1 bg-slate-100 rounded-full h-2">
+                    <div
+                      className="h-2 rounded-full bg-violet-500"
+                      style={{ width: `${Math.min(100, (r.diasMedios / Math.max(...tempoEtapas.map((x) => x.diasMedios), 1)) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-slate-700 w-24 text-right shrink-0">{r.diasMedios} dia(s)</span>
+                  <span className="text-[10px] text-slate-400 w-16 text-right shrink-0">{r.amostras} amostra(s)</span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </section>
@@ -1976,6 +2030,34 @@ export default function Relatorios() {
           a própria API recusa pra quem não é, então aqui só monta o bloco. */}
       <RelatoriosGestao />
       <RelatoriosOperacao />
+
+      {agingDrill && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setAgingDrill(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto thin-scroll" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white">
+              <h3 className="font-semibold text-slate-800">{agingDrill.label} <span className="text-slate-400 font-normal">({agingDrill.clientes})</span></h3>
+              <button onClick={() => setAgingDrill(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <ul className="divide-y divide-slate-50 p-2">
+              {agingDrill.contatos.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => { setAgingDrill(null); setOpenContactId(c.id); }}
+                    className="w-full flex items-center justify-between gap-3 text-left px-3 py-2.5 rounded-lg hover:bg-slate-50"
+                  >
+                    <span className="min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{c.name}</p>
+                      <p className="text-xs text-slate-400">{c.phone || "sem telefone"} · {c.diasMax}d de atraso</p>
+                    </span>
+                    <span className="text-sm font-semibold text-red-600 shrink-0">{money(c.valor)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {openContactId && (
         <ContactModal

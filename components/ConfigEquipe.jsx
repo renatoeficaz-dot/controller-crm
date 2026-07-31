@@ -142,9 +142,146 @@ function ComissaoFechamentos() {
   );
 }
 
+/* ---------------- 117. Equipes (metas em grupo) ---------------- */
+function EquipesConfig() {
+  const [equipes, setEquipes] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [nomeNovo, setNomeNovo] = useState("");
+  const [abertaId, setAbertaId] = useState(null);
+  const [form, setForm] = useState({});
+  const [salvando, setSalvando] = useState(false);
+
+  const load = useCallback(() => {
+    fetch("/api/equipes").then((r) => r.json()).then((d) => setEquipes(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+  useEffect(load, [load]);
+  useEffect(() => {
+    fetch("/api/users").then((r) => r.json()).then((d) => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  async function criar(e) {
+    e.preventDefault();
+    if (!nomeNovo.trim()) return;
+    const res = await fetch("/api/equipes", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nome: nomeNovo.trim() }),
+    });
+    if (res.ok) { setNomeNovo(""); load(); }
+  }
+
+  function abrir(eq) {
+    setAbertaId(abertaId === eq.id ? null : eq.id);
+    setForm({
+      metaVendasMinima: eq.metaVendasMinima ?? "",
+      metaVendasMedia: eq.metaVendasMedia ?? "",
+      metaVendasDia: eq.metaVendasDia ?? "",
+      metaPctRecebimentoMinima: eq.metaPctRecebimentoMinima ?? "",
+      metaPctRecebimentoMedia: eq.metaPctRecebimentoMedia ?? "",
+      metaPctRecebimento: eq.metaPctRecebimento ?? "",
+      membrosIds: eq.membros.map((m) => m.id),
+    });
+  }
+
+  async function salvar(id) {
+    setSalvando(true);
+    await fetch(`/api/equipes/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
+    });
+    setSalvando(false);
+    setAbertaId(null);
+    load();
+  }
+
+  async function excluir(id) {
+    if (!confirm("Excluir esta equipe? Os usuários ficam sem equipe.")) return;
+    await fetch(`/api/equipes/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  function toggleMembro(uid) {
+    setForm((f) => ({
+      ...f,
+      membrosIds: f.membrosIds.includes(uid) ? f.membrosIds.filter((x) => x !== uid) : [...f.membrosIds, uid],
+    }));
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5 mb-1"><Icone nome="pessoas" className="w-4 h-4" /> Equipes</h3>
+      <p className="text-[11px] text-slate-400 mb-3">
+        Agrupe usuários pra acompanhar meta em conjunto (na tela de Metas, escolha a equipe em vez de "toda a empresa" ou uma pessoa). Deixe os campos de meta vazios pra usar a meta global.
+      </p>
+      <form onSubmit={criar} className="flex gap-2 mb-3">
+        <input
+          value={nomeNovo}
+          onChange={(e) => setNomeNovo(e.target.value)}
+          placeholder="Nome da nova equipe"
+          className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+        />
+        <button className="text-xs bg-emerald-500 text-white rounded-lg px-3 py-2 hover:bg-emerald-600">+ Criar</button>
+      </form>
+      <ul className="space-y-2">
+        {equipes.map((eq) => (
+          <li key={eq.id} className="border border-slate-100 rounded-xl">
+            <button onClick={() => abrir(eq)} className="w-full flex items-center justify-between px-3 py-2.5 text-left">
+              <div>
+                <p className="text-sm font-medium text-slate-700">{eq.nome}</p>
+                <p className="text-[11px] text-slate-400">{eq.membros.length} membro(s)</p>
+              </div>
+              <span className="text-slate-300">{abertaId === eq.id ? "▲" : "▼"}</span>
+            </button>
+            {abertaId === eq.id && (
+              <div className="px-3 pb-3 space-y-3 border-t border-slate-100 pt-3">
+                <div>
+                  <p className="text-xs text-slate-500 mb-1.5">Meta de vendas do dia (vazio = meta global)</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="number" min={0} placeholder="Mínima" value={form.metaVendasMinima} onChange={(e) => setForm((f) => ({ ...f, metaVendasMinima: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
+                    <input type="number" min={0} placeholder="Média" value={form.metaVendasMedia} onChange={(e) => setForm((f) => ({ ...f, metaVendasMedia: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
+                    <input type="number" min={0} placeholder="Meta" value={form.metaVendasDia} onChange={(e) => setForm((f) => ({ ...f, metaVendasDia: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1.5">Meta de recebimento (% da carteira, vazio = meta global)</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="number" min={0} max={100} placeholder="Mínima %" value={form.metaPctRecebimentoMinima} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimentoMinima: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
+                    <input type="number" min={0} max={100} placeholder="Média %" value={form.metaPctRecebimentoMedia} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimentoMedia: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
+                    <input type="number" min={0} max={100} placeholder="Meta %" value={form.metaPctRecebimento} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimento: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1.5">Membros</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {users.map((u) => (
+                      <button
+                        type="button"
+                        key={u.id}
+                        onClick={() => toggleMembro(u.id)}
+                        className={`text-xs rounded-full px-2.5 py-1 border ${form.membrosIds?.includes(u.id) ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "border-slate-200 text-slate-500"}`}
+                      >
+                        {u.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" disabled={salvando} onClick={() => salvar(eq.id)} className="text-xs bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600 disabled:opacity-50">
+                    {salvando ? "Salvando…" : "Salvar"}
+                  </button>
+                  <button type="button" onClick={() => excluir(eq.id)} className="text-xs text-red-400 hover:text-red-600">Excluir equipe</button>
+                </div>
+              </div>
+            )}
+          </li>
+        ))}
+        {equipes.length === 0 && <li className="py-6 text-center text-sm text-slate-400">Nenhuma equipe criada ainda.</li>}
+      </ul>
+    </div>
+  );
+}
+
 export default function ConfigEquipe() {
   return (
     <div className="space-y-4 max-w-2xl">
+      <EquipesConfig />
       <EspecieConfig />
       <ComissaoFechamentos />
       <PrestacaoContasAdmin />

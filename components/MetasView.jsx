@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import ContactModal from "@/components/ContactModal";
 import Icone from "@/components/Icones";
 import { Grafico30Dias, CalendarioMes, PlacarEquipe, Sequencia } from "@/components/MetasGraficos";
+import { baixarCsv, numeroCsv } from "@/lib/exportar";
 
 function fmtHora(iso) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -159,6 +160,104 @@ function BarraMes({ label, atual, meta, fmt, cor = "#10b981" }) {
   );
 }
 
+/* ---------------- 119. Comparar dois períodos lado a lado ---------------- */
+function ComparativoPeriodos({ usuario }) {
+  const [aberto, setAberto] = useState(false);
+  const hoje = hojeStr();
+  const seteDiasAtras = (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toLocaleDateString("en-CA"); })();
+  const quatorzeDiasAtras = (() => { const d = new Date(); d.setDate(d.getDate() - 14); return d.toLocaleDateString("en-CA"); })();
+  const [de1, setDe1] = useState(seteDiasAtras);
+  const [ate1, setAte1] = useState(hoje);
+  const [de2, setDe2] = useState(quatorzeDiasAtras);
+  const [ate2, setAte2] = useState(seteDiasAtras);
+  const [dados, setDados] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function comparar() {
+    setLoading(true);
+    const qs = new URLSearchParams({ de1, ate1, de2, ate2 });
+    if (usuario) qs.set("usuario", usuario);
+    const d = await fetch(`/api/metas/comparar?${qs}`).then((r) => r.json()).catch(() => null);
+    setDados(d?.periodo1 ? d : null);
+    setLoading(false);
+  }
+
+  const LINHAS = [
+    ["Vendas", "vendas", (v) => v],
+    ["Capital liberado", "valorVendido", money],
+    ["Clientes que pagaram", "recebimentos", (v) => v],
+    ["Baixas de parcela", "baixas", (v) => v],
+    ["Valor recebido", "valorRecebido", money],
+    ["Recuperado de atrasados", "valorRecuperado", money],
+  ];
+
+  return (
+    <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+      <button type="button" onClick={() => setAberto((a) => !a)} className="w-full flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-800">Comparar dois períodos</h2>
+        <span className="text-slate-300">{aberto ? "▲" : "▼"}</span>
+      </button>
+      {aberto && (
+        <div className="mt-4 space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-1">Período A</p>
+              <div className="flex items-center gap-1.5">
+                <input type="date" value={de1} max={hoje} onChange={(e) => setDe1(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5" />
+                <span className="text-xs text-slate-400">até</span>
+                <input type="date" value={ate1} max={hoje} onChange={(e) => setAte1(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5" />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-1">Período B</p>
+              <div className="flex items-center gap-1.5">
+                <input type="date" value={de2} max={hoje} onChange={(e) => setDe2(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5" />
+                <span className="text-xs text-slate-400">até</span>
+                <input type="date" value={ate2} max={hoje} onChange={(e) => setAte2(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5" />
+              </div>
+            </div>
+          </div>
+          <button type="button" onClick={comparar} disabled={loading} className="text-xs bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600 disabled:opacity-50">
+            {loading ? "Comparando…" : "Comparar"}
+          </button>
+
+          {dados && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-slate-400 border-b border-slate-100">
+                    <th className="text-left font-medium py-1.5">Indicador</th>
+                    <th className="text-right font-medium py-1.5">A ({dados.periodo1.dias}d)</th>
+                    <th className="text-right font-medium py-1.5">B ({dados.periodo2.dias}d)</th>
+                    <th className="text-right font-medium py-1.5">Diferença</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {LINHAS.map(([label, campo, fmt]) => {
+                    const a = dados.periodo1[campo] || 0;
+                    const b = dados.periodo2[campo] || 0;
+                    const dif = b !== 0 ? Math.round(((a - b) / b) * 100) : a > 0 ? 100 : 0;
+                    return (
+                      <tr key={campo} className="border-b border-slate-50 last:border-0">
+                        <td className="py-2 text-slate-600">{label}</td>
+                        <td className="py-2 text-right tabular-nums">{fmt(a)}</td>
+                        <td className="py-2 text-right tabular-nums text-slate-400">{fmt(b)}</td>
+                        <td className={`py-2 text-right tabular-nums font-medium ${dif >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                          {dif >= 0 ? "+" : ""}{dif}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function MetasView() {
   const [resumo, setResumo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -167,15 +266,18 @@ export default function MetasView() {
   const [modalRecebimentos, setModalRecebimentos] = useState(false);
   const [dia, setDia] = useState(hojeStr());
   const [usuario, setUsuario] = useState("");   // "" = total da empresa
+  const [equipe, setEquipe] = useState("");     // item 117: recorte por equipe (id)
   const [pessoas, setPessoas] = useState([]);
+  const [equipes, setEquipes] = useState([]);
 
   const load = useCallback(async () => {
     const qs = new URLSearchParams({ dia });
-    if (usuario) qs.set("usuario", usuario);
+    if (equipe) qs.set("equipe", equipe);
+    else if (usuario) qs.set("usuario", usuario);
     const data = await fetch(`/api/metas/resumo?${qs}`).then((r) => r.json()).catch(() => null);
     setResumo(data);
     setLoading(false);
-  }, [dia, usuario]);
+  }, [dia, usuario, equipe]);
 
   useEffect(() => {
     load();
@@ -187,7 +289,17 @@ export default function MetasView() {
 
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then((u) => setPessoas(Array.isArray(u) ? u : [])).catch(() => {});
+    fetch("/api/equipes").then((r) => r.json()).then((e) => setEquipes(Array.isArray(e) ? e : [])).catch(() => {});
   }, []);
+
+  // Um único select cobre os três recortes: "" empresa, "u:Nome" pessoa, "e:id" equipe.
+  const recorteValor = equipe ? `e:${equipe}` : usuario ? `u:${usuario}` : "";
+  function mudarRecorte(v) {
+    if (v.startsWith("e:")) { setEquipe(v.slice(2)); setUsuario(""); }
+    else if (v.startsWith("u:")) { setUsuario(v.slice(2)); setEquipe(""); }
+    else { setUsuario(""); setEquipe(""); }
+    setLoading(true);
+  }
 
   function mudarDia(offset) {
     const d = new Date(dia + "T00:00:00.000Z");
@@ -230,12 +342,19 @@ export default function MetasView() {
           <div className="flex flex-wrap items-center gap-2">
             {r.podeVerTotal && (
               <select
-                value={usuario}
-                onChange={(e) => { setUsuario(e.target.value); setLoading(true); }}
+                value={recorteValor}
+                onChange={(e) => mudarRecorte(e.target.value)}
                 className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
               >
                 <option value="">Empresa (total)</option>
-                {pessoas.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
+                {equipes.length > 0 && (
+                  <optgroup label="Equipes">
+                    {equipes.map((eq) => (<option key={eq.id} value={`e:${eq.id}`}>{eq.nome}</option>))}
+                  </optgroup>
+                )}
+                <optgroup label="Pessoas">
+                  {pessoas.map((p) => (<option key={p.id} value={`u:${p.name}`}>{p.name}</option>))}
+                </optgroup>
               </select>
             )}
 
@@ -273,9 +392,10 @@ export default function MetasView() {
 
         <p className="text-sm text-slate-500 mt-1">
           {fmtDiaLongo(r.dia)}
-          {usuario && <> · <strong className="text-slate-600">{usuario}</strong></>}
-          {" · "}Regra: <strong>{r.metaPctRecebimento}%</strong> de {usuario ? "quem é dele(a)" : "todos os leads"} em Recebimento
-          {" "}({usuario ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento} lead{(usuario ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento) === 1 ? "" : "s"})
+          {r.equipeNome && <> · <strong className="text-slate-600">Equipe {r.equipeNome}</strong></>}
+          {!r.equipeNome && usuario && <> · <strong className="text-slate-600">{usuario}</strong></>}
+          {" · "}Regra: <strong>{r.metaPctRecebimento}%</strong> de {(usuario || r.equipeNome) ? "quem é dele(a)" : "todos os leads"} em Recebimento
+          {" "}({(usuario || r.equipeNome) ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento} lead{((usuario || r.equipeNome) ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento) === 1 ? "" : "s"})
           <a href="/configuracoes?tab=metas" className="text-emerald-600 hover:underline ml-1">Configurar</a>
         </p>
 
@@ -287,7 +407,9 @@ export default function MetasView() {
           </p>
         )}
         {r.metaVendasPropria && (
-          <p className="text-[11px] text-sky-600 mt-1.5">Usando a meta de vendas individual de {usuario}.</p>
+          <p className="text-[11px] text-sky-600 mt-1.5">
+            Usando a meta de vendas {r.equipeNome ? `da equipe ${r.equipeNome}` : `individual de ${usuario}`}.
+          </p>
         )}
       </div>
 
@@ -392,7 +514,7 @@ export default function MetasView() {
         <Card titulo="Baixas de parcela" valor={r.baixasHoje} sub={`${r.recebimentosHoje} cliente${r.recebimentosHoje === 1 ? "" : "s"} distinto${r.recebimentosHoje === 1 ? "" : "s"}`} cor="emerald" />
         <Card titulo="Valor recebido" valor={money(r.valorRecebidoHoje)} cor="emerald" />
         <Card titulo="Capital liberado" valor={money(r.valorVendidoHoje)} sub={`${r.vendasHoje} venda${r.vendasHoje === 1 ? "" : "s"}`} cor="violet" />
-        <Card titulo="Carteira em Recebimento" valor={usuario ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento} sub="Base do cálculo da meta" cor="sky" />
+        <Card titulo="Carteira em Recebimento" valor={(usuario || r.equipeNome) ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento} sub="Base do cálculo da meta" cor="sky" />
       </div>
 
       {/* -------- 7 e 8: comparativo e projeção -------- */}
@@ -495,7 +617,30 @@ export default function MetasView() {
 
       {/* -------- 4 e 9: gráfico e calendário -------- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 items-start">
-        <Grafico30Dias serie={r.serie30 || []} onDia={irPara} />
+        <div>
+          <div className="flex justify-end mb-1.5">
+            {/* 122. Exportar histórico de metas (últimos 30 dias visíveis no gráfico) */}
+            <button
+              type="button"
+              onClick={() => baixarCsv("historico-metas", [
+                { label: "Dia", chave: "dia" },
+                { label: "Vendas", chave: "vendas" },
+                { label: "Meta vendas", chave: "metaVendasDia" },
+                { label: "Capital liberado", valor: (d) => numeroCsv(d.valorVendido) },
+                { label: "Clientes que pagaram", chave: "recebimentos" },
+                { label: "Meta clientes", chave: "metaRecebimentosDia" },
+                { label: "Baixas de parcela", chave: "baixas" },
+                { label: "Valor recebido", valor: (d) => numeroCsv(d.valorRecebido) },
+                { label: "Valor recuperado", valor: (d) => numeroCsv(d.valorRecuperado) },
+                { label: "Tem meta registrada", valor: (d) => (d.temMeta ? "sim" : "não") },
+              ], r.serie30 || [])}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600"
+            >
+              <Icone nome="baixar" className="w-3 h-3" /> Exportar CSV
+            </button>
+          </div>
+          <Grafico30Dias serie={r.serie30 || []} onDia={irPara} />
+        </div>
         <CalendarioMes serie={r.calendarioMes || []} diaAtual={r.dia} onDia={irPara} />
       </div>
 
@@ -503,6 +648,8 @@ export default function MetasView() {
       {!usuario && r.placar && (
         <PlacarEquipe placar={r.placar} onUsuario={(nome) => { setUsuario(nome); setLoading(true); }} />
       )}
+
+      <ComparativoPeriodos usuario={usuario} />
 
       {modalVendas && (
         <ListaModal
