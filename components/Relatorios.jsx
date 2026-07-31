@@ -7,6 +7,7 @@ import ContactModal from "@/components/ContactModal";
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
 import Icone from "@/components/Icones";
 import RelatoriosGestao from "@/components/RelatoriosGestao";
+import RelatoriosOperacao from "@/components/RelatoriosOperacao";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1974,6 +1975,7 @@ export default function Relatorios() {
       {/* Relatórios de gestão (cobradores, provisão, rentabilidade) — só admin;
           a própria API recusa pra quem não é, então aqui só monta o bloco. */}
       <RelatoriosGestao />
+      <RelatoriosOperacao />
 
       {openContactId && (
         <ContactModal

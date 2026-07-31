@@ -6,6 +6,7 @@ import ContactModal from "./ContactModal";
 import MetasMini from "./MetasMini";
 import SimuladorModal from "./SimuladorModal";
 import Icone from "@/components/Icones";
+import CampanhaMassaModal from "./CampanhaMassaModal";
 
 // Iniciais para o avatar do contato
 function initials(name) {
@@ -21,6 +22,8 @@ function initials(name) {
 function todayStr() {
   return new Date().toLocaleDateString("en-CA");
 }
+
+const CORES_CARD = ["", "#fca5a5", "#fcd34d", "#86efac", "#93c5fd", "#d8b4fe"];
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -138,6 +141,11 @@ export default function KanbanBoard() {
   const [respFiltro, setRespFiltro] = useState(""); // "" = todos; "__none__" = sem responsável
   const [usuarios, setUsuarios] = useState([]);
   const [tags, setTags] = useState([]);
+  const [motivosPerda, setMotivosPerda] = useState([]);
+  const [motivoPerdaPendente, setMotivoPerdaPendente] = useState(null); // { contactId, toStageId } | null
+  const [motivoEscolhido, setMotivoEscolhido] = useState("");
+  const [duplicadosDe, setDuplicadosDe] = useState(null); // { contact, lista } | null
+  const [campanhaMassaAberta, setCampanhaMassaAberta] = useState(false);
   const [tagFiltro, setTagFiltro] = useState(""); // "" = todas; tagId = só leads com essa tag
   const [estadoFiltro, setEstadoFiltro] = useState(""); // "" = todos; UF = só leads desse estado
   const [generoFiltro, setGeneroFiltro] = useState(""); // "" = todos; "masculino" | "feminino"
@@ -183,9 +191,10 @@ export default function KanbanBoard() {
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsuarios).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then(setTags).catch(() => {});
+    fetch("/api/motivos-perda").then((r) => r.json()).then(setMotivosPerda).catch(() => {});
   }, []);
 
-  async function moveContact(contactId, toStageId, forcar = false) {
+  async function moveContact(contactId, toStageId, forcar = false, motivoPerda = null) {
     // Atualização otimista
     setStages((prev) => {
       let moved;
@@ -207,7 +216,7 @@ export default function KanbanBoard() {
     const res = await fetch(`/api/contacts/${contactId}/move`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stageId: toStageId, forcar }),
+      body: JSON.stringify({ stageId: toStageId, forcar, motivoPerda }),
     });
 
     // Se o backend recusar (ex.: regra do capital, CPF que já deu calote),
@@ -217,13 +226,46 @@ export default function KanbanBoard() {
       const data = await res.json().catch(() => ({}));
       if ((data.bloqueioCpf || data.escalonamentoExcedido) && !forcar) {
         if (confirm(`${data.error}\n\nForçar mesmo assim? (só administrador consegue)`)) {
-          return moveContact(contactId, toStageId, true);
+          return moveContact(contactId, toStageId, true, motivoPerda);
         }
+      } else if (data.precisaMotivoPerda) {
+        setMotivoPerdaPendente({ contactId, toStageId });
       } else {
         flash(data.error || "Não foi possível mover o contato.");
       }
       load();
     }
+  }
+
+  async function toggleFixado(c) {
+    setStages((prev) => prev.map((s) => ({ ...s, contacts: s.contacts.map((x) => (x.id === c.id ? { ...x, fixado: !c.fixado } : x)) })));
+    await fetch(`/api/contacts/${c.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fixado: !c.fixado }),
+    });
+    load();
+  }
+
+  async function setCorCard(c, cor) {
+    setStages((prev) => prev.map((s) => ({ ...s, contacts: s.contacts.map((x) => (x.id === c.id ? { ...x, corCard: cor } : x)) })));
+    await fetch(`/api/contacts/${c.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ corCard: cor || null }),
+    });
+  }
+
+  async function abrirDuplicados(c) {
+    const lista = await fetch(`/api/contacts/${c.id}/duplicados`).then((r) => r.json()).catch(() => []);
+    setDuplicadosDe({ contact: c, lista });
+  }
+
+  async function mesclar(principalId, outroId) {
+    if (!confirm("Mesclar esses dois cadastros? O que já foi conversa/parcela/tarefa do outro passa pra este, e o duplicado é apagado.")) return;
+    const res = await fetch(`/api/contacts/${principalId}/mesclar`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comId: outroId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { flash(data.error || "Falha ao mesclar."); return; }
+    setDuplicadosDe(null);
+    load();
   }
 
   async function removeContact(contactId) {
@@ -301,6 +343,27 @@ export default function KanbanBoard() {
 
   // Todos os leads visíveis no filtro (somando todas as colunas)
   const leadsFiltrados = stages.flatMap((s) => s.contacts.filter(passaFiltro));
+
+  // Duplicados (item 4/60): calculado no que já está carregado, sem API extra
+  // — mesmo telefone ou mesmo CPF preenchido em cadastros diferentes.
+  const duplicadosCount = (() => {
+    const todos = stages.flatMap((s) => s.contacts);
+    const porChave = new Map();
+    const conta = (chave, id) => {
+      if (!chave) return;
+      if (!porChave.has(chave)) porChave.set(chave, new Set());
+      porChave.get(chave).add(id);
+    };
+    for (const c of todos) { conta(c.phone, c.id); conta(c.cpf, c.id); }
+    const out = {};
+    for (const c of todos) {
+      const porTelefone = c.phone ? (porChave.get(c.phone)?.size || 1) - 1 : 0;
+      const porCpf = c.cpf ? (porChave.get(c.cpf)?.size || 1) - 1 : 0;
+      const n = Math.max(porTelefone, porCpf);
+      if (n > 0) out[c.id] = n;
+    }
+    return out;
+  })();
 
   // Aplica a ação escolhida a TODOS os leads do filtro.
   async function aplicarEmMassa() {
@@ -453,6 +516,15 @@ export default function KanbanBoard() {
             {bulkBusy ? "Aplicando…" : `Aplicar a ${leadsFiltrados.length} lead(s)`}
           </button>
         )}
+
+        <button
+          onClick={() => setCampanhaMassaAberta(true)}
+          disabled={leadsFiltrados.length === 0}
+          title="Envio em massa pra quem está no filtro atual, com espaçamento entre mensagens"
+          className="flex items-center gap-1 text-xs rounded-full px-3 py-1.5 border bg-white border-slate-200 text-slate-600 hover:border-slate-300 disabled:opacity-50 shrink-0"
+        >
+          <Icone nome="chat" className="w-3.5 h-3.5" /> Campanha ({leadsFiltrados.length})
+        </button>
 
         <button
           onClick={() => setAdding(stages[0]?.id)}
@@ -682,6 +754,11 @@ export default function KanbanBoard() {
                       <span className="text-xs text-slate-400 bg-slate-200 rounded-full px-1.5">
                         {visiveis.length}
                       </span>
+                      {stage.acumulada && (
+                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5" title="Essa coluna passou do limite configurado">
+                          acumulando
+                        </span>
+                      )}
                     </div>
                   </div>
                   {stage.name === "Recebimento" && (
@@ -729,7 +806,13 @@ export default function KanbanBoard() {
                         className={`group relative rounded-lg border p-3 cursor-pointer hover:shadow-sm transition-all active:cursor-grabbing ${style} ${
                           semTarefa ? "ring-2 ring-red-600" : ""
                         }`}
+                        style={c.corCard ? { borderLeftWidth: 4, borderLeftColor: c.corCard } : undefined}
                       >
+                        {c.fixado && (
+                          <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center shadow" title="Fixado no topo">
+                            <Icone nome="check" className="w-2 h-2" />
+                          </span>
+                        )}
                         <div className="flex items-center gap-2.5">
                           <div className="relative w-8 h-8 shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center">
                             {initials(c.name)}
@@ -740,6 +823,11 @@ export default function KanbanBoard() {
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-slate-800 truncate">{c.name}</p>
                           </div>
+                          {c.semRespostaSLA && (
+                            <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500 text-white" title="Sem nenhuma resposta nossa desde que o lead chegou">
+                              Sem resposta
+                            </span>
+                          )}
                           {semTarefa && (
                             <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-600 text-white">
                               Sem tarefa
@@ -804,6 +892,31 @@ export default function KanbanBoard() {
                                     </button>
                                   ))}
                                 </div>
+                              )}
+                              <button
+                                onClick={() => { setCardMenuId(null); toggleFixado(c); }}
+                                className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+                              >
+                                {c.fixado ? "Desfixar do topo" : "Fixar no topo"}
+                              </button>
+                              <div className="px-3 py-1.5 flex items-center gap-1">
+                                {CORES_CARD.map((cor) => (
+                                  <button
+                                    key={cor || "sem"}
+                                    onClick={() => { setCardMenuId(null); setCorCard(c, cor); }}
+                                    title={cor || "Sem cor"}
+                                    className={`w-4 h-4 rounded-full border ${c.corCard === cor ? "ring-2 ring-offset-1 ring-slate-400" : "border-slate-200"}`}
+                                    style={{ background: cor || "#fff" }}
+                                  />
+                                ))}
+                              </div>
+                              {duplicadosCount[c.id] > 0 && (
+                                <button
+                                  onClick={() => { setCardMenuId(null); abrirDuplicados(c); }}
+                                  className="w-full text-left px-3 py-1.5 text-amber-600 hover:bg-amber-50"
+                                >
+                                  Possível duplicado ({duplicadosCount[c.id]})
+                                </button>
                               )}
                               <button onClick={() => removeContact(c.id)} className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-slate-50">
                                 Excluir
@@ -920,6 +1033,77 @@ export default function KanbanBoard() {
       </div>
 
       {simuladorAberto && <SimuladorModal onClose={() => setSimuladorAberto(false)} />}
+
+      {/* Motivo estruturado ao mover pra "Venda perdida" (item 13) — o backend
+          recusa a mudança de etapa sem isso, então precisa desse passo. */}
+      {campanhaMassaAberta && (
+        <CampanhaMassaModal contactIds={leadsFiltrados.map((c) => c.id)} onClose={() => setCampanhaMassaAberta(false)} />
+      )}
+
+      {duplicadosDe && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setDuplicadosDe(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800 mb-1">Possíveis cadastros duplicados</h3>
+            <p className="text-xs text-slate-400 mb-3">Mesmo telefone ou CPF que "{duplicadosDe.contact.name}".</p>
+            <ul className="divide-y divide-slate-50 max-h-64 overflow-y-auto thin-scroll">
+              {duplicadosDe.lista.map((d) => (
+                <li key={d.id} className="flex items-center justify-between py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-slate-700 truncate">{d.name}</p>
+                    <p className="text-[11px] text-slate-400">{d.phone || "sem telefone"} · {d.stage?.name}</p>
+                  </div>
+                  <button
+                    onClick={() => mesclar(duplicadosDe.contact.id, d.id)}
+                    className="shrink-0 text-xs bg-slate-800 text-white rounded-lg px-2.5 py-1 hover:bg-slate-700"
+                  >
+                    Mesclar aqui
+                  </button>
+                </li>
+              ))}
+              {duplicadosDe.lista.length === 0 && <li className="text-xs text-slate-400 py-2">Nenhum outro encontrado.</li>}
+            </ul>
+            <button onClick={() => setDuplicadosDe(null)} className="mt-3 text-sm text-slate-500">Fechar</button>
+          </div>
+        </div>
+      )}
+
+      {motivoPerdaPendente && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => { setMotivoPerdaPendente(null); setMotivoEscolhido(""); }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800 mb-1">Por que essa venda foi perdida?</h3>
+            <p className="text-xs text-slate-400 mb-3">Ajuda a entender o padrão de quem não fecha.</p>
+            {motivosPerda.length === 0 ? (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2.5">
+                Nenhum motivo cadastrado ainda — cadastre em Configurações → Motivos de perda.
+              </p>
+            ) : (
+              <select
+                value={motivoEscolhido}
+                onChange={(e) => setMotivoEscolhido(e.target.value)}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 mb-3"
+              >
+                <option value="">— Escolha o motivo —</option>
+                {motivosPerda.map((m) => (<option key={m.id} value={m.nome}>{m.nome}</option>))}
+              </select>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setMotivoPerdaPendente(null); setMotivoEscolhido(""); }} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
+              <button
+                disabled={!motivoEscolhido}
+                onClick={() => {
+                  const { contactId, toStageId } = motivoPerdaPendente;
+                  setMotivoPerdaPendente(null);
+                  moveContact(contactId, toStageId, false, motivoEscolhido);
+                  setMotivoEscolhido("");
+                }}
+                className="text-sm bg-slate-800 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-40"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {openId && (
         <ContactModal

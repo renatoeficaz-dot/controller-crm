@@ -4,9 +4,12 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
 import { PAGINAS_SISTEMA } from "@/lib/paginas";
+import { ACOES as ACOES_EXTRAS } from "@/lib/permissoes";
 import TemaToggle from "@/components/TemaToggle";
 import Icone from "@/components/Icones";
 import { ComissaoConfig, RiscoConfig, AuditoriaLog } from "@/components/ConfigGestao";
+import { MotivosPerdaConfig, OperacaoConfig } from "@/components/ConfigOperacao";
+import ConfigEquipe from "@/components/ConfigEquipe";
 
 // Posição (fixed, em relação à viewport) do EmojiPicker a partir do botão que
 // o abriu — mantém dentro da tela em qualquer largura (nada de calcular
@@ -152,7 +155,10 @@ const TABS = [
   { key: "tarefas", label: "Tipos de Tarefa", desc: "Categorias das tarefas dos leads" },
   { key: "metas", label: "Metas", desc: "Regra da meta diária de recebimento" },
   { key: "comissao", label: "Comissão", desc: "Bônus dos cobradores por meta batida" },
+  { key: "equipe", label: "Equipe / Fechamento", desc: "Espécie, prestação de contas e comissão fechada" },
   { key: "risco", label: "Risco / Limites", desc: "Capital escalonado, CPF bloqueado e provisão" },
+  { key: "motivos", label: "Motivos de perda", desc: "Lista usada ao mover para Venda perdida" },
+  { key: "operacao", label: "Operação", desc: "SLA de resposta, acúmulo de coluna e Pix" },
   { key: "mensagens", label: "Mensagens prontas", desc: "Modelos de texto, mídia e contato" },
   { key: "automacao", label: "Automação", desc: "Responsáveis automáticos por etapa" },
   { key: "ia", label: "IA", desc: "Agentes, modelos e chaves de API" },
@@ -251,7 +257,10 @@ export default function Configuracoes() {
             {tab === "tarefas" && <TiposTarefaConfig />}
             {tab === "metas" && <MetasConfig />}
             {tab === "comissao" && <ComissaoConfig />}
+            {tab === "equipe" && <ConfigEquipe />}
             {tab === "risco" && <RiscoConfig />}
+            {tab === "motivos" && <MotivosPerdaConfig />}
+            {tab === "operacao" && <OperacaoConfig />}
             {tab === "auditoria" && <AuditoriaLog />}
             {tab === "mensagens" && <MensagensProntas />}
             {tab === "automacao" && <AutomacaoFunil />}
@@ -414,6 +423,7 @@ const EMPTY_USER = {
   metaVendasMinimaPropria: "",
   metaVendasMediaPropria: "",
   metaVendasDiaPropria: "",
+  permissoesExtras: [],
 };
 
 const ROLE_LABEL = { admin: "Administrador", vendedor: "Vendedor", cobrador: "Cobrador" };
@@ -465,6 +475,7 @@ function Usuarios() {
       metaVendasMinimaPropria: u.metaVendasMinimaPropria ?? "",
       metaVendasMediaPropria: u.metaVendasMediaPropria ?? "",
       metaVendasDiaPropria: u.metaVendasDiaPropria ?? "",
+      permissoesExtras: (u.permissoesExtras || "").split(",").map((s) => s.trim()).filter(Boolean),
     });
     setError("");
     setShowPassword(false);
@@ -792,6 +803,24 @@ function Usuarios() {
                           <label key={pg.key} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer hover:bg-slate-50">
                             <input type="checkbox" checked={on} onChange={() => toggleArr("paginasVisiveis", pg.key)} className="accent-emerald-500 shrink-0" />
                             <span className="truncate">{pg.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-xs text-slate-400">Ações extras liberadas</span>
+                    <p className="text-[11px] text-slate-300 mb-1.5">
+                      Além do que o nível já libera. Ex.: um cobrador com "Mudar o valor de uma baixa" marcado ganha só essa ação, sem virar admin.
+                    </p>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {ACOES_EXTRAS.map((a) => {
+                        const on = form.permissoesExtras.includes(a.chave);
+                        return (
+                          <label key={a.chave} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" checked={on} onChange={() => toggleArr("permissoesExtras", a.chave)} className="accent-emerald-500 shrink-0" />
+                            <span className="truncate">{a.label}</span>
                           </label>
                         );
                       })}
@@ -1633,6 +1662,7 @@ function Campanhas() {
   const [copiadoId, setCopiadoId] = useState(null);
   const [form, setForm] = useState({
     nome: "", numeroId: "", regiao: "", utmSource: "", utmMedium: "", utmCampaign: "", mensagem: "",
+    modoColeta: "chat", formCampos: [],
   });
   const [cliquesAbertoId, setCliquesAbertoId] = useState(null);
   const [cliques, setCliques] = useState([]);
@@ -1680,7 +1710,7 @@ function Campanhas() {
     const data = await res.json().catch(() => ({}));
     setSaving(false);
     if (!res.ok) { setError(data.error || "Falha ao criar."); return; }
-    setForm({ nome: "", numeroId: "", regiao: "", utmSource: "", utmMedium: "", utmCampaign: "", mensagem: "" });
+    setForm({ nome: "", numeroId: "", regiao: "", utmSource: "", utmMedium: "", utmCampaign: "", mensagem: "", modoColeta: "chat", formCampos: [] });
     setShowForm(false);
     load();
   }
@@ -1792,6 +1822,69 @@ function Campanhas() {
                 className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
               />
             </label>
+
+            {/* Item 3: como coletar os dados antes/ao entrar em contato. */}
+            <div className="bg-slate-50 rounded-xl p-3.5 space-y-3">
+              <div>
+                <span className="text-xs font-medium text-slate-500">Como coletar os dados do lead</span>
+                <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                  {[
+                    { v: "chat", label: "Direto no chat" },
+                    { v: "formulario", label: "Formulário antes" },
+                    { v: "perguntar", label: "Deixar escolher" },
+                  ].map((o) => (
+                    <button
+                      key={o.v}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, modoColeta: o.v }))}
+                      className={`text-xs rounded-lg py-2 border transition-colors ${form.modoColeta === o.v ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200"}`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {form.modoColeta === "chat" && "Como sempre foi: vai direto pro WhatsApp."}
+                  {form.modoColeta === "formulario" && "Mostra um formulário rápido antes de abrir o WhatsApp."}
+                  {form.modoColeta === "perguntar" && "A pessoa escolhe: preencher o formulário de uma vez, ou o sistema pergunta um campo de cada vez pelo próprio chat."}
+                </p>
+              </div>
+
+              {form.modoColeta !== "chat" && (
+                <div>
+                  <span className="text-xs font-medium text-slate-500">Perguntas do formulário</span>
+                  <p className="text-[10px] text-slate-400 mb-1.5">Nome e WhatsApp já são pedidos por padrão — adicione só o que falta.</p>
+                  {form.formCampos.map((c, i) => (
+                    <div key={i} className="flex gap-1.5 mb-1.5">
+                      <input
+                        value={c.label}
+                        onChange={(e) => setForm((f) => ({ ...f, formCampos: f.formCampos.map((x, j) => (j === i ? { ...x, label: e.target.value, chave: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "_") } : x)) }))}
+                        placeholder="Ex.: Renda mensal"
+                        className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
+                      />
+                      <select
+                        value={c.tipo}
+                        onChange={(e) => setForm((f) => ({ ...f, formCampos: f.formCampos.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)) }))}
+                        className="text-xs border border-slate-200 rounded-lg px-1.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                      >
+                        <option value="texto">Texto</option>
+                        <option value="numero">Número</option>
+                        <option value="data">Data</option>
+                      </select>
+                      <button type="button" onClick={() => setForm((f) => ({ ...f, formCampos: f.formCampos.filter((_, j) => j !== i) }))} className="text-slate-300 hover:text-red-500 px-1">×</button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, formCampos: [...f.formCampos, { chave: "", label: "", tipo: "texto" }] }))}
+                    className="text-xs text-emerald-600 hover:text-emerald-700"
+                  >
+                    + Adicionar pergunta
+                  </button>
+                </div>
+              )}
+            </div>
+
             {error && <p className="text-xs text-red-500">{error}</p>}
             <button
               disabled={saving}
@@ -2311,6 +2404,20 @@ function ReguaCobranca() {
                       onBlur={(e) => atualizar(r.id, "diasMax", e.target.value === "" ? null : Number(e.target.value))}
                       className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
                     />
+                  </label>
+                  <label className="block w-40">
+                    <span className="text-[11px] text-slate-400">Canal sugerido (item 27)</span>
+                    <select
+                      value={r.canalSugerido || ""}
+                      onChange={(e) => atualizar(r.id, "canalSugerido", e.target.value || null)}
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                    >
+                      <option value="">— Sem sugestão —</option>
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="ligacao">Ligação</option>
+                      <option value="presencial">Visita presencial</option>
+                      <option value="notificacao">Notificação extrajudicial</option>
+                    </select>
                   </label>
                 </div>
                 <textarea
@@ -3484,6 +3591,19 @@ function AutomacaoFunil() {
     setTimeout(() => setSavedId(null), 1200);
   }
 
+  // Distribuição por carga (item 2): alternativa ao responsável fixo — pool de
+  // nomes, e quem tem menos leads ativos agora fica com o próximo. Só faz
+  // efeito quando não há autoResponsavel fixo definido (esse tem prioridade).
+  async function toggleNoPool(stageId, poolAtual, nome) {
+    const nomes = (poolAtual || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const novoPool = nomes.includes(nome) ? nomes.filter((n) => n !== nome) : [...nomes, nome];
+    const distribuicaoPool = novoPool.join(",") || null;
+    setStages((prev) => prev.map((s) => (s.id === stageId ? { ...s, distribuicaoPool } : s)));
+    await fetch(`/api/stages/${stageId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ distribuicaoPool }),
+    });
+  }
+
   async function salvarHorario() {
     setSavingHorario(true);
     await fetch("/api/config", {
@@ -3521,28 +3641,44 @@ function AutomacaoFunil() {
           <span>Responsável automático</span>
         </div>
         <ul className="divide-y divide-slate-100">
-          {stages.map((s) => (
-            <li key={s.id} className="py-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                <span className="shrink-0 text-slate-500"><Icone nome={iconeEtapa(s.name)} className="w-4 h-4" /></span>
-                <span className="text-sm text-slate-700 truncate">{s.name}</span>
+          {stages.map((s) => {
+            const poolAtual = (s.distribuicaoPool || "").split(",").map((x) => x.trim()).filter(Boolean);
+            return (
+            <li key={s.id} className="py-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                  <span className="shrink-0 text-slate-500"><Icone nome={iconeEtapa(s.name)} className="w-4 h-4" /></span>
+                  <span className="text-sm text-slate-700 truncate">{s.name}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {savedId === s.id && <span className="text-xs text-emerald-600">salvo ✓</span>}
+                  <select
+                    value={s.autoResponsavel || ""}
+                    onChange={(e) => setAuto(s.id, e.target.value)}
+                    className="text-xs border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+                  >
+                    <option value="">— Nenhum —</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.name}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {savedId === s.id && <span className="text-xs text-emerald-600">salvo ✓</span>}
-                <select
-                  value={s.autoResponsavel || ""}
-                  onChange={(e) => setAuto(s.id, e.target.value)}
-                  className="text-xs border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
-                >
-                  <option value="">— Nenhum —</option>
+              {!s.autoResponsavel && (
+                <div className="pl-[26px] flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400">ou distribuir por carga entre:</span>
                   {users.map((u) => (
-                    <option key={u.id} value={u.name}>{u.name}</option>
+                    <label key={u.id} className={`text-[10px] rounded-full px-2 py-0.5 border cursor-pointer ${poolAtual.includes(u.name) ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "border-slate-200 text-slate-500"}`}>
+                      <input type="checkbox" checked={poolAtual.includes(u.name)} onChange={() => toggleNoPool(s.id, s.distribuicaoPool, u.name)} className="hidden" />
+                      {u.name}
+                    </label>
                   ))}
-                </select>
-              </div>
+                </div>
+              )}
             </li>
-          ))}
+            );
+          })}
           {stages.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhuma etapa cadastrada.</li>}
         </ul>
       </div>

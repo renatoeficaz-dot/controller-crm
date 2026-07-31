@@ -40,6 +40,7 @@ export async function PATCH(req, { params }) {
     data.verTodosLeads = true;
     data.paginasVisiveis = null;
   }
+  if ("permissoesExtras" in body) data.permissoesExtras = (body.permissoesExtras || []).join(",") || null;
   if ("kanbansVisiveis" in body) {
     data.kanbansVisiveis = { set: (body.kanbansVisiveis || []).map((kid) => ({ id: kid })) };
   }

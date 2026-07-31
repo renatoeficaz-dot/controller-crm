@@ -10,6 +10,7 @@ export async function PATCH(req, { params }) {
   if ("mensagem" in body) data.mensagem = (body.mensagem || "").trim();
   if ("ativa" in body) data.ativa = !!body.ativa;
   if ("ordem" in body) data.ordem = Number(body.ordem);
+  if ("canalSugerido" in body) data.canalSugerido = body.canalSugerido || null;
   const regra = await prisma.regraCobranca.update({ where: { id }, data });
   return NextResponse.json(regra);
 }

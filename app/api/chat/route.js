@@ -7,7 +7,7 @@ import { getCurrentUser, veTodosLeads, mensagensWhere } from "@/lib/session";
 // usados pelos filtros da tela de Chat (etapa, tags, parcelas, número de origem).
 export async function GET() {
   const user = await getCurrentUser();
-  const contactWhere = veTodosLeads(user) ? {} : { responsavel: user?.name || "__none__" };
+  const contactWhere = { excluidoEm: null, ...(veTodosLeads(user) ? {} : { responsavel: user?.name || "__none__" }) };
   const msgWhere = mensagensWhere(user);
 
   const contacts = await prisma.contact.findMany({

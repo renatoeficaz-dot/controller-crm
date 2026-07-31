@@ -58,6 +58,9 @@ export async function PATCH(req, { params }) {
     data.pagamentoCapital = body.pagamentoCapital ? new Date(body.pagamentoCapital) : null;
   }
   if ("iaPausada" in body) data.iaPausada = !!body.iaPausada;
+  if ("camposCustom" in body) data.camposCustom = body.camposCustom ? JSON.stringify(body.camposCustom) : null;
+  if ("fixado" in body) data.fixado = !!body.fixado;
+  if ("corCard" in body) data.corCard = body.corCard || null;
   const contact = await prisma.contact.update({ where: { id }, data });
 
   // Não bloqueia salvar o CPF em si (só bloqueia avançar no funil, no
@@ -71,13 +74,17 @@ export async function PATCH(req, { params }) {
 }
 
 // Remove o contato
+// Exclusão reversível: só marca excluidoEm e some das listas — não apaga de
+// verdade. Dá pra desfazer em até 24h (POST .../restaurar); depois disso um
+// job diário (lib/purgaExcluidos.js) apaga definitivamente. Sem isso, um
+// "excluir" errado por engano é irreversível na hora.
 export async function DELETE(_req, { params }) {
   const { id } = await params;
   const [session, contact] = await Promise.all([
     getSession(),
     prisma.contact.findUnique({ where: { id }, select: { name: true } }),
   ]);
-  await prisma.contact.delete({ where: { id } });
+  await prisma.contact.update({ where: { id }, data: { excluidoEm: new Date() } });
   registrarAuditoria({
     usuario: session?.name,
     acao: "excluir_contato",

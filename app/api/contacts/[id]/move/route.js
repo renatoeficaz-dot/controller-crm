@@ -7,6 +7,7 @@ import { limiteEscalonado } from "@/lib/escalonamento";
 import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { getSession } from "@/lib/session";
+import { escolherPorCarga } from "@/lib/distribuicao";
 
 // Data local de hoje como UTC-midnight (evita drift de fuso nas parcelas)
 function hojeUTC() {
@@ -17,7 +18,7 @@ function hojeUTC() {
 // Move o contato para outra coluna (drag and drop do Kanban)
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const { stageId, forcar: forcarPedido } = await req.json();
+  const { stageId, forcar: forcarPedido, motivoPerda } = await req.json();
   const session = await getSession();
   // Só admin pode forçar (ignorar bloqueio de CPF / limite de escalonamento).
   const forcar = !!forcarPedido && session?.role === "admin";
@@ -41,6 +42,16 @@ export async function PATCH(req, { params }) {
 
   const indoParaAnaliseOuAlem = ["Análise", "Liberação pagamento", "Recebimento"].includes(stage.name);
   const trocandoDeEtapa = contact.stageId !== stageId;
+
+  // Motivo estruturado de perda: exige um motivo (do catálogo em Configurações)
+  // antes de deixar mover pra "Venda perdida" — sem isso a coluna vira só um
+  // buraco onde os leads desaparecem sem deixar informação nenhuma.
+  if (stage.name === "Venda perdida" && trocandoDeEtapa && !motivoPerda) {
+    return NextResponse.json(
+      { error: "Escolha o motivo antes de mover para Venda perdida.", precisaMotivoPerda: true },
+      { status: 422 }
+    );
+  }
 
   // Bloqueio de CPF reincidente: esse CPF já deu calote noutro cadastro.
   // Admin pode forçar (força de vontade > sistema); vendedor/cobrador não.
@@ -93,11 +104,25 @@ export async function PATCH(req, { params }) {
   // Automação: se a etapa de destino tem um responsável automático configurado,
   // atribui o lead a ele (só ao trocar de etapa de fato, e só dentro do
   // horário comercial configurado — fora dele, fica sem responsável até
-  // alguém pegar manualmente).
+  // alguém pegar manualmente). Sem responsável fixo mas com um POOL definido,
+  // distribui por carga: quem tem menos leads ativos agora fica com esse.
   let autoAtribuiu = false;
-  if (stage.autoResponsavel && contact.stageId !== stageId && (await dentroDoHorarioComercial())) {
-    data.responsavel = stage.autoResponsavel;
-    autoAtribuiu = true;
+  if (trocandoDeEtapa && (await dentroDoHorarioComercial())) {
+    if (stage.autoResponsavel) {
+      data.responsavel = stage.autoResponsavel;
+      autoAtribuiu = true;
+    } else if (stage.distribuicaoPool) {
+      const escolhido = await escolherPorCarga(stage.distribuicaoPool);
+      if (escolhido) {
+        data.responsavel = escolhido;
+        autoAtribuiu = true;
+      }
+    }
+  }
+
+  if (stage.name === "Venda perdida" && trocandoDeEtapa) {
+    data.motivoPerda = motivoPerda;
+    data.perdidoEm = new Date();
   }
 
   // Ao entrar em "Cravo" (perda/inadimplência), a IA para automaticamente —
@@ -122,9 +147,22 @@ export async function PATCH(req, { params }) {
     data.entrouRecebimentoEm = new Date();
   }
 
+  const stageAnterior = trocandoDeEtapa
+    ? await prisma.stage.findUnique({ where: { id: contact.stageId }, select: { name: true } })
+    : null;
+
   const updated = await prisma.contact.update({ where: { id }, data });
 
   if (trocandoDeEtapa) {
+    await prisma.etapaLog.create({
+      data: {
+        contactId: id,
+        deEtapa: stageAnterior?.name || null,
+        paraEtapa: stage.name,
+        usuario: session?.name || null,
+      },
+    }).catch(() => {});
+
     registrarAuditoria({
       usuario: session?.name,
       acao: "mover_etapa",

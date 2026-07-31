@@ -10,45 +10,49 @@ datasource db {
 
 // Coluna do Kanban (ex.: Novo, Em conversa, Negociando, Fechado)
 model Stage {
-  id              String    @id @default(cuid())
-  name            String
-  color           String    @default("#64748b")
-  order           Int       @default(0)
-  autoResponsavel String?   // nome do usuário atribuído automaticamente quando um lead entra nesta etapa
-  contacts        Contact[]
-  usuarios        User[]    @relation("UserKanbans") // usuários (não-admin) que enxergam esta coluna
-  agentesQueParam IaAgent[] @relation("StopAtStage") // agentes de IA configurados pra parar de responder a partir desta etapa
-  createdAt       DateTime  @default(now())
+  id               String    @id @default(cuid())
+  name             String
+  color            String    @default("#64748b")
+  order            Int       @default(0)
+  autoResponsavel  String? // nome do usuário atribuído automaticamente quando um lead entra nesta etapa
+  // Alternativa ao autoResponsavel fixo: nomes separados por vírgula. Quando
+  // preenchido, o lead que entra na etapa é atribuído a quem da lista tem
+  // MENOS leads ativos agora (não é só um rodízio — é por carga real).
+  distribuicaoPool String?
+  contacts         Contact[]
+  usuarios         User[]    @relation("UserKanbans") // usuários (não-admin) que enxergam esta coluna
+  agentesQueParam  IaAgent[] @relation("StopAtStage") // agentes de IA configurados pra parar de responder a partir desta etapa
+  createdAt        DateTime  @default(now())
 }
 
 // Contato / lead
 model Contact {
-  id        String    @id @default(cuid())
-  name      String
-  phone     String?
+  id          String    @id @default(cuid())
+  name        String
+  phone       String?
   // Estado (UF) do lead identificado pela IA a partir do que ele conta na
   // conversa (ex.: "moro em Salvador") — complementa o DDD do telefone, que
   // nem sempre bate com onde a pessoa mora de fato.
-  estado    String?
+  estado      String?
   // Gênero do lead ("masculino" | "feminino"), identificado pela IA a partir
   // do nome (pushName do WhatsApp ou nome cadastrado) assim que o lead entra.
-  genero    String?
+  genero      String?
   // Tipo de cliente ("motoboy" | "uber" | "comerciante") — cadastrado manualmente.
   tipoCliente String?
   // CPF do lead — preenchido manualmente ou pela IA ao ler um documento (RG/CNH) recebido.
-  cpf String?
-  notes     String?
-  order     Int       @default(0)
-  stage     Stage     @relation(fields: [stageId], references: [id])
-  stageId   String
-  messages  Message[]
+  cpf         String?
+  notes       String?
+  order       Int       @default(0)
+  stage       Stage     @relation(fields: [stageId], references: [id])
+  stageId     String
+  messages    Message[]
 
   // Financeiro / cobrança
-  valorCapital     Float?     // valor do empréstimo (base do cálculo dos honorários)
-  pagamentoCapital DateTime?  // data da entrega do capital; 1ª cobrança = +1 dia
-  responsavel      String?    // usuário responsável pela lead
-  cicloAtual       Int        @default(1) // ciclo de empréstimo atual (renovações incrementam)
-  tags             Tag[]      @relation("ContactTags")
+  valorCapital     Float? // valor do empréstimo (base do cálculo dos honorários)
+  pagamentoCapital DateTime? // data da entrega do capital; 1ª cobrança = +1 dia
+  responsavel      String? // usuário responsável pela lead
+  cicloAtual       Int                @default(1) // ciclo de empréstimo atual (renovações incrementam)
+  tags             Tag[]              @relation("ContactTags")
   parcelas         Parcela[]
   tasks            Task[]
   lancamentos      Lancamento[]
@@ -78,18 +82,18 @@ model Contact {
   // Dados estruturados extraídos da mesma consulta que gera o PDF da puxada.
   // Ficam em colunas próprias (e não só dentro do PDF) pra alimentar o score
   // de risco e poderem ser cruzados nos relatórios depois.
-  puxadaRenda       Float?   // renda presumida mensal
-  puxadaClasse      String?  // classe social (A/B/C/D/E)
-  puxadaEmprestimos Int?     // empréstimos ativos (não quitados) em outros bancos
-  puxadaCcf         Int?     // registros de cheque sem fundo
-  puxadaProcessos   Int?     // processos judiciais encontrados
+  puxadaRenda       Float? // renda presumida mensal
+  puxadaClasse      String? // classe social (A/B/C/D/E)
+  puxadaEmprestimos Int? // empréstimos ativos (não quitados) em outros bancos
+  puxadaCcf         Int? // registros de cheque sem fundo
+  puxadaProcessos   Int? // processos judiciais encontrados
   puxadaObito       Boolean? // flag de óbito na base da Receita
   // Score 0-100 (quanto maior, melhor) calculado em lib/scoreCredito.js.
   // É consultivo: aparece no card pra apoiar a decisão, não bloqueia nada.
   puxadaScore       Int?
-  puxadaRisco       String?  // "baixo" | "medio" | "alto" | "bloqueio"
-  puxadaLimite      Float?   // limite de capital sugerido, em R$
-  puxadaMotivos     String?  // motivos do score, separados por "|"
+  puxadaRisco       String? // "baixo" | "medio" | "alto" | "bloqueio"
+  puxadaLimite      Float? // limite de capital sugerido, em R$
+  puxadaMotivos     String? // motivos do score, separados por "|"
 
   // Score comportamental: como o cliente paga NA SUA carteira (o da puxada vem
   // de bureau externo). Recalculado a cada baixa e uma vez por dia.
@@ -102,6 +106,33 @@ model Contact {
   // alimentar o bloqueio de CPF reincidente noutro cadastro.
   deuCalote Boolean @default(false)
 
+  // Motivo estruturado de recusa/perda — preenchido ao mover pra "Venda perdida".
+  motivoPerda String?
+  perdidoEm   DateTime?
+
+  // Organização do funil (itens 54/55): fixar no topo da coluna, cor manual.
+  fixado  Boolean @default(false)
+  corCard String?
+
+  // Exclusão reversível: contato "excluído" some das telas mas fica recuperável
+  // por 24h antes de um job apagar de vez — é o "desfazer" depois de excluir.
+  excluidoEm DateTime?
+
+  // Campos personalizados definidos pelo admin (CampoPersonalizado), guardados
+  // como JSON {"chaveDoCampo": "valor"}. Um por contato é suficiente — não
+  // precisa de tabela própria pra um punhado de campos livres.
+  camposCustom String?
+
+  // Preenchimento guiado (formulário público ou "um por um" no chat): guarda
+  // em que ponto do formCampos da campanha o lead está, pra IA/sistema saber
+  // qual pergunta fazer a seguir. null = não está em preenchimento guiado.
+  formularioEmAndamento   Boolean @default(false)
+  formularioProximoIndice Int     @default(0)
+
+  documentos         Documento[]
+  etapaLogs          EtapaLog[]
+  mensagensAgendadas MensagemAgendada[]
+
   negociacoes Negociacao[]
 
   // Link de rastreamento (UTM) que trouxe esse lead — atribuição de primeiro
@@ -110,8 +141,8 @@ model Contact {
   campanha   LinkCampanha? @relation(fields: [campanhaId], references: [id], onDelete: SetNull)
   campanhaId String?
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Link de redirecionamento pro WhatsApp (com UTM/região) pra rastrear de onde
@@ -128,10 +159,72 @@ model LinkCampanha {
   utmMedium   String?
   utmCampaign String?
   mensagem    String? // texto pré-preenchido no wa.me (além da tag de rastreio, automática)
-  cliques     Int            @default(0)
-  leads       Contact[]
-  cliquesLog  LinkClique[]
-  createdAt   DateTime       @default(now())
+
+  // Como coletar os dados do lead antes/ao entrar em contato:
+  // "chat" (padrão, comportamento de sempre — vai direto pro wa.me) |
+  // "formulario" (mostra um formulário em /f/[slug] antes de ir pro WhatsApp) |
+  // "perguntar" (deixa o lead escolher entre as duas opções acima).
+  modoColeta String  @default("chat")
+  // Definição dos campos do formulário/perguntas, em JSON:
+  // [{"chave":"renda","label":"Renda mensal","tipo":"texto"}, ...]
+  formCampos String?
+
+  cliques    Int          @default(0)
+  leads      Contact[]
+  cliquesLog LinkClique[]
+  createdAt  DateTime     @default(now())
+}
+
+// Documento anexado ao lead, separado por TIPO (RG, comprovante de renda,
+// selfie, comprovante de endereço, contrato...) — diferente da mídia solta no
+// chat, que fica junto de qualquer conversa. Pode nascer de um upload manual
+// ou ser promovido a partir de uma mídia recebida no chat.
+model Documento {
+  id           String    @id @default(cuid())
+  contact      Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId    String
+  tipo         String // "rg" | "cnh" | "comprovante_renda" | "comprovante_endereco" | "selfie" | "contrato" | "outro"
+  url          String
+  fileName     String?
+  mimeType     String?
+  conferido    Boolean   @default(false)
+  conferidoPor String?
+  conferidoEm  DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+// Cada mudança de etapa do lead — alimenta a linha do tempo unificada da ficha
+// (junto com baixas, tentativas e negociações, que já têm seus próprios logs).
+model EtapaLog {
+  id        String   @id @default(cuid())
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String
+  deEtapa   String?
+  paraEtapa String
+  usuario   String?
+  createdAt DateTime @default(now())
+}
+
+// Visão de filtro salva (Contatos/Cobrança) — pra não montar o mesmo filtro
+// toda vez. "Meus atrasados SP" vira um clique.
+model VisaoSalva {
+  id        String   @id @default(cuid())
+  usuario   String? // null = compartilhada com todo mundo
+  tela      String // "contatos" | "cobranca"
+  nome      String
+  filtros   String // JSON
+  createdAt DateTime @default(now())
+}
+
+// Campo personalizado definido pelo admin — os VALORES ficam em
+// Contact.camposCustom (JSON), esta tabela só guarda a DEFINIÇÃO do campo.
+model CampoPersonalizado {
+  id     String  @id @default(cuid())
+  chave  String  @unique // usada como chave no JSON de Contact.camposCustom
+  label  String
+  tipo   String  @default("texto") // "texto" | "numero" | "data" | "opcoes"
+  opcoes String? // CSV, quando tipo = "opcoes"
+  ordem  Int     @default(0)
 }
 
 // Registro individual de cada clique num link — dispositivo/navegador (pelo
@@ -154,31 +247,35 @@ model LinkClique {
 
 // Parcela diária de cobrança (10 por empréstimo)
 model Parcela {
-  id        String    @id @default(cuid())
-  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId String
-  number    Int                       // 1..10
-  dueDate   DateTime
-  amount    Float
-  paid      Boolean   @default(false)
-  paidAt    DateTime?
-  ciclo     Int       @default(1)     // 1 = primeiro empréstimo, 2 = 1ª renovação, etc.
+  id             String           @id @default(cuid())
+  contact        Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId      String
+  number         Int // 1..10
+  dueDate        DateTime
+  amount         Float
+  paid           Boolean          @default(false)
+  paidAt         DateTime?
+  ciclo          Int              @default(1) // 1 = primeiro empréstimo, 2 = 1ª renovação, etc.
   // Valor realmente cobrado na baixa (pode ser diferente de `amount` quando o
   // cobrador escolhe baixar SEM o juro de atraso, pra aliviar o cliente).
   // null = ainda não paga.
-  amountPago Float?
+  amountPago     Float?
   // Nome de quem deu a baixa — alimenta o comparativo entre cobradores e o
   // cálculo de comissão (quem efetivamente recuperou o valor).
-  baixadoPor String?
+  baixadoPor     String?
+  // "pix" | "dinheiro" | "outro" — dinheiro em espécie fica em mãos do
+  // cobrador até ele depositar (ver EspecieMovimento). null = não informado
+  // (baixas antigas, de antes desse controle existir).
+  formaPagamento String?
   // true = essa parcela foi substituída por um acordo parcelado (Negociacao) e
   // não deve mais contar como "em aberto" nem entrar em cobrança — o valor
   // dela virou as novas parcelas do acordo.
-  renegociada Boolean @default(false)
+  renegociada    Boolean          @default(false)
   // true = essa parcela foi GERADA por um acordo parcelado (em vez de fazer
   // parte do plano original de 10). Numeração própria (1000+) pra não colidir.
-  deAcordo    Boolean @default(false)
-  task      Task?
-  alteracoes AlteracaoBaixa[]
+  deAcordo       Boolean          @default(false)
+  task           Task?
+  alteracoes     AlteracaoBaixa[]
 }
 
 // Registro de cada negociação feita com o cliente — acordo parcelado aceito,
@@ -188,10 +285,10 @@ model Negociacao {
   id             String   @id @default(cuid())
   contact        Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
   contactId      String
-  tipo           String   // "acordo_parcelado" | "desconto_aceito" | "desconto_recusado" | "outro"
+  tipo           String // "acordo_parcelado" | "desconto_aceito" | "desconto_recusado" | "outro"
   valorOriginal  Float?
   valorNegociado Float?
-  parcelas       Int?     // nº de parcelas do acordo, quando tipo = acordo_parcelado
+  parcelas       Int? // nº de parcelas do acordo, quando tipo = acordo_parcelado
   aceito         Boolean  @default(true)
   notas          String?
   usuario        String?
@@ -205,7 +302,7 @@ model AlteracaoBaixa {
   id            String   @id @default(cuid())
   parcela       Parcela  @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
   parcelaId     String
-  contactNome   String   // denormalizado — segue legível mesmo se o lead for excluído depois
+  contactNome   String // denormalizado — segue legível mesmo se o lead for excluído depois
   parcelaNumero Int
   valorAntigo   Float?
   valorNovo     Float?
@@ -242,17 +339,18 @@ model TaskType {
 
 // Mensagem pronta (modelo de texto/mídia/contato) para envio rápido aos contatos
 model MessageTemplate {
-  id            String   @id @default(cuid())
-  title         String   // nome curto que aparece no seletor
-  body          String   @default("") // texto da mensagem (ou legenda para mídia)
-  mediaType     String?  // null/"text" | "image" | "audio" | "document" | "contact"
-  mediaUrl      String?  // caminho do arquivo em /uploads (image/audio/document)
+  id            String             @id @default(cuid())
+  title         String // nome curto que aparece no seletor
+  body          String             @default("") // texto da mensagem (ou legenda para mídia)
+  mediaType     String? // null/"text" | "image" | "audio" | "document" | "contact"
+  mediaUrl      String? // caminho do arquivo em /uploads (image/audio/document)
   mediaMimetype String?
   mediaFileName String?
-  contactName   String?  // para tipo "contact"
+  contactName   String? // para tipo "contact"
   contactPhone  String?
-  order         Int      @default(0)
-  createdAt     DateTime @default(now())
+  order         Int                @default(0)
+  createdAt     DateTime           @default(now())
+  agendamentos  MensagemAgendada[]
 }
 
 // Configurações globais do sistema (linha única)
@@ -275,9 +373,9 @@ model Config {
   // Meta diária de vendas em R$ liberado (complementa a meta por quantidade:
   // 3 empréstimos de 300 e 3 de 900 contam igual na quantidade, mas não no
   // dinheiro que saiu). 0 = meta de valor desligada.
-  metaValorVendasMinima Float @default(0)
-  metaValorVendasMedia  Float @default(0)
-  metaValorVendasDia    Float @default(0)
+  metaValorVendasMinima    Float @default(0)
+  metaValorVendasMedia     Float @default(0)
+  metaValorVendasDia       Float @default(0)
 
   // Meta diária de RECUPERAÇÃO: quanto em R$ deve entrar de parcelas que já
   // estavam atrasadas. Fica separada do recebimento normal porque cobrar quem
@@ -350,7 +448,7 @@ model Config {
 
   // Capital ocioso: avisa se o saldo em caixa fica X dias sem nenhuma
   // liberação de capital (saída de Lançamento vinculada a um lead).
-  capitalOciosoDias  Int @default(3)
+  capitalOciosoDias Int @default(3)
 
   // Provisão pra devedores duvidosos — % da carteira aberta que se espera
   // NÃO recuperar, por faixa de atraso (referência pra decisão de quanto
@@ -359,29 +457,43 @@ model Config {
   provisaoPct8a15   Float @default(10)
   provisaoPct16a30  Float @default(35)
   provisaoPct31mais Float @default(70)
+
+  // SLA de primeira resposta: alerta no card do funil quando um lead NOVO fica
+  // mais de X minutos sem nenhuma mensagem nossa. null = alerta desligado.
+  slaPrimeiraRespostaMin Int?
+
+  // Aviso de acúmulo: mostra um selo na coluna do funil quando ela passa desse
+  // número de leads. null/0 = desligado.
+  avisoAcumuloLimite Int?
+
+  // Pix pra gerar o Copia-e-Cola/QR Code de cada parcela (item 20). Sem chave
+  // configurada, o botão de Pix simplesmente não aparece.
+  pixChave         String?
+  pixNomeRecebedor String?
+  pixCidade        String?
 }
 
 // Configuração de comissão dos cobradores — bônus por bater a meta de valor
 // recuperado no dia e/ou na semana (segunda a sábado, dia de folga é domingo).
 model ComissaoConfig {
-  id                   String @id @default("singleton")
-  metaDiariaValor      Float  @default(0) // R$ recuperados no dia pra bater a meta diária
-  bonusDiario          Float  @default(0) // quanto ganha ao bater
-  metaSemanalValor     Float  @default(0) // R$ recuperados na semana (seg-sáb) pra bater a meta semanal
-  bonusSemanal         Float  @default(0)
+  id               String @id @default("singleton")
+  metaDiariaValor  Float  @default(0) // R$ recuperados no dia pra bater a meta diária
+  bonusDiario      Float  @default(0) // quanto ganha ao bater
+  metaSemanalValor Float  @default(0) // R$ recuperados na semana (seg-sáb) pra bater a meta semanal
+  bonusSemanal     Float  @default(0)
 }
 
 // Um "agente" de IA: prompt + modelos próprios. Cada número de WhatsApp escolhe
 // qual agente atende (ou nenhum).
 model IaAgent {
-  id           String           @id @default(cuid())
+  id           String  @id @default(cuid())
   name         String
   prompt       String? // instruções de como esse agente deve atender
   textModel    String? // modelo de texto na DeepInfra (ex.: meta-llama/Meta-Llama-3.1-8B-Instruct)
-  ttsProvider  String           @default("deepinfra") // "deepinfra" | "fishaudio" | "elevenlabs"
+  ttsProvider  String  @default("deepinfra") // "deepinfra" | "fishaudio" | "elevenlabs"
   ttsModel     String? // modelo de áudio na DeepInfra (ex.: ResembleAI/chatterbox-turbo) — só quando ttsProvider = deepinfra
   ttsVoice     String? // voz/referência: nome da voz (Kokoro), reference_id (Fish Audio) ou voice_id (ElevenLabs)
-  modoResposta String           @default("espelho") // "espelho" (áudio→áudio, texto→texto) | "texto" | "audio"
+  modoResposta String  @default("espelho") // "espelho" (áudio→áudio, texto→texto) | "texto" | "audio"
 
   // Funções que a IA pode chamar sozinha durante a conversa (function calling)
   toolSendContact  Boolean @default(false) // pode enviar um contato (vCard) configurado abaixo
@@ -395,9 +507,9 @@ model IaAgent {
   stopAtStage   Stage?  @relation("StopAtStage", fields: [stopAtStageId], references: [id], onDelete: SetNull)
   stopAtStageId String?
 
-  numeros      WhatsappNumber[]
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  numeros   WhatsappNumber[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 }
 
 // Usuário do sistema (cadastro em Configurações) — também faz login no app.
@@ -407,10 +519,10 @@ model User {
   login           String           @unique
   passwordHash    String
   role            String           @default("vendedor") // admin | vendedor | cobrador
-  verTodosLeads   Boolean          @default(false)       // false = só leads onde é responsável
-  numeros         WhatsappNumber[] @relation("NumeroResponsavel")  // números atribuídos (ownership)
+  verTodosLeads   Boolean          @default(false) // false = só leads onde é responsável
+  numeros         WhatsappNumber[] @relation("NumeroResponsavel") // números atribuídos (ownership)
   numerosVisiveis WhatsappNumber[] @relation("NumeroVisibilidade") // WhatsApp cujas mensagens pode ver
-  kanbansVisiveis Stage[]          @relation("UserKanbans")        // colunas do funil que pode ver
+  kanbansVisiveis Stage[]          @relation("UserKanbans") // colunas do funil que pode ver
   // Páginas do sistema que pode acessar (chaves de lib/paginas.js, separadas por
   // vírgula — ex.: "contatos,chat"). Vazio/null = todas. Não cobre Lançamentos/
   // Configurações, que continuam exclusivas de admin independente disso.
@@ -422,27 +534,33 @@ model User {
   metaVendasMediaPropria  Int?
   metaVendasDiaPropria    Int?
 
-  createdAt       DateTime         @default(now())
+  // Permissões pontuais além do que o `role` já libera por padrão — CSV de
+  // chaves (ver lib/permissoes.js). Só adiciona; nunca tira o que o role dá.
+  // Ex.: um "vendedor" com "editar_valor_baixa" na lista ganha essa ação
+  // específica sem virar admin.
+  permissoesExtras String?
+
+  createdAt DateTime @default(now())
 }
 
 // Número de WhatsApp conectado (uma instância da Evolution), atribuível a um usuário
 model WhatsappNumber {
   id                 String   @id @default(cuid())
-  label              String   // nome amigável (ex.: "Comercial 1")
-  number             String   // número (ex.: 5511999998888)
-  instance           String   // nome da instância (Evolution) ou sessão (WAHA)
+  label              String // nome amigável (ex.: "Comercial 1")
+  number             String // número (ex.: 5511999998888)
+  instance           String // nome da instância (Evolution) ou sessão (WAHA)
   provider           String   @default("evolution") // "evolution" | "waha" — qual API atende este número
   user               User?    @relation("NumeroResponsavel", fields: [userId], references: [id], onDelete: SetNull)
   userId             String?
   usuariosVisualizam User[]   @relation("NumeroVisibilidade") // usuários que podem ver as mensagens deste número
   agent              IaAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  agentId            String?  // agente de IA que atende neste número (null = IA desligada aqui)
+  agentId            String? // agente de IA que atende neste número (null = IA desligada aqui)
 
   // Cobrança automática: estados (UF) que este número atende, pelo DDD do
   // cliente (ex.: "SP,MG"), e a mensagem enviada diariamente antes do horário
   // limite de pagamento pra quem está em "Recebimento".
-  estadosCobranca    String?
-  mensagemCobranca   String?
+  estadosCobranca  String?
+  mensagemCobranca String?
 
   // Proxy dedicado pra esse número (recomendado: residencial/mobile, nunca
   // datacenter) — evita o WhatsApp banir na hora por detectar IP de VPS.
@@ -458,16 +576,17 @@ model WhatsappNumber {
   aquecimentoDesde DateTime?
 
   // Número padrão (só um por vez) — destacado na lista.
-  padrao         Boolean   @default(false)
+  padrao             Boolean            @default(false)
   // Rastreamento de conexão: usado pra mostrar "Conectado em ..." /
   // "Desconectado em ..." e alimentar o histórico (ConexaoLog).
-  ultimoEstado   String?   // último estado conhecido na Evolution ("open" | "close" | "connecting")
-  conectadoEm    DateTime?
-  desconectadoEm DateTime?
-  logs           ConexaoLog[]
-  campanhas      LinkCampanha[]
+  ultimoEstado       String? // último estado conhecido na Evolution ("open" | "close" | "connecting")
+  conectadoEm        DateTime?
+  desconectadoEm     DateTime?
+  logs               ConexaoLog[]
+  campanhas          LinkCampanha[]
+  mensagensAgendadas MensagemAgendada[]
 
-  createdAt          DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 // Histórico de conexão/desconexão de cada número (pra tela "Ver histórico de conexões").
@@ -475,7 +594,7 @@ model ConexaoLog {
   id        String         @id @default(cuid())
   numero    WhatsappNumber @relation(fields: [numeroId], references: [id], onDelete: Cascade)
   numeroId  String
-  evento    String         // "conectado" | "desconectado"
+  evento    String // "conectado" | "desconectado"
   createdAt DateTime       @default(now())
 }
 
@@ -485,28 +604,39 @@ model ConexaoLog {
 // O QUE dizer). Sem nenhuma regra ativa, o lembrete cai no comportamento antigo
 // de usar a mensagem única do próprio número.
 model RegraCobranca {
-  id       String  @id @default(cuid())
-  diasMin  Int     // -1 = véspera do vencimento, 0 = vence hoje, 1+ = dias de atraso
-  diasMax  Int?    // null = sem teto (faixa final, ex.: "+16 dias")
-  mensagem String
-  ativa    Boolean @default(true)
-  ordem    Int     @default(0)
+  id            String  @id @default(cuid())
+  diasMin       Int // -1 = véspera do vencimento, 0 = vence hoje, 1+ = dias de atraso
+  diasMax       Int? // null = sem teto (faixa final, ex.: "+16 dias")
+  mensagem      String
+  ativa         Boolean @default(true)
+  ordem         Int     @default(0)
+  // Canal recomendado pro cobrador nessa faixa de atraso — aparece como selo na
+  // fila de cobrança. Puramente indicativo (não bloqueia nem automatiza o envio).
+  canalSugerido String? // "whatsapp" | "ligacao" | "presencial" | "notificacao"
+}
+
+// Catálogo de motivos de recusa/perda, editável em Configurações — alimenta o
+// select ao mover um lead pra "Venda perdida" (Contact.motivoPerda).
+model MotivoPerda {
+  id    String @id @default(cuid())
+  nome  String @unique
+  ordem Int    @default(0)
 }
 
 // Cada tentativa de contato feita pelo cobrador (ligou, foi no endereço...) —
 // serve pra medir esforço real gasto por cliente, não só o resultado.
 model TentativaContato {
-  id        String   @id @default(cuid())
-  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId String
-  tipo      String   // "ligacao" | "whatsapp" | "presencial"
-  resultado String   // "atendeu" | "nao_atendeu" | "prometeu" | "recusou" | "numero_errado"
+  id           String    @id @default(cuid())
+  contact      Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId    String
+  tipo         String // "ligacao" | "whatsapp" | "presencial"
+  resultado    String // "atendeu" | "nao_atendeu" | "prometeu" | "recusou" | "numero_errado"
   // Data prometida de pagamento, quando resultado = "prometeu" — usado pra
   // sinalizar promessa quebrada na fila de cobrança se passar sem pagamento.
   dataPromessa DateTime?
-  notas     String?
-  usuario   String?  // quem registrou
-  createdAt DateTime @default(now())
+  notas        String?
+  usuario      String? // quem registrou
+  createdAt    DateTime  @default(now())
 }
 
 model LembreteCobrancaLog {
@@ -523,7 +653,7 @@ model LembreteCobrancaLog {
 model AtribuicaoLog {
   id          String   @id @default(cuid())
   contactId   String
-  contactName String   // snapshot — continua legível mesmo se o lead for excluído depois
+  contactName String // snapshot — continua legível mesmo se o lead for excluído depois
   stageName   String
   responsavel String
   createdAt   DateTime @default(now())
@@ -531,19 +661,19 @@ model AtribuicaoLog {
 
 // Etiqueta (tag) atribuível a leads
 model Tag {
-  id       String    @id @default(cuid())
-  name     String    @unique
-  color    String    @default("#6366f1") // cor do badge
-  contacts Contact[] @relation("ContactTags")
-  rules    AutoTagRule[]
-  createdAt DateTime @default(now())
+  id        String        @id @default(cuid())
+  name      String        @unique
+  color     String        @default("#6366f1") // cor do badge
+  contacts  Contact[]     @relation("ContactTags")
+  rules     AutoTagRule[]
+  createdAt DateTime      @default(now())
 }
 
 // Regra de auto-tag: se a 1ª mensagem do cliente contém o texto, atribui a tag.
 model AutoTagRule {
-  id        String @id @default(cuid())
+  id        String   @id @default(cuid())
   match     String // texto que a 1ª mensagem deve conter (case-insensitive)
-  tag       Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
   tagId     String
   createdAt DateTime @default(now())
 }
@@ -552,7 +682,7 @@ model AutoTagRule {
 model LancamentoCategoria {
   id          String       @id @default(cuid())
   name        String
-  type        String       // "entrada" | "saida"
+  type        String // "entrada" | "saida"
   lancamentos Lancamento[]
   contasPagar ContaPagar[]
   createdAt   DateTime     @default(now())
@@ -560,13 +690,13 @@ model LancamentoCategoria {
 
 // Banco / conta financeira
 model Banco {
-  id              String       @id @default(cuid())
-  name            String
-  lancamentos     Lancamento[]
-  contasPagar     ContaPagar[]
-  configsLibera   Config[]     @relation("ContaLiberacao")
-  configsRecebe   Config[]     @relation("ContaRecebimento")
-  createdAt       DateTime     @default(now())
+  id            String       @id @default(cuid())
+  name          String
+  lancamentos   Lancamento[]
+  contasPagar   ContaPagar[]
+  configsLibera Config[]     @relation("ContaLiberacao")
+  configsRecebe Config[]     @relation("ContaRecebimento")
+  createdAt     DateTime     @default(now())
 }
 
 // Lançamento financeiro (entrada ou saída). Pagamentos de parcelas geram lançamentos automáticos.
@@ -574,18 +704,18 @@ model Banco {
 // Lancamento (que é o dinheiro que de fato entrou/saiu) — ao marcar como paga,
 // gera o Lancamento de saída correspondente e o saldo só muda nessa hora.
 model ContaPagar {
-  id          String    @id @default(cuid())
-  descricao   String
-  valor       Float
-  vencimento  DateTime
-  pago        Boolean   @default(false)
-  pagoEm      DateTime?
-  observacao  String?
+  id         String    @id @default(cuid())
+  descricao  String
+  valor      Float
+  vencimento DateTime
+  pago       Boolean   @default(false)
+  pagoEm     DateTime?
+  observacao String?
 
-  categoria   LancamentoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
-  categoriaId String?
-  banco       Banco?    @relation(fields: [bancoId], references: [id], onDelete: SetNull)
-  bancoId     String?
+  categoria    LancamentoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  categoriaId  String?
+  banco        Banco?               @relation(fields: [bancoId], references: [id], onDelete: SetNull)
+  bancoId      String?
   // Lançamento gerado quando a conta foi paga (some junto se ela for estornada).
   lancamentoId String?
 
@@ -593,29 +723,29 @@ model ContaPagar {
   // recorrenciaMeses = null numa conta recorrente significa ILIMITADA — nesse
   // caso o job diário vai criando as próximas conforme o tempo passa, em vez
   // de gerar infinitas linhas de uma vez.
-  recorrente       Boolean @default(false)
+  recorrente       Boolean      @default(false)
   recorrenciaMeses Int?
-  origem      ContaPagar?  @relation("Recorrencia", fields: [origemId], references: [id], onDelete: Cascade)
-  origemId    String?
-  ocorrencias ContaPagar[] @relation("Recorrencia")
+  origem           ContaPagar?  @relation("Recorrencia", fields: [origemId], references: [id], onDelete: Cascade)
+  origemId         String?
+  ocorrencias      ContaPagar[] @relation("Recorrencia")
 
-  createdAt   DateTime  @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Lancamento {
-  id           String              @id @default(cuid())
-  type         String              // "entrada" | "saida"
-  amount       Float
-  description  String?
-  date         DateTime            @default(now())
-  categoria    LancamentoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
-  categoriaId  String?
-  banco        Banco?              @relation(fields: [bancoId], references: [id], onDelete: SetNull)
-  bancoId      String?
-  contact      Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  contactId    String?
-  parcelaId    String?             // referência à parcela (se gerado automaticamente)
-  createdAt    DateTime            @default(now())
+  id          String               @id @default(cuid())
+  type        String // "entrada" | "saida"
+  amount      Float
+  description String?
+  date        DateTime             @default(now())
+  categoria   LancamentoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  categoriaId String?
+  banco       Banco?               @relation(fields: [bancoId], references: [id], onDelete: SetNull)
+  bancoId     String?
+  contact     Contact?             @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId   String?
+  parcelaId   String? // referência à parcela (se gerado automaticamente)
+  createdAt   DateTime             @default(now())
 }
 
 // Retrato de como foi cada dia: as metas que estavam valendo, o tamanho da
@@ -649,12 +779,12 @@ model MetaDiaria {
   // Resultado do dia. Fica gravado pra montar histórico e gráfico sem varrer
   // parcela por parcela — mas ao abrir um dia específico o sistema recalcula
   // esses números do dado real, que é exato.
-  vendas           Int   @default(0)
-  recebimentos     Int   @default(0)
-  baixas           Int   @default(0)
-  valorRecebido    Float @default(0)
-  valorVendido     Float @default(0) // soma do capital liberado no dia
-  valorRecuperado  Float @default(0) // parte do recebido que estava ATRASADA
+  vendas          Int   @default(0)
+  recebimentos    Int   @default(0)
+  baixas          Int   @default(0)
+  valorRecebido   Float @default(0)
+  valorVendido    Float @default(0) // soma do capital liberado no dia
+  valorRecuperado Float @default(0) // parte do recebido que estava ATRASADA
 
   // Metas de valor vigentes no dia (em R$).
   metaValorVendasMinima Float @default(0)
@@ -677,29 +807,119 @@ model MetaDiaria {
 // (mudar etapa, excluir, dar/desfazer baixa, mudar permissão), não literalmente
 // tudo, pra não virar ruído.
 model AuditLog {
-  id        String   @id @default(cuid())
-  usuario   String?
-  acao      String   // "mover_etapa" | "excluir_contato" | "dar_baixa" | "estornar_baixa" | "excluir_lancamento" | "alterar_permissao" | "excluir_usuario" | ...
-  entidade  String   // "Contact" | "Parcela" | "Lancamento" | "User" | ...
+  id         String   @id @default(cuid())
+  usuario    String?
+  acao       String // "mover_etapa" | "excluir_contato" | "dar_baixa" | "estornar_baixa" | "excluir_lancamento" | "alterar_permissao" | "excluir_usuario" | ...
+  entidade   String // "Contact" | "Parcela" | "Lancamento" | "User" | ...
   entidadeId String?
-  detalhe   String?
-  createdAt DateTime @default(now())
+  detalhe    String?
+  createdAt  DateTime @default(now())
+}
+
+// Controle de espécie: dinheiro que o cobrador recebe na rua não entra no
+// caixa da empresa até ele depositar. "recebido" nasce automático quando uma
+// baixa é registrada com formaPagamento = "dinheiro"; "depositado" é lançado
+// manualmente. saldoEmMaos(usuario) = soma(recebido) - soma(depositado).
+model EspecieMovimento {
+  id         String   @id @default(cuid())
+  usuario    String
+  tipo       String // "recebido" | "depositado"
+  valor      Float
+  parcelaId  String? // preenchido quando nasceu de uma baixa em dinheiro
+  observacao String?
+  createdAt  DateTime @default(now())
+}
+
+// Prestação de contas do dia, preenchida pelo próprio cobrador ao encerrar —
+// não substitui os números reais do sistema, é o relato dele pra bater.
+model PrestacaoContas {
+  id               String   @id @default(cuid())
+  usuario          String
+  dia              DateTime // meia-noite UTC do dia
+  visitas          Int?
+  recebidoDinheiro Float?
+  recebidoPix      Float?
+  observacao       String?
+  createdAt        DateTime @default(now())
+
+  @@unique([usuario, dia])
+}
+
+// Fechamento semanal de comissão (seg-sáb) — snapshot do que foi calculado,
+// com fluxo de aprovação antes de considerar pago. Sem isso a comissão fica
+// só "calculada na tela", sem nunca virar um compromisso fechado.
+model ComissaoFechamento {
+  id               String    @id @default(cuid())
+  usuario          String
+  semanaInicio     DateTime // segunda-feira, meia-noite UTC
+  semanaFim        DateTime // sábado
+  valorRecuperado  Float
+  diasBatidos      Int       @default(0) // quantos dias da semana bateram a meta diária
+  bonusDiarioTotal Float     @default(0)
+  bateuSemanal     Boolean   @default(false)
+  bonusSemanal     Float     @default(0)
+  valorTotal       Float
+  status           String    @default("pendente") // "pendente" | "aprovado" | "pago"
+  aprovadoPor      String?
+  aprovadoEm       DateTime?
+  pagoEm           DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@unique([usuario, semanaInicio])
+}
+
+// Mensagem agendada pra sair numa data/hora futura — reaproveita uma mensagem
+// pronta (MessageTemplate) já existente em vez de duplicar corpo/mídia aqui.
+model MensagemAgendada {
+  id         String           @id @default(cuid())
+  contact    Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId  String
+  numero     WhatsappNumber   @relation(fields: [numeroId], references: [id], onDelete: Cascade)
+  numeroId   String
+  template   MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  templateId String?
+  corpo      String? // texto livre, quando não usa um template
+  dataHora   DateTime
+  enviado    Boolean          @default(false)
+  enviadoEm  DateTime?
+  erro       String?
+  createdAt  DateTime         @default(now())
+}
+
+// Campanha de envio em massa segmentada: escolhe um filtro de contatos (o
+// mesmo formato usado no filtro de Contatos), uma mensagem, e dispara com
+// espaçamento aleatório (5-15s) igual o lembrete de cobrança — protege contra
+// bloqueio do número por volume.
+model CampanhaMassa {
+  id          String    @id @default(cuid())
+  nome        String
+  filtros     String // JSON — mesmo formato do filtro de Contatos
+  templateId  String?
+  mensagem    String? // texto livre, quando não usa um template
+  numeroId    String
+  status      String    @default("rascunho") // "rascunho" | "enviando" | "concluida" | "cancelada"
+  totalAlvos  Int       @default(0)
+  enviados    Int       @default(0)
+  falhas      Int       @default(0)
+  criadoPor   String?
+  createdAt   DateTime  @default(now())
+  iniciadoEm  DateTime?
+  concluidoEm DateTime?
 }
 
 // Mensagem trocada com o contato pelo WhatsApp (Evolution API)
 model Message {
-  id        String   @id @default(cuid())
-  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  id        String    @id @default(cuid())
+  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
   contactId String
-  body      String   @default("") // texto / legenda
-  kind      String   @default("text") // text | audio | image | document
-  mediaUrl  String?  // caminho do arquivo (áudio/imagem/anexo)
+  body      String    @default("") // texto / legenda
+  kind      String    @default("text") // text | audio | image | document
+  mediaUrl  String? // caminho do arquivo (áudio/imagem/anexo)
   mimeType  String?
   fileName  String?
-  fromMe    Boolean  @default(true) // true = enviada por nós, false = recebida do cliente
-  status    String   @default("sent")
-  instance  String?  // instância da Evolution que originou/enviou (controle de visibilidade por usuário)
+  fromMe    Boolean   @default(true) // true = enviada por nós, false = recebida do cliente
+  status    String    @default("sent")
+  instance  String? // instância da Evolution que originou/enviou (controle de visibilidade por usuário)
   readAt    DateTime? // null = não visualizada pelo operador
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 }
-

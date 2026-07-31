@@ -17,7 +17,15 @@ export async function GET() {
     if (recebimento && !colunas.includes(recebimento.id)) colunas = [...colunas, recebimento.id];
   }
 
-  const contactWhere = veTodosLeads(user) ? {} : { responsavel: user?.name || "__none__" };
+  const contactWhere = {
+    excluidoEm: null, // exclusão fica reversível por 24h — não some da lista de vez
+    ...(veTodosLeads(user) ? {} : { responsavel: user?.name || "__none__" }),
+  };
+
+  const config = await prisma.config.findUnique({
+    where: { id: "singleton" },
+    select: { slaPrimeiraRespostaMin: true, avisoAcumuloLimite: true },
+  });
 
   const stages = await prisma.stage.findMany({
     where: colunas ? { id: { in: colunas } } : {},
@@ -25,7 +33,9 @@ export async function GET() {
     include: {
       contacts: {
         where: contactWhere,
-        orderBy: { order: "asc" },
+        // Fixado (item 54) sempre no topo da coluna, dentro disso mantém a
+        // ordem manual de sempre.
+        orderBy: [{ fixado: "desc" }, { order: "asc" }],
         include: {
           parcelas: { orderBy: { number: "asc" } },
           tags: { select: { id: true, name: true, color: true } },
@@ -50,8 +60,13 @@ export async function GET() {
   // pro filtro de atrasada/hoje/a vencer no front) e o horário da última
   // mensagem (de qualquer direção) — o front ordena os cards por isso (mais
   // recente ou mais antiga primeiro, conforme o filtro escolhido).
+  const agora = Date.now();
+  const slaMs = config?.slaPrimeiraRespostaMin ? config.slaPrimeiraRespostaMin * 60 * 1000 : null;
+
   const enriched = stages.map((s) => ({
     ...s,
+    // Aviso de acúmulo (item 58): coluna passou do limite configurado.
+    acumulada: !!config?.avisoAcumuloLimite && s.contacts.length > config.avisoAcumuloLimite,
     contacts: s.contacts.map((c) => ({
       ...c,
       unreadCount: c._count?.messages || 0,
@@ -63,6 +78,12 @@ export async function GET() {
       // recebida, então isso seria sempre true — o que separa lead real de
       // lead fantasma é ter mandado mais de uma.
       msgsCliente: (c.messages || []).filter((m) => !m.fromMe).length,
+      // SLA de 1ª resposta (item 1): nenhuma mensagem NOSSA ainda, e já passou
+      // do prazo configurado desde que o lead foi criado.
+      semRespostaSLA:
+        !!slaMs &&
+        !(c.messages || []).some((m) => m.fromMe) &&
+        agora - new Date(c.createdAt).getTime() > slaMs,
       messages: undefined,
       tasks: undefined,
       _count: undefined,

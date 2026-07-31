@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { atualizarScoreDoContato } from "@/lib/atualizarScoreComportamental";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { podeExecutar } from "@/lib/permissoes";
 
 // Marca uma parcela como paga / pendente.
 // body.amountPago (opcional): valor realmente cobrado — permite ao cobrador
@@ -31,6 +32,12 @@ export async function PATCH(req, { params }) {
   // o valor está mudando, ou quando está sendo desmarcada como paga.
   const ehAlteracao = parcelaAtual.paid && (!paid || amountPago !== parcelaAtual.amountPago);
   if (ehAlteracao) {
+    // Ação sensível (item 43): estornar exige "estornar_baixa"; mudar valor de
+    // baixa já feita exige "editar_valor_baixa" — admin sempre pode as duas.
+    const acaoNecessaria = paid ? "editar_valor_baixa" : "estornar_baixa";
+    if (!podeExecutar(user, acaoNecessaria)) {
+      return NextResponse.json({ error: "Sem permissão para essa alteração." }, { status: 403 });
+    }
     const motivo = (body.motivo || "").trim();
     if (!motivo) {
       return NextResponse.json({ error: "Informe o motivo da alteração." }, { status: 400 });
@@ -58,9 +65,21 @@ export async function PATCH(req, { params }) {
       // Preserva o autor original numa alteração de valor: quem recuperou foi
       // quem cobrou, não quem corrigiu o valor depois.
       baixadoPor: paid ? (parcelaAtual.baixadoPor || user?.name || null) : null,
+      formaPagamento: paid ? (body.formaPagamento || parcelaAtual.formaPagamento || null) : null,
     },
     include: { contact: { select: { id: true, name: true } } },
   });
+
+  // Controle de espécie (item 32): baixa em DINHEIRO fica em mãos do cobrador
+  // até ele depositar — nasce/morre junto com a baixa, nunca solto.
+  if (paid && parcela.formaPagamento === "dinheiro" && !parcelaAtual.paid) {
+    await prisma.especieMovimento.create({
+      data: { usuario: parcela.baixadoPor || "— sem responsável —", tipo: "recebido", valor: amountPago, parcelaId: id },
+    }).catch(() => {});
+  }
+  if (!paid) {
+    await prisma.especieMovimento.deleteMany({ where: { parcelaId: id, tipo: "recebido" } }).catch(() => {});
+  }
   // Baixar a parcela conclui a tarefa de cobrança vinculada
   await prisma.task.updateMany({ where: { parcelaId: id }, data: { done: paid } });
 

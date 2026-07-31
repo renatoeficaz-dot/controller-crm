@@ -9,6 +9,7 @@ export async function PATCH(req, { params }) {
   if ("name" in body) data.name = (body.name || "").trim();
   if ("color" in body) data.color = body.color || "#64748b";
   if ("autoResponsavel" in body) data.autoResponsavel = body.autoResponsavel || null;
+  if ("distribuicaoPool" in body) data.distribuicaoPool = body.distribuicaoPool || null;
   const stage = await prisma.stage.update({ where: { id }, data });
   return NextResponse.json(stage);
 }

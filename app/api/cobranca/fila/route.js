@@ -22,10 +22,13 @@ export async function GET() {
   });
   if (!stages.length) return NextResponse.json([]);
 
-  const where = { stageId: { in: stages.map((s) => s.id) } };
+  const where = { stageId: { in: stages.map((s) => s.id) }, excluidoEm: null };
   if (!veTodosLeads(user)) where.responsavel = user?.name || "__none__";
 
   const inicioHoje = new Date(hoje + "T00:00:00.000Z");
+  const regras = await prisma.regraCobranca.findMany({ where: { canalSugerido: { not: null } } });
+  const canalPara = (dias) => regras.find((r) => dias >= r.diasMin && (r.diasMax == null || dias <= r.diasMax))?.canalSugerido || null;
+
   const contatos = await prisma.contact.findMany({
     where,
     include: {
@@ -66,6 +69,7 @@ export async function GET() {
       proximaParcelaNumero: maisAntiga.number,
       proximaParcelaValor: maisAntiga.amount,
       tentativasHoje,
+      canalSugerido: canalPara(dias),
       promessaQuebrada,
       dataPromessa: ultimaPromessa?.dataPromessa || null,
       // Quem prometeu e não cumpriu vai pro topo: já houve contato e

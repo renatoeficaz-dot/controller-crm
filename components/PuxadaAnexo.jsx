@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { MediaLightbox } from "./MediaBubble";
 import { RISCO_LABEL } from "@/lib/scoreCredito";
 import Icone from "@/components/Icones";
+import { validarCPF } from "@/lib/cpf";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -69,6 +70,10 @@ export default function PuxadaAnexo({
     const cpfLimpo = String(cpf || "").replace(/\D/g, "");
     if (cpfLimpo.length !== 11) {
       setErro("Informe o CPF da lead antes de puxar automaticamente.");
+      return;
+    }
+    if (!validarCPF(cpfLimpo)) {
+      setErro("Esse CPF não é válido (dígito verificador não bate) — confira antes de gastar a consulta.");
       return;
     }
     setErro("");

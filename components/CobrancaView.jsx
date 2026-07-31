@@ -9,6 +9,8 @@ import ComissaoPainel from "@/components/ComissaoPainel";
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const CANAL_LABEL = { whatsapp: "sugestão: WhatsApp", ligacao: "sugestão: ligar", presencial: "sugestão: visitar", notificacao: "sugestão: notificação" };
+
 const FAIXAS = [
   { key: "", label: "Todos" },
   { key: "1-7", label: "1-7 dias", min: 1, max: 7 },
@@ -37,6 +39,7 @@ export default function CobrancaView() {
   const [openContactId, setOpenContactId] = useState(null);
   const [tentativaDe, setTentativaDe] = useState(null);
   const [modoFoco, setModoFoco] = useState(false);
+  const [prestacaoAberta, setPrestacaoAberta] = useState(false);
   const [indiceFoco, setIndiceFoco] = useState(0);
 
   const load = useCallback(async () => {
@@ -213,9 +216,15 @@ export default function CobrancaView() {
           </p>
         </div>
         <button
+          onClick={() => setPrestacaoAberta(true)}
+          className="ml-auto flex items-center gap-1 text-xs rounded-full px-3.5 py-1.5 border border-slate-200 bg-white text-slate-600 hover:border-slate-300 transition-colors shrink-0"
+        >
+          <Icone nome="documento" className="w-3.5 h-3.5" /> Prestação do dia
+        </button>
+        <button
           onClick={() => { setIndiceFoco(0); setModoFoco(true); }}
           disabled={filtrada.length === 0}
-          className="ml-auto flex items-center gap-1 text-xs rounded-full px-3.5 py-1.5 bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40 transition-colors shrink-0"
+          className="flex items-center gap-1 text-xs rounded-full px-3.5 py-1.5 bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40 transition-colors shrink-0"
         >
           <Icone nome="meta" className="w-3.5 h-3.5" /> Modo foco
         </button>
@@ -298,6 +307,11 @@ export default function CobrancaView() {
                   {item.etapa === "Cravo" && (
                     <span className="text-[10px] rounded-full px-2 py-0.5 bg-red-50 text-red-600">Cravo</span>
                   )}
+                  {item.canalSugerido && (
+                    <span className="text-[10px] rounded-full px-2 py-0.5 bg-violet-50 text-violet-600">
+                      {CANAL_LABEL[item.canalSugerido] || item.canalSugerido}
+                    </span>
+                  )}
                   {item.promessaQuebrada && (
                     <span
                       className="flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 bg-red-100 text-red-700 font-semibold"
@@ -362,6 +376,65 @@ export default function CobrancaView() {
       {openContactId && (
         <ContactModal contactId={openContactId} onClose={() => setOpenContactId(null)} onChanged={load} />
       )}
+      {prestacaoAberta && <PrestacaoContasModal onClose={() => setPrestacaoAberta(false)} />}
+    </div>
+  );
+}
+
+// Prestação de contas do dia (item 38) — o próprio cobrador registra ao
+// encerrar. Um envio por dia: reenviar no mesmo dia atualiza em vez de duplicar.
+function PrestacaoContasModal({ onClose }) {
+  const [form, setForm] = useState({ visitas: "", recebidoDinheiro: "", recebidoPix: "", observacao: "" });
+  const [salvando, setSalvando] = useState(false);
+  const [salvo, setSalvo] = useState(false);
+
+  async function salvar(e) {
+    e.preventDefault();
+    setSalvando(true);
+    await fetch("/api/prestacao-contas", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        visitas: form.visitas === "" ? null : Number(form.visitas),
+        recebidoDinheiro: form.recebidoDinheiro === "" ? null : Number(form.recebidoDinheiro),
+        recebidoPix: form.recebidoPix === "" ? null : Number(form.recebidoPix),
+        observacao: form.observacao || null,
+      }),
+    });
+    setSalvando(false);
+    setSalvo(true);
+    setTimeout(onClose, 1000);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={onClose}>
+      <form onSubmit={salvar} className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-slate-800">Prestação de contas do dia</h3>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+        <p className="text-xs text-slate-400">Um relato rápido do que você fez hoje — não muda nada no sistema, é sua conferência.</p>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="text-xs text-slate-400">Visitas feitas</span>
+            <input type="number" min="0" value={form.visitas} onChange={(e) => setForm((f) => ({ ...f, visitas: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+          </label>
+          <label className="block">
+            <span className="text-xs text-slate-400">Recebido em dinheiro</span>
+            <input type="number" step="0.01" min="0" value={form.recebidoDinheiro} onChange={(e) => setForm((f) => ({ ...f, recebidoDinheiro: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+          </label>
+          <label className="block col-span-2">
+            <span className="text-xs text-slate-400">Recebido em Pix</span>
+            <input type="number" step="0.01" min="0" value={form.recebidoPix} onChange={(e) => setForm((f) => ({ ...f, recebidoPix: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+          </label>
+        </div>
+        <label className="block">
+          <span className="text-xs text-slate-400">Observações</span>
+          <textarea rows={2} value={form.observacao} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none" />
+        </label>
+        <button disabled={salvando} className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50">
+          {salvando ? "Salvando…" : salvo ? "Salvo!" : "Enviar"}
+        </button>
+      </form>
     </div>
   );
 }

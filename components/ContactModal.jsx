@@ -3,11 +3,16 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { resumoCobranca, valorParcelaAtual, parcelaAtrasada } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
+import { validarCPF } from "@/lib/cpf";
 import { UFS_BR } from "@/lib/ddd";
 import MediaBubble, { MediaLightbox } from "./MediaBubble";
 import PuxadaAnexo from "./PuxadaAnexo";
 import CobrancaLead from "./CobrancaLead";
 import Icone from "@/components/Icones";
+import PixModal from "./PixModal";
+import DocumentosPopup from "./DocumentosPopup";
+import TimelineLead from "./TimelineLead";
+import AgendarMensagemModal from "./AgendarMensagemModal";
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -47,6 +52,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [messages, setMessages] = useState([]);
   const [parcelas, setParcelas] = useState([]);
   const [editandoBaixa, setEditandoBaixa] = useState(null); // { parcela, modo: "valor"|"desfazer", novoValor, motivo }
+  const [pixAberto, setPixAberto] = useState(null); // parcela | null
+  const [documentosAberto, setDocumentosAberto] = useState(false);
+  const [timelineAberta, setTimelineAberta] = useState(false);
+  const [camposDef, setCamposDef] = useState([]);
+  const [agendarAberto, setAgendarAberto] = useState(false);
   const [honorariosPct, setHonorariosPct] = useState(30);
   const [multaPct, setMultaPct] = useState(50);
   const [escalonamentoCfg, setEscalonamentoCfg] = useState(null);
@@ -108,6 +118,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       genero: data.genero || "",
       tipoCliente: data.tipoCliente || "",
       cpf: data.cpf || "",
+      camposCustom: JSON.parse(data.camposCustom || "{}"),
     });
     setMessages(data.messages || []);
     setParcelas(data.parcelas || []);
@@ -134,6 +145,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
     fetch("/api/task-types").then((r) => r.json()).then((t) => setTaskTypes(Array.isArray(t) ? t : [])).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
+    fetch("/api/campos-personalizados").then((r) => r.json()).then((c) => setCamposDef(Array.isArray(c) ? c : [])).catch(() => {});
   }, []);
 
   // Número (instância) sugerido pro próximo envio: o último usado nesta
@@ -284,11 +296,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       );
       amountPago = cobrarComJuros ? comMulta : p.amount;
     }
+    // Controle de espécie (item 32): dinheiro em mãos do cobrador precisa ser
+    // rastreado até o depósito; Pix não passa pela mão de ninguém.
+    const formaPagamento = confirm("Como foi pago?\n\nOK = Pix/transferência\nCancelar = Dinheiro em espécie") ? "pix" : "dinheiro";
     setParcelas((prev) => prev.map((x) => (x.id === p.id ? { ...x, paid: true, amountPago: amountPago ?? p.amount } : x)));
     await fetch(`/api/parcelas/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paid: true, amountPago }),
+      body: JSON.stringify({ paid: true, amountPago, formaPagamento }),
     });
   }
 
@@ -677,7 +692,41 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   </button>
                 )}
               </div>
+              {/* Só o dígito verificador — não confirma que a pessoa existe, mas
+                  evita gastar consulta de puxada com CPF digitado errado. */}
+              {form.cpf?.length === 11 && !validarCPF(form.cpf) && (
+                <p className="text-[11px] text-red-500 mt-1">CPF inválido — confira os números antes de consultar a puxada.</p>
+              )}
             </label>
+
+            {/* Campos personalizados (item 67) — definidos em Configurações → Campos */}
+            {camposDef.length > 0 && (
+              <div className="border border-slate-200 rounded-lg p-2.5 space-y-2">
+                <span className="text-xs font-medium text-slate-600">Campos adicionais</span>
+                {camposDef.map((c) => (
+                  <label key={c.chave} className="block">
+                    <span className="text-[11px] text-slate-400">{c.label}</span>
+                    {c.tipo === "opcoes" ? (
+                      <select
+                        value={form.camposCustom?.[c.chave] || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, camposCustom: { ...f.camposCustom, [c.chave]: e.target.value } }))}
+                        className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                      >
+                        <option value="">—</option>
+                        {(c.opcoes || "").split(",").map((o) => o.trim()).filter(Boolean).map((o) => (<option key={o} value={o}>{o}</option>))}
+                      </select>
+                    ) : (
+                      <input
+                        type={c.tipo === "numero" ? "number" : c.tipo === "data" ? "date" : "text"}
+                        value={form.camposCustom?.[c.chave] || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, camposCustom: { ...f.camposCustom, [c.chave]: e.target.value } }))}
+                        className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                      />
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
 
             {/* Puxada (consulta de crédito) em PDF — fixa no card, não depende do chat */}
             <PuxadaAnexo
@@ -698,8 +747,32 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
             <CobrancaLead contactId={contactId} contact={contact} onChanged={() => { loadContact(); onChanged?.(); }} />
 
-            {/* Mídias enviadas na conversa */}
-            <MidiasEnviadas messages={messages} />
+            {/* Documentos e mídias — organizados por tipo (itens 68/69) */}
+            <button
+              type="button"
+              onClick={() => setDocumentosAberto(true)}
+              className="w-full flex items-center justify-between text-xs font-medium text-slate-600 border border-slate-200 rounded-lg p-2.5 hover:bg-slate-50"
+            >
+              <span className="flex items-center gap-1"><Icone nome="imagem" className="w-3.5 h-3.5" /> Documentos e mídias</span>
+              <Icone nome="seta" className="w-3.5 h-3.5 text-slate-400 -rotate-90" />
+            </button>
+
+            {/* Linha do tempo unificada (item 66) */}
+            <div className="border border-slate-200 rounded-lg p-2.5">
+              <button
+                type="button"
+                onClick={() => setTimelineAberta((v) => !v)}
+                className="w-full flex items-center justify-between text-xs font-medium text-slate-600"
+              >
+                <span className="flex items-center gap-1"><Icone nome="documento" className="w-3.5 h-3.5" /> Linha do tempo</span>
+                <Icone nome="seta" className={`w-3.5 h-3.5 text-slate-400 transition-transform ${timelineAberta ? "rotate-180" : ""}`} />
+              </button>
+              {timelineAberta && (
+                <div className="mt-2">
+                  <TimelineLead contactId={contactId} />
+                </div>
+              )}
+            </div>
 
             {/* Tarefas do lead */}
             <div className="border border-slate-200 rounded-lg p-2.5">
@@ -888,6 +961,16 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                             )}
                           </label>
                           <span className="flex items-center gap-1.5">
+                            {!p.paid && (
+                              <button
+                                type="button"
+                                onClick={() => setPixAberto(p)}
+                                title="Gerar Pix desta parcela"
+                                className="text-sky-400 hover:text-sky-600"
+                              >
+                                <Icone nome="dinheiro" className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <span className={`font-medium ${p.paid ? "text-emerald-600" : atrasada ? "text-red-600" : "text-slate-700"}`}>
                               {money(p.paid ? p.amountPago : valorParcelaAtual(p, undefined, multaOpts))}
                             </span>
@@ -1140,6 +1223,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               <Icone nome={recording ? "parar" : "microfone"} className="w-4 h-4" />
             </button>
             <button
+              type="button"
+              onClick={() => setAgendarAberto(true)}
+              title="Agendar esta mensagem pra outro momento"
+              className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
+            >
+              <Icone nome="relogio" className="w-4 h-4" />
+            </button>
+            <button
               onClick={send}
               disabled={sending || !text.trim()}
               className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-40"
@@ -1152,6 +1243,20 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
       {/* Alterar valor de uma baixa já registrada, ou desmarcá-la — sempre
           pede o motivo (fica logado em Configurações > Alterações). */}
+      {pixAberto && <PixModal parcela={pixAberto} onClose={() => setPixAberto(null)} />}
+      {documentosAberto && <DocumentosPopup contactId={contactId} messages={messages} onClose={() => setDocumentosAberto(false)} />}
+      {agendarAberto && (
+        <AgendarMensagemModal
+          contactId={contactId}
+          textoInicial={text}
+          templates={templates}
+          numbers={numbers}
+          numeroInicial={numbers.find((n) => n.instance === selectedInstance)?.id || ""}
+          onClose={() => setAgendarAberto(false)}
+          onAgendado={() => setSavedFlash(true)}
+        />
+      )}
+
       {editandoBaixa && (
         <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEditandoBaixa(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
@@ -1203,38 +1308,3 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   );
 }
 
-const MIDIA_KINDS = ["image", "audio", "document"];
-
-// Grade com todas as fotos/áudios/documentos já trocados na conversa — cada
-// miniatura reaproveita o MediaBubble (que já sabe carregar sob demanda e
-// abrir o preview em tela cheia ao clicar).
-function MidiasEnviadas({ messages }) {
-  const [aberto, setAberto] = useState(false);
-  const midias = messages.filter((m) => MIDIA_KINDS.includes(m.kind));
-
-  return (
-    <div className="border border-slate-200 rounded-lg p-2.5">
-      <button
-        type="button"
-        onClick={() => setAberto((v) => !v)}
-        className="w-full flex items-center justify-between text-xs font-medium text-slate-600"
-      >
-        <span className="flex items-center gap-1"><Icone nome="imagem" className="w-3.5 h-3.5" /> Mídias enviadas ({midias.length})</span>
-        <Icone nome="seta" className={`w-3.5 h-3.5 text-slate-400 transition-transform ${aberto ? "rotate-180" : ""}`} />
-      </button>
-      {aberto && (
-        midias.length === 0 ? (
-          <p className="text-xs text-slate-400 mt-2">Nenhuma mídia trocada nessa conversa ainda.</p>
-        ) : (
-          <div className="grid grid-cols-3 gap-1.5 mt-2">
-            {midias.map((m) => (
-              <div key={m.id} className="aspect-square rounded-md overflow-hidden bg-slate-50 border border-slate-100 flex items-center justify-center">
-                <MediaBubble message={m} />
-              </div>
-            ))}
-          </div>
-        )
-      )}
-    </div>
-  );
-}

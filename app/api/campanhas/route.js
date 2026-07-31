@@ -48,6 +48,8 @@ export async function POST(req) {
       utmMedium: body.utmMedium?.trim() || null,
       utmCampaign: body.utmCampaign?.trim() || null,
       mensagem: body.mensagem?.trim() || null,
+      modoColeta: ["chat", "formulario", "perguntar"].includes(body.modoColeta) ? body.modoColeta : "chat",
+      formCampos: Array.isArray(body.formCampos) && body.formCampos.length ? JSON.stringify(body.formCampos) : null,
     },
     include: {
       numero: { select: { id: true, label: true, number: true } },

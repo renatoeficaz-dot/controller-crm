@@ -15,6 +15,7 @@ const USER_SELECT = {
   metaVendasMinimaPropria: true,
   metaVendasMediaPropria: true,
   metaVendasDiaPropria: true,
+  permissoesExtras: true,
   createdAt: true,
 };
 
@@ -59,6 +60,7 @@ export async function POST(req) {
       metaVendasMinimaPropria: metaOuNull(body.metaVendasMinimaPropria),
       metaVendasMediaPropria: metaOuNull(body.metaVendasMediaPropria),
       metaVendasDiaPropria: metaOuNull(body.metaVendasDiaPropria),
+      permissoesExtras: (body.permissoesExtras || []).join(",") || null,
     },
     select: USER_SELECT,
   });

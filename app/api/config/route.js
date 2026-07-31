@@ -86,6 +86,19 @@ export async function PATCH(req) {
   if ("provisaoPct16a30" in body) data.provisaoPct16a30 = pct(body.provisaoPct16a30);
   if ("provisaoPct31mais" in body) data.provisaoPct31mais = pct(body.provisaoPct31mais);
 
+  // SLA de 1ª resposta / aviso de acúmulo — null desliga.
+  if ("slaPrimeiraRespostaMin" in body) {
+    data.slaPrimeiraRespostaMin = body.slaPrimeiraRespostaMin === null || body.slaPrimeiraRespostaMin === "" ? null : Math.max(1, Number(body.slaPrimeiraRespostaMin) || 1);
+  }
+  if ("avisoAcumuloLimite" in body) {
+    data.avisoAcumuloLimite = body.avisoAcumuloLimite === null || body.avisoAcumuloLimite === "" ? null : Math.max(1, Number(body.avisoAcumuloLimite) || 1);
+  }
+
+  // Pix pra gerar Copia-e-Cola/QR das parcelas.
+  if ("pixChave" in body) data.pixChave = (body.pixChave || "").trim() || null;
+  if ("pixNomeRecebedor" in body) data.pixNomeRecebedor = (body.pixNomeRecebedor || "").trim() || null;
+  if ("pixCidade" in body) data.pixCidade = (body.pixCidade || "").trim() || null;
+
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }

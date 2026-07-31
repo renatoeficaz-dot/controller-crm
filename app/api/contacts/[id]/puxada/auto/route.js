@@ -4,6 +4,7 @@ import { saveMediaBuffer } from "@/lib/mediaStorage";
 import { consultarCpfDetetive } from "@/lib/detetiveForense";
 import { gerarPuxadaPdfBuffer } from "@/lib/puxadaPdf";
 import { extrairDadosPuxada, calcularScore } from "@/lib/scoreCredito";
+import { validarCPF } from "@/lib/cpf";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,11 @@ export async function POST(req, { params }) {
     const cpf = String(body.cpf || contact.cpf || "").replace(/\D/g, "");
     if (cpf.length !== 11) {
       return NextResponse.json({ error: "Informe um CPF valido no card da lead antes de puxar." }, { status: 400 });
+    }
+    // Mesma validação do dígito verificador que trava o botão no front — aqui
+    // de novo pra ninguém gastar consulta paga chamando a API direto.
+    if (!validarCPF(cpf)) {
+      return NextResponse.json({ error: "Esse CPF não é válido (dígito verificador não bate)." }, { status: 400 });
     }
 
     const resultado = await consultarCpfDetetive(cpf);
