@@ -15,6 +15,7 @@ export async function register() {
   const { enviarMensagensAgendadas } = await import("@/lib/mensagemAgendada");
   const { processarCampanhasMassa } = await import("@/lib/campanhaMassa");
   const { fecharSemanaAnterior } = await import("@/lib/comissaoFechamento");
+  const { enviarPixAdimplentes } = await import("@/lib/pixAdimplentes");
   const CINCO_MIN = 5 * 60 * 1000;
 
   // Rotinas de 1x por dia guardam aqui o dia da última execução — o intervalo
@@ -33,6 +34,9 @@ export async function register() {
   setInterval(() => {
     registrarMetaDoDia().catch((err) => console.error("[metaDiaria] erro:", err.message));
     checarLembretesCobranca().catch((err) => console.error("[lembreteCobranca] erro:", err.message));
+    // Pix pra quem está em dia (item novo) — atrasado nunca entra aqui, isso é
+    // trabalho do cobrador via fila de cobrança/régua.
+    enviarPixAdimplentes().catch((err) => console.error("[pixAdimplentes] erro:", err.message));
     checarFollowUp30min().catch((err) => console.error("[followUp30min] erro:", err.message));
     checarMensagensSemResposta().catch((err) => console.error("[mensagensSemResposta] erro:", err.message));
     checarResumoDiario().catch((err) => console.error("[resumoDiario] erro:", err.message));

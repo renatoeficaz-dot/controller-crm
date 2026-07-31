@@ -99,6 +99,12 @@ export async function PATCH(req) {
   if ("pixNomeRecebedor" in body) data.pixNomeRecebedor = (body.pixNomeRecebedor || "").trim() || null;
   if ("pixCidade" in body) data.pixCidade = (body.pixCidade || "").trim() || null;
 
+  // Mensagem automática de Pix pra adimplentes.
+  if ("pixAdimplentesAtivo" in body) data.pixAdimplentesAtivo = !!body.pixAdimplentesAtivo;
+  if ("pixAdimplentesDiasAntes" in body) data.pixAdimplentesDiasAntes = Math.max(0, Math.min(5, Number(body.pixAdimplentesDiasAntes) || 0));
+  if ("pixAdimplentesHora" in body) data.pixAdimplentesHora = (body.pixAdimplentesHora || "08:00").trim();
+  if ("pixAdimplentesMensagem" in body) data.pixAdimplentesMensagem = (body.pixAdimplentesMensagem || "").trim() || null;
+
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
   return NextResponse.json(config);
 }

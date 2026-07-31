@@ -471,6 +471,14 @@ model Config {
   pixChave         String?
   pixNomeRecebedor String?
   pixCidade        String?
+
+  // Mensagem diária automática com o Pix pra quem está EM DIA (nenhuma parcela
+  // atrasada) — manda sozinho, sem depender do cobrador. Atrasado NUNCA entra
+  // aqui: esse é trabalho do cobrador, via fila de cobrança/régua normal.
+  pixAdimplentesAtivo     Boolean @default(false)
+  pixAdimplentesDiasAntes Int     @default(0) // 0 = só no dia do vencimento; 1 = já manda na véspera também
+  pixAdimplentesHora      String  @default("08:00") // "HH:MM" — horário alvo do envio
+  pixAdimplentesMensagem  String?
 }
 
 // Configuração de comissão dos cobradores — bônus por bater a meta de valor
@@ -643,6 +651,16 @@ model LembreteCobrancaLog {
   id        String   @id @default(cuid())
   contactId String
   dia       DateTime // meia-noite UTC do dia do lembrete
+  createdAt DateTime @default(now())
+
+  @@unique([contactId, dia])
+}
+
+// Um por contato por dia — evita mandar a mensagem de Pix duas vezes no mesmo dia.
+model PixAdimplenteLog {
+  id        String   @id @default(cuid())
+  contactId String
+  dia       DateTime
   createdAt DateTime @default(now())
 
   @@unique([contactId, dia])

@@ -92,6 +92,10 @@ export function OperacaoConfig() {
         pixChave: c.pixChave || null,
         pixNomeRecebedor: c.pixNomeRecebedor || null,
         pixCidade: c.pixCidade || null,
+        pixAdimplentesAtivo: !!c.pixAdimplentesAtivo,
+        pixAdimplentesDiasAntes: c.pixAdimplentesDiasAntes,
+        pixAdimplentesHora: c.pixAdimplentesHora || "08:00",
+        pixAdimplentesMensagem: c.pixAdimplentesMensagem || null,
       }),
     });
     setC(await res.json());
@@ -122,6 +126,55 @@ export function OperacaoConfig() {
           <Campo label="Nome do recebedor" value={c.pixNomeRecebedor || ""} onChange={set("pixNomeRecebedor")} maxLength={25} />
           <Campo label="Cidade" value={c.pixCidade || ""} onChange={set("pixCidade")} maxLength={15} />
         </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <Cabecalho
+            icone="dinheiro"
+            titulo="Mandar Pix sozinho pra quem está em dia"
+            subtitulo='Todo dia, quem NÃO tem nenhuma parcela atrasada recebe o Pix da parcela que vence automaticamente. Atrasado fica de fora — isso é trabalho do cobrador.'
+          />
+          <button
+            type="button"
+            onClick={() => setC((p) => ({ ...p, pixAdimplentesAtivo: !p.pixAdimplentesAtivo }))}
+            className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${c.pixAdimplentesAtivo ? "bg-emerald-500" : "bg-slate-200"}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${c.pixAdimplentesAtivo ? "translate-x-4" : ""}`} />
+          </button>
+        </div>
+        {c.pixAdimplentesAtivo && (
+          <>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Campo
+                label="Manda com quantos dias de antecedência"
+                type="number" min="0" max="5"
+                value={c.pixAdimplentesDiasAntes ?? 0}
+                onChange={set("pixAdimplentesDiasAntes")}
+                hint="0 = só no dia do vencimento"
+              />
+              <Campo label="Horário do envio" type="time" value={c.pixAdimplentesHora || "08:00"} onChange={set("pixAdimplentesHora")} />
+            </div>
+            <label className="block">
+              <span className="text-xs text-slate-500">Mensagem</span>
+              <textarea
+                rows={4}
+                value={c.pixAdimplentesMensagem || ""}
+                onChange={set("pixAdimplentesMensagem")}
+                placeholder={"Oi {{nome}}! Sua parcela de {{valor_parcela}} vence hoje. Pra facilitar, aqui está o Pix:\n\n{{pix_copia_cola}}"}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-y"
+              />
+              <span className="block text-[10px] text-slate-400 mt-0.5">
+                Use <code className="bg-slate-100 rounded px-1">{"{{pix_copia_cola}}"}</code> onde o código Pix deve entrar. Vazio = usa a mensagem padrão.
+              </span>
+            </label>
+            {!c.pixChave && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                Cadastre a chave Pix acima antes de ativar — sem ela, nada é enviado.
+              </p>
+            )}
+          </>
+        )}
       </div>
 
       <button disabled={saving} className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50">
