@@ -57,6 +57,7 @@ model Contact {
   tasks            Task[]
   lancamentos      Lancamento[]
   tentativas       TentativaContato[]
+  responsavelLogs  ResponsavelLog[]
 
   // Atendimento manual: enquanto true, a IA não responde esse lead — o
   // humano assumiu a conversa. É ligado automaticamente ao mover o lead pra
@@ -295,10 +296,30 @@ model Parcela {
   task           Task?
   alteracoes     AlteracaoBaixa[]
   ajustes        ParcelaAjuste[]
+  descontos      SolicitacaoDesconto[]
 }
 
 // Vencimento alterado ou parcela adiada (itens 103/104) — sempre com motivo,
 // mesmo padrão de auditoria do AlteracaoBaixa (que é só pra valor de baixa).
+// Item 165: desconto pontual numa parcela pedido pelo cobrador, mas que só
+// vale depois de um admin aprovar — evita que qualquer um reduza uma dívida
+// sozinho.
+model SolicitacaoDesconto {
+  id            String    @id @default(cuid())
+  parcela       Parcela   @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
+  parcelaId     String
+  contactNome   String
+  parcelaNumero Int
+  valorOriginal Float
+  valorPedido   Float
+  motivo        String
+  solicitadoPor String?
+  status        String    @default("pendente") // "pendente" | "aprovado" | "recusado"
+  respondidoPor String?
+  respondidoEm  DateTime?
+  createdAt     DateTime  @default(now())
+}
+
 model ParcelaAjuste {
   id               String   @id @default(cuid())
   parcela          Parcela  @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
@@ -325,6 +346,32 @@ model Negociacao {
   notas          String?
   usuario        String?
   createdAt      DateTime @default(now())
+}
+
+// Tempo de uso do sistema por colaborador, por dia — só conta enquanto o
+// mouse/teclado estiveram ativos nos últimos 60s E a aba estava em primeiro
+// plano (ver components/UsoAtivoTracker.jsx), pra não contar "deixei aberto
+// e fui embora" como uso.
+model UsoDiario {
+  id       String   @id @default(cuid())
+  usuario  String
+  dia      DateTime
+  segundos Int      @default(0)
+
+  @@unique([usuario, dia])
+}
+
+// Item 191: histórico de quem já foi responsável por esse lead — sem isso,
+// depois de uma transferência (item 185) ou edição manual, ninguém consegue
+// dizer quem cuidava do cliente antes.
+model ResponsavelLog {
+  id        String   @id @default(cuid())
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String
+  de        String?
+  para      String?
+  usuario   String? // quem fez a mudança
+  createdAt DateTime @default(now())
 }
 
 // Log de alterações feitas numa baixa já registrada (mudar o valor cobrado,
@@ -525,6 +572,25 @@ model ComissaoConfig {
   bonusDiario      Float  @default(0) // quanto ganha ao bater
   metaSemanalValor Float  @default(0) // R$ recuperados na semana (seg-sáb) pra bater a meta semanal
   bonusSemanal     Float  @default(0)
+
+  // Item 221: bônus progressivo por faixa de valor recuperado na semana —
+  // além do bônus fixo acima. Desligado por padrão (não altera pagamento já
+  // em curso sem o admin ligar antes). Faixas em ComissaoFaixa.
+  progressivaAtiva Boolean @default(false)
+
+  // Item 223: desconto por lead perdido na semana (Contact.perdidoEm) do
+  // responsável — 0 desliga, igual toda outra meta em R$ do sistema.
+  descontoPorPerdaValor Float @default(0)
+}
+
+// Faixas do bônus progressivo (item 221) — quem recuperar >= minValor na
+// semana ganha pctBonus% sobre TUDO que recuperou (não é marginal por
+// faixa, é "bateu a faixa, ganha o % dela inteiro" — mais fácil de explicar
+// pro cobrador do que uma conta em degraus).
+model ComissaoFaixa {
+  id        String @id @default(cuid())
+  minValor  Float
+  pctBonus  Float
 }
 
 // Um "agente" de IA: prompt + modelos próprios. Cada número de WhatsApp escolhe
@@ -644,6 +710,11 @@ model WhatsappNumber {
   // os dias de uso (ver lib/aquecimento.js).
   aquecimentoAtivo Boolean   @default(false)
   aquecimentoDesde DateTime?
+
+  // Item 175: teto de envios automáticos POR HORA — separado do teto diário
+  // de aquecimento acima, vale sempre (mesmo número já aquecido) pra evitar
+  // rajada concentrada, que é outro padrão que o WhatsApp watch. null = sem teto.
+  limiteEnviosHora Int?
 
   // Número padrão (só um por vez) — destacado na lista.
   padrao             Boolean            @default(false)
@@ -956,6 +1027,9 @@ model ComissaoFechamento {
   bonusDiarioTotal Float     @default(0)
   bateuSemanal     Boolean   @default(false)
   bonusSemanal     Float     @default(0)
+  bonusProgressivo Float     @default(0) // item 221
+  qtdPerdas        Int       @default(0) // item 223
+  descontoPerdas   Float     @default(0) // item 223
   valorTotal       Float
   status           String    @default("pendente") // "pendente" | "aprovado" | "pago"
   aprovadoPor      String?

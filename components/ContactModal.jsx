@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { resumoCobranca, valorParcelaAtual, parcelaAtrasada, NUM_PARCELAS } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
 import { validarCPF } from "@/lib/cpf";
@@ -13,6 +13,7 @@ import PixModal from "./PixModal";
 import DocumentosPopup from "./DocumentosPopup";
 import TimelineLead from "./TimelineLead";
 import AgendarMensagemModal from "./AgendarMensagemModal";
+import AgendamentosPendentesModal from "./AgendamentosPendentesModal";
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -51,6 +52,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [contact, setContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [parcelas, setParcelas] = useState([]);
+  // Item 173: 3 envios seguidos falhando (sem sucesso nem resposta entre eles)
+  // é o único sinal indireto que o WhatsApp dá de que o número te bloqueou.
+  const possivelBloqueio = useMemo(() => {
+    const enviadas = messages.filter((m) => m.fromMe).slice(-3);
+    return enviadas.length === 3 && enviadas.every((m) => m.status === "falhou" || m.status === "erro");
+  }, [messages]);
   const [editandoBaixa, setEditandoBaixa] = useState(null); // { parcela, modo: "valor"|"desfazer", novoValor, motivo }
   const [pixAberto, setPixAberto] = useState(null); // parcela | null
   const [baixaParcialAberta, setBaixaParcialAberta] = useState(null); // parcela | null
@@ -58,6 +65,24 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [salvandoAvulsa, setSalvandoAvulsa] = useState(false);
   const [editandoVencimento, setEditandoVencimento] = useState(null); // { parcela, novoVencimento, motivo } | null
   const [salvandoVencimento, setSalvandoVencimento] = useState(false);
+  const [descontoAberto, setDescontoAberto] = useState(null); // { parcela, valorPedido, motivo } | null
+  const [enviandoDesconto, setEnviandoDesconto] = useState(false);
+  const [descontoMsg, setDescontoMsg] = useState("");
+
+  async function pedirDesconto() {
+    if (!descontoAberto?.valorPedido || !descontoAberto?.motivo?.trim()) return;
+    setEnviandoDesconto(true);
+    setDescontoMsg("");
+    const res = await fetch(`/api/parcelas/${descontoAberto.parcela.id}/desconto`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ valorPedido: Number(descontoAberto.valorPedido), motivo: descontoAberto.motivo.trim() }),
+    });
+    setEnviandoDesconto(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { setDescontoMsg(d.error || "Erro ao pedir desconto."); return; }
+    setDescontoAberto(null);
+  }
 
   async function salvarParcelaAvulsa() {
     if (!parcelaAvulsaAberta?.valor || !parcelaAvulsaAberta?.vencimento) return;
@@ -97,7 +122,15 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     setEnviandoParcial(false);
     const d = await res.json().catch(() => ({}));
     if (!res.ok) { alert(d.error || "Erro ao registrar baixa parcial."); return; }
-    setParcelas((prev) => prev.map((x) => (x.id === baixaParcialAberta.id ? d.parcela : x)));
+    // Item 162: sobra do pagamento pode ter quitado (total ou parcialmente) as
+    // próximas parcelas — recarrega tudo em vez de só a que foi clicada.
+    if (d.quitadasAdiantado?.length > 0) {
+      const linhas = d.quitadasAdiantado.map((q) => `${q.number}ª parcela: R$ ${q.valor}${q.completou ? " (quitada)" : " (parcial)"}`);
+      alert(`Sobrou dinheiro do pagamento e foi usado nas próximas parcelas:\n\n${linhas.join("\n")}`);
+      await loadContact();
+    } else {
+      setParcelas((prev) => prev.map((x) => (x.id === baixaParcialAberta.id ? d.parcela : x)));
+    }
     setBaixaParcialAberta(null);
     setValorParcial("");
   }
@@ -105,6 +138,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [timelineAberta, setTimelineAberta] = useState(false);
   const [camposDef, setCamposDef] = useState([]);
   const [agendarAberto, setAgendarAberto] = useState(false);
+  const [agendamentosAberto, setAgendamentosAberto] = useState(false);
   const [honorariosPct, setHonorariosPct] = useState(30);
   const [multaPct, setMultaPct] = useState(50);
   const [escalonamentoCfg, setEscalonamentoCfg] = useState(null);
@@ -236,8 +270,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       });
       const data = await res.json().catch(() => ({}));
       setSending(false);
+      if (data.message) setMessages((m) => [...m, data.message]);
       if (!res.ok) { setError(data.error || "Falha ao enviar."); return; }
-      setMessages((m) => [...m, data.message]);
       setTplCopied(true);
       setTimeout(() => setTplCopied(false), 1500);
       return;
@@ -348,11 +382,19 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     // rastreado até o depósito; Pix não passa pela mão de ninguém.
     const formaPagamento = confirm("Como foi pago?\n\nOK = Pix/transferência\nCancelar = Dinheiro em espécie") ? "pix" : "dinheiro";
     setParcelas((prev) => prev.map((x) => (x.id === p.id ? { ...x, paid: true, amountPago: amountPago ?? p.amount } : x)));
-    await fetch(`/api/parcelas/${p.id}`, {
+    const res = await fetch(`/api/parcelas/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paid: true, amountPago, formaPagamento }),
     });
+    if (!res.ok) {
+      // Item 152: alguém já deu baixa nessa parcela nesse meio tempo — desfaz
+      // a marcação otimista e recarrega pra mostrar o estado real.
+      setParcelas((prev) => prev.map((x) => (x.id === p.id ? p : x)));
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || "Falha ao registrar a baixa.");
+      loadContact();
+    }
   }
 
   function abrirEdicaoValorBaixa(p) {
@@ -424,13 +466,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body, instance: selectedInstance }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     setSending(false);
+    if (data.message) setMessages((m) => [...m, data.message]);
     if (!res.ok) {
       setError(data.error || "Falha ao enviar.");
       return;
     }
-    setMessages((m) => [...m, data.message]);
     setText("");
   }
 
@@ -528,7 +570,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
   async function removeContact() {
     if (!confirm("Remover este contato e todo o histórico?")) return;
-    await fetch(`/api/contacts/${contactId}`, { method: "DELETE" });
+    let res = await fetch(`/api/contacts/${contactId}`, { method: "DELETE" });
+    if (res.status === 409) {
+      const d = await res.json().catch(() => ({}));
+      if (!d.temParcelasAbertas || !confirm(`${d.error}\n\nExcluir mesmo assim?`)) return;
+      res = await fetch(`/api/contacts/${contactId}?force=1`, { method: "DELETE" });
+    }
     onChanged?.();
     onClose();
   }
@@ -1055,6 +1102,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                                 >
                                   <Icone nome="dinheiro" className="w-3.5 h-3.5" />
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setDescontoAberto({ parcela: p, valorPedido: "", motivo: "" }); setDescontoMsg(""); }}
+                                  title="Pedir desconto pontual (precisa aprovação do admin)"
+                                  className="text-violet-400 hover:text-violet-600"
+                                >
+                                  <Icone nome="lapis" className="w-3.5 h-3.5" />
+                                </button>
                               </>
                             )}
                             <span className={`font-medium ${p.paid ? "text-emerald-600" : atrasada ? "text-red-600" : "text-slate-700"}`}>
@@ -1211,6 +1266,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             </button>
           </div>
 
+          {possivelBloqueio && (
+            <div className="px-4 py-2 bg-red-50 border-b border-red-100 text-xs text-red-600 flex items-center gap-1.5">
+              <Icone nome="alerta" className="w-3.5 h-3.5 shrink-0" />
+              As últimas 3 mensagens pra esse número falharam ao enviar — pode ter bloqueado o WhatsApp. Considere ligar ou tentar outro canal.
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto thin-scroll p-4 flex flex-col gap-2">
             {messages.length === 0 && (
               <p className="text-center text-xs text-slate-400 mt-4">
@@ -1242,7 +1304,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     m.fromMe ? "text-emerald-100" : "text-slate-400"
                   }`}
                 >
-                  {fmtTime(m.createdAt)} {m.fromMe && m.status === "simulado" ? "• simulado" : ""}
+                  {fmtTime(m.createdAt)}
+                  {m.fromMe && m.status === "simulado" ? " • simulado" : ""}
+                  {m.fromMe && m.status === "falhou" ? " • falhou ao enviar" : ""}
                 </span>
               </div>
             ))}
@@ -1322,6 +1386,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               <Icone nome="relogio" className="w-4 h-4" />
             </button>
             <button
+              type="button"
+              onClick={() => setAgendamentosAberto(true)}
+              title="Ver/cancelar mensagens agendadas"
+              className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
+            >
+              <Icone nome="calendario" className="w-4 h-4" />
+            </button>
+            <button
               onClick={send}
               disabled={sending || !text.trim()}
               className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-40"
@@ -1355,6 +1427,46 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               <button onClick={() => setBaixaParcialAberta(null)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
               <button disabled={enviandoParcial} onClick={confirmarBaixaParcial} className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50">
                 {enviandoParcial ? "Salvando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {descontoAberto && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setDescontoAberto(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Pedir desconto — {descontoAberto.parcela.number}ª parcela</h3>
+            <p className="text-xs text-slate-400">
+              Valor atual: {money(valorParcelaAtual(descontoAberto.parcela, undefined, multaOpts))}. Um admin precisa aprovar antes de valer.
+            </p>
+            <label className="block">
+              <span className="text-xs text-slate-500">Novo valor (com desconto)</span>
+              <input
+                type="number" step="0.01" autoFocus
+                value={descontoAberto.valorPedido}
+                onChange={(e) => setDescontoAberto((f) => ({ ...f, valorPedido: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-500">Motivo</span>
+              <textarea
+                value={descontoAberto.motivo}
+                onChange={(e) => setDescontoAberto((f) => ({ ...f, motivo: e.target.value }))}
+                rows={2}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
+              />
+            </label>
+            {descontoMsg && <p className="text-xs text-red-500">{descontoMsg}</p>}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDescontoAberto(null)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
+              <button
+                disabled={enviandoDesconto || !descontoAberto.valorPedido || !descontoAberto.motivo.trim()}
+                onClick={pedirDesconto}
+                className="text-sm bg-violet-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50"
+              >
+                {enviandoDesconto ? "Enviando…" : "Pedir aprovação"}
               </button>
             </div>
           </div>
@@ -1410,6 +1522,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       )}
 
       {pixAberto && <PixModal parcela={pixAberto} onClose={() => setPixAberto(null)} />}
+      {agendamentosAberto && <AgendamentosPendentesModal contactId={contactId} onClose={() => setAgendamentosAberto(false)} />}
       {documentosAberto && <DocumentosPopup contactId={contactId} messages={messages} onClose={() => setDocumentosAberto(false)} />}
       {agendarAberto && (
         <AgendarMensagemModal

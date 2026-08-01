@@ -35,10 +35,15 @@ function Campo({ label, hint, ...props }) {
 
 /* ---------------- Comissão dos cobradores ---------------- */
 export function ComissaoConfig() {
-  const [f, setF] = useState({ metaDiariaValor: "", bonusDiario: "", metaSemanalValor: "", bonusSemanal: "" });
+  const [f, setF] = useState({ metaDiariaValor: "", bonusDiario: "", metaSemanalValor: "", bonusSemanal: "", progressivaAtiva: false, descontoPorPerdaValor: "" });
   const [salvando, setSalvando] = useState(false);
   const [saved, setSaved] = useState(false);
   const [equipe, setEquipe] = useState([]);
+  const [faixas, setFaixas] = useState([]);
+  const [novaFaixa, setNovaFaixa] = useState({ minValor: "", pctBonus: "" });
+  const [simulado, setSimulado] = useState("");
+
+  const loadFaixas = () => fetch("/api/comissao/faixas").then((r) => r.json()).then((d) => setFaixas(Array.isArray(d) ? d : [])).catch(() => {});
 
   useEffect(() => {
     fetch("/api/comissao").then((r) => (r.ok ? r.json() : null)).then((d) => {
@@ -48,9 +53,12 @@ export function ComissaoConfig() {
           bonusDiario: d.config.bonusDiario || "",
           metaSemanalValor: d.config.metaSemanalValor || "",
           bonusSemanal: d.config.bonusSemanal || "",
+          progressivaAtiva: !!d.config.progressivaAtiva,
+          descontoPorPerdaValor: d.config.descontoPorPerdaValor || "",
         });
       }
     }).catch(() => {});
+    loadFaixas();
     fetch("/api/users").then((r) => r.json()).then((us) => {
       const cobradores = (Array.isArray(us) ? us : []).filter((u) => u.role === "cobrador");
       Promise.all(
@@ -77,6 +85,23 @@ export function ComissaoConfig() {
   }
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+
+  async function criarFaixa() {
+    if (!novaFaixa.minValor || !novaFaixa.pctBonus) return;
+    const res = await fetch("/api/comissao/faixas", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(novaFaixa),
+    });
+    if (res.ok) { setNovaFaixa({ minValor: "", pctBonus: "" }); loadFaixas(); }
+  }
+  async function removerFaixa(id) {
+    await fetch(`/api/comissao/faixas/${id}`, { method: "DELETE" });
+    loadFaixas();
+  }
+
+  // Item 226: simulador — "se eu recuperar X na semana, quanto ganho".
+  const faixaSimulada = faixas.filter((fx) => Number(simulado) >= fx.minValor).slice(-1)[0];
+  const bonusSemanalSimulado = Number(simulado) >= Number(f.metaSemanalValor) && Number(f.metaSemanalValor) > 0 ? Number(f.bonusSemanal) : 0;
+  const bonusProgressivoSimulado = f.progressivaAtiva && faixaSimulada ? Math.round(Number(simulado) * (faixaSimulada.pctBonus / 100) * 100) / 100 : 0;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -120,7 +145,20 @@ export function ComissaoConfig() {
             onChange={set("bonusSemanal")}
             hint="Ganha uma vez, se o total de segunda a sábado bater a meta."
           />
+          <Campo
+            label="Desconto por lead perdido na semana (R$)"
+            type="number"
+            step="0.01"
+            value={f.descontoPorPerdaValor}
+            onChange={set("descontoPorPerdaValor")}
+            hint="Item 223 — desconta por cada lead marcado como perdido sob responsabilidade dele na semana. 0 = desligado."
+          />
         </div>
+
+        <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-lg p-2.5">
+          <input type="checkbox" checked={f.progressivaAtiva} onChange={(e) => setF((p) => ({ ...p, progressivaAtiva: e.target.checked }))} />
+          Aplicar o bônus progressivo por faixa (abaixo) no acerto real da semana — desligado, ele aparece só como simulação.
+        </label>
 
         <p className="text-[11px] text-slate-500 bg-slate-50 rounded-lg p-2.5">
           O cobrador vê o quanto já acumulou na tela <strong>Cobrança</strong>, junto com quais dias bateu — e o
@@ -134,6 +172,57 @@ export function ComissaoConfig() {
           {salvando ? "Salvando…" : saved ? "Salvo" : "Salvar"}
         </button>
       </form>
+
+      {/* Item 221: bônus progressivo por faixa */}
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
+        <Cabecalho
+          icone="grafico"
+          titulo="Bônus progressivo por faixa"
+          subtitulo='Quem recuperar acima de um valor na semana ganha um % extra sobre TUDO que recuperou. Vale a maior faixa atingida.'
+        />
+        {faixas.length > 0 && (
+          <ul className="divide-y divide-slate-50">
+            {faixas.map((fx) => (
+              <li key={fx.id} className="py-2 flex items-center justify-between text-sm">
+                <span className="text-slate-600">A partir de {money(fx.minValor)} recuperados → +{fx.pctBonus}% de bônus</span>
+                <button onClick={() => removerFaixa(fx.id)} className="text-xs text-red-400 hover:text-red-600">Remover</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex gap-2 items-end">
+          <label className="block flex-1">
+            <span className="text-xs text-slate-500">Valor mínimo (R$)</span>
+            <input type="number" step="0.01" value={novaFaixa.minValor} onChange={(e) => setNovaFaixa((p) => ({ ...p, minValor: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+          </label>
+          <label className="block flex-1">
+            <span className="text-xs text-slate-500">Bônus (%)</span>
+            <input type="number" step="0.1" value={novaFaixa.pctBonus} onChange={(e) => setNovaFaixa((p) => ({ ...p, pctBonus: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+          </label>
+          <button onClick={criarFaixa} className="text-xs bg-slate-800 text-white rounded-lg px-3 py-2 hover:bg-slate-700 shrink-0">Adicionar</button>
+        </div>
+      </div>
+
+      {/* Item 226: simulador "se eu bater X, ganho Y" */}
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
+        <Cabecalho icone="calculadora" titulo="Simulador de comissão" subtitulo="Quanto um cobrador ganharia se recuperasse esse valor na semana." />
+        <label className="block max-w-xs">
+          <span className="text-xs text-slate-500">Se eu recuperar (R$) na semana...</span>
+          <input type="number" step="0.01" value={simulado} onChange={(e) => setSimulado(e.target.value)} placeholder="Ex.: 3000" className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+        </label>
+        {simulado && Number(simulado) > 0 && (
+          <div className="text-sm text-slate-700 bg-emerald-50 rounded-lg p-3 space-y-1">
+            <p>Bônus semanal (bateu meta): <strong>{money(bonusSemanalSimulado)}</strong></p>
+            <p>
+              Bônus progressivo{faixaSimulada ? ` (faixa +${faixaSimulada.pctBonus}%)` : " (nenhuma faixa atingida)"}: <strong>{money(bonusProgressivoSimulado)}</strong>
+              {!f.progressivaAtiva && <span className="text-[11px] text-slate-400"> — desligado, não conta no acerto real ainda</span>}
+            </p>
+            <p className="font-semibold text-emerald-700 pt-1 border-t border-emerald-100">
+              ...ganho até {money(bonusSemanalSimulado + (f.progressivaAtiva ? bonusProgressivoSimulado : 0))} de bônus (fora o dia batido, que soma à parte).
+            </p>
+          </div>
+        )}
+      </div>
 
       {equipe.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
@@ -381,6 +470,242 @@ const ACAO_COR = {
   dar_baixa: "bg-emerald-50 text-emerald-600",
   acordo_parcelado: "bg-sky-50 text-sky-600",
 };
+
+/* ---------------- Item 242: painel de saúde do sistema ---------------- */
+export function SaudeSistema() {
+  const [d, setD] = useState(null);
+
+  useEffect(() => {
+    fetch("/api/saude").then((r) => (r.ok ? r.json() : null)).then(setD).catch(() => {});
+  }, []);
+
+  if (!d) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <Cabecalho icone="escudo" titulo="Saúde do sistema" subtitulo="Visão rápida do que pode estar quebrado sem ninguém ter percebido." />
+        <span className={`text-xs font-medium rounded-full px-2.5 py-1 shrink-0 ${d.tudoOk ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
+          {d.tudoOk ? "Tudo certo" : "Precisa de atenção"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+        <div className={`rounded-xl p-3 ${d.numerosDesconectados > 0 ? "bg-red-50" : "bg-slate-50"}`}>
+          <p className="text-[11px] text-slate-500">Números desconectados</p>
+          <p className={`text-lg font-semibold ${d.numerosDesconectados > 0 ? "text-red-600" : "text-slate-700"}`}>{d.numerosDesconectados}</p>
+        </div>
+        <div className={`rounded-xl p-3 ${d.falhas24h > 0 ? "bg-red-50" : "bg-slate-50"}`}>
+          <p className="text-[11px] text-slate-500">Mensagens falhando (24h)</p>
+          <p className={`text-lg font-semibold ${d.falhas24h > 0 ? "text-red-600" : "text-slate-700"}`}>{d.falhas24h}</p>
+        </div>
+        <div className={`rounded-xl p-3 ${d.alertasIntegridade > 0 ? "bg-amber-50" : "bg-slate-50"}`}>
+          <p className="text-[11px] text-slate-500">Alertas de integridade</p>
+          <p className={`text-lg font-semibold ${d.alertasIntegridade > 0 ? "text-amber-600" : "text-slate-700"}`}>{d.alertasIntegridade}</p>
+        </div>
+        <div className="rounded-xl p-3 bg-slate-50">
+          <p className="text-[11px] text-slate-500">Parcelas em aberto</p>
+          <p className="text-lg font-semibold text-slate-700">{d.totalParcelasAbertas}</p>
+        </div>
+      </div>
+      {d.numeros.length > 0 && (
+        <ul className="divide-y divide-slate-50">
+          {d.numeros.map((n) => (
+            <li key={n.id} className="py-1.5 flex items-center justify-between text-xs">
+              <span className="text-slate-600">{n.label}</span>
+              <span className={n.estado === "open" ? "text-emerald-600" : "text-red-500"}>{n.estado || "desconhecido"}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-[11px] text-slate-400 mt-2">{d.totalContatos} leads · {d.totalMensagens} mensagens no total. Alertas de integridade detalhados abaixo.</p>
+    </div>
+  );
+}
+
+/* ---------------- Tempo de uso do sistema por colaborador ---------------- */
+function fmtDuracao(segundos) {
+  const h = Math.floor(segundos / 3600);
+  const m = Math.floor((segundos % 3600) / 60);
+  if (h === 0) return `${m}min`;
+  return `${h}h${m > 0 ? ` ${m}min` : ""}`;
+}
+
+export function UsoSistemaConfig() {
+  const [lista, setLista] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/uso").then((r) => (r.ok ? r.json() : [])).then((d) => { setLista(Array.isArray(d) ? d : []); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
+      <div className="p-5 border-b border-slate-100">
+        <Cabecalho icone="relogio" titulo="Tempo de uso do sistema" subtitulo="Só conta enquanto a pessoa está de fato mexendo (mouse/teclado) — aba aberta parada não soma." />
+      </div>
+      {lista.length === 0 ? (
+        <p className="text-sm text-slate-400 p-6 text-center">Sem uso registrado ainda.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-slate-400 border-b border-slate-100">
+              <th className="text-left font-medium py-2 px-5">Pessoa</th>
+              <th className="text-right font-medium py-2 px-5">Hoje</th>
+              <th className="text-right font-medium py-2 px-5">Últimos 7 dias</th>
+              <th className="text-right font-medium py-2 px-5">Média/dia (com uso)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lista.map((u) => (
+              <tr key={u.usuario} className="border-b border-slate-50 last:border-0">
+                <td className="py-2 px-5 text-slate-700">{u.usuario}</td>
+                <td className="py-2 px-5 text-right text-slate-600">{fmtDuracao(u.hojeSegundos)}</td>
+                <td className="py-2 px-5 text-right text-slate-600">{fmtDuracao(u.semanaSegundos)}</td>
+                <td className="py-2 px-5 text-right text-slate-400">{fmtDuracao(Math.round(u.semanaSegundos / (u.diasComUso || 1)))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Item 165: pedidos de desconto pontual ---------------- */
+export function SolicitacoesDesconto() {
+  const [lista, setLista] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [respondendo, setRespondendo] = useState(null);
+
+  const load = useCallback(async () => {
+    const d = await fetch("/api/solicitacoes-desconto").then((r) => (r.ok ? r.json() : [])).catch(() => []);
+    setLista(Array.isArray(d) ? d : []);
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function responder(id, status) {
+    setRespondendo(id);
+    const res = await fetch(`/api/solicitacoes-desconto/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+    });
+    setRespondendo(null);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Erro."); return; }
+    load();
+  }
+
+  if (loading || lista.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
+      <div className="p-5 border-b border-slate-100">
+        <Cabecalho icone="lapis" titulo="Pedidos de desconto pontual" subtitulo="Um cobrador pediu pra reduzir o valor de uma parcela — só vale depois de aprovado aqui." />
+      </div>
+      <ul className="divide-y divide-slate-50">
+        {lista.map((s) => (
+          <li key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-slate-700">
+                {s.contactNome} — {s.parcelaNumero}ª parcela: {money(s.valorOriginal)} → <strong className="text-violet-600">{money(s.valorPedido)}</strong>
+              </p>
+              <p className="text-[11px] text-slate-400">"{s.motivo}" — pedido por {s.solicitadoPor || "—"}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button disabled={respondendo === s.id} onClick={() => responder(s.id, "recusado")} className="text-xs text-red-500 hover:text-red-600">Recusar</button>
+              <button disabled={respondendo === s.id} onClick={() => responder(s.id, "aprovado")} className="text-xs bg-emerald-500 text-white rounded-lg px-2.5 py-1.5 hover:bg-emerald-600">Aprovar</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* ---------------- Itens 155, 156, 157: integridade de dados ---------------- */
+export function IntegridadeConfig() {
+  const [dados, setDados] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const d = await fetch("/api/integridade").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    setDados(d);
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <p className="text-sm text-slate-400 p-6 text-center">Verificando…</p>;
+  if (!dados) return null;
+
+  const totalAlertas = (dados.orfas?.length || 0) + (dados.somaDivergente?.length || 0) + (dados.semEspecie?.length || 0);
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-5 border-b border-slate-100">
+        <Cabecalho
+          icone="escudo"
+          titulo="Integridade dos dados"
+          subtitulo="Três checagens que pegam dinheiro perdido de vista: lead excluído que ainda deve, parcelas que não fecham a conta, e baixa em espécie sem rastro."
+        />
+        <button onClick={load} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium shrink-0">Verificar de novo</button>
+      </div>
+
+      {totalAlertas === 0 ? (
+        <p className="text-sm text-emerald-600 p-6 text-center flex items-center justify-center gap-1.5">
+          <Icone nome="check" className="w-4 h-4" /> Nada fora do esperado.
+        </p>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {dados.orfas?.length > 0 && (
+            <div className="p-5">
+              <h3 className="text-sm font-semibold text-slate-700 mb-1">Leads excluídos que ainda devem ({dados.orfas.length})</h3>
+              <p className="text-[11px] text-slate-400 mb-2">Lead foi excluído mas tem parcela em aberto — esse dinheiro parou de ser cobrado.</p>
+              <ul className="space-y-1">
+                {dados.orfas.map((o) => (
+                  <li key={o.contactId} className="text-xs text-slate-600 flex items-center justify-between gap-2">
+                    <span>{o.nome || "sem nome"} {o.phone && <span className="text-slate-400">· {o.phone}</span>}</span>
+                    <span className="font-medium text-amber-600 shrink-0">{o.qtdParcelas}x · {money(o.valorEmAberto)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {dados.somaDivergente?.length > 0 && (
+            <div className="p-5">
+              <h3 className="text-sm font-semibold text-slate-700 mb-1">Parcelas que não fecham a conta ({dados.somaDivergente.length})</h3>
+              <p className="text-[11px] text-slate-400 mb-2">Falta/sobra parcela do plano original, ou a soma cobrada é menor que o capital emprestado.</p>
+              <ul className="space-y-1">
+                {dados.somaDivergente.map((d) => (
+                  <li key={d.contactId} className="text-xs text-slate-600">
+                    <span className="font-medium">{d.nome || "sem nome"}</span> — {d.motivo}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {dados.semEspecie?.length > 0 && (
+            <div className="p-5">
+              <h3 className="text-sm font-semibold text-slate-700 mb-1">Baixa em dinheiro sem rastro de espécie ({dados.semEspecie.length})</h3>
+              <p className="text-[11px] text-slate-400 mb-2">A baixa foi registrada como dinheiro, mas não gerou o controle de espécie (Configurações → Equipe) — confira se o valor está mesmo com o cobrador.</p>
+              <ul className="space-y-1">
+                {dados.semEspecie.map((s) => (
+                  <li key={s.parcelaId} className="text-xs text-slate-600 flex items-center justify-between gap-2">
+                    <span>{s.nome || "sem nome"} — parcela {s.parcela}ª {s.baixadoPor && <span className="text-slate-400">· {s.baixadoPor}</span>}</span>
+                    <span className="font-medium text-amber-600 shrink-0">{money(s.valor)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AuditoriaLog() {
   const [logs, setLogs] = useState([]);

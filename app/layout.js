@@ -4,6 +4,7 @@ import TopNav from "@/components/TopNav";
 import SideNav from "@/components/SideNav";
 import ConnectionStatusBanner from "@/components/ConnectionStatusBanner";
 import DeepInfraBalanceBanner from "@/components/DeepInfraBalanceBanner";
+import UsoAtivoTracker from "@/components/UsoAtivoTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,6 +49,7 @@ export default function RootLayout({ children }) {
         </div>
         <ConnectionStatusBanner />
         <DeepInfraBalanceBanner />
+        <UsoAtivoTracker />
       </body>
     </html>
   );

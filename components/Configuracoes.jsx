@@ -7,7 +7,7 @@ import { PAGINAS_SISTEMA } from "@/lib/paginas";
 import { ACOES as ACOES_EXTRAS } from "@/lib/permissoes";
 import TemaToggle from "@/components/TemaToggle";
 import Icone from "@/components/Icones";
-import { ComissaoConfig, RiscoConfig, AuditoriaLog } from "@/components/ConfigGestao";
+import { ComissaoConfig, RiscoConfig, AuditoriaLog, IntegridadeConfig, SolicitacoesDesconto, UsoSistemaConfig, SaudeSistema } from "@/components/ConfigGestao";
 import { MotivosPerdaConfig, OperacaoConfig } from "@/components/ConfigOperacao";
 import ConfigEquipe from "@/components/ConfigEquipe";
 
@@ -266,7 +266,15 @@ export default function Configuracoes() {
             {tab === "risco" && <RiscoConfig />}
             {tab === "motivos" && <MotivosPerdaConfig />}
             {tab === "operacao" && <OperacaoConfig />}
-            {tab === "auditoria" && <AuditoriaLog />}
+            {tab === "auditoria" && (
+              <div className="space-y-4">
+                <SaudeSistema />
+                <SolicitacoesDesconto />
+                <IntegridadeConfig />
+                <UsoSistemaConfig />
+                <AuditoriaLog />
+              </div>
+            )}
             {tab === "mensagens" && <MensagensProntas />}
             {tab === "automacao" && <AutomacaoFunil />}
             {tab === "ia" && (
@@ -2275,6 +2283,28 @@ function AquecimentoNumero({ numero, onChange }) {
           {enviadas != null && limite != null ? ` · ${enviadas} enviada(s) hoje` : ""}
         </p>
       )}
+
+      {/* Item 175: teto por hora, independente do aquecimento — vale mesmo
+          pra número já aquecido, contra rajada concentrada num intervalo curto. */}
+      <div className="flex items-center gap-2 pt-1 border-t border-slate-200/70">
+        <label className="text-[11px] text-slate-500 flex-1">Teto de envio automático por hora</label>
+        <input
+          type="number"
+          min={0}
+          placeholder="sem teto"
+          defaultValue={numero.limiteEnviosHora ?? ""}
+          onBlur={(e) => {
+            const v = e.target.value === "" ? null : Number(e.target.value) || null;
+            onChange({ limiteEnviosHora: v });
+            fetch(`/api/numbers/${numero.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ limiteEnviosHora: v }),
+            });
+          }}
+          className="w-20 text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-emerald-400"
+        />
+      </div>
     </div>
   );
 }

@@ -5,8 +5,8 @@ import Icone from "@/components/Icones";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const ICONE_TIPO = { etapa: "seta", baixa: "check", tentativa: "cobranca", negociacao: "documento", documento: "clipe" };
-const COR_TIPO = { etapa: "text-slate-500 bg-slate-100", baixa: "text-emerald-600 bg-emerald-50", tentativa: "text-sky-600 bg-sky-50", negociacao: "text-amber-600 bg-amber-50", documento: "text-violet-600 bg-violet-50" };
+const ICONE_TIPO = { etapa: "seta", baixa: "check", tentativa: "cobranca", negociacao: "documento", documento: "clipe", responsavel: "pessoas" };
+const COR_TIPO = { etapa: "text-slate-500 bg-slate-100", baixa: "text-emerald-600 bg-emerald-50", tentativa: "text-sky-600 bg-sky-50", negociacao: "text-amber-600 bg-amber-50", documento: "text-violet-600 bg-violet-50", responsavel: "text-indigo-600 bg-indigo-50" };
 
 function fmt(d) {
   return new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });

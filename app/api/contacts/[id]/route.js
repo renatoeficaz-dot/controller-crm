@@ -68,7 +68,22 @@ export async function PATCH(req, { params }) {
   if ("camposCustom" in body) data.camposCustom = body.camposCustom ? JSON.stringify(body.camposCustom) : null;
   if ("fixado" in body) data.fixado = !!body.fixado;
   if ("corCard" in body) data.corCard = body.corCard || null;
+
+  // Item 191: guarda quem era o responsável antes de trocar — sem isso a
+  // troca fica muda, ninguém consegue ver depois quem cuidava do lead antes.
+  let responsavelAntes = null;
+  if ("responsavel" in body) {
+    responsavelAntes = await prisma.contact.findUnique({ where: { id }, select: { responsavel: true } });
+  }
+
   const contact = await prisma.contact.update({ where: { id }, data });
+
+  if ("responsavel" in body && responsavelAntes && responsavelAntes.responsavel !== contact.responsavel) {
+    const session = await getSession().catch(() => null);
+    await prisma.responsavelLog.create({
+      data: { contactId: id, de: responsavelAntes.responsavel, para: contact.responsavel, usuario: session?.name || null },
+    }).catch(() => {});
+  }
 
   // Não bloqueia salvar o CPF em si (só bloqueia avançar no funil, no
   // /move) — mas já avisa na hora se bate com outro cadastro que deu calote.
@@ -85,12 +100,27 @@ export async function PATCH(req, { params }) {
 // verdade. Dá pra desfazer em até 24h (POST .../restaurar); depois disso um
 // job diário (lib/purgaExcluidos.js) apaga definitivamente. Sem isso, um
 // "excluir" errado por engano é irreversível na hora.
-export async function DELETE(_req, { params }) {
+export async function DELETE(req, { params }) {
   const { id } = await params;
+  const force = new URL(req.url).searchParams.get("force") === "1";
   const [session, contact] = await Promise.all([
     getSession(),
     prisma.contact.findUnique({ where: { id }, select: { name: true } }),
   ]);
+
+  // Item 153: excluir um lead que ainda deve esconde a dívida (mesmo sendo
+  // reversível em 24h). Sem `force=1`, avisa quanto tem em aberto antes.
+  if (!force) {
+    const abertas = await prisma.parcela.findMany({ where: { contactId: id, paid: false }, select: { amount: true } });
+    if (abertas.length > 0) {
+      const total = abertas.reduce((s, p) => s + (p.amount || 0), 0);
+      return NextResponse.json(
+        { error: `Este lead tem ${abertas.length} parcela(s) em aberto, somando R$ ${total.toFixed(2)}.`, temParcelasAbertas: true, qtdParcelasAbertas: abertas.length, valorAberto: total },
+        { status: 409 }
+      );
+    }
+  }
+
   await prisma.contact.update({ where: { id }, data: { excluidoEm: new Date() } });
   registrarAuditoria({
     usuario: session?.name,

@@ -8,6 +8,7 @@ import { baixarCsv, numeroCsv } from "@/lib/exportar";
 import Icone from "@/components/Icones";
 import RelatoriosGestao from "@/components/RelatoriosGestao";
 import RelatoriosOperacao from "@/components/RelatoriosOperacao";
+import RelatoriosAvancado from "@/components/RelatoriosAvancado";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2030,6 +2031,7 @@ export default function Relatorios() {
           a própria API recusa pra quem não é, então aqui só monta o bloco. */}
       <RelatoriosGestao />
       <RelatoriosOperacao />
+      <RelatoriosAvancado />
 
       {agingDrill && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setAgingDrill(null)}>

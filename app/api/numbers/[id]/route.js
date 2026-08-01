@@ -20,6 +20,7 @@ export async function PATCH(req, { params }) {
     // não dá pra saber em que degrau da escada o número está.
     if (body.aquecimentoAtivo) data.aquecimentoDesde = new Date();
   }
+  if ("limiteEnviosHora" in body) data.limiteEnviosHora = body.limiteEnviosHora === "" || body.limiteEnviosHora == null ? null : Number(body.limiteEnviosHora) || null;
   if ("proxyServer" in body) data.proxyServer = (body.proxyServer || "").trim() || null;
   if ("proxyUsername" in body) data.proxyUsername = (body.proxyUsername || "").trim() || null;
   if ("proxyPassword" in body) data.proxyPassword = (body.proxyPassword || "").trim() || null;

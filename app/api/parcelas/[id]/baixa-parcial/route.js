@@ -68,5 +68,64 @@ export async function POST(req, { params }) {
     detalhe: `${parcela.contact?.name || ""} — parcela ${parcela.number}ª recebeu R$ ${v} (${completaAgora ? "completou a parcela" : `total parcial R$ ${novoValorPago} de R$ ${devido.toFixed(2)}`})`,
   });
 
-  return NextResponse.json({ parcela: atualizada, completou: completaAgora, faltam: completaAgora ? 0 : Math.round((devido - novoValorPago) * 100) / 100 });
+  // Item 162: sobrou dinheiro além do que essa parcela devia — em vez de
+  // virar troco solto, quita (total ou parcialmente) as PRÓXIMAS parcelas em
+  // aberto do mesmo ciclo, na ordem de vencimento.
+  let excedente = completaAgora ? Math.round((novoValorPago - devido) * 100) / 100 : 0;
+  const quitadasAdiantado = [];
+  if (excedente > 0.01) {
+    const proximas = await prisma.parcela.findMany({
+      where: { contactId: parcela.contactId, ciclo: parcela.ciclo, paid: false, renegociada: false, id: { not: id } },
+      orderBy: [{ number: "asc" }],
+    });
+    for (const prox of proximas) {
+      if (excedente <= 0.01) break;
+      const devidoProx = valorParcelaAtual(prox, undefined, { multaPct: cfg?.multaPct, horaLimite: cfg?.pagamentoHoraLimite });
+      const faltaProx = Math.round((devidoProx - prox.valorPago) * 100) / 100;
+      const aplicar = Math.min(excedente, faltaProx);
+      if (aplicar <= 0) continue;
+      const novoValorPagoProx = Math.round((prox.valorPago + aplicar) * 100) / 100;
+      const completaProx = novoValorPagoProx >= devidoProx - 0.01;
+
+      await prisma.parcela.update({
+        where: { id: prox.id },
+        data: completaProx
+          ? { valorPago: novoValorPagoProx, paid: true, paidAt: new Date(), amountPago: novoValorPagoProx, baixadoPor: prox.baixadoPor || user?.name || null, formaPagamento: formaPagamento || prox.formaPagamento || null }
+          : { valorPago: novoValorPagoProx, baixadoPor: prox.baixadoPor || user?.name || null },
+      });
+      await prisma.lancamento.create({
+        data: {
+          type: "entrada",
+          amount: aplicar,
+          description: `Pagamento adiantado — parcela ${prox.number}ª — ${parcela.contact?.name || ""}`.trim(),
+          contactId: parcela.contactId,
+          parcelaId: prox.id,
+          bancoId: cfg?.contaRecebimentoId || null,
+        },
+      });
+      if (completaProx) {
+        await prisma.task.updateMany({ where: { parcelaId: prox.id }, data: { done: true } });
+      }
+      registrarAuditoria({
+        usuario: user?.name,
+        acao: "baixa_parcial",
+        entidade: "Parcela",
+        entidadeId: prox.id,
+        detalhe: `${parcela.contact?.name || ""} — parcela ${prox.number}ª recebeu R$ ${aplicar} adiantado (sobra do pagamento da ${parcela.number}ª)`,
+      });
+      quitadasAdiantado.push({ id: prox.id, number: prox.number, valor: aplicar, completou: completaProx });
+      excedente = Math.round((excedente - aplicar) * 100) / 100;
+    }
+    if (quitadasAdiantado.some((q) => q.completou)) {
+      await atualizarScoreDoContato(parcela.contactId).catch(() => {});
+    }
+  }
+
+  return NextResponse.json({
+    parcela: atualizada,
+    completou: completaAgora,
+    faltam: completaAgora ? 0 : Math.round((devido - novoValorPago) * 100) / 100,
+    quitadasAdiantado,
+    sobrouSemAplicar: excedente > 0.01 ? excedente : 0,
+  });
 }

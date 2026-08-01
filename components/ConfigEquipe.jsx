@@ -122,6 +122,8 @@ function ComissaoFechamentos() {
                 <p className="text-sm text-slate-700">{f.usuario} <span className="text-slate-400 font-normal">— semana de {fmtDia(f.semanaInicio)}</span></p>
                 <p className="text-[11px] text-slate-400">
                   Recuperou {money(f.valorRecuperado)} · {f.diasBatidos} dia(s) de meta batida{f.bateuSemanal ? " · bateu a semanal" : ""}
+                  {f.bonusProgressivo > 0 && <> · +{money(f.bonusProgressivo)} progressivo</>}
+                  {f.descontoPerdas > 0 && <> · -{money(f.descontoPerdas)} ({f.qtdPerdas} perda{f.qtdPerdas === 1 ? "" : "s"})</>}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -278,9 +280,72 @@ function EquipesConfig() {
   );
 }
 
+/* ---------------- 185. Transferir carteira entre cobradores ---------------- */
+function TransferirCarteira() {
+  const [users, setUsers] = useState([]);
+  const [de, setDe] = useState("");
+  const [para, setPara] = useState("");
+  const [apenasEmRecebimento, setApenasEmRecebimento] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    fetch("/api/users").then((r) => r.json()).then((d) => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  async function transferir() {
+    if (!de || !para || de === para) return;
+    if (!confirm(`Transferir ${apenasEmRecebimento ? "os leads em Recebimento" : "todos os leads"} de ${de} para ${para}?`)) return;
+    setEnviando(true);
+    setMsg("");
+    const res = await fetch("/api/usuarios/transferir-carteira", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ de, para, apenasEmRecebimento }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setEnviando(false);
+    if (!res.ok) { setMsg(d.error || "Erro ao transferir."); return; }
+    setMsg(`${d.transferidos} lead(s) transferido(s) de ${de} para ${para}.`);
+    setDe(""); setPara("");
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5 mb-1"><Icone nome="pessoas" className="w-4 h-4" /> Transferir carteira</h3>
+      <p className="text-[11px] text-slate-400 mb-3">Passa de uma vez todos os leads de um cobrador/vendedor pra outro — usado quando alguém sai da equipe ou troca de função.</p>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <label className="block">
+          <span className="text-xs text-slate-500">De</span>
+          <select value={de} onChange={(e) => setDe(e.target.value)} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+            <option value="">Selecione…</option>
+            {users.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-xs text-slate-500">Para</span>
+          <select value={para} onChange={(e) => setPara(e.target.value)} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+            <option value="">Selecione…</option>
+            {users.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+          </select>
+        </label>
+      </div>
+      <label className="flex items-center gap-2 text-xs text-slate-500 mb-3">
+        <input type="checkbox" checked={apenasEmRecebimento} onChange={(e) => setApenasEmRecebimento(e.target.checked)} />
+        Só os leads que já estão em "Recebimento" (deixa vendas/negociação em aberto como estão)
+      </label>
+      {msg && <p className="text-xs text-emerald-600 mb-2">{msg}</p>}
+      <button disabled={enviando || !de || !para} onClick={transferir} className="text-xs bg-slate-800 text-white rounded-lg px-3 py-1.5 hover:bg-slate-700 disabled:opacity-50">
+        {enviando ? "Transferindo…" : "Transferir"}
+      </button>
+    </div>
+  );
+}
+
 export default function ConfigEquipe() {
   return (
     <div className="space-y-4 max-w-2xl">
+      <TransferirCarteira />
       <EquipesConfig />
       <EspecieConfig />
       <ComissaoFechamentos />

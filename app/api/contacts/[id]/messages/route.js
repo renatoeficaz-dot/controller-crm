@@ -92,13 +92,30 @@ export async function POST(req, { params }) {
     result = await sendWhatsappText(contact.phone, body, instanceHint);
   }
 
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 502 });
-  }
-
   const displayBody = mediaType === "contact"
     ? `Contato: ${contactName} (${contactPhone})`
     : body;
+
+  // Item 172/173: antes, um envio que falhava simplesmente sumia — nada ficava
+  // gravado, então não dava pra saber depois que a mensagem nunca saiu (nem pra
+  // detectar um padrão de bloqueio). Agora a falha também vira registro, só que
+  // com status "falhou" em vez de silenciosamente descartada.
+  if (!result.ok) {
+    const falhada = await prisma.message.create({
+      data: {
+        contactId: id,
+        body: displayBody,
+        kind,
+        mediaUrl,
+        mimeType,
+        fileName,
+        fromMe: true,
+        status: "falhou",
+        instance: instanceHint || null,
+      },
+    });
+    return NextResponse.json({ error: result.error, message: falhada }, { status: 502 });
+  }
 
   const message = await prisma.message.create({
     data: {

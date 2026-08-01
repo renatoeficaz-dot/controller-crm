@@ -371,10 +371,9 @@ export default function ChatView() {
       body: JSON.stringify({ body, instance: selectedInstance }),
     });
     setSending(false);
-    if (res.ok) {
-      const { message: msg } = await res.json().catch(() => ({}));
-      if (msg) setMessages((prev) => [...prev, msg]);
-    }
+    const data = await res.json().catch(() => ({}));
+    if (data.message) setMessages((prev) => [...prev, data.message]);
+    if (!res.ok) alert(data.error || "Falha ao enviar — a mensagem ficou marcada como \"falhou\" na conversa.");
     loadConversations();
   }
 
@@ -400,11 +399,13 @@ export default function ChatView() {
         body: JSON.stringify(payload),
       });
       setSending(false);
+      const data = await res.json().catch(() => ({}));
+      if (data.message) setMessages((prev) => [...prev, data.message]);
       if (res.ok) {
-        const { message: msg } = await res.json().catch(() => ({}));
-        if (msg) setMessages((prev) => [...prev, msg]);
         setTplSent(true);
         setTimeout(() => setTplSent(false), 1500);
+      } else {
+        alert(data.error || "Falha ao enviar — a mensagem ficou marcada como \"falhou\" na conversa.");
       }
       loadConversations();
       return;
@@ -969,8 +970,11 @@ export default function ChatView() {
                         {m.kind !== "location" && (m.kind === "text" || m.body) && <p>{m.body}</p>}
                       </>
                     )}
-                    <p className={`text-[10px] mt-1 ${m.fromMe ? "text-emerald-200" : "text-slate-400"}`}>
+                    <p className={`text-[10px] mt-1 flex items-center gap-1 ${m.fromMe ? "text-emerald-200" : "text-slate-400"}`}>
                       {fmtTime(m.createdAt)}
+                      {m.fromMe && m.status === "falhou" && (
+                        <span className="text-red-100 bg-red-500/80 rounded-full px-1.5 font-medium">falhou</span>
+                      )}
                     </p>
                   </div>
                 </div>

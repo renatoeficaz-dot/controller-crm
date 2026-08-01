@@ -7,12 +7,13 @@ import { NextResponse } from "next/server";
 export async function GET(_req, { params }) {
   const { id } = await params;
 
-  const [etapas, parcelasPagas, tentativas, negociacoes, documentos] = await Promise.all([
+  const [etapas, parcelasPagas, tentativas, negociacoes, documentos, responsaveis] = await Promise.all([
     prisma.etapaLog.findMany({ where: { contactId: id }, orderBy: { createdAt: "desc" } }),
     prisma.parcela.findMany({ where: { contactId: id, paid: true }, orderBy: { paidAt: "desc" } }),
     prisma.tentativaContato.findMany({ where: { contactId: id }, orderBy: { createdAt: "desc" } }),
     prisma.negociacao.findMany({ where: { contactId: id }, orderBy: { createdAt: "desc" } }),
     prisma.documento.findMany({ where: { contactId: id, conferido: true }, orderBy: { conferidoEm: "desc" } }),
+    prisma.responsavelLog.findMany({ where: { contactId: id }, orderBy: { createdAt: "desc" } }),
   ]);
 
   const eventos = [
@@ -36,6 +37,10 @@ export async function GET(_req, { params }) {
     ...documentos.map((d) => ({
       tipo: "documento", data: d.conferidoEm, usuario: d.conferidoPor,
       titulo: `Documento conferido: ${d.tipo}`,
+    })),
+    ...responsaveis.map((r) => ({
+      tipo: "responsavel", data: r.createdAt, usuario: r.usuario,
+      titulo: r.de ? `Responsável trocou de ${r.de} para ${r.para || "ninguém"}` : `Responsável definido: ${r.para}`,
     })),
   ]
     .filter((e) => e.data)

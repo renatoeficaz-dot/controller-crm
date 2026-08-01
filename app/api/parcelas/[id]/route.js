@@ -55,20 +55,34 @@ export async function PATCH(req, { params }) {
     });
   }
 
-  const parcela = await prisma.parcela.update({
-    where: { id },
-    data: {
-      paid,
-      paidAt: paid ? (parcelaAtual.paidAt || new Date()) : null,
-      amountPago,
-      // Quem deu a baixa — base da comissão e do comparativo entre cobradores.
-      // Preserva o autor original numa alteração de valor: quem recuperou foi
-      // quem cobrou, não quem corrigiu o valor depois.
-      baixadoPor: paid ? (parcelaAtual.baixadoPor || user?.name || null) : null,
-      formaPagamento: paid ? (body.formaPagamento || parcelaAtual.formaPagamento || null) : null,
-    },
-    include: { contact: { select: { id: true, name: true } } },
-  });
+  const dadosUpdate = {
+    paid,
+    paidAt: paid ? (parcelaAtual.paidAt || new Date()) : null,
+    amountPago,
+    // Quem deu a baixa — base da comissão e do comparativo entre cobradores.
+    // Preserva o autor original numa alteração de valor: quem recuperou foi
+    // quem cobrou, não quem corrigiu o valor depois.
+    baixadoPor: paid ? (parcelaAtual.baixadoPor || user?.name || null) : null,
+    formaPagamento: paid ? (body.formaPagamento || parcelaAtual.formaPagamento || null) : null,
+  };
+
+  let parcela;
+  if (paid && !parcelaAtual.paid) {
+    // Item 152: dois cobradores podem abrir a mesma ficha e dar baixa quase
+    // junto. O `where: { paid: false }` só deixa UM update valer — quem
+    // chegar depois recebe 409 em vez de sobrescrever a baixa do outro.
+    const claim = await prisma.parcela.updateMany({ where: { id, paid: false }, data: dadosUpdate });
+    if (claim.count === 0) {
+      return NextResponse.json({ error: "Essa parcela já foi baixada por outra pessoa — atualize a tela." }, { status: 409 });
+    }
+    parcela = await prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { id: true, name: true } } } });
+  } else {
+    parcela = await prisma.parcela.update({
+      where: { id },
+      data: dadosUpdate,
+      include: { contact: { select: { id: true, name: true } } },
+    });
+  }
 
   // Controle de espécie (item 32): baixa em DINHEIRO fica em mãos do cobrador
   // até ele depositar — nasce/morre junto com a baixa, nunca solto.

@@ -31,6 +31,8 @@ export async function PATCH(req) {
     metaSemanalValor: num(body.metaSemanalValor),
     bonusSemanal: num(body.bonusSemanal),
   };
+  if ("progressivaAtiva" in body) data.progressivaAtiva = !!body.progressivaAtiva;
+  if ("descontoPorPerdaValor" in body) data.descontoPorPerdaValor = num(body.descontoPorPerdaValor);
 
   const cfg = await prisma.comissaoConfig.upsert({
     where: { id: "singleton" },

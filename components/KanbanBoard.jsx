@@ -269,9 +269,14 @@ export default function KanbanBoard() {
   }
 
   async function removeContact(contactId) {
-    if (!confirm("Excluir este contato? Essa ação não pode ser desfeita.")) return;
+    if (!confirm("Excluir este contato?")) return;
     setCardMenuId(null);
-    await fetch(`/api/contacts/${contactId}`, { method: "DELETE" });
+    let res = await fetch(`/api/contacts/${contactId}`, { method: "DELETE" });
+    if (res.status === 409) {
+      const d = await res.json().catch(() => ({}));
+      if (!d.temParcelasAbertas || !confirm(`${d.error}\n\nExcluir mesmo assim?`)) return;
+      res = await fetch(`/api/contacts/${contactId}?force=1`, { method: "DELETE" });
+    }
     load();
   }
 
