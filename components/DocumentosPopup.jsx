@@ -27,7 +27,7 @@ export default function DocumentosPopup({ contactId, messages, onClose }) {
   const [lightbox, setLightbox] = useState(null);
 
   const load = () => fetch(`/api/contacts/${contactId}/documentos`).then((r) => r.json()).then(setDocumentos).catch(() => {});
-  useEffect(load, [contactId]);
+  useEffect(() => { load(); }, [contactId]);
 
   const midiasChat = (messages || []).filter((m) => MIDIA_KINDS.includes(m.kind));
   const porTipo = TIPOS.map((t) => ({ ...t, itens: documentos.filter((d) => d.tipo === t.chave) })).filter((t) => t.itens.length);

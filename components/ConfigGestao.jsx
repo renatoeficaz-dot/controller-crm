@@ -101,7 +101,9 @@ export function ComissaoConfig() {
   // Item 226: simulador — "se eu recuperar X na semana, quanto ganho".
   const faixaSimulada = faixas.filter((fx) => Number(simulado) >= fx.minValor).slice(-1)[0];
   const bonusSemanalSimulado = Number(simulado) >= Number(f.metaSemanalValor) && Number(f.metaSemanalValor) > 0 ? Number(f.bonusSemanal) : 0;
-  const bonusProgressivoSimulado = f.progressivaAtiva && faixaSimulada ? Math.round(Number(simulado) * (faixaSimulada.pctBonus / 100) * 100) / 100 : 0;
+  // Simula o valor da faixa mesmo com a progressiva desligada — o ponto do
+  // simulador é mostrar quanto DARIA; se está desligada, só não entra no total.
+  const bonusProgressivoSimulado = faixaSimulada ? Math.round(Number(simulado) * (faixaSimulada.pctBonus / 100) * 100) / 100 : 0;
 
   return (
     <div className="space-y-6 max-w-2xl">

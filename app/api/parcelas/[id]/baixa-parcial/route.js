@@ -22,7 +22,13 @@ export async function POST(req, { params }) {
   const user = await getCurrentUser().catch(() => null);
   const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
   const devido = valorParcelaAtual(parcela, undefined, { multaPct: cfg?.multaPct, horaLimite: cfg?.pagamentoHoraLimite });
-  const novoValorPago = Math.round((parcela.valorPago + v) * 100) / 100;
+  // Só entra NESTA parcela o que ela ainda devia; o que passar disso é
+  // adiantamento e vai pras próximas (item 162). Sem esse teto, a parcela
+  // registrava o pagamento inteiro E o excedente virava lançamento de novo
+  // nas seguintes — o caixa contava o mesmo dinheiro duas vezes.
+  const falta = Math.round((devido - parcela.valorPago) * 100) / 100;
+  const aplicado = Math.min(v, Math.max(0, falta));
+  const novoValorPago = Math.round((parcela.valorPago + aplicado) * 100) / 100;
   const completaAgora = novoValorPago >= devido - 0.01; // tolerância de centavo
 
   const data = completaAgora
@@ -38,20 +44,22 @@ export async function POST(req, { params }) {
 
   const atualizada = await prisma.parcela.update({ where: { id }, data });
 
-  await prisma.lancamento.create({
-    data: {
-      type: "entrada",
-      amount: v,
-      description: `Baixa parcial — parcela ${parcela.number}ª — ${parcela.contact?.name || ""}`.trim(),
-      contactId: parcela.contactId,
-      parcelaId: parcela.id,
-      bancoId: cfg?.contaRecebimentoId || null,
-    },
-  });
+  if (aplicado > 0) {
+    await prisma.lancamento.create({
+      data: {
+        type: "entrada",
+        amount: aplicado,
+        description: `Baixa parcial — parcela ${parcela.number}ª — ${parcela.contact?.name || ""}`.trim(),
+        contactId: parcela.contactId,
+        parcelaId: parcela.id,
+        bancoId: cfg?.contaRecebimentoId || null,
+      },
+    });
+  }
 
-  if (formaPagamento === "dinheiro") {
+  if (formaPagamento === "dinheiro" && aplicado > 0) {
     await prisma.especieMovimento.create({
-      data: { usuario: user?.name || "— sem responsável —", tipo: "recebido", valor: v, parcelaId: id },
+      data: { usuario: user?.name || "— sem responsável —", tipo: "recebido", valor: aplicado, parcelaId: id },
     }).catch(() => {});
   }
 
@@ -65,13 +73,13 @@ export async function POST(req, { params }) {
     acao: "baixa_parcial",
     entidade: "Parcela",
     entidadeId: id,
-    detalhe: `${parcela.contact?.name || ""} — parcela ${parcela.number}ª recebeu R$ ${v} (${completaAgora ? "completou a parcela" : `total parcial R$ ${novoValorPago} de R$ ${devido.toFixed(2)}`})`,
+    detalhe: `${parcela.contact?.name || ""} — parcela ${parcela.number}ª recebeu R$ ${aplicado} (${completaAgora ? "completou a parcela" : `total parcial R$ ${novoValorPago} de R$ ${devido.toFixed(2)}`})`,
   });
 
   // Item 162: sobrou dinheiro além do que essa parcela devia — em vez de
   // virar troco solto, quita (total ou parcialmente) as PRÓXIMAS parcelas em
   // aberto do mesmo ciclo, na ordem de vencimento.
-  let excedente = completaAgora ? Math.round((novoValorPago - devido) * 100) / 100 : 0;
+  let excedente = Math.round((v - aplicado) * 100) / 100;
   const quitadasAdiantado = [];
   if (excedente > 0.01) {
     const proximas = await prisma.parcela.findMany({

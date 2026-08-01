@@ -236,14 +236,16 @@ function ComparativoPeriodos({ usuario }) {
                   {LINHAS.map(([label, campo, fmt]) => {
                     const a = dados.periodo1[campo] || 0;
                     const b = dados.periodo2[campo] || 0;
-                    const dif = b !== 0 ? Math.round(((a - b) / b) * 100) : a > 0 ? 100 : 0;
+                    // Zero contra zero não é "empate em 0%", é ausência de dado —
+                    // mostrar "+0%" em verde faria parecer resultado de verdade.
+                    const dif = a === 0 && b === 0 ? null : b !== 0 ? Math.round(((a - b) / b) * 100) : 100;
                     return (
                       <tr key={campo} className="border-b border-slate-50 last:border-0">
                         <td className="py-2 text-slate-600">{label}</td>
                         <td className="py-2 text-right tabular-nums">{fmt(a)}</td>
                         <td className="py-2 text-right tabular-nums text-slate-400">{fmt(b)}</td>
-                        <td className={`py-2 text-right tabular-nums font-medium ${dif >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                          {dif >= 0 ? "+" : ""}{dif}%
+                        <td className={`py-2 text-right tabular-nums font-medium ${dif == null ? "text-slate-300" : dif >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                          {dif == null ? "—" : `${dif >= 0 ? "+" : ""}${dif}%`}
                         </td>
                       </tr>
                     );

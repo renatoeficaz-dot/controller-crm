@@ -10,7 +10,7 @@ const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR", { timeZone: "UTC" 
 function EspecieConfig() {
   const [dados, setDados] = useState(null);
   const load = useCallback(() => fetch("/api/especie").then((r) => r.json()).then(setDados).catch(() => {}), []);
-  useEffect(load, [load]);
+  useEffect(() => { load(); }, [load]);
   if (!dados) return <p className="text-sm text-slate-400">Carregando…</p>;
 
   return (
@@ -85,7 +85,7 @@ function ComissaoFechamentos() {
   const [lista, setLista] = useState([]);
   const [gerando, setGerando] = useState(false);
   const load = useCallback(() => fetch("/api/comissao/fechamentos").then((r) => r.json()).then((d) => setLista(Array.isArray(d) ? d : [])).catch(() => {}), []);
-  useEffect(load, [load]);
+  useEffect(() => { load(); }, [load]);
 
   async function gerar() {
     setGerando(true);

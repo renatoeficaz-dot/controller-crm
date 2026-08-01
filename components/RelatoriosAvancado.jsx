@@ -82,7 +82,7 @@ export default function RelatoriosAvancado() {
           ) : (
             <>
               <p className="text-xs text-amber-600 font-medium mb-2">
-                Esses 10 concentram {concentracao.pctConcentrado}% de tudo que está em aberto ({money(concentracao.somaTop10)} de {money(concentracao.totalCarteira)}).
+                {concentracao.top10.length === 1 ? "Esse cliente concentra" : `Esses ${concentracao.top10.length} concentram`} {concentracao.pctConcentrado}% de tudo que está em aberto ({money(concentracao.somaTop10)} de {money(concentracao.totalCarteira)}).
               </p>
               <ul className="divide-y divide-slate-50">
                 {concentracao.top10.map((c) => (
