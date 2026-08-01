@@ -35,6 +35,27 @@ export async function middleware(req) {
     if (session.somenteLeitura && pathname.startsWith("/api/") && req.method !== "GET") {
       return NextResponse.json({ error: "Seu usuário é somente leitura." }, { status: 403 });
     }
+
+    // Bloquear a PÁGINA /configuracoes não bastava: a API por trás dela ficava
+    // aberta, e um vendedor que soubesse a URL conseguia se promover a admin
+    // (PATCH /api/users/[id]) ou mudar os honorários (PATCH /api/config).
+    // A trava fica aqui, num lugar só, pra não depender de cada rota lembrar
+    // de checar — esquecer uma já foi o suficiente pra abrir o buraco.
+    // GET continua liberado: as telas comuns precisam ler usuários (seletor de
+    // responsável), config (multa) e números.
+    const apisSoAdmin = [
+      "/api/users", "/api/config", "/api/numbers", "/api/equipes",
+      "/api/metas-dia-semana", "/api/comissao", "/api/ia", "/api/lancamentos",
+      "/api/motivos-perda", "/api/campos-personalizados", "/api/task-types",
+      "/api/tags", "/api/templates", "/api/regras-cobranca", "/api/campanhas",
+      "/api/backup", "/api/alertas", "/api/stages", "/api/usuarios",
+      "/api/solicitacoes-desconto", "/api/automacao",
+    ];
+    const ehApiSoAdmin = apisSoAdmin.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    if (ehApiSoAdmin && req.method !== "GET" && session.role !== "admin") {
+      return NextResponse.json({ error: "Só o administrador pode alterar isso." }, { status: 403 });
+    }
+
     return NextResponse.next();
   }
 

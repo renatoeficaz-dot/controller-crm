@@ -357,6 +357,10 @@ model UsoDiario {
   usuario  String
   dia      DateTime
   segundos Int      @default(0)
+  // Momento do último heartbeat aceito. Sem isso, chamar a API em laço
+  // inflava o tempo de uso à vontade — e esse número serve pra avaliar
+  // colaborador, então precisa ser difícil de forjar.
+  ultimoEm DateTime?
 
   @@unique([usuario, dia])
 }

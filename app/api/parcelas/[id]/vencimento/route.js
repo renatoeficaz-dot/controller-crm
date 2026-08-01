@@ -17,6 +17,22 @@ export async function PATCH(req, { params }) {
 
   const user = await getCurrentUser().catch(() => null);
   const vencimentoDepois = new Date(novoVencimento + "T00:00:00.000Z");
+  // Data que o JS não entende virava `Invalid Date` e só estourava lá no
+  // Prisma, devolvendo erro 500 sem explicar nada pra quem digitou.
+  if (Number.isNaN(vencimentoDepois.getTime())) {
+    return NextResponse.json({ error: "Data inválida." }, { status: 400 });
+  }
+  // Janela sensata: vencimento anos no passado inflaria a multa por atraso e
+  // distorceria o aging e a curva de recuperação; anos no futuro esconderia a
+  // dívida da cobrança. Um ano pra cada lado cobre adiamento e correção real.
+  const umAnoMs = 365 * 24 * 60 * 60 * 1000;
+  const agora = Date.now();
+  if (vencimentoDepois.getTime() < agora - umAnoMs || vencimentoDepois.getTime() > agora + umAnoMs) {
+    return NextResponse.json(
+      { error: "A nova data precisa estar dentro de um ano (pra frente ou pra trás)." },
+      { status: 400 }
+    );
+  }
 
   await prisma.parcelaAjuste.create({
     data: {

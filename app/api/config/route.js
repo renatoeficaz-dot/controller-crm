@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getCurrentUser, isAdmin } from "@/lib/session";
 
 // Garante que a linha única de config exista
 async function getConfig() {
@@ -10,8 +11,26 @@ async function getConfig() {
   });
 }
 
+// Chaves de API não podem sair daqui pra quem não é admin: as telas comuns só
+// precisam de honorários/multa/horário, mas a resposta inteira ia junto e
+// entregava a API key da Evolution pra qualquer usuário logado.
+const CAMPOS_SECRETOS = [
+  "evolutionApiKey", "wahaApiKey", "deepinfraApiKey",
+  "fishAudioApiKey", "elevenLabsApiKey",
+];
+
 export async function GET() {
-  return NextResponse.json(await getConfig());
+  const cfg = await getConfig();
+  const user = await getCurrentUser().catch(() => null);
+  if (isAdmin(user)) return NextResponse.json(cfg);
+
+  const seguro = { ...cfg };
+  for (const campo of CAMPOS_SECRETOS) {
+    // Mantém a informação de "está configurado ou não" (a tela usa isso),
+    // sem devolver o segredo em si.
+    if (seguro[campo]) seguro[campo] = "***";
+  }
+  return NextResponse.json(seguro);
 }
 
 // Atualiza configurações globais (ex.: % de honorários)

@@ -22,40 +22,51 @@ export async function POST(req, { params }) {
   const user = await getCurrentUser().catch(() => null);
   const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
   const devido = valorParcelaAtual(parcela, undefined, { multaPct: cfg?.multaPct, horaLimite: cfg?.pagamentoHoraLimite });
-  // Só entra NESTA parcela o que ela ainda devia; o que passar disso é
-  // adiantamento e vai pras próximas (item 162). Sem esse teto, a parcela
-  // registrava o pagamento inteiro E o excedente virava lançamento de novo
-  // nas seguintes — o caixa contava o mesmo dinheiro duas vezes.
-  const falta = Math.round((devido - parcela.valorPago) * 100) / 100;
-  const aplicado = Math.min(v, Math.max(0, falta));
-  const novoValorPago = Math.round((parcela.valorPago + aplicado) * 100) / 100;
-  const completaAgora = novoValorPago >= devido - 0.01; // tolerância de centavo
 
-  const data = completaAgora
-    ? {
-        valorPago: novoValorPago,
-        paid: true,
-        paidAt: new Date(),
-        amountPago: novoValorPago,
-        baixadoPor: parcela.baixadoPor || user?.name || null,
-        formaPagamento: formaPagamento || parcela.formaPagamento || null,
-      }
-    : { valorPago: novoValorPago, baixadoPor: parcela.baixadoPor || user?.name || null };
+  // Ler o valorPago e depois gravar em dois passos separados perdia baixas
+  // simultâneas: dois recebimentos ao mesmo tempo liam o mesmo saldo e o
+  // segundo sobrescrevia o primeiro — o caixa registrava os dois, mas a
+  // parcela creditava só um, e o cliente continuava "devendo" o que pagou.
+  // Ler + calcular + gravar tudo dentro da transação serializa isso.
+  const { aplicado, novoValorPago, completaAgora, atualizada } = await prisma.$transaction(async (tx) => {
+    const atual = await tx.parcela.findUnique({ where: { id }, select: { valorPago: true, baixadoPor: true, formaPagamento: true } });
+    // Só entra NESTA parcela o que ela ainda devia; o que passar disso é
+    // adiantamento e vai pras próximas (item 162). Sem esse teto, a parcela
+    // registrava o pagamento inteiro E o excedente virava lançamento de novo
+    // nas seguintes — o caixa contava o mesmo dinheiro duas vezes.
+    const falta = Math.round((devido - atual.valorPago) * 100) / 100;
+    const aplicado = Math.min(v, Math.max(0, falta));
+    const novoValorPago = Math.round((atual.valorPago + aplicado) * 100) / 100;
+    const completaAgora = novoValorPago >= devido - 0.01; // tolerância de centavo
 
-  const atualizada = await prisma.parcela.update({ where: { id }, data });
+    const data = completaAgora
+      ? {
+          valorPago: novoValorPago,
+          paid: true,
+          paidAt: new Date(),
+          amountPago: novoValorPago,
+          baixadoPor: atual.baixadoPor || user?.name || null,
+          formaPagamento: formaPagamento || atual.formaPagamento || null,
+        }
+      : { valorPago: novoValorPago, baixadoPor: atual.baixadoPor || user?.name || null };
 
-  if (aplicado > 0) {
-    await prisma.lancamento.create({
-      data: {
-        type: "entrada",
-        amount: aplicado,
-        description: `Baixa parcial — parcela ${parcela.number}ª — ${parcela.contact?.name || ""}`.trim(),
-        contactId: parcela.contactId,
-        parcelaId: parcela.id,
-        bancoId: cfg?.contaRecebimentoId || null,
-      },
-    });
-  }
+    const atualizada = await tx.parcela.update({ where: { id }, data });
+
+    if (aplicado > 0) {
+      await tx.lancamento.create({
+        data: {
+          type: "entrada",
+          amount: aplicado,
+          description: `Baixa parcial — parcela ${parcela.number}ª — ${parcela.contact?.name || ""}`.trim(),
+          contactId: parcela.contactId,
+          parcelaId: parcela.id,
+          bancoId: cfg?.contaRecebimentoId || null,
+        },
+      });
+    }
+
+    return { aplicado, novoValorPago, completaAgora, atualizada };
+  }, { timeout: 15000 });
 
   if (formaPagamento === "dinheiro" && aplicado > 0) {
     await prisma.especieMovimento.create({
@@ -127,6 +138,19 @@ export async function POST(req, { params }) {
     if (quitadasAdiantado.some((q) => q.completou)) {
       await atualizarScoreDoContato(parcela.contactId).catch(() => {});
     }
+  }
+
+  // Se ainda sobrou depois de cobrir todas as parcelas em aberto, esse dinheiro
+  // está fisicamente com o cobrador mas não pertence a nenhuma parcela. Fica
+  // registrado na auditoria pra não sumir de vista — a tela também avisa.
+  if (excedente > 0.01) {
+    registrarAuditoria({
+      usuario: user?.name,
+      acao: "baixa_parcial",
+      entidade: "Parcela",
+      entidadeId: id,
+      detalhe: `${parcela.contact?.name || ""} — sobrou R$ ${excedente} sem parcela em aberto pra aplicar (não virou lançamento; decida se devolve ou lança à parte)`,
+    });
   }
 
   return NextResponse.json({

@@ -17,6 +17,11 @@ export async function POST(req) {
   if (!minValor || minValor <= 0 || !pctBonus || pctBonus <= 0) {
     return NextResponse.json({ error: "Informe valor mínimo e % válidos." }, { status: 400 });
   }
+  // Teto de 100%: digitar 500 em vez de 5 faria a empresa pagar de bônus cinco
+  // vezes o que foi recuperado, e o erro só apareceria no acerto da semana.
+  if (pctBonus > 100) {
+    return NextResponse.json({ error: "O bônus não pode passar de 100% do valor recuperado." }, { status: 400 });
+  }
   const faixa = await prisma.comissaoFaixa.create({ data: { minValor, pctBonus } });
   return NextResponse.json(faixa);
 }

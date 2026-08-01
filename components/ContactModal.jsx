@@ -124,11 +124,18 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     if (!res.ok) { alert(d.error || "Erro ao registrar baixa parcial."); return; }
     // Item 162: sobra do pagamento pode ter quitado (total ou parcialmente) as
     // próximas parcelas — recarrega tudo em vez de só a que foi clicada.
+    // Sobra que não coube em nenhuma parcela precisa ser dita em voz alta: o
+    // dinheiro está com o cobrador e não vai virar lançamento sozinho.
+    const avisoSobra = d.sobrouSemAplicar > 0
+      ? `\n\nATENÇÃO: sobraram R$ ${d.sobrouSemAplicar} sem parcela em aberto pra aplicar. Esse valor NÃO foi lançado no caixa — devolva ao cliente ou lance à parte em Lançamentos.`
+      : "";
+
     if (d.quitadasAdiantado?.length > 0) {
       const linhas = d.quitadasAdiantado.map((q) => `${q.number}ª parcela: R$ ${q.valor}${q.completou ? " (quitada)" : " (parcial)"}`);
-      alert(`Sobrou dinheiro do pagamento e foi usado nas próximas parcelas:\n\n${linhas.join("\n")}`);
+      alert(`Sobrou dinheiro do pagamento e foi usado nas próximas parcelas:\n\n${linhas.join("\n")}${avisoSobra}`);
       await loadContact();
     } else {
+      if (avisoSobra) alert(avisoSobra.trim());
       setParcelas((prev) => prev.map((x) => (x.id === baixaParcialAberta.id ? d.parcela : x)));
     }
     setBaixaParcialAberta(null);
