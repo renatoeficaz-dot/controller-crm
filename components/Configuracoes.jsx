@@ -165,7 +165,8 @@ const TABS = [
   { key: "regua", label: "Régua de cobrança", desc: "Mensagem por faixa de atraso" },
   { key: "desconto", label: "Quitação à vista", desc: "Oferta de desconto pra quem está atrasado" },
   { key: "alteracoes", label: "Alterações", desc: "Log de mudanças em baixas já registradas" },
-  { key: "auditoria", label: "Auditoria", desc: "Quem fez o quê no sistema" },
+  { key: "auditoria", label: "Auditoria", desc: "Log, integridade dos dados e pedidos de desconto" },
+  { key: "saude", label: "Saúde do sistema", desc: "Números desconectados, falhas de envio e alertas" },
   { key: "aparencia", label: "Aparência", desc: "Tema claro, escuro ou do sistema" },
   { key: "alertas", label: "Alertas", desc: "Resumo diário e avisos críticos no seu WhatsApp" },
   { key: "backup", label: "Backup", desc: "Cópias automáticas do banco de dados" },
@@ -250,7 +251,12 @@ export default function Configuracoes() {
             </div>
 
             {tab === "honorarios" && <Honorarios />}
-            {tab === "usuarios" && <Usuarios />}
+            {tab === "usuarios" && (
+              <div className="space-y-4">
+                <Usuarios />
+                <UsoSistemaConfig />
+              </div>
+            )}
             {tab === "numeros" && <Numeros />}
             {tab === "campanhas" && <Campanhas />}
             {tab === "tags" && <TagsConfig />}
@@ -268,13 +274,12 @@ export default function Configuracoes() {
             {tab === "operacao" && <OperacaoConfig />}
             {tab === "auditoria" && (
               <div className="space-y-4">
-                <SaudeSistema />
                 <SolicitacoesDesconto />
                 <IntegridadeConfig />
-                <UsoSistemaConfig />
                 <AuditoriaLog />
               </div>
             )}
+            {tab === "saude" && <SaudeSistema />}
             {tab === "mensagens" && <MensagensProntas />}
             {tab === "automacao" && <AutomacaoFunil />}
             {tab === "ia" && (
