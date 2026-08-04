@@ -115,10 +115,10 @@ model Contact {
   fixado  Boolean @default(false)
   corCard String?
 
-  // Contato de referência (item 73) — quem acionar quando o cliente some.
-  referenciaNome     String?
-  referenciaTelefone String?
-  referenciaRelacao  String? // "familiar" | "vizinho" | "amigo" | "trabalho" | "outro"
+  // Contatos de referência (item 73) — quem acionar quando o cliente some.
+  // Um lead pode ter vários (mãe, cônjuge, vizinho...), por isso é uma lista
+  // à parte em vez de 3 campos soltos no Contact.
+  referencias ContatoReferencia[]
 
   // Organização do Chat (itens 81/82) — independente do "fixado" do funil,
   // porque fixar no Kanban e fixar no Chat são decisões de telas diferentes.
@@ -381,6 +381,20 @@ model ResponsavelLog {
 // Log de alterações feitas numa baixa já registrada (mudar o valor cobrado,
 // ou desmarcar como paga) — sempre com motivo, pra auditoria. Aparece na
 // aba "Alterações" em Configurações.
+// Contato de referência do lead (item 73) — família, vizinho, amigo... quem o
+// cobrador aciona quando o próprio cliente para de responder. Cada lead pode
+// ter vários; o telefone só precisa dar pra abrir o WhatsApp, não é um número
+// cadastrado no sistema (não gera Contact nem entra na IA).
+model ContatoReferencia {
+  id        String   @id @default(cuid())
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String
+  nome      String
+  telefone  String
+  relacao   String? // "familiar" | "vizinho" | "amigo" | "trabalho" | "outro"
+  createdAt DateTime @default(now())
+}
+
 model AlteracaoBaixa {
   id            String   @id @default(cuid())
   parcela       Parcela  @relation(fields: [parcelaId], references: [id], onDelete: Cascade)

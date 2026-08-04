@@ -8,6 +8,7 @@ import { UFS_BR } from "@/lib/ddd";
 import MediaBubble, { MediaLightbox } from "./MediaBubble";
 import PuxadaAnexo from "./PuxadaAnexo";
 import CobrancaLead from "./CobrancaLead";
+import ReferenciasContato from "./ReferenciasContato";
 import Icone from "@/components/Icones";
 import PixModal from "./PixModal";
 import DocumentosPopup from "./DocumentosPopup";
@@ -860,6 +861,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               puxadaCcf={contact?.puxadaCcf}
               puxadaProcessos={contact?.puxadaProcessos}
               onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}
+            />
+
+            <ReferenciasContato
+              contactId={contactId}
+              referencias={contact?.referencias}
+              onChange={(lista) => setContact((c) => ({ ...c, referencias: lista }))}
             />
 
             <CobrancaLead contactId={contactId} contact={contact} onChanged={() => { loadContact(); onChanged?.(); }} />

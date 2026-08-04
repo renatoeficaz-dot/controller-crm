@@ -33,6 +33,7 @@ export async function GET(_req, { params }) {
       stage: true,
       parcelas: { orderBy: [{ ciclo: "asc" }, { number: "asc" }] },
       tags: { select: { id: true, name: true, color: true } },
+      referencias: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!contact) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
@@ -51,7 +52,6 @@ export async function PATCH(req, { params }) {
   const data = {};
   for (const f of [
     "name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf",
-    "referenciaNome", "referenciaTelefone", "referenciaRelacao",
   ]) {
     if (f in body) data[f] = body[f] || null;
   }
