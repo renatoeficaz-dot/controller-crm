@@ -45,6 +45,13 @@ function tempoNaEtapa(contact) {
   return `${m}m`;
 }
 
+// Dias parado na etapa atual (número puro, pra comparar no filtro de tempo).
+function diasNaEtapa(contact) {
+  const base = contact.entrouEtapaEm || contact.createdAt;
+  if (!base) return 0;
+  return (Date.now() - new Date(base).getTime()) / 86400000;
+}
+
 // Cor do tempo na etapa: quanto mais tempo parado, mais chama atenção.
 function corTempo(contact) {
   const base = contact.entrouEtapaEm || contact.createdAt;
@@ -153,6 +160,8 @@ export default function KanbanBoard() {
   const [filtrosAbertos, setFiltrosAbertos] = useState(false); // modal com todos os filtros
   const [simuladorAberto, setSimuladorAberto] = useState(false);
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
+  const [etapaFiltro, setEtapaFiltro] = useState([]); // stageIds selecionados; vazio = todas as colunas
+  const [tempoFiltro, setTempoFiltro] = useState(""); // "" = todos; "3" | "7" | "15" | "30" = pelo menos N dias parado na etapa
   const [bulkAction, setBulkAction] = useState(""); // "", stage, responsavel, unit, delete
   const [bulkValue, setBulkValue] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -326,6 +335,7 @@ export default function KanbanBoard() {
 
   // Um lead passa pelo filtro atual (situação + responsável + região + busca)?
   function passaFiltro(c) {
+    if (etapaFiltro.length && !etapaFiltro.includes(c.stageId)) return false;
     if (filtros.length && !filtros.includes(situacaoContato(c))) return false;
     if (respFiltro === "__none__" && c.responsavel) return false;
     if (respFiltro && respFiltro !== "__none__" && c.responsavel !== respFiltro) return false;
@@ -334,6 +344,7 @@ export default function KanbanBoard() {
     if (generoFiltro && c.genero !== generoFiltro) return false;
     if (tipoClienteFiltro && c.tipoCliente !== tipoClienteFiltro) return false;
     if (tarefaFiltro && statusTarefas(c) !== tarefaFiltro) return false;
+    if (tempoFiltro && diasNaEtapa(c) < Number(tempoFiltro)) return false;
     if (busca.trim()) {
       const termo = busca.trim().toLowerCase();
       const nomeBate = (c.name || "").toLowerCase().includes(termo);
@@ -431,7 +442,9 @@ export default function KanbanBoard() {
     (estadoFiltro ? 1 : 0) +
     (generoFiltro ? 1 : 0) +
     (tipoClienteFiltro ? 1 : 0) +
-    (tarefaFiltro ? 1 : 0);
+    (tarefaFiltro ? 1 : 0) +
+    etapaFiltro.length +
+    (tempoFiltro ? 1 : 0);
 
   return (
     <>
@@ -560,6 +573,7 @@ export default function KanbanBoard() {
                     onClick={() => {
                       setFiltros([]); setRespFiltro(""); setTagFiltro(""); setEstadoFiltro("");
                       setGeneroFiltro(""); setTipoClienteFiltro(""); setTarefaFiltro("");
+                      setEtapaFiltro([]); setTempoFiltro("");
                     }}
                     className="text-xs text-red-400 hover:text-red-600"
                   >
@@ -691,6 +705,57 @@ export default function KanbanBoard() {
                   <option value="atrasada">Atrasadas</option>
                   <option value="hoje">De hoje</option>
                   <option value="futura">A vencer</option>
+                </select>
+              </label>
+
+              <div>
+                <span className="text-xs text-slate-400">Etapa</span>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <button
+                    onClick={() => setEtapaFiltro([])}
+                    className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                      etapaFiltro.length === 0
+                        ? "bg-slate-800 text-white border-slate-800"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  {stages.map((s) => {
+                    const active = etapaFiltro.includes(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() =>
+                          setEtapaFiltro((prev) =>
+                            prev.includes(s.id) ? prev.filter((id) => id !== s.id) : [...prev, s.id]
+                          )
+                        }
+                        className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                          active
+                            ? "bg-slate-800 text-white border-slate-800"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        {s.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <label className="block">
+                <span className="text-xs text-slate-400">Tempo parado na etapa</span>
+                <select
+                  value={tempoFiltro}
+                  onChange={(e) => setTempoFiltro(e.target.value)}
+                  className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">Qualquer tempo</option>
+                  <option value="3">Pelo menos 3 dias</option>
+                  <option value="7">Pelo menos 7 dias</option>
+                  <option value="15">Pelo menos 15 dias</option>
+                  <option value="30">Pelo menos 30 dias</option>
                 </select>
               </label>
 

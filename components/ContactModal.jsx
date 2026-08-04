@@ -163,6 +163,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [users, setUsers] = useState([]);
   const [stagesList, setStagesList] = useState([]);
   const [moveErr, setMoveErr] = useState("");
+  const [motivosPerda, setMotivosPerda] = useState([]);
+  const [motivoPerdaAberto, setMotivoPerdaAberto] = useState(null); // stageId pendente | null
+  const [motivoEscolhido, setMotivoEscolhido] = useState("");
   const [templates, setTemplates] = useState([]);
   const [tplCopied, setTplCopied] = useState(false);
   const [cpfCopiado, setCpfCopiado] = useState(false);
@@ -237,6 +240,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     fetch("/api/task-types").then((r) => r.json()).then((t) => setTaskTypes(Array.isArray(t) ? t : [])).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
     fetch("/api/campos-personalizados").then((r) => r.json()).then((c) => setCamposDef(Array.isArray(c) ? c : [])).catch(() => {});
+    fetch("/api/motivos-perda").then((r) => r.json()).then((m) => setMotivosPerda(Array.isArray(m) ? m : [])).catch(() => {});
   }, []);
 
   // Número (instância) sugerido pro próximo envio: o último usado nesta
@@ -297,27 +301,50 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     }
   }
 
-  // Move o contato para outra etapa direto do card
-  async function changeStage(stageId) {
+  // Move o contato para outra etapa direto do card. Espelha o moveContact do
+  // Kanban (drag-and-drop) — sem isso, mover por aqui só mostrava o erro sem
+  // nunca oferecer como resolvê-lo (motivo da perda, forçar bloqueio de CPF...).
+  async function changeStage(stageId, forcar = false, motivoPerda = null) {
     setMoveErr("");
     // salva os campos antes (capital/responsável) p/ as regras de movimentação valerem
-    await fetch(`/api/contacts/${contactId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
+    if (!forcar && !motivoPerda) {
+      await fetch(`/api/contacts/${contactId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+    }
     const res = await fetch(`/api/contacts/${contactId}/move`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stageId }),
+      body: JSON.stringify({ stageId, forcar, motivoPerda }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
+      if ((data.bloqueioCpf || data.escalonamentoExcedido) && !forcar) {
+        if (confirm(`${data.error}\n\nForçar mesmo assim? (só administrador consegue)`)) {
+          return changeStage(stageId, true, motivoPerda);
+        }
+        return;
+      }
+      if (data.precisaMotivoPerda) {
+        setMotivoPerdaAberto(stageId);
+        return;
+      }
       setMoveErr(data.error || "Não foi possível mover o contato.");
       return;
     }
     loadContact();
     onChanged?.();
+  }
+
+  function confirmarMotivoPerda() {
+    if (!motivoEscolhido || !motivoPerdaAberto) return;
+    const stageId = motivoPerdaAberto;
+    const motivo = motivoEscolhido;
+    setMotivoPerdaAberto(null);
+    setMotivoEscolhido("");
+    changeStage(stageId, false, motivo);
   }
 
   // Polling leve para puxar mensagens recebidas pelo webhook
@@ -1479,6 +1506,39 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               <button onClick={() => setBaixaParcialAberta(null)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
               <button disabled={enviandoParcial} onClick={confirmarBaixaParcial} className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50">
                 {enviandoParcial ? "Salvando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {motivoPerdaAberto && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => { setMotivoPerdaAberto(null); setMotivoEscolhido(""); }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800 mb-1">Por que essa venda foi perdida?</h3>
+            <p className="text-xs text-slate-400 mb-3">Ajuda a entender o padrão de quem não fecha.</p>
+            {motivosPerda.length === 0 ? (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2.5">
+                Nenhum motivo cadastrado ainda — cadastre em Configurações → Motivos de perda.
+              </p>
+            ) : (
+              <select
+                value={motivoEscolhido}
+                onChange={(e) => setMotivoEscolhido(e.target.value)}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 mb-3"
+              >
+                <option value="">— Escolha o motivo —</option>
+                {motivosPerda.map((m) => (<option key={m.id} value={m.nome}>{m.nome}</option>))}
+              </select>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setMotivoPerdaAberto(null); setMotivoEscolhido(""); }} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
+              <button
+                disabled={!motivoEscolhido}
+                onClick={confirmarMotivoPerda}
+                className="text-sm bg-slate-800 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-40"
+              >
+                Confirmar
               </button>
             </div>
           </div>
