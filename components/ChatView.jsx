@@ -453,6 +453,17 @@ export default function ChatView() {
     uploadMedia(file, kind);
   }
 
+  // Colar imagem (Ctrl+V) copiada de um print/navegador — sem precisar salvar
+  // em arquivo e escolher no seletor. Só intercepta quando o clipboard tem
+  // imagem; texto colado continua indo pro campo normalmente.
+  function onPasteImage(e) {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+    if (!item) return;
+    e.preventDefault();
+    const file = item.getAsFile();
+    if (file) uploadMedia(file, "image");
+  }
+
   async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1038,7 +1049,8 @@ export default function ChatView() {
                   <input
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    placeholder={recording ? "Gravando áudio…" : uploading ? "Enviando anexo…" : "Digite uma mensagem… (\"/\" pra mensagem pronta)"}
+                    onPaste={onPasteImage}
+                    placeholder={recording ? "Gravando áudio…" : uploading ? "Enviando anexo…" : "Digite uma mensagem… (\"/\" pra mensagem pronta, Ctrl+V pra colar imagem)"}
                     disabled={recording}
                     className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 disabled:bg-slate-50"
                   />

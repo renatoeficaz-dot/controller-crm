@@ -516,6 +516,15 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     uploadMedia(file, kind);
   }
 
+  // Colar imagem (Ctrl+V) direto no campo de mensagem — mesmo padrão do Chat.
+  function onPasteImage(e) {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+    if (!item) return;
+    e.preventDefault();
+    const file = item.getAsFile();
+    if (file) uploadMedia(file, "image");
+  }
+
   // Gravação de áudio via microfone
   async function startRecording() {
     try {
@@ -1394,8 +1403,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   send();
                 }
               }}
+              onPaste={onPasteImage}
               rows={1}
-              placeholder={recording ? "Gravando áudio…" : uploading ? "Enviando anexo…" : "Escreva uma mensagem…"}
+              placeholder={recording ? "Gravando áudio…" : uploading ? "Enviando anexo…" : "Escreva uma mensagem… (Ctrl+V pra colar imagem)"}
               disabled={recording}
               className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 resize-none max-h-24 disabled:bg-slate-50"
             />
