@@ -79,7 +79,11 @@ export async function register() {
     }
     // Fecha a semana de comissão todo domingo (dia de folga, ninguém está
     // cobrando) — uma vez por semana, não uma vez por dia.
-    const ehDomingo = new Date().getUTCDay() === 0;
+    // Dia da semana tem que sair da data LOCAL, igual o `hoje` acima: com
+    // getUTCDay() num servidor em UTC-3, sábado às 21h já era "domingo" em UTC
+    // e o fechamento cristalizava a semana ANTES dela terminar — baixa feita
+    // no fim do sábado ficava fora da comissão pra sempre.
+    const ehDomingo = new Date(hoje + "T00:00:00.000Z").getUTCDay() === 0;
     if (ehDomingo && ultimaSemanaComissao !== hoje) {
       ultimaSemanaComissao = hoje;
       fecharSemanaAnterior()

@@ -605,7 +605,7 @@ export default function Relatorios() {
             const d = new Date(p.paidAt).toLocaleDateString("en-CA");
             return d >= ini && d <= fim;
           })
-          .reduce((acc, p) => acc + p.amount, 0);
+          .reduce((acc, p) => acc + Math.max(0, p.amount - (p.valorPago || 0)), 0);
         if (valor <= 0) continue;
         map.set(k, (map.get(k) || 0) + valor);
       }

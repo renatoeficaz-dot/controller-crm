@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, veTodosLeads } from "@/lib/session";
-import { hojeStr, dueStr, parcelaAtrasada } from "@/lib/finance";
+import { hojeStr, dueStr, parcelaAtrasada, valorEmAberto } from "@/lib/finance";
 
 // Quem cobrar hoje: clientes em Recebimento/Cravo com parcela vencida em aberto.
 // A ordem é por prioridade = valor em aberto x peso do atraso — quem atrasou
@@ -43,7 +43,7 @@ export async function GET() {
     if (!atrasadas.length) continue;
 
     const abertas = (c.parcelas || []).filter((p) => !p.paid && !p.renegociada);
-    const valorAberto = abertas.reduce((acc, p) => acc + p.amount, 0);
+    const valorAberto = abertas.reduce((acc, p) => acc + valorEmAberto(p), 0);
     const maisAntiga = atrasadas.slice().sort((a, b) => dueStr(a).localeCompare(dueStr(b)))[0];
     const dias = Math.round((new Date(hoje) - new Date(dueStr(maisAntiga))) / 86400000);
     const stage = stages.find((s) => s.id === c.stageId);

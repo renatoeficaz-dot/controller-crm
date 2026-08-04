@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
+import { valorRecebidoDe } from "@/lib/finance";
 
 // ROI do capital (item 35): lucro do período (honorários recebidos) sobre o
 // capital médio que esteve emprestado (empatado) no mesmo período —
@@ -17,14 +18,16 @@ export async function GET() {
       where: { pagamentoCapital: { gte: noventaDiasAtras }, valorCapital: { not: null } },
       select: { valorCapital: true, pagamentoCapital: true },
     }),
-    prisma.parcela.aggregate({
+    // amountPago só é preenchido quando o cobrador digita um valor diferente
+    // do previsto; somar só ele fazia toda baixa normal valer zero aqui.
+    prisma.parcela.findMany({
       where: { paid: true, paidAt: { gte: noventaDiasAtras } },
-      _sum: { amountPago: true },
+      select: { amount: true, amountPago: true, paid: true, valorPago: true },
     }),
   ]);
 
   const capitalLiberado = liberados.reduce((s, c) => s + (c.valorCapital || 0), 0);
-  const valorRecebido = recebido._sum.amountPago || 0;
+  const valorRecebido = recebido.reduce((s, p) => s + valorRecebidoDe(p), 0);
   // Lucro = o que voltou acima do que saiu (aproximação: recebido - liberado
   // no período; negativo é normal em carteira em crescimento, onde se libera
   // mais rápido do que o ciclo de 10 dias devolve).

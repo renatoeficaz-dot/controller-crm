@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
-import { hojeStr, dueStr, parcelaAtrasada } from "@/lib/finance";
+import { hojeStr, dueStr, parcelaAtrasada, valorEmAberto } from "@/lib/finance";
 
 // Faixas de aging usadas pela provisão — a expectativa de perda cresce com o
 // tempo de atraso, então cada faixa tem seu próprio percentual configurável.
@@ -63,7 +63,7 @@ export async function GET() {
     const abertas = (c.parcelas || []).filter((p) => !p.paid && !p.renegociada);
     if (abertas.length === 0 && c.stage?.name !== "Cravo") continue;
     const r = garante(c.responsavel);
-    r.carteira += abertas.reduce((s, p) => s + p.amount, 0);
+    r.carteira += abertas.reduce((s, p) => s + valorEmAberto(p), 0);
     if (c.stage?.name === "Cravo") r.calotes += 1;
     if (abertas.some((p) => parcelaAtrasada(p, hoje))) r.atrasadas += 1;
   }
@@ -94,7 +94,7 @@ export async function GET() {
     if (idx < 0) continue;
     // Provisiona sobre TODO o saldo aberto do cliente, não só a parcela vencida
     // — se ele parou de pagar, o risco é do plano inteiro.
-    provisaoFaixas[idx].valor += abertas.reduce((s, p) => s + p.amount, 0);
+    provisaoFaixas[idx].valor += abertas.reduce((s, p) => s + valorEmAberto(p), 0);
     provisaoFaixas[idx].clientes += 1;
   }
 
@@ -127,7 +127,7 @@ export async function GET() {
         recebido: Math.round(r.entradas * 100) / 100,
         emprestado: Math.round(r.saidas * 100) / 100,
         lucro: Math.round((r.entradas - r.saidas) * 100) / 100,
-        emAberto: abertas.reduce((s, p) => s + p.amount, 0),
+        emAberto: abertas.reduce((s, p) => s + valorEmAberto(p), 0),
       };
     })
     .filter((c) => c.recebido > 0 || c.emprestado > 0)

@@ -68,7 +68,7 @@ function valorAReceber(contact) {
   const ciclo = contact.cicloAtual || 1;
   return (contact.parcelas || [])
     .filter((p) => (p.ciclo || 1) === ciclo && !p.paid && !p.renegociada)
-    .reduce((sum, p) => sum + p.amount, 0);
+    .reduce((sum, p) => sum + Math.max(0, p.amount - (p.valorPago || 0)), 0);
 }
 
 // Situação de cobrança do contato:

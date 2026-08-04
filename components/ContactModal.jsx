@@ -651,8 +651,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === cicloAtual && !p.renegociada);
   const parcelasRenegociadas = parcelas.filter((p) => (p.ciclo || 1) === cicloAtual && p.renegociada);
   const parcelasHistorico = parcelas.filter((p) => (p.ciclo || 1) < cicloAtual);
-  const totalPago = parcelasAtuais.filter((p) => p.paid).reduce((s, p) => s + p.amount, 0);
-  const faltaQuitar = parcelasAtuais.filter((p) => !p.paid && !p.renegociada).reduce((s, p) => s + p.amount, 0);
+  const totalPago = parcelasAtuais.reduce((s, p) => s + (p.paid ? (p.amountPago != null ? p.amountPago : p.amount) : (p.valorPago || 0)), 0);
+  const faltaQuitar = parcelasAtuais.filter((p) => !p.paid && !p.renegociada).reduce((s, p) => s + Math.max(0, p.amount - (p.valorPago || 0)), 0);
   const todasPagas = parcelasAtuais.length > 0 && parcelasAtuais.every((p) => p.paid);
 
   function field(label, key, type = "text") {
