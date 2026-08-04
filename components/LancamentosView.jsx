@@ -170,6 +170,10 @@ export default function LancamentosView() {
   const [catAberta, setCatAberta] = useState(null);
   const [bancoAberto, setBancoAberto] = useState(null);
   const [newCat, setNewCat] = useState({ name: "", type: "entrada" });
+  // Categoria rápida dentro do modal de lançamento — sem isso, criar uma
+  // categoria nova exigia fechar o formulário e ir até a barra lateral.
+  const [novaCatInline, setNovaCatInline] = useState(null); // null | "" | nome digitado
+  const [criandoCatInline, setCriandoCatInline] = useState(false);
   const [newBanco, setNewBanco] = useState("");
   const [saldoAtual, setSaldoAtual] = useState(null);
   const [editandoSaldo, setEditandoSaldo] = useState(null); // { novoSaldo, motivo } | null
@@ -346,11 +350,13 @@ export default function LancamentosView() {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setError("");
+    setNovaCatInline(null);
     setFormOpen(true);
   }
 
   function abrirEdicao(l) {
     setEditingId(l.id);
+    setNovaCatInline(null);
     setForm({
       type: l.type,
       amount: String(l.amount),
@@ -415,7 +421,15 @@ export default function LancamentosView() {
     if (!l) return;
     setLancamentos((prev) => prev.filter((x) => x.id !== id));
     agendarExclusao(`Lançamento "${l.description || money(l.amount)}"`, async () => {
-      await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        // Exclusão falhou de verdade — devolve o lançamento pra lista em vez
+        // de deixar sumir da tela sem sumir do banco (dava a falsa impressão
+        // de que funcionou, e o caixa ficava errado).
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || "Erro ao excluir o lançamento — ele continua no sistema.");
+        loadLanc();
+      }
       loadSaldo();
     });
   }
@@ -431,6 +445,23 @@ export default function LancamentosView() {
     await fetch("/api/lancamentos/categorias", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newCat) });
     setNewCat({ name: "", type: "entrada" });
     loadMeta();
+  }
+
+  // Cria a categoria sem sair do modal de lançamento, e já deixa selecionada.
+  async function criarCategoriaInline() {
+    if (!novaCatInline?.trim()) return;
+    setCriandoCatInline(true);
+    const res = await fetch("/api/lancamentos/categorias", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: novaCatInline.trim(), type: form.type }),
+    });
+    const cat = await res.json().catch(() => ({}));
+    setCriandoCatInline(false);
+    if (!res.ok) { setError(cat.error || "Erro ao criar categoria."); return; }
+    setCategorias((prev) => [...prev, cat]);
+    setForm((f) => ({ ...f, categoriaId: cat.id }));
+    setNovaCatInline(null);
   }
   async function removeCat(id) {
     await fetch(`/api/lancamentos/categorias/${id}`, { method: "DELETE" });
@@ -894,10 +925,50 @@ export default function LancamentosView() {
             </label>
             <label className="block">
               <span className="text-xs text-slate-400">Categoria</span>
-              <select value={form.categoriaId} onChange={set("categoriaId")} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
-                <option value="">— Sem categoria —</option>
-                {catsDoTipo.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-              </select>
+              {novaCatInline === null ? (
+                <div className="mt-0.5 flex gap-1.5">
+                  <select value={form.categoriaId} onChange={set("categoriaId")} className="flex-1 min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                    <option value="">— Sem categoria —</option>
+                    {catsDoTipo.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setNovaCatInline("")}
+                    title="Criar categoria nova"
+                    className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-emerald-600 flex items-center justify-center text-lg leading-none"
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-0.5 flex gap-1.5">
+                  <input
+                    autoFocus
+                    value={novaCatInline}
+                    onChange={(e) => setNovaCatInline(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); criarCategoriaInline(); } if (e.key === "Escape") setNovaCatInline(null); }}
+                    placeholder={`Nova categoria de ${form.type === "entrada" ? "entrada" : "saída"}`}
+                    className="flex-1 min-w-0 text-sm border border-emerald-300 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+                  />
+                  <button
+                    type="button"
+                    disabled={criandoCatInline || !novaCatInline.trim()}
+                    onClick={criarCategoriaInline}
+                    title="Salvar categoria"
+                    className="shrink-0 w-9 h-9 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNovaCatInline(null)}
+                    title="Cancelar"
+                    className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 flex items-center justify-center text-lg leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
             </label>
             <label className="block">
               <span className="text-xs text-slate-400">Banco</span>

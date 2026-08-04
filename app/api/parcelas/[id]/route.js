@@ -21,6 +21,15 @@ export async function PATCH(req, { params }) {
     include: { contact: { select: { name: true } } },
   });
   if (!parcelaAtual) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
+  // Parcela renegociada foi substituída por um acordo — o valor dela já virou
+  // as novas parcelas do acordo, então baixá-la de novo duplicaria a cobrança
+  // (gerou um lançamento fantasma quando isso aconteceu por engano).
+  if (paid && parcelaAtual.renegociada) {
+    return NextResponse.json(
+      { error: "Essa parcela foi substituída por um acordo — o valor dela já está nas parcelas do acordo. Dê baixa lá, não aqui." },
+      { status: 400 }
+    );
+  }
 
   const user = await getCurrentUser().catch(() => null);
 

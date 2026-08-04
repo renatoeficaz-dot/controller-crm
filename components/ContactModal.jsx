@@ -171,6 +171,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [selectedInstance, setSelectedInstance] = useState("");
   const [cicloAtual, setCicloAtual] = useState(1);
   const [showHistorico, setShowHistorico] = useState(false);
+  const [showRenegociadas, setShowRenegociadas] = useState(false);
   const [renovForm, setRenovForm] = useState({ valorCapital: "", pagamentoCapital: "" });
   const [renovando, setRenovando] = useState(false);
   const [tasks, setTasks] = useState([]);
@@ -606,7 +607,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const acimaDoLimite = limiteCiclo != null && Number(form.valorCapital || 0) > limiteCiclo;
   const limiteProximoCiclo = escalonamentoCfg ? limiteEscalonado(cicloAtual + 1, escalonamentoCfg) : null;
   const multaOpts = { multaPct, horaLimite }; // multa por atraso + horário limite (config)
-  const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === cicloAtual);
+  // Renegociada = virou acordo, não é mais cobrança ativa — some da lista
+  // principal (senão fica um "zumbi" com checkbox e vencimento vencido que
+  // ninguém deve mais cobrar) e vai pra uma seção recolhida à parte, só pra
+  // manter o rastro de que ela existiu.
+  const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === cicloAtual && !p.renegociada);
+  const parcelasRenegociadas = parcelas.filter((p) => (p.ciclo || 1) === cicloAtual && p.renegociada);
   const parcelasHistorico = parcelas.filter((p) => (p.ciclo || 1) < cicloAtual);
   const totalPago = parcelasAtuais.filter((p) => p.paid).reduce((s, p) => s + p.amount, 0);
   const faltaQuitar = parcelasAtuais.filter((p) => !p.paid && !p.renegociada).reduce((s, p) => s + p.amount, 0);
@@ -1196,6 +1202,28 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       </div>
                     )}
                   </>
+                )}
+
+                {/* Parcelas substituídas por acordo (minimizado) */}
+                {parcelasRenegociadas.length > 0 && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() => setShowRenegociadas((v) => !v)}
+                      className="text-[11px] text-slate-400 hover:text-slate-600"
+                    >
+                      {showRenegociadas ? "▼" : "▶"} Substituídas por acordo ({parcelasRenegociadas.length} parcela(s))
+                    </button>
+                    {showRenegociadas && (
+                      <ul className="mt-1 divide-y divide-slate-100 text-[11px]">
+                        {parcelasRenegociadas.map((p) => (
+                          <li key={p.id} className="flex justify-between py-1 px-1.5 rounded bg-slate-50 text-slate-400">
+                            <span>{p.number}ª · {fmtDate(p.dueDate)} · virou acordo</span>
+                            <span>{money(p.amount)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 )}
 
                 {/* Histórico de ciclos anteriores (minimizado) */}

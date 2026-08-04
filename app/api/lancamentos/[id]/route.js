@@ -31,6 +31,15 @@ export async function PATCH(req, { params }) {
 
 export async function DELETE(_req, { params }) {
   const { id } = await params;
-  await prisma.lancamento.delete({ where: { id } });
+  try {
+    await prisma.lancamento.delete({ where: { id } });
+  } catch (err) {
+    // P2025 = já não existe (ex.: excluído de novo por um segundo clique, ou
+    // o "desfazer" de 5s já tinha rodado) — o resultado que importa (não
+    // existir mais) já está garantido, então trata como sucesso.
+    if (err.code !== "P2025") {
+      return NextResponse.json({ error: "Erro ao excluir o lançamento." }, { status: 500 });
+    }
+  }
   return NextResponse.json({ ok: true });
 }
