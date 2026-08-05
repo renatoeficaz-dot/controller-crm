@@ -70,7 +70,10 @@ export async function POST(req, { params }) {
         contactId: id,
         parcelaId: parcela.id,
         title: `Cobrar ${p.number}ª parcela de ${contact.name} (renovação ${novoCiclo - 1})`,
-        dueDate: p.dueDate,
+        // 11h LOCAL, igual ao empréstimo normal (lib/cobranca.js). Usar
+        // p.dueDate cru jogava a tarefa pras 21h do DIA ANTERIOR — que no
+        // vencimento de segunda caía no domingo, dia em que ninguém cobra.
+        dueDate: new Date(`${p.dueDate.toISOString().slice(0, 10)}T11:00:00`),
       },
     });
   }

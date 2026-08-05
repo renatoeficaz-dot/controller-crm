@@ -31,12 +31,31 @@ export async function POST(req, { params }) {
   }
 
   const tail = telDigits.slice(-8);
-  let contact = await prisma.contact.findFirst({ where: { phone: { endsWith: tail } } });
-  const camposCustom = JSON.stringify(respostas || {});
+  let contact = await prisma.contact.findFirst({ where: { phone: { endsWith: tail }, excluidoEm: null } });
 
   if (contact) {
-    await prisma.contact.update({ where: { id: contact.id }, data: { camposCustom, campanhaId: campanha.id } });
+    // Esta rota é PÚBLICA e sem login. Antes ela sobrescrevia camposCustom
+    // inteiro: bastava saber o telefone de um cliente pra apagar tudo que a
+    // equipe tinha preenchido nele (renda, empresa, observação interna) com um
+    // POST anônimo. Agora MESCLA — o que já existia só é trocado se a pessoa
+    // realmente respondeu aquele campo.
+    const atuais = JSON.parse(contact.camposCustom || "{}");
+    const novos = { ...atuais };
+    for (const [chave, valor] of Object.entries(respostas || {})) {
+      if (valor !== "" && valor != null) novos[chave] = valor;
+    }
+    await prisma.contact.update({
+      where: { id: contact.id },
+      data: {
+        camposCustom: JSON.stringify(novos),
+        // Atribuição é de PRIMEIRO toque (o schema diz isso): só marca a
+        // campanha se o lead ainda não tiver uma, senão qualquer link novo
+        // reescreveria de quem veio o cliente.
+        ...(contact.campanhaId ? {} : { campanhaId: campanha.id }),
+      },
+    });
   } else {
+    const camposCustom = JSON.stringify(respostas || {});
     const first = await prisma.stage.findFirst({ orderBy: { order: "asc" } });
     if (!first) return NextResponse.json({ error: "Sistema sem configuração de funil." }, { status: 500 });
     contact = await prisma.contact.create({
