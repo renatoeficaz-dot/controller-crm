@@ -15,7 +15,9 @@ const TIPOS = [
 ];
 const labelTipo = (t) => TIPOS.find((x) => x.chave === t)?.label || t;
 
-const MIDIA_KINDS = ["image", "document"];
+// Áudio também é mídia do chat: ficava de fora dessa lista, então nota de voz
+// do cliente nunca aparecia aqui (só rolando a conversa inteira pra achar).
+const MIDIA_KINDS = ["image", "document", "audio"];
 
 // Popup de mídias/documentos do lead (itens 68/69): documentos organizados
 // por TIPO numa aba, e a mídia crua do chat (ainda não classificada) noutra —
@@ -30,6 +32,10 @@ export default function DocumentosPopup({ contactId, messages, onClose }) {
   useEffect(() => { load(); }, [contactId]);
 
   const midiasChat = (messages || []).filter((m) => MIDIA_KINDS.includes(m.kind));
+  // Mídia que o cliente mandou mas o servidor não conseguiu baixar: o arquivo
+  // não existe do nosso lado, então não dá pra exibir — mas some sem avisar,
+  // e quem olha o popup acha que o cliente nunca mandou nada.
+  const naoBaixadas = (messages || []).filter((m) => (m.body || "").includes("não foi possível baixar o arquivo"));
   const porTipo = TIPOS.map((t) => ({ ...t, itens: documentos.filter((d) => d.tipo === t.chave) })).filter((t) => t.itens.length);
 
   async function conferir(doc) {
@@ -117,6 +123,14 @@ export default function DocumentosPopup({ contactId, messages, onClose }) {
                 ))}
               </div>
             )
+          )}
+
+          {aba === "chat" && naoBaixadas.length > 0 && (
+            <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+              <p className="text-[11px] text-amber-700">
+                <strong>{naoBaixadas.length} arquivo(s)</strong> que o cliente enviou não puderam ser baixados do WhatsApp e não ficaram salvos aqui. Peça pro cliente reenviar.
+              </p>
+            </div>
           )}
 
           {aba === "chat" && (

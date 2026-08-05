@@ -20,6 +20,17 @@ export async function POST(req) {
   if (!body.templateId && !body.corpo?.trim()) {
     return NextResponse.json({ error: "Escolha uma mensagem pronta ou escreva o texto." }, { status: 400 });
   }
+  if (Number.isNaN(new Date(body.dataHora).getTime())) {
+    return NextResponse.json({ error: "Data e hora inválidas." }, { status: 400 });
+  }
+  // Lead ou número inexistente estourava a chave estrangeira no Prisma e
+  // voltava como erro 500, sem dizer o que estava errado.
+  const [contatoOk, numeroOk] = await Promise.all([
+    prisma.contact.count({ where: { id: body.contactId } }),
+    prisma.whatsappNumber.count({ where: { id: body.numeroId } }),
+  ]);
+  if (!contatoOk) return NextResponse.json({ error: "Lead não encontrado." }, { status: 404 });
+  if (!numeroOk) return NextResponse.json({ error: "Número de WhatsApp não encontrado." }, { status: 404 });
   const criado = await prisma.mensagemAgendada.create({
     data: {
       contactId: body.contactId,

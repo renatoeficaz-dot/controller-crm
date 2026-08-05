@@ -7,6 +7,12 @@ import { getIaConfig, detectarGeneroPorNome } from "@/lib/ia";
 export async function POST(req) {
   const body = await req.json();
 
+  // Sem nome E sem telefone o cadastro não serve pra nada: não dá pra falar com
+  // ele nem identificar quem é, mas ele entrava no funil e contava nas métricas.
+  if (!(body.name || "").trim() && !(body.phone || "").replace(/\D/g, "")) {
+    return NextResponse.json({ error: "Informe ao menos o nome ou o telefone." }, { status: 400 });
+  }
+
   // Evita duplicar lead: se já existe um contato com o mesmo telefone (últimos
   // 8 dígitos, tolerando formatação/DDI diferentes — mesma regra do webhook do
   // WhatsApp), reaproveita o card existente em vez de criar um novo.

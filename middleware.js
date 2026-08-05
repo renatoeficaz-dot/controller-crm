@@ -56,6 +56,35 @@ export async function middleware(req) {
       return NextResponse.json({ error: "Só o administrador pode alterar isso." }, { status: 403 });
     }
 
+    // Dado financeiro da empresa não pode ser nem LIDO por quem não é admin.
+    // A página /lancamentos já era bloqueada, mas a API por trás respondia
+    // normalmente: um vendedor que soubesse a URL via todo o caixa, o fluxo,
+    // as contas a pagar e o ranking de todo mundo.
+    const apisFinanceiras = [
+      "/api/lancamentos", "/api/fluxo-caixa", "/api/contas-pagar",
+      "/api/ranking", "/api/relatorios",
+    ];
+    const ehFinanceira = apisFinanceiras.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    if (ehFinanceira && session.role !== "admin") {
+      return NextResponse.json({ error: "Só o administrador acessa dados financeiros." }, { status: 403 });
+    }
+
+    // Restrição por página (Configurações → Usuários) valia só no menu: a API
+    // da página escondida continuava respondendo. Agora a mesma lista trava a
+    // API correspondente. Admin nunca é restrito.
+    if (session.role !== "admin" && session.paginas) {
+      const permitidas = session.paginas.split(",").filter(Boolean);
+      const apiDaPagina = {
+        "/api/metas": "metas", "/api/cobranca": "cobranca", "/api/tasks": "tarefas",
+        "/api/chat": "chat", "/api/relatorios": "relatorios",
+      };
+      for (const [prefixo, pagina] of Object.entries(apiDaPagina)) {
+        if ((pathname === prefixo || pathname.startsWith(prefixo + "/")) && !permitidas.includes(pagina)) {
+          return NextResponse.json({ error: "Sem acesso a essa área." }, { status: 403 });
+        }
+      }
+    }
+
     return NextResponse.next();
   }
 

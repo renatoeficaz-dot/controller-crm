@@ -14,6 +14,9 @@ export async function POST(req) {
   if (!(name || "").trim()) {
     return NextResponse.json({ error: "Nome da tag é obrigatório." }, { status: 400 });
   }
-  const tag = await prisma.tag.create({ data: { name: name.trim(), color: color || "#6366f1" } });
+  // Só cor hexadecimal: qualquer outro texto era aceito e a etiqueta saía
+  // sem cor nenhuma na tela (o navegador ignora o valor inválido no estilo).
+  const cor = /^#[0-9a-fA-F]{6}$/.test(color || "") ? color : "#6366f1";
+  const tag = await prisma.tag.create({ data: { name: name.trim(), color: cor } });
   return NextResponse.json(tag);
 }

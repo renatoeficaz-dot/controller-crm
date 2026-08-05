@@ -42,6 +42,10 @@ export async function POST(req) {
   if (!name || !login || !password) {
     return NextResponse.json({ error: "Preencha nome, login e senha." }, { status: 400 });
   }
+  // Sem mínimo dava pra criar um administrador com a senha "1".
+  if (password.length < 6) {
+    return NextResponse.json({ error: "A senha precisa ter ao menos 6 caracteres." }, { status: 400 });
+  }
 
   const exists = await prisma.user.findUnique({ where: { login } });
   if (exists) {

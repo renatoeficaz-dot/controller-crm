@@ -40,6 +40,11 @@ export async function POST(req) {
   if (!body.vencimento) {
     return NextResponse.json({ error: "Informe a data de vencimento." }, { status: 400 });
   }
+  // Data que o JS não entende virava `Invalid Date` e só estourava lá no
+  // Prisma, devolvendo erro 500 em vez de dizer o que estava errado.
+  if (Number.isNaN(new Date(body.vencimento).getTime())) {
+    return NextResponse.json({ error: "Data de vencimento inválida." }, { status: 400 });
+  }
 
   // "ilimitada" chega como recorrenciaMeses vazio/null com recorrente = true.
   const meses = body.recorrenciaMeses === "" || body.recorrenciaMeses == null ? null : Number(body.recorrenciaMeses);

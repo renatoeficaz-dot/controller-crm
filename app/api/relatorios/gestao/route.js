@@ -22,6 +22,7 @@ export async function GET() {
   const [cfg, contatos, baixas, lancamentos] = await Promise.all([
     prisma.config.findUnique({ where: { id: "singleton" } }),
     prisma.contact.findMany({
+      where: { excluidoEm: null },
       include: {
         parcelas: true,
         stage: { select: { name: true } },

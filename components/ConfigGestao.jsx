@@ -6,6 +6,8 @@ import Icone from "@/components/Icones";
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR");
+
 function Cabecalho({ icone, titulo, subtitulo }) {
   return (
     <div className="flex items-center gap-3">
@@ -641,7 +643,9 @@ export function IntegridadeConfig() {
   if (loading) return <p className="text-sm text-slate-400 p-6 text-center">Verificando…</p>;
   if (!dados) return null;
 
-  const totalAlertas = (dados.orfas?.length || 0) + (dados.somaDivergente?.length || 0) + (dados.semEspecie?.length || 0);
+  const totalAlertas =
+    (dados.orfas?.length || 0) + (dados.somaDivergente?.length || 0) +
+    (dados.semEspecie?.length || 0) + (dados.lancamentosOrfaos?.length || 0);
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
@@ -686,6 +690,28 @@ export function IntegridadeConfig() {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {dados.lancamentosOrfaos?.length > 0 && (
+            <div className="p-5">
+              <h3 className="text-sm font-semibold text-slate-700 mb-1">
+                Dinheiro no caixa sem parcela correspondente ({dados.lancamentosOrfaos.length})
+              </h3>
+              <p className="text-[11px] text-slate-400 mb-2">
+                A parcela que gerou esse lançamento foi apagada (normalmente por "Atualizar parcelas"). O valor continua somando no saldo — e se a parcela foi recriada e paga de novo, o mesmo pagamento está contado duas vezes. Confira antes de excluir.
+              </p>
+              <ul className="space-y-1">
+                {dados.lancamentosOrfaos.map((l) => (
+                  <li key={l.lancamentoId} className="text-xs text-slate-600 flex items-center justify-between gap-2">
+                    <span>{fmtDia(l.data)} · {l.nome || "sem lead"} <span className="text-slate-400">— {l.descricao}</span></span>
+                    <span className="font-medium text-amber-600 shrink-0">{money(l.valor)}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-slate-500 mt-2">
+                Total: <strong>{money(dados.lancamentosOrfaos.reduce((s, l) => s + (l.tipo === "entrada" ? l.valor : -l.valor), 0))}</strong>
+              </p>
             </div>
           )}
 

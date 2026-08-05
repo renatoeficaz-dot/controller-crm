@@ -101,7 +101,9 @@ export async function POST(req, { params }) {
       if (excedente <= 0.01) break;
       const devidoProx = valorParcelaAtual(prox, undefined, { multaPct: cfg?.multaPct, horaLimite: cfg?.pagamentoHoraLimite });
       const faltaProx = Math.round((devidoProx - prox.valorPago) * 100) / 100;
-      const aplicar = Math.min(excedente, faltaProx);
+      // Arredonda em centavo: subtrair floats gera resto binário e o valor ia
+      // pro banco como 59.40000000000001 — aparece assim em relatório e CSV.
+      const aplicar = Math.round(Math.min(excedente, faltaProx) * 100) / 100;
       if (aplicar <= 0) continue;
       const novoValorPagoProx = Math.round((prox.valorPago + aplicar) * 100) / 100;
       const completaProx = novoValorPagoProx >= devidoProx - 0.01;

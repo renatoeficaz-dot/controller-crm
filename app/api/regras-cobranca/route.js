@@ -11,6 +11,13 @@ export async function POST(req) {
   if (!body.mensagem?.trim()) {
     return NextResponse.json({ error: "Escreva a mensagem da faixa." }, { status: 400 });
   }
+  // Faixa invertida (mín. 30 e máx. 1) era aceita e nunca casava com atraso
+  // nenhum: a régua ficava com uma faixa morta, sem ninguém perceber.
+  const dMin = Number(body.diasMin ?? 0);
+  const dMax = body.diasMax === "" || body.diasMax == null ? null : Number(body.diasMax);
+  if (dMax != null && dMax < dMin) {
+    return NextResponse.json({ error: "O dia máximo não pode ser menor que o mínimo." }, { status: 400 });
+  }
   const regra = await prisma.regraCobranca.create({
     data: {
       diasMin: Number(body.diasMin ?? 0),

@@ -15,7 +15,16 @@ export async function POST(req) {
   // somenteLeitura vai dentro do token (igual role/name) pra o middleware
   // conseguir barrar escrita sem precisar consultar o banco a cada request
   // (o middleware roda em Edge, sem acesso ao SQLite).
-  const token = await signSession({ uid: user.id, role: user.role, name: user.name, somenteLeitura: !!user.somenteLeitura, exp });
+  // `paginas` vai junto pelo mesmo motivo de somenteLeitura: o middleware roda
+  // em Edge e não consulta o banco, então precisa da restrição dentro do token.
+  const token = await signSession({
+    uid: user.id,
+    role: user.role,
+    name: user.name,
+    somenteLeitura: !!user.somenteLeitura,
+    paginas: user.paginasVisiveis || null,
+    exp,
+  });
 
   // Último acesso (item 139) — não bloqueia o login se falhar, é só registro.
   prisma.user.update({ where: { id: user.id }, data: { ultimoAcessoEm: new Date() } }).catch(() => {});
