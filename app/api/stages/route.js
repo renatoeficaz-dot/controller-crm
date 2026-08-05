@@ -78,12 +78,20 @@ export async function GET() {
       // recebida, então isso seria sempre true — o que separa lead real de
       // lead fantasma é ter mandado mais de uma.
       msgsCliente: (c.messages || []).filter((m) => !m.fromMe).length,
-      // SLA de 1ª resposta (item 1): nenhuma mensagem NOSSA ainda, e já passou
-      // do prazo configurado desde que o lead foi criado.
+      // SLA de resposta: a última mensagem da conversa é do CLIENTE e já passou
+      // do prazo configurado desde que ela chegou.
+      //
+      // Antes era "nenhuma mensagem nossa desde que o lead chegou", medido do
+      // createdAt — o que só pegava lead novo nunca respondido. Depois da
+      // primeira resposta o alerta desligava PRA SEMPRE, então cliente que
+      // voltava a perguntar no meio da conversa e ficava sem resposta não
+      // aparecia em lugar nenhum (havia conversa parada há mais de 30 dias
+      // assim, sem nenhum aviso na tela).
       semRespostaSLA:
         !!slaMs &&
-        !(c.messages || []).some((m) => m.fromMe) &&
-        agora - new Date(c.createdAt).getTime() > slaMs,
+        !!c.messages?.[0] &&
+        !c.messages[0].fromMe &&
+        agora - new Date(c.messages[0].createdAt).getTime() > slaMs,
       messages: undefined,
       tasks: undefined,
       _count: undefined,

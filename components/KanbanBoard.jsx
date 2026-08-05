@@ -894,7 +894,7 @@ export default function KanbanBoard() {
                             <p className="text-sm font-medium text-slate-800 truncate">{c.name}</p>
                           </div>
                           {c.semRespostaSLA && (
-                            <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500 text-white" title="Sem nenhuma resposta nossa desde que o lead chegou">
+                            <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500 text-white" title="O cliente falou por último e ninguém respondeu dentro do prazo (Configurações → Operação)">
                               Sem resposta
                             </span>
                           )}
