@@ -75,6 +75,7 @@ export default function AgendarMensagemModal({ contactId, textoInicial, template
           mediaBase64,
           mediaMimetype: "audio/webm",
           mediaFileName: `audio-${Date.now()}.webm`,
+          interno: true, // não aparece na lista de mensagens prontas
         }),
       });
       const tpl = await tplRes.json().catch(() => ({}));

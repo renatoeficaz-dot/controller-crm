@@ -76,6 +76,12 @@ export async function register() {
       purgarExcluidos()
         .then((n) => n && console.log(`[purgaExcluidos] ${n} lead(s) apagado(s) definitivamente`))
         .catch((err) => console.error("[purgaExcluidos] erro:", err.message));
+      // Logo depois da purga: os arquivos dos leads que acabaram de sair não
+      // são apagados pelo banco (ficam no volume ocupando disco pra sempre).
+      import("@/lib/mediaStorage")
+        .then((m) => m.limparMidiasOrfas())
+        .then((r) => r?.apagados && console.log(`[midiasOrfas] ${r.apagados} arquivo(s), ${(r.bytes / 1048576).toFixed(1)} MB liberados`))
+        .catch((err) => console.error("[midiasOrfas] erro:", err.message));
     }
     // Fecha a semana de comissão todo domingo (dia de folga, ninguém está
     // cobrando) — uma vez por semana, não uma vez por dia.

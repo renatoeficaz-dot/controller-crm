@@ -450,6 +450,9 @@ model MessageTemplate {
   contactName   String? // para tipo "contact"
   contactPhone  String?
   order         Int                @default(0)
+  // true = criada por dentro de outro fluxo (ex.: áudio gravado na hora pra
+  // agendar) e não deve aparecer na lista de "Mensagens prontas" do chat.
+  interno       Boolean            @default(false)
   createdAt     DateTime           @default(now())
   agendamentos  MensagemAgendada[]
 }

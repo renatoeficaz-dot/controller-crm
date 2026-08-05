@@ -47,6 +47,15 @@ export async function DELETE(req, { params }) {
     return NextResponse.json({ ok: true, futuras: true });
   }
 
+  // As ocorrências apontam pra mãe com onDelete: Cascade — apagar a mãe levava
+  // junto TODA a série, inclusive os meses JÁ PAGOS (o histórico do que saiu do
+  // caixa). Desliga as filhas antes: as pagas viram lançamentos avulsos e
+  // continuam no histórico; as futuras em aberto somem com a regra.
+  const filhas = await prisma.contaPagar.findMany({ where: { origemId: id }, select: { id: true, pago: true } });
+  if (filhas.length) {
+    await prisma.contaPagar.updateMany({ where: { origemId: id, pago: true }, data: { origemId: null } });
+    await prisma.contaPagar.deleteMany({ where: { origemId: id, pago: false } });
+  }
   await prisma.contaPagar.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

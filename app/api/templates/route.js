@@ -5,7 +5,9 @@ import { normalizeBrPhone } from "@/lib/evolution";
 
 // Lista as mensagens prontas (ordenadas)
 export async function GET() {
-  const templates = await prisma.messageTemplate.findMany({ orderBy: { order: "asc" } });
+  // Os internos (áudio gravado na hora pra agendar) não entram: são de uso
+  // único e só poluiriam a lista de mensagens prontas do chat.
+  const templates = await prisma.messageTemplate.findMany({ where: { interno: false }, orderBy: { order: "asc" } });
   return NextResponse.json(templates);
 }
 
@@ -57,6 +59,7 @@ export async function POST(req) {
       mediaFileName: data.mediaFileName || null,
       contactName: (data.contactName || "").trim() || null,
       contactPhone: mediaType === "contact" ? normalizeBrPhone(data.contactPhone) : (data.contactPhone || "").trim() || null,
+      interno: !!data.interno,
       order: (last?.order ?? -1) + 1,
     },
   });
