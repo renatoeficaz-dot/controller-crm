@@ -15,9 +15,10 @@ const TIPOS = [
 ];
 const labelTipo = (t) => TIPOS.find((x) => x.chave === t)?.label || t;
 
-// Áudio também é mídia do chat: ficava de fora dessa lista, então nota de voz
-// do cliente nunca aparecia aqui (só rolando a conversa inteira pra achar).
-const MIDIA_KINDS = ["image", "document", "audio"];
+// Tudo que o cliente manda como ANEXO entra aqui. Áudio e texto ficam de fora
+// de propósito: são a conversa em si, não documento pra conferir — e nota de
+// voz enchia a lista sem nunca ser o que se procura aqui.
+const MIDIA_KINDS = ["image", "document", "location", "contact"];
 
 // Popup de mídias/documentos do lead (itens 68/69): documentos organizados
 // por TIPO numa aba, e a mídia crua do chat (ainda não classificada) noutra —

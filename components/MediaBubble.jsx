@@ -163,5 +163,18 @@ export default function MediaBubble({ message }) {
     );
   }
 
+  // Contato (vCard) compartilhado. Sem esse trecho o tipo caía no `return null`
+  // abaixo e virava um quadrado em branco na grade de mídias.
+  if (message.kind === "contact") {
+    return (
+      <div className="flex flex-col items-center justify-center gap-1 p-2 text-center">
+        <Icone nome="pessoa" className="w-5 h-5 text-slate-400" />
+        <span className="text-[10px] text-slate-500 leading-tight break-words">
+          {(message.body || "Contato").replace(/^Contato:\s*/i, "")}
+        </span>
+      </div>
+    );
+  }
+
   return null;
 }
