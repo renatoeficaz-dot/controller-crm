@@ -112,7 +112,10 @@ export async function DELETE(req, { params }) {
   // Item 153: excluir um lead que ainda deve esconde a dívida (mesmo sendo
   // reversível em 24h). Sem `force=1`, avisa quanto tem em aberto antes.
   if (!force) {
-    const abertas = await prisma.parcela.findMany({ where: { contactId: id, paid: false }, select: { amount: true } });
+    // renegociada: false — quem fechou acordo e pagou tudo não deve mais
+    // nada, mas as parcelas antigas seguem com paid=false e travavam a
+    // exclusão pra sempre, cobrando uma dívida que já foi quitada.
+    const abertas = await prisma.parcela.findMany({ where: { contactId: id, paid: false, renegociada: false }, select: { amount: true } });
     if (abertas.length > 0) {
       const total = abertas.reduce((s, p) => s + valorEmAberto(p), 0);
       return NextResponse.json(
