@@ -221,7 +221,7 @@ export function PlacarEquipe({ placar, onUsuario }) {
               <th className="text-left font-medium px-4 py-2">Pessoa</th>
               <th className="text-right font-medium px-3 py-2">Vendas</th>
               <th className="text-right font-medium px-3 py-2">Liberado</th>
-              <th className="text-right font-medium px-3 py-2">Clientes</th>
+              <th className="text-right font-medium px-3 py-2">Baixas</th>
               <th className="text-right font-medium px-3 py-2">Recebido</th>
               <th className="text-right font-medium px-3 py-2">Recuperado</th>
               <th className="text-right font-medium px-4 py-2">Carteira</th>

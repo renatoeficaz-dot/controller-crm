@@ -1172,8 +1172,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                               {money(p.paid ? p.amountPago : valorParcelaAtual(p, undefined, multaOpts))}
                             </span>
                             {!p.paid && p.valorPago > 0 && (
-                              <span className="text-[10px] text-amber-600 bg-amber-50 rounded-full px-1.5 py-0.5" title="Já pago desta parcela">
-                                {money(p.valorPago)} pago
+                              <span className="text-[10px] text-amber-600 bg-amber-50 rounded-full px-1.5 py-0.5" title="Já pago desta parcela — o valor acima já é só o que falta">
+                                {money(p.valorPago)} pago · falta {money(Math.max(0, valorParcelaAtual(p, undefined, multaOpts) - p.valorPago))}
                               </span>
                             )}
                             {p.paid && (

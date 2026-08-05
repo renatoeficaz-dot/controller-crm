@@ -77,7 +77,13 @@ function valorAReceber(contact) {
 //  "emdia"    = tem plano de parcelas, sem atraso nem vencimento hoje
 //  "sem"      = não tem plano de parcelas (ainda não está em cobrança)
 function situacaoContato(contact) {
-  const parcelas = contact.parcelas || [];
+  const ciclo = contact.cicloAtual || 1;
+  // Só o plano ATUAL conta: parcela "renegociada" foi substituída por um
+  // acordo (virou outras parcelas, deAcordo=true) e não é mais dívida em
+  // aberto — sem esse filtro, um lead com acordo em dia aparecia "Atrasado"
+  // pra sempre, porque as 10 parcelas antigas do ciclo continuavam vencidas
+  // e nunca somem da lista (mesmo filtro que valorAReceber já usa).
+  const parcelas = (contact.parcelas || []).filter((p) => (p.ciclo || 1) === ciclo && !p.renegociada);
   if (parcelas.length === 0) return "sem";
   const hoje = todayStr();
   let vencida = false;

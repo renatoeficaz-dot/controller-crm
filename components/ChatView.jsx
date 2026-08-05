@@ -32,7 +32,9 @@ function fmtCriacao(iso) {
 //  "sem"      = não tem plano de parcelas (ainda não está em cobrança)
 function situacaoContato(c) {
   const ciclo = c.cicloAtual || 1;
-  const parcelas = (c.parcelas || []).filter((p) => (p.ciclo || 1) === ciclo);
+  // renegociada = substituída por acordo, não é mais dívida em aberto. Sem
+  // esse filtro um lead com acordo em dia ficava "Atrasado" pra sempre.
+  const parcelas = (c.parcelas || []).filter((p) => (p.ciclo || 1) === ciclo && !p.renegociada);
   if (parcelas.length === 0) return "sem";
   const hoje = todayStr();
   let vencida = false;

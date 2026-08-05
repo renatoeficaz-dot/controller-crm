@@ -185,7 +185,6 @@ function ComparativoPeriodos({ usuario }) {
   const LINHAS = [
     ["Vendas", "vendas", (v) => v],
     ["Capital liberado", "valorVendido", money],
-    ["Clientes que pagaram", "recebimentos", (v) => v],
     ["Baixas de parcela", "baixas", (v) => v],
     ["Valor recebido", "valorRecebido", money],
     ["Recuperado de atrasados", "valorRecuperado", money],
@@ -446,7 +445,7 @@ export default function MetasView() {
         >
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-semibold text-slate-700">Recebimentos ({r.metaPctRecebimento}%)</p>
-            <p className="text-sm text-slate-500">{r.recebimentosHoje} / {r.metaRecebimentosDia} clientes</p>
+            <p className="text-sm text-slate-500">{r.recebimentosHoje} / {r.metaRecebimentosDia} parcelas</p>
           </div>
           <NivelBar
             atual={r.recebimentosHoje}
@@ -454,11 +453,11 @@ export default function MetasView() {
             media={r.metaRecebimentosMedia}
             meta={r.metaRecebimentosDia}
             nivel={r.niveis?.recebimentos}
-            unidade="cliente"
-            unidadePlural="clientes"
+            unidade="parcela"
+            unidadePlural="parcelas"
           />
           <p className="text-[11px] text-slate-400 mt-2">
-            Conta <strong>clientes distintos</strong> que pagaram — quem quita 2 dias de uma vez conta 1 aqui e 2 nas baixas.
+            Conta cada <strong>parcela baixada</strong> — quem quita 2 parcelas de uma vez conta 2 aqui.
           </p>
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver o que foi recebido →</p>
         </button>
@@ -513,7 +512,7 @@ export default function MetasView() {
 
       {/* -------- Números do dia -------- */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card titulo="Baixas de parcela" valor={r.baixasHoje} sub={`${r.recebimentosHoje} cliente${r.recebimentosHoje === 1 ? "" : "s"} distinto${r.recebimentosHoje === 1 ? "" : "s"}`} cor="emerald" />
+        <Card titulo="Baixas de parcela" valor={r.baixasHoje} cor="emerald" />
         <Card titulo="Valor recebido" valor={money(r.valorRecebidoHoje)} cor="emerald" />
         <Card titulo="Capital liberado" valor={money(r.valorVendidoHoje)} sub={`${r.vendasHoje} venda${r.vendasHoje === 1 ? "" : "s"}`} cor="violet" />
         <Card titulo="Carteira em Recebimento" valor={(usuario || r.equipeNome) ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento} sub="Base do cálculo da meta" cor="sky" />
@@ -605,7 +604,7 @@ export default function MetasView() {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <BarraMes label="Vendas" atual={mes.vendas} meta={mes.metaVendas} />
-          <BarraMes label="Clientes que pagaram (baixas)" atual={mes.baixas} meta={mes.metaRecebimentos} />
+          <BarraMes label="Parcelas baixadas" atual={mes.baixas} meta={mes.metaRecebimentos} />
           <BarraMes label="Recuperado de atrasados" atual={mes.valorRecuperado} meta={mes.metaRecuperacao} fmt={money} />
           <div>
             <div className="flex items-baseline justify-between gap-2">
@@ -629,9 +628,8 @@ export default function MetasView() {
                 { label: "Vendas", chave: "vendas" },
                 { label: "Meta vendas", chave: "metaVendasDia" },
                 { label: "Capital liberado", valor: (d) => numeroCsv(d.valorVendido) },
-                { label: "Clientes que pagaram", chave: "recebimentos" },
-                { label: "Meta clientes", chave: "metaRecebimentosDia" },
                 { label: "Baixas de parcela", chave: "baixas" },
+                { label: "Meta de parcelas", chave: "metaRecebimentosDia" },
                 { label: "Valor recebido", valor: (d) => numeroCsv(d.valorRecebido) },
                 { label: "Valor recuperado", valor: (d) => numeroCsv(d.valorRecuperado) },
                 { label: "Tem meta registrada", valor: (d) => (d.temMeta ? "sim" : "não") },
