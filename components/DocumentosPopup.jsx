@@ -25,7 +25,9 @@ const MIDIA_KINDS = ["image", "document", "location", "contact"];
 // clicar em "marcar tipo" promove a mídia do chat pra um Documento de verdade.
 export default function DocumentosPopup({ contactId, messages, onClose }) {
   const [documentos, setDocumentos] = useState([]);
-  const [aba, setAba] = useState("documentos");
+  // Abre já em "Mídias do chat": é a aba da esquerda e a que quase sempre tem
+  // conteúdo — documento só existe depois de alguém classificar a mídia.
+  const [aba, setAba] = useState("chat");
   const [promovendo, setPromovendo] = useState(null); // messageId em promoção
   const [lightbox, setLightbox] = useState(null);
 
@@ -70,11 +72,11 @@ export default function DocumentosPopup({ contactId, messages, onClose }) {
         </div>
 
         <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5 mx-5 mt-3 w-fit">
-          <button onClick={() => setAba("documentos")} className={`text-xs px-3 py-1.5 rounded-md ${aba === "documentos" ? "bg-white shadow-sm font-medium text-slate-700" : "text-slate-500"}`}>
-            Documentos ({documentos.length})
-          </button>
           <button onClick={() => setAba("chat")} className={`text-xs px-3 py-1.5 rounded-md ${aba === "chat" ? "bg-white shadow-sm font-medium text-slate-700" : "text-slate-500"}`}>
             Mídias do chat ({midiasChat.length})
+          </button>
+          <button onClick={() => setAba("documentos")} className={`text-xs px-3 py-1.5 rounded-md ${aba === "documentos" ? "bg-white shadow-sm font-medium text-slate-700" : "text-slate-500"}`}>
+            Documentos ({documentos.length})
           </button>
         </div>
 
