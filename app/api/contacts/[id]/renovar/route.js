@@ -60,21 +60,11 @@ export async function POST(req, { params }) {
   // Limpa tarefas do ciclo anterior (mantém as parcelas como histórico)
   await prisma.task.deleteMany({ where: { contactId: id, parcela: { ciclo: { lt: novoCiclo } } } });
 
-  // Cria novas parcelas + tarefas do novo ciclo
+  // Cria as novas parcelas do novo ciclo — tarefa de cobrança não nasce mais
+  // sozinha, quem cobra decide manualmente quando criar (Tarefas → + Tarefa).
   for (const p of novasParcelas) {
-    const parcela = await prisma.parcela.create({
+    await prisma.parcela.create({
       data: { ...p, contactId: id, ciclo: novoCiclo },
-    });
-    await prisma.task.create({
-      data: {
-        contactId: id,
-        parcelaId: parcela.id,
-        title: `Cobrar ${p.number}ª parcela de ${contact.name} (renovação ${novoCiclo - 1})`,
-        // 11h LOCAL, igual ao empréstimo normal (lib/cobranca.js). Usar
-        // p.dueDate cru jogava a tarefa pras 21h do DIA ANTERIOR — que no
-        // vencimento de segunda caía no domingo, dia em que ninguém cobra.
-        dueDate: new Date(`${p.dueDate.toISOString().slice(0, 10)}T11:00:00`),
-      },
     });
   }
 

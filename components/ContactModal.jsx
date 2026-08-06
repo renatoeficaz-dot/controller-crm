@@ -182,6 +182,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [taskTypes, setTaskTypes] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
+  const [taskFormErro, setTaskFormErro] = useState("");
   const chatEnd = useRef(null);
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
@@ -464,14 +465,20 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
   async function createTask(e) {
     e.preventDefault();
-    if (!taskForm.title.trim()) return;
+    setTaskFormErro("");
+    if (!taskForm.title.trim()) { setTaskFormErro("Preencha o título da tarefa."); return; }
     const dia = taskForm.dueDate || toDateInput(new Date());
     const hora = taskForm.dueTime || "09:00";
-    await fetch("/api/tasks", {
+    const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...taskForm, contactId, dueDate: `${dia}T${hora}:00` }),
     });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setTaskFormErro(d.error || "Não foi possível criar a tarefa.");
+      return;
+    }
     setTaskForm({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
     setShowTaskForm(false);
     loadTasks();
@@ -929,7 +936,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             <div className="border border-slate-200 rounded-lg p-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-600">Tarefas ({tasks.filter((t) => !t.done).length} pendentes)</span>
-                <button type="button" onClick={() => setShowTaskForm((v) => !v)} className="text-xs text-emerald-600 hover:text-emerald-700">
+                <button type="button" onClick={() => { setShowTaskForm((v) => !v); setTaskFormErro(""); }} className="text-xs text-emerald-600 hover:text-emerald-700">
                   {showTaskForm ? "Cancelar" : "+ Tarefa"}
                 </button>
               </div>
@@ -965,6 +972,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       className="min-w-0 w-24 shrink-0 text-xs border border-slate-200 rounded px-2 py-1.5"
                     />
                   </div>
+                  {taskFormErro && <p className="text-[11px] text-red-500">{taskFormErro}</p>}
                   <button className="w-full bg-emerald-500 text-white rounded py-1.5 text-xs hover:bg-emerald-600">Criar tarefa</button>
                 </form>
               )}
