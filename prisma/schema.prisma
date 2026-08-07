@@ -467,6 +467,11 @@ model Config {
   evolutionApiKey     String? // API Key global da Evolution
   wahaUrl             String? // URL do servidor WAHA (ex.: http://ip:3001)
   wahaApiKey          String? // API Key global do WAHA
+  // Token opcional do webhook: quando preenchido, /api/webhook/* passa a
+  // exigir ?t=TOKEN. Fica VAZIO por padrao de proposito — o webhook recebe
+  // mensagem real de cliente 24h, entao exigir token de cara derrubaria a
+  // ingestao ate a Evolution/WAHA ser reconfigurada com a URL nova.
+  webhookToken        String?
 
   // Meta diária: X% de todos os leads atualmente na etapa "Recebimento"
   // precisam pagar (dar baixa numa parcela) hoje. 3 níveis: mínima < média < meta

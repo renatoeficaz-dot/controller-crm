@@ -7,10 +7,15 @@ import {
   onlyDigits,
 } from "@/lib/evolution";
 import { processIncomingMessage } from "@/lib/webhookCommon";
+import { webhookAutorizado } from "@/lib/webhookAuth";
 
 // Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
 export async function POST(req) {
+  // Só barra se um token estiver configurado — ver lib/webhookAuth.js.
+  if (!(await webhookAutorizado(req))) {
+    return NextResponse.json({ error: "não autorizado" }, { status: 401 });
+  }
   const payload = await req.json().catch(() => null);
   if (!payload) return NextResponse.json({ ok: true });
 

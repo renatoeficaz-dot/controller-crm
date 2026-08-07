@@ -17,6 +17,10 @@ async function getConfig() {
 const CAMPOS_SECRETOS = [
   "evolutionApiKey", "wahaApiKey", "deepinfraApiKey",
   "fishAudioApiKey", "elevenLabsApiKey",
+  // O token do webhook entra aqui também: se vazasse pra qualquer usuário
+  // logado, a trava do webhook viraria enfeite — bastaria ler o token e
+  // continuar injetando mensagem falsa.
+  "webhookToken",
 ];
 
 export async function GET() {
@@ -45,6 +49,7 @@ export async function PATCH(req) {
   if ("evolutionApiKey" in body) data.evolutionApiKey = (body.evolutionApiKey || "").trim() || null;
   if ("wahaUrl" in body) data.wahaUrl = (body.wahaUrl || "").trim() || null;
   if ("wahaApiKey" in body) data.wahaApiKey = (body.wahaApiKey || "").trim() || null;
+  if ("webhookToken" in body) data.webhookToken = (body.webhookToken || "").trim() || null;
   if ("deepinfraApiKey" in body) data.deepinfraApiKey = (body.deepinfraApiKey || "").trim() || null;
   if ("fishAudioApiKey" in body) data.fishAudioApiKey = (body.fishAudioApiKey || "").trim() || null;
   if ("elevenLabsApiKey" in body) data.elevenLabsApiKey = (body.elevenLabsApiKey || "").trim() || null;
