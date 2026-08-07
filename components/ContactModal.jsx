@@ -682,7 +682,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       onClick={onClose}
     >
       <div
-        className="bg-white md:rounded-2xl shadow-xl w-full h-full md:max-w-3xl md:h-[80vh] flex flex-col md:flex-row overflow-hidden"
+        className="bg-white md:rounded-2xl shadow-xl w-full h-full md:max-w-5xl md:h-[85vh] flex flex-col md:flex-row overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Coluna esquerda: dados do contato */}
@@ -1126,6 +1126,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                             <span className={p.paid ? "line-through text-slate-400" : "text-slate-600"}>
                               {p.number}ª · {fmtDate(p.dueDate)}
                             </span>
+                            {p.paid && p.paidAt && (
+                              <span className="text-[10px] text-emerald-600 bg-emerald-50 rounded-full px-1.5 py-0.5 shrink-0" title="Data em que a baixa foi registrada">
+                                pago {new Date(p.paidAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                              </span>
+                            )}
                             {!p.paid && (
                               <button
                                 type="button"
