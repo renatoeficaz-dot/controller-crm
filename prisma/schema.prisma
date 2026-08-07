@@ -801,6 +801,20 @@ model TentativaContato {
   createdAt    DateTime  @default(now())
 }
 
+// Tentativas de login que FALHARAM — base do bloqueio por força bruta.
+// Fica no banco, e não em memória, pelo mesmo motivo do AlertaEnviado: memória
+// zera a cada deploy/restart, e aí bastaria esperar um restart pra zerar o
+// contador de tentativas.
+model LoginTentativa {
+  id        String   @id @default(cuid())
+  login     String
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([login, createdAt])
+  @@index([ip, createdAt])
+}
+
 // Trava de "esse alerta já foi mandado", no banco e não em memória: a memória
 // zera a cada deploy/restart do container, e aí todo alerta crítico já avisado
 // (número caído, calote acima do limite, capital ocioso) era mandado de novo

@@ -11,7 +11,7 @@ export async function register() {
   const { estenderRecorrenciasIlimitadas } = await import("@/lib/contasPagar");
   const { escalonarAtrasos } = await import("@/lib/escalonamentoAtraso");
   const { registrarMetaDoDia } = await import("@/lib/metas");
-  const { purgarExcluidos } = await import("@/lib/purgaExcluidos");
+  const { purgarExcluidos, purgarTentativasLogin } = await import("@/lib/purgaExcluidos");
   const { enviarMensagensAgendadas } = await import("@/lib/mensagemAgendada");
   const { processarCampanhasMassa } = await import("@/lib/campanhaMassa");
   const { fecharSemanaAnterior } = await import("@/lib/comissaoFechamento");
@@ -76,6 +76,12 @@ export async function register() {
       purgarExcluidos()
         .then((n) => n && console.log(`[purgaExcluidos] ${n} lead(s) apagado(s) definitivamente`))
         .catch((err) => console.error("[purgaExcluidos] erro:", err.message));
+      // Tentativa de login falha só serve pra contar as falhas dos últimos 15
+      // min — sem limpeza a tabela cresce pra sempre (e um ataque de força
+      // bruta é justamente o que faria ela inchar mais rápido).
+      purgarTentativasLogin()
+        .then((n) => n && console.log(`[loginTentativas] ${n} registro(s) antigo(s) removido(s)`))
+        .catch((err) => console.error("[loginTentativas] erro:", err.message));
       // Logo depois da purga: os arquivos dos leads que acabaram de sair não
       // são apagados pelo banco (ficam no volume ocupando disco pra sempre).
       import("@/lib/mediaStorage")
