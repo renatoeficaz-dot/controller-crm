@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 export async function GET(_req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const tentativas = await prisma.tentativaContato.findMany({
     where: { contactId: id },
     orderBy: { createdAt: "desc" },
@@ -14,6 +17,8 @@ export async function GET(_req, { params }) {
 
 export async function POST(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const body = await req.json();
   if (!body.tipo || !body.resultado) {
     return NextResponse.json({ error: "Informe o tipo e o resultado da tentativa." }, { status: 400 });

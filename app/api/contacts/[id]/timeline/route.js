@@ -1,11 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 // Linha do tempo unificada (item 66): mudanças de etapa, baixas, tentativas de
 // contato e negociações, tudo intercalado por data — os eventos de NEGÓCIO,
 // não as mensagens do chat (essas já têm sua própria tela, o Chat).
 export async function GET(_req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
 
   const [etapas, parcelasPagas, tentativas, negociacoes, documentos, responsaveis] = await Promise.all([
     prisma.etapaLog.findMany({ where: { contactId: id }, orderBy: { createdAt: "desc" } }),

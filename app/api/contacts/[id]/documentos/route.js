@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { saveMediaBuffer } from "@/lib/mediaStorage";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 export async function GET(_req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const lista = await prisma.documento.findMany({ where: { contactId: id }, orderBy: { createdAt: "desc" } });
   return NextResponse.json(lista);
 }
@@ -11,6 +14,8 @@ export async function GET(_req, { params }) {
 // Upload direto de um documento (item 68) — separado da mídia trocada no chat.
 export async function POST(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const form = await req.formData();
   const file = form.get("file");
   const tipo = form.get("tipo") || "outro";

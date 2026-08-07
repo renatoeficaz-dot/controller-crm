@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 import { atualizarScoreDoContato } from "@/lib/atualizarScoreComportamental";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { podeExecutar } from "@/lib/permissoes";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 // Marca uma parcela como paga / pendente.
 // body.amountPago (opcional): valor realmente cobrado — permite ao cobrador
@@ -14,6 +15,13 @@ import { podeExecutar } from "@/lib/permissoes";
 // em AlteracaoBaixa, visível em Configurações > Alterações.
 export async function PATCH(req, { params }) {
   const { id } = await params;
+  // Aqui a chave é o id da PARCELA, não do contato — sem essa checagem dava
+  // pra mexer no dinheiro (dar baixa, mudar vencimento, pedir desconto) de um
+  // lead de outra pessoa só trocando o id na URL.
+  const _p = await prisma.parcela.findUnique({ where: { id }, select: { contactId: true } });
+  if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
+  const negado = await negarSeNaoPodeVerContato(_p.contactId);
+  if (negado) return negado;
   const body = await req.json();
   const paid = !!body.paid;
   const parcelaAtual = await prisma.parcela.findUnique({

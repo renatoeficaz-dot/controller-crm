@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 import { valorParcelaAtual } from "@/lib/finance";
 import { atualizarScoreDoContato } from "@/lib/atualizarScoreComportamental";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 // Baixa PARCIAL (item 93): cliente pagou parte da parcela hoje, o resto continua
 // em aberto. Cada chamada soma ao Parcela.valorPago e gera um lançamento de
@@ -11,6 +12,13 @@ import { registrarAuditoria } from "@/lib/auditoria";
 // parcela vira uma baixa completa normal (mesmo caminho de sempre).
 export async function POST(req, { params }) {
   const { id } = await params;
+  // Aqui a chave é o id da PARCELA, não do contato — sem essa checagem dava
+  // pra mexer no dinheiro (dar baixa, mudar vencimento, pedir desconto) de um
+  // lead de outra pessoa só trocando o id na URL.
+  const _p = await prisma.parcela.findUnique({ where: { id }, select: { contactId: true } });
+  if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
+  const negado = await negarSeNaoPodeVerContato(_p.contactId);
+  if (negado) return negado;
   const { valor, formaPagamento } = await req.json();
   const v = Number(valor);
   if (!v || v <= 0) return NextResponse.json({ error: "Informe um valor válido." }, { status: 400 });

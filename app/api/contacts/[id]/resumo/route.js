@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 export const runtime = "nodejs";
 
@@ -7,6 +8,8 @@ export const runtime = "nodejs";
 // sem ler 200 mensagens. Não persiste: é sempre gerado do histórico atual.
 export async function POST(_req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
   if (!cfg?.deepinfraApiKey) {
     return NextResponse.json({ error: "Configure a chave da DeepInfra em Configurações > IA." }, { status: 400 });

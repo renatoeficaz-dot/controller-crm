@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { sendWhatsappMedia, sendWhatsappAudio, resolveInstanceForContact } from "@/lib/evolution";
 import { saveMediaBuffer } from "@/lib/mediaStorage";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 const EXT = {
   "audio/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/wav": "wav",
@@ -13,6 +14,8 @@ const EXT = {
 // A mídia fica em arquivo (volume /app/public/uploads), só o caminho vai pro banco.
 export async function POST(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const contact = await prisma.contact.findUnique({ where: { id } });
   if (!contact) return NextResponse.json({ error: "Contato não encontrado" }, { status: 404 });
 

@@ -2,11 +2,19 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { valorParcelaAtual } from "@/lib/finance";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 // Item 165: cobrador pede desconto pontual numa parcela — só vira valor de
 // verdade quando um admin aprovar (ver app/api/solicitacoes-desconto).
 export async function POST(req, { params }) {
   const { id } = await params;
+  // Aqui a chave é o id da PARCELA, não do contato — sem essa checagem dava
+  // pra mexer no dinheiro (dar baixa, mudar vencimento, pedir desconto) de um
+  // lead de outra pessoa só trocando o id na URL.
+  const _p = await prisma.parcela.findUnique({ where: { id }, select: { contactId: true } });
+  if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
+  const negado = await negarSeNaoPodeVerContato(_p.contactId);
+  if (negado) return negado;
   const body = await req.json().catch(() => ({}));
   const valorPedido = Number(body.valorPedido);
   const motivo = (body.motivo || "").trim();

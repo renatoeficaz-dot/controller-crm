@@ -5,11 +5,14 @@ import { consultarCpfDetetive } from "@/lib/detetiveForense";
 import { gerarPuxadaPdfBuffer } from "@/lib/puxadaPdf";
 import { extrairDadosPuxada, calcularScore } from "@/lib/scoreCredito";
 import { validarCPF } from "@/lib/cpf";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 export const runtime = "nodejs";
 
 export async function POST(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   try {
     const body = await req.json().catch(() => ({}));
     const contact = await prisma.contact.findUnique({

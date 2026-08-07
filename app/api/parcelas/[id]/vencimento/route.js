@@ -2,11 +2,19 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 // Muda o vencimento de uma parcela (itens 103/104 — alterar data ou "adiar"
 // são a mesma operação). Sempre com motivo, registrado em ParcelaAjuste.
 export async function PATCH(req, { params }) {
   const { id } = await params;
+  // Aqui a chave é o id da PARCELA, não do contato — sem essa checagem dava
+  // pra mexer no dinheiro (dar baixa, mudar vencimento, pedir desconto) de um
+  // lead de outra pessoa só trocando o id na URL.
+  const _p = await prisma.parcela.findUnique({ where: { id }, select: { contactId: true } });
+  if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
+  const negado = await negarSeNaoPodeVerContato(_p.contactId);
+  if (negado) return negado;
   const { novoVencimento, motivo } = await req.json();
   if (!novoVencimento) return NextResponse.json({ error: "Informe a nova data." }, { status: 400 });
   if (!motivo?.trim()) return NextResponse.json({ error: "Informe o motivo." }, { status: 400 });

@@ -3,11 +3,14 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { criarAcordoParcelado } from "@/lib/acordo";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 // Histórico de negociações do lead — o que já foi oferecido e o que ele aceitou
 // ou recusou. Evita oferecer o mesmo desconto duas vezes pra quem já ignorou.
 export async function GET(_req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const negociacoes = await prisma.negociacao.findMany({
     where: { contactId: id },
     orderBy: { createdAt: "desc" },
@@ -19,6 +22,8 @@ export async function GET(_req, { params }) {
 // novas e aposenta as em aberto; os outros tipos são só registro histórico.
 export async function POST(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const body = await req.json().catch(() => ({}));
   const session = await getSession();
 

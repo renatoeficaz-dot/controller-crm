@@ -4,11 +4,14 @@ import { getCurrentUser, getSession, mensagensWhere } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
 import { valorEmAberto } from "@/lib/finance";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 // Busca um contato com suas mensagens (conforme permissão de WhatsApp) e parcelas.
 // mediaUrl (base64) fica de fora — mídia é carregada sob demanda via /api/messages/[id]/media.
 export async function GET(_req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const user = await getCurrentUser();
   const contact = await prisma.contact.findUnique({
     where: { id },
@@ -49,6 +52,8 @@ export async function GET(_req, { params }) {
 // Atualiza dados do contato
 export async function PATCH(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const body = await req.json();
   const data = {};
   for (const f of [
@@ -103,6 +108,8 @@ export async function PATCH(req, { params }) {
 // "excluir" errado por engano é irreversível na hora.
 export async function DELETE(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const force = new URL(req.url).searchParams.get("force") === "1";
   const [session, contact] = await Promise.all([
     getSession(),

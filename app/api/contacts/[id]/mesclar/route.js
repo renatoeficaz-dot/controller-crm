@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { mesclarContatos } from "@/lib/duplicados";
 import { getCurrentUser } from "@/lib/session";
 import { podeExecutar } from "@/lib/permissoes";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 export async function POST(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   if (!podeExecutar(user, "mesclar_contatos")) {

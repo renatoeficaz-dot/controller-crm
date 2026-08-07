@@ -97,6 +97,16 @@ export async function middleware(req) {
 }
 
 // Aplica a todas as rotas, exceto assets estáticos do Next e arquivos com extensão.
+//
+// /uploads entra EXPLÍCITO na lista: a exclusão por extensão logo abaixo
+// (png|jpg|jpeg|...) fazia o middleware nem rodar pros anexos, e os documentos
+// dos clientes (RG, CNH, selfie segurando documento, comprovante de
+// residência) ficavam acessíveis por QUALQUER pessoa deslogada que tivesse a
+// URL. O PDF da puxada já pedia login — só a imagem não, porque a extensão
+// dela estava na lista de exclusão. Agora os dois pedem sessão.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico)$).*)"],
+  matcher: [
+    "/uploads/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico)$).*)",
+  ],
 };

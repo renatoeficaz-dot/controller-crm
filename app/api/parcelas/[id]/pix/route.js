@@ -2,9 +2,17 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { gerarPixCopiaECola, gerarPixQrCodeDataUrl } from "@/lib/pix";
 import { valorParcelaAtual } from "@/lib/finance";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 export async function GET(_req, { params }) {
   const { id } = await params;
+  // Aqui a chave é o id da PARCELA, não do contato — sem essa checagem dava
+  // pra mexer no dinheiro (dar baixa, mudar vencimento, pedir desconto) de um
+  // lead de outra pessoa só trocando o id na URL.
+  const _p = await prisma.parcela.findUnique({ where: { id }, select: { contactId: true } });
+  if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
+  const negado = await negarSeNaoPodeVerContato(_p.contactId);
+  if (negado) return negado;
   const [parcela, cfg] = await Promise.all([
     prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { name: true } } } }),
     prisma.config.findUnique({ where: { id: "singleton" } }),

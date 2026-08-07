@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 // Atribui uma tag ao contato
 export async function POST(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const { tagId } = await req.json().catch(() => ({}));
   if (!tagId) return NextResponse.json({ error: "tagId obrigatório." }, { status: 400 });
   await prisma.contact.update({ where: { id }, data: { tags: { connect: { id: tagId } } } });
@@ -13,6 +16,8 @@ export async function POST(req, { params }) {
 // Remove uma tag do contato
 export async function DELETE(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const { tagId } = await req.json().catch(() => ({}));
   if (!tagId) return NextResponse.json({ error: "tagId obrigatório." }, { status: 400 });
   await prisma.contact.update({ where: { id }, data: { tags: { disconnect: { id: tagId } } } });

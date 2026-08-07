@@ -8,6 +8,7 @@ import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { getSession } from "@/lib/session";
 import { escolherPorCarga } from "@/lib/distribuicao";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 // Data local de hoje como UTC-midnight (evita drift de fuso nas parcelas)
 function hojeUTC() {
@@ -18,6 +19,8 @@ function hojeUTC() {
 // Move o contato para outra coluna (drag and drop do Kanban)
 export async function PATCH(req, { params }) {
   const { id } = await params;
+  const negado = await negarSeNaoPodeVerContato(id);
+  if (negado) return negado;
   const { stageId, forcar: forcarPedido, motivoPerda } = await req.json();
   const session = await getSession();
   // Só admin pode forçar (ignorar bloqueio de CPF / limite de escalonamento).
