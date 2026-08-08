@@ -4,6 +4,9 @@ import { sendWhatsappMedia, sendWhatsappAudio, resolveInstanceForContact } from 
 import { saveMediaBuffer } from "@/lib/mediaStorage";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
+const MAX_UPLOAD_MB = 25;
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+
 const EXT = {
   "audio/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/wav": "wav",
   "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp",
@@ -26,6 +29,17 @@ export async function POST(req, { params }) {
   const instanceOverride = form.get("instance") || "";
   if (!file || typeof file === "string") {
     return NextResponse.json({ error: "Arquivo ausente." }, { status: 400 });
+  }
+
+  // Não havia teto nenhum: com proxyClientMaxBodySize em 50mb, um punhado de
+  // uploads grandes enche o disco da VPS — que já está com 2,5GB só de anexos.
+  // Disco cheio derruba o SQLite junto, então isso para a operação inteira, não
+  // só o upload. 25MB cobre com folga foto/áudio/PDF de documento.
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: `Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(1)}MB). O limite é ${MAX_UPLOAD_MB}MB.` },
+      { status: 413 }
+    );
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
