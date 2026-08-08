@@ -39,7 +39,7 @@ export async function GET() {
 
 // Atualiza configurações globais (ex.: % de honorários)
 export async function PATCH(req) {
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   await getConfig();
   const data = {};
   if ("honorariosPct" in body) data.honorariosPct = Number(body.honorariosPct) || 0;

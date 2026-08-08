@@ -102,7 +102,7 @@ export async function GET() {
 
 // Cria uma nova coluna
 export async function POST(req) {
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   const last = await prisma.stage.findFirst({ orderBy: { order: "desc" } });
   const stage = await prisma.stage.create({
     data: {

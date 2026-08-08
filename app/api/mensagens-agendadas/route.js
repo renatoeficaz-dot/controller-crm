@@ -13,7 +13,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   if (!body.contactId || !body.numeroId || !body.dataHora) {
     return NextResponse.json({ error: "Lead, número e data/hora são obrigatórios." }, { status: 400 });
   }

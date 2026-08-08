@@ -19,7 +19,7 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   if (!body.tipo || !body.resultado) {
     return NextResponse.json({ error: "Informe o tipo e o resultado da tentativa." }, { status: 400 });
   }

@@ -5,7 +5,7 @@ import { getIaConfig, detectarGeneroPorNome } from "@/lib/ia";
 
 // Cria um novo contato (cai na coluna informada, ou na primeira)
 export async function POST(req) {
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
 
   // Sem nome E sem telefone o cadastro não serve pra nada: não dá pra falar com
   // ele nem identificar quem é, mas ele entrava no funil e contava nas métricas.

@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 // Transforma uma mídia já recebida no chat num Documento organizado por tipo
 // — não duplica o arquivo, só aponta pro mesmo /uploads/... já salvo.
 export async function POST(req) {
-  const { messageId, tipo } = await req.json();
+  const { messageId, tipo } = await req.json().catch(() => ({}));
   if (!messageId || !tipo) return NextResponse.json({ error: "Dados incompletos." }, { status: 400 });
 
   const msg = await prisma.message.findUnique({ where: { id: messageId } });

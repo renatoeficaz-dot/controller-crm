@@ -12,7 +12,7 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ error: "Sem permissão para aprovar comissão." }, { status: 403 });
   }
 
-  const { status } = await req.json();
+  const { status } = await req.json().catch(() => ({}));
   if (!["aprovado", "pago"].includes(status)) {
     return NextResponse.json({ error: "Status inválido." }, { status: 400 });
   }

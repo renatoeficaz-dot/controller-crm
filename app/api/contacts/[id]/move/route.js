@@ -21,7 +21,7 @@ export async function PATCH(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const { stageId, forcar: forcarPedido, motivoPerda } = await req.json();
+  const { stageId, forcar: forcarPedido, motivoPerda } = await req.json().catch(() => ({}));
   const session = await getSession();
   // Só admin pode forçar (ignorar bloqueio de CPF / limite de escalonamento).
   const forcar = !!forcarPedido && session?.role === "admin";

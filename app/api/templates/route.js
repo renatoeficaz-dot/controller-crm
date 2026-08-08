@@ -13,7 +13,7 @@ export async function GET() {
 
 // Cria uma mensagem pronta
 export async function POST(req) {
-  const data = await req.json();
+  const data = await req.json().catch(() => ({}));
   const title = (data.title || "").trim();
   const mediaType = data.mediaType || null;
 

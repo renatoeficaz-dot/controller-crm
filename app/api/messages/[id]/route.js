@@ -13,7 +13,7 @@ export async function PATCH(req, { params }) {
   const negado = await negarSeNaoPodeVerContato(atual.contactId);
   if (negado) return negado;
 
-  const { apagada } = await req.json();
+  const { apagada } = await req.json().catch(() => ({}));
   const message = await prisma.message.update({ where: { id }, data: { apagada: !!apagada } });
   return NextResponse.json(message);
 }

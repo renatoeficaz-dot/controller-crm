@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const { label, tipo, opcoes } = await req.json();
+  const { label, tipo, opcoes } = await req.json().catch(() => ({}));
   if (!label?.trim()) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
 
   const chave = label.trim().toLowerCase()

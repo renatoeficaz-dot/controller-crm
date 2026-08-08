@@ -12,7 +12,7 @@ export async function GET() {
 // Assim dá pra conferir "totalAlvos" antes de mandar de verdade.
 export async function POST(req) {
   const user = await getCurrentUser();
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   if (!body.nome?.trim() || !body.numeroId) {
     return NextResponse.json({ error: "Nome e número de envio são obrigatórios." }, { status: 400 });
   }

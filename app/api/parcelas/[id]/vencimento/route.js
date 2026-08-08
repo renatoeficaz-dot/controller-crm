@@ -15,7 +15,7 @@ export async function PATCH(req, { params }) {
   if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
   const negado = await negarSeNaoPodeVerContato(_p.contactId);
   if (negado) return negado;
-  const { novoVencimento, motivo } = await req.json();
+  const { novoVencimento, motivo } = await req.json().catch(() => ({}));
   if (!novoVencimento) return NextResponse.json({ error: "Informe a nova data." }, { status: 400 });
   if (!motivo?.trim()) return NextResponse.json({ error: "Informe o motivo." }, { status: 400 });
 

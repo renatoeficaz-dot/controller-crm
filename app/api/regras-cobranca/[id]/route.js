@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   const data = {};
   if ("diasMin" in body) data.diasMin = Number(body.diasMin);
   if ("diasMax" in body) data.diasMax = body.diasMax === "" || body.diasMax == null ? null : Number(body.diasMax);

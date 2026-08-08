@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 // Edita uma etapa (ex.: nome, cor, responsável automático)
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   const data = {};
   if ("name" in body) data.name = (body.name || "").trim();
   if ("color" in body) data.color = body.color || "#64748b";
