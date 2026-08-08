@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 // Faixas do bônus progressivo (item 221) — só admin.
 export async function GET() {
@@ -23,5 +24,12 @@ export async function POST(req) {
     return NextResponse.json({ error: "O bônus não pode passar de 100% do valor recuperado." }, { status: 400 });
   }
   const faixa = await prisma.comissaoFaixa.create({ data: { minValor, pctBonus } });
+  registrarAuditoria({
+    usuario: user.name,
+    acao: "alterar_config",
+    entidade: "ComissaoFaixa",
+    entidadeId: faixa.id,
+    detalhe: `Criou faixa de bônus: a partir de R$ ${minValor} → ${pctBonus}%`,
+  });
   return NextResponse.json(faixa);
 }
