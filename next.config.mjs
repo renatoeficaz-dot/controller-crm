@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Sem isso o Next manda "X-Powered-By: Next.js" em toda resposta — dá de
+  // graça pra quem for reconhecer o sistema de fora que framework rodar aqui.
+  poweredByHeader: false,
   // pdfkit lê seus arquivos de fonte (.afm) do disco via __dirname em tempo de
   // execução — se o Next empacota o módulo (webpack), __dirname vira um caminho
   // virtual (ex.: "/ROOT") e a leitura quebra com ENOENT. Marcando como externo,

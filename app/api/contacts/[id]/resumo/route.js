@@ -66,6 +66,9 @@ export async function POST(_req, { params }) {
     if (!resumo) return NextResponse.json({ error: "A IA não devolveu um resumo." }, { status: 502 });
     return NextResponse.json({ resumo, mensagensLidas: mensagens.length });
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    // Não devolve err.message pro cliente — pode vazar detalhe interno da
+    // chamada à DeepInfra (URL, corpo da requisição) num erro inesperado.
+    console.error("[resumoConversa] erro:", err.message);
+    return NextResponse.json({ error: "Erro ao gerar o resumo." }, { status: 500 });
   }
 }

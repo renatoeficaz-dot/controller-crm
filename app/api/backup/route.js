@@ -18,6 +18,9 @@ export async function POST() {
   try {
     return NextResponse.json(await rodarBackup());
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    // Não devolve err.message pro cliente: erro de backup pode conter caminho
+    // de arquivo do servidor ou detalhe do SQLite — fica só no log.
+    console.error("[backup] erro:", err.message);
+    return NextResponse.json({ error: "Erro ao gerar o backup." }, { status: 500 });
   }
 }
