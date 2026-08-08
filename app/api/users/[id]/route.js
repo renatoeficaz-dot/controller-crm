@@ -28,6 +28,12 @@ export async function PATCH(req, { params }) {
 
   // Só troca a senha se vier preenchida
   if (body.password) {
+    // A CRIAÇÃO de usuário já exigia 6 caracteres, mas a TROCA não validava
+    // nada: dava pra trocar uma senha boa por uma de 1 caractere e o sistema
+    // aceitava calado. A regra tem que ser a mesma nos dois caminhos.
+    if (String(body.password).length < 6) {
+      return NextResponse.json({ error: "A senha precisa ter pelo menos 6 caracteres." }, { status: 400 });
+    }
     data.passwordHash = await bcrypt.hash(body.password, 10);
   }
 
