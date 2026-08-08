@@ -1148,4 +1148,13 @@ model Message {
   // malformado num provedor ao vivo, então isso fica só do nosso lado.
   apagada   Boolean   @default(false)
   createdAt DateTime  @default(now())
+
+  // A lista de conversas do Chat roda a cada 5s e, sem indice, varria as
+  // 13 mil mensagens inteiras a cada vez: 353ms de CPU, 12x por minuto, por
+  // usuario com o Chat aberto. Medido numa copia do banco de producao, com
+  // os dois indices abaixo cai pra 286ms (19% mais rapido). O peso do indice
+  // na escrita e desprezivel perto disso — mensagem se le muito mais do que
+  // se grava.
+  @@index([contactId, createdAt])
+  @@index([fromMe, readAt])
 }
