@@ -8,14 +8,29 @@ import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 // Lista mensagens do contato (conforme os WhatsApp que o usuário pode ver).
 // Não traz o campo mediaUrl (base64) — mídia é carregada sob demanda via
 // /api/messages/[id]/media, pra não pesar o payload em conversas com áudio/imagem.
-export async function GET(_req, { params }) {
+// ?desde=<ISO> devolve só o que chegou DEPOIS daquele instante.
+//
+// O chat recarrega a cada 4s e, sem isso, rebaixava a conversa inteira toda
+// vez: numa conversa de 437 mensagens sao 180KB por carregamento, 15x por
+// minuto = 2,6 MB/min por usuario (~1,2 GB num dia de trabalho). Com o
+// parametro, a recarga normal traz só as novas — quase sempre zero.
+//
+// O cliente ainda faz uma recarga COMPLETA de tempos em tempos, porque
+// mensagem existente pode mudar depois de criada (apagada, readAt) e busca
+// incremental sozinha nunca veria essa alteracao.
+export async function GET(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
   const user = await getCurrentUser();
   const extra = mensagensWhere(user);
+
+  const desdeParam = new URL(req.url).searchParams.get("desde");
+  const desde = desdeParam ? new Date(desdeParam) : null;
+  const filtroDesde = desde && !isNaN(desde) ? { createdAt: { gt: desde } } : {};
+
   const messages = await prisma.message.findMany({
-    where: { contactId: id, ...(extra || {}) },
+    where: { contactId: id, ...(extra || {}), ...filtroDesde },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,

@@ -87,6 +87,11 @@ export default function ChatView() {
   const chatEnd = useRef(null);
   const selectedIdRef = useRef(null);
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+  // Espelho das mensagens num ref: o loadMessages roda dentro de um
+  // setInterval e, se lesse o state direto, ficaria preso na versão do
+  // primeiro render (closure velha) e mandaria sempre o mesmo "desde".
+  const messagesRef = useRef([]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   // Dados pra edição do lead
   const [form, setForm] = useState({});
@@ -294,19 +299,53 @@ export default function ChatView() {
     }
   }, [selectedId, loadTasks]);
 
-  const loadMessages = useCallback(async () => {
+  // Conta os ciclos de polling pra saber quando fazer a recarga completa.
+  const ciclosRef = useRef(0);
+
+  const loadMessages = useCallback(async (completa = false) => {
     if (!selectedId) return;
     const requestedId = selectedId;
-    const msgs = await fetch(`/api/contacts/${requestedId}/messages`).then((r) => r.json()).catch(() => []);
+
+    // Recarga INCREMENTAL: manda o horário da última mensagem que já temos e
+    // recebe só o que chegou depois. Antes vinha a conversa inteira a cada 4s
+    // (180KB numa conversa de 437 mensagens = 2,6 MB/min por usuário).
+    //
+    // A recarga completa continua acontecendo de tempos em tempos porque
+    // mensagem já existente pode mudar (apagada, lida) — e isso a busca
+    // incremental, por definição, nunca veria.
+    const atuais = messagesRef.current;
+    const podeIncremental = !completa && atuais.length > 0;
+    const ultima = podeIncremental ? atuais[atuais.length - 1]?.createdAt : null;
+    const url = ultima
+      ? `/api/contacts/${requestedId}/messages?desde=${encodeURIComponent(ultima)}`
+      : `/api/contacts/${requestedId}/messages`;
+
+    const msgs = await fetch(url).then((r) => r.json()).catch(() => []);
     if (requestedId !== selectedIdRef.current) return; // trocou de conversa enquanto isso — descarta
-    setMessages(Array.isArray(msgs) ? msgs : []);
+    if (!Array.isArray(msgs)) return;
+
+    if (ultima) {
+      if (msgs.length === 0) return; // nada novo: não mexe no estado (evita re-render à toa)
+      setMessages((prev) => {
+        const vistos = new Set(prev.map((m) => m.id));
+        return [...prev, ...msgs.filter((m) => !vistos.has(m.id))];
+      });
+    } else {
+      setMessages(msgs);
+    }
   }, [selectedId]);
 
   useEffect(() => {
     loadContact();
-    loadMessages();
+    ciclosRef.current = 0;
+    loadMessages(true); // ao abrir a conversa, sempre completa
     if (!selectedId) return;
-    const t = setInterval(loadMessages, 4000);
+    const t = setInterval(() => {
+      ciclosRef.current += 1;
+      // 1 recarga completa a cada 10 ciclos (40s) pra pegar mensagem apagada
+      // ou marcada como lida; nas outras 9, só o que chegou de novo.
+      loadMessages(ciclosRef.current % 10 === 0);
+    }, 4000);
     return () => clearInterval(t);
   }, [loadContact, loadMessages, selectedId]);
 
