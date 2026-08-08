@@ -26,7 +26,12 @@ export async function POST(req, { params }) {
   const bytes = Buffer.from(await file.arrayBuffer());
   const mimeType = file.type || "application/octet-stream";
   const fileName = file.name || "documento";
-  const url = await saveMediaBuffer(bytes, mimeType, fileName);
+  let url;
+  try {
+    url = await saveMediaBuffer(bytes, mimeType, fileName);
+  } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 400 });
+  }
 
   const documento = await prisma.documento.create({
     data: { contactId: id, tipo, url, fileName, mimeType },

@@ -44,9 +44,14 @@ export async function POST(req) {
 
   // Novo template sempre vem de um upload fresco (base64 do navegador) — salva
   // como arquivo em disco, só o caminho vai pro banco.
-  const mediaUrl = data.mediaBase64
-    ? await saveMediaBase64(data.mediaBase64, data.mediaMimetype, data.mediaFileName)
-    : null;
+  let mediaUrl = null;
+  if (data.mediaBase64) {
+    try {
+      mediaUrl = await saveMediaBase64(data.mediaBase64, data.mediaMimetype, data.mediaFileName);
+    } catch (e) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
+  }
 
   const last = await prisma.messageTemplate.findFirst({ orderBy: { order: "desc" } });
   const tpl = await prisma.messageTemplate.create({

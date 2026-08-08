@@ -16,7 +16,17 @@ export async function PATCH(req, { params }) {
     // se já é um caminho salvo (/uploads/...), mantém; só grava em disco de
     // novo quando vier base64 de verdade (upload novo).
     const v = body.mediaBase64;
-    data.mediaUrl = v ? (v.startsWith("/uploads/") ? v : await saveMediaBase64(v, body.mediaMimetype, body.mediaFileName)) : null;
+    if (v && v.startsWith("/uploads/")) {
+      data.mediaUrl = v;
+    } else if (v) {
+      try {
+        data.mediaUrl = await saveMediaBase64(v, body.mediaMimetype, body.mediaFileName);
+      } catch (e) {
+        return NextResponse.json({ error: e.message }, { status: 400 });
+      }
+    } else {
+      data.mediaUrl = null;
+    }
   }
   if ("mediaMimetype" in body) data.mediaMimetype = body.mediaMimetype || null;
   if ("mediaFileName" in body) data.mediaFileName = body.mediaFileName || null;

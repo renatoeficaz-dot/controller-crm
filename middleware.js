@@ -9,8 +9,41 @@ import { SESSION_COOKIE, verifySession } from "@/lib/auth";
 // com "/lancamentos" (que É protegida).
 const PUBLIC_PREFIXES = ["/api/auth/login", "/api/auth/logout", "/api/webhook", "/login", "/l/", "/f/", "/api/formulario"];
 
+// Rate limit genérico por IP em toda /api/*: nenhuma rota (fora o login, que já
+// tem o próprio limite) tinha teto nenhum — um script com token de sessão
+// roubado (ou um bug de loop no front) conseguia martelar a API sem limite.
+// Em memória (zera a cada deploy/restart), sem tabela nova nem custo extra;
+// suficiente pra segurar abuso, não pra bloquear uso normal da equipe.
+const JANELA_MS = 60_000;
+const LIMITE_POR_JANELA = 400;
+const contadorPorIp = new Map();
+function acimaDoLimite(ip) {
+  const agora = Date.now();
+  const entrada = contadorPorIp.get(ip);
+  if (!entrada || agora - entrada.inicio > JANELA_MS) {
+    contadorPorIp.set(ip, { inicio: agora, contagem: 1 });
+    return false;
+  }
+  entrada.contagem += 1;
+  return entrada.contagem > LIMITE_POR_JANELA;
+}
+// Evita crescer pra sempre num processo de longa duração.
+setInterval(() => {
+  const agora = Date.now();
+  for (const [ip, entrada] of contadorPorIp) {
+    if (agora - entrada.inicio > JANELA_MS) contadorPorIp.delete(ip);
+  }
+}, 5 * 60_000);
+
 export async function middleware(req) {
   const { pathname } = req.nextUrl;
+
+  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/webhook")) {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "desconhecido";
+    if (acimaDoLimite(ip)) {
+      return NextResponse.json({ error: "Muitas requisições. Tente novamente em instantes." }, { status: 429 });
+    }
+  }
 
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p))) {
     // se já está logado e tenta abrir /login, manda pra home

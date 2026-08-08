@@ -47,6 +47,19 @@ const nextConfig = {
           // Microfone fica liberado só pra origem (a gravação de áudio do chat
           // usa); câmera, geolocalização e pagamento ficam desligados.
           { key: "Permissions-Policy", value: "camera=(), geolocation=(), payment=(), microphone=(self)" },
+          // Isola a janela de popups abertos por ela (WhatsApp Web, se algum
+          // dia for linkado) e impede que outra origem leia a resposta de
+          // /uploads/* via <img>/<script> cross-origin.
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+          // Report-Only: só mede o que quebraria com CSP real (sem nonce
+          // configurado no build ainda, então enforcement de verdade bloquearia
+          // script/style inline do Next e derrubaria o app). Fica registrado no
+          // console do navegador pra decidir a política definitiva sem risco.
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value: "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+          },
         ],
       },
     ];
