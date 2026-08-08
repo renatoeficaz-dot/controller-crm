@@ -462,6 +462,7 @@ const ACAO_LABEL = {
   trocar_senha: "Trocou senha",
   excluir_usuario: "Excluiu usuário",
   excluir_lancamento: "Excluiu lançamento",
+  alterar_config: "Alterou configuração",
 };
 
 const ACAO_COR = {
@@ -473,6 +474,7 @@ const ACAO_COR = {
   trocar_senha: "bg-violet-50 text-violet-600",
   dar_baixa: "bg-emerald-50 text-emerald-600",
   acordo_parcelado: "bg-sky-50 text-sky-600",
+  alterar_config: "bg-violet-50 text-violet-600",
 };
 
 /* ---------------- Item 242: painel de saúde do sistema ---------------- */

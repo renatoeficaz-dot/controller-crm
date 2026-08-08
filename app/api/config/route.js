@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 // Garante que a linha única de config exista
 async function getConfig() {
@@ -22,6 +23,12 @@ const CAMPOS_SECRETOS = [
   // continuar injetando mensagem falsa.
   "webhookToken",
 ];
+
+// Mudar isso aqui muda dinheiro (honorários, multa) ou credenciais de
+// integração — mesmo só admin conseguindo (o middleware já trava isso),
+// não tinha NENHUM registro de quem mudou o quê. Com 2+ admins, "os
+// honorários foram de 30% pra 1%" ficava sem rastro nenhum de autoria.
+const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", ...CAMPOS_SECRETOS];
 
 export async function GET() {
   const cfg = await getConfig();
@@ -129,6 +136,32 @@ export async function PATCH(req) {
   if ("pixAdimplentesHora" in body) data.pixAdimplentesHora = (body.pixAdimplentesHora || "08:00").trim();
   if ("pixAdimplentesMensagem" in body) data.pixAdimplentesMensagem = (body.pixAdimplentesMensagem || "").trim() || null;
 
+  const mudouSensivel = CAMPOS_AUDITADOS.some((c) => c in data);
+  const antes = mudouSensivel ? await prisma.config.findUnique({ where: { id: "singleton" } }) : null;
+
   const config = await prisma.config.update({ where: { id: "singleton" }, data });
+
+  if (mudouSensivel) {
+    const user = await getCurrentUser().catch(() => null);
+    const mudancas = CAMPOS_AUDITADOS.filter((c) => c in data && antes?.[c] !== config[c]);
+    if (mudancas.length) {
+      const detalhe = mudancas
+        .map((c) => {
+          // Chave de API/token: nunca loga o valor, só que mudou — o log de
+          // auditoria não pode virar um segundo lugar pra vazar credencial.
+          if (CAMPOS_SECRETOS.includes(c)) return `${c} alterado`;
+          return `${c}: ${antes[c]} → ${config[c]}`;
+        })
+        .join("; ");
+      registrarAuditoria({
+        usuario: user?.name,
+        acao: "alterar_config",
+        entidade: "Config",
+        entidadeId: "singleton",
+        detalhe,
+      });
+    }
+  }
+
   return NextResponse.json(config);
 }
