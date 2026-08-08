@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getCurrentUser, isAdmin } from "@/lib/session";
 
-// Lista os números conectados (com o usuário atribuído)
+// Lista os números conectados (com o usuário atribuído). Todo mundo logado
+// pode ler (seletor de número no Chat, na ficha do lead, etc.) — mas o
+// registro inteiro incluía proxyUsername/proxyPassword em texto puro, e
+// vendedor/cobrador conseguia ler a senha do proxy só chamando essa rota.
 export async function GET() {
   const numbers = await prisma.whatsappNumber.findMany({
     orderBy: { createdAt: "asc" },
@@ -10,7 +14,11 @@ export async function GET() {
       agent: { select: { id: true, name: true } },
     },
   });
-  return NextResponse.json(numbers);
+  const user = await getCurrentUser().catch(() => null);
+  if (isAdmin(user)) return NextResponse.json(numbers);
+
+  const seguro = numbers.map(({ proxyUsername, proxyPassword, ...n }) => n);
+  return NextResponse.json(seguro);
 }
 
 // Conecta/cadastra um novo número
