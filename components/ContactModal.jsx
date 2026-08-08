@@ -348,11 +348,38 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     changeStage(stageId, false, motivo);
   }
 
-  // Polling leve para puxar mensagens recebidas pelo webhook
+  // Ref sempre atualizada com o array de mensagens atual — o polling abaixo
+  // lê daqui em vez de fechar sobre `messages` direto: como o efeito só
+  // reinicia quando `contactId` muda (não a cada mensagem nova), ler
+  // `messages` fechado no closure ficaria travado no valor de quando a
+  // conversa abriu, e o "?desde=" nunca avançaria.
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // Polling leve para puxar mensagens recebidas pelo webhook. Incremental
+  // (?desde=) igual o Chat já faz — sem isso, cada tick baixava a conversa
+  // inteira de novo a cada 5s enquanto a ficha do lead ficasse aberta.
   useEffect(() => {
+    let ciclos = 0;
     const t = setInterval(async () => {
-      const res = await fetch(`/api/contacts/${contactId}/messages`);
-      if (res.ok) setMessages(await res.json());
+      ciclos += 1;
+      const completa = ciclos % 10 === 0; // 1 recarga cheia a cada 50s, pega apagada/lida
+      const atuais = messagesRef.current;
+      const ultima = atuais[atuais.length - 1]?.createdAt;
+      const url = !completa && ultima
+        ? `/api/contacts/${contactId}/messages?desde=${encodeURIComponent(ultima)}`
+        : `/api/contacts/${contactId}/messages`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const novas = await res.json();
+      if (completa || !ultima) {
+        setMessages(novas);
+      } else {
+        setMessages((prev) => {
+          const vistos = new Set(prev.map((m) => m.id));
+          return [...prev, ...novas.filter((m) => !vistos.has(m.id))];
+        });
+      }
     }, 5000);
     return () => clearInterval(t);
   }, [contactId]);

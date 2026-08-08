@@ -144,7 +144,12 @@ export default function ChatView() {
 
   useEffect(() => {
     loadConversations();
-    const t = setInterval(loadConversations, 5000);
+    // 15s, não 5s: essa é uma busca COMPLETA de todas as conversas (sem
+    // incremental como a de mensagens abaixo) — a cada 3s a mais de intervalo
+    // é uma consulta pesada a menos rodando o dia inteiro em cada aba de Chat
+    // aberta, sem perder responsividade real pro uso (lista de conversas, não
+    // a conversa aberta em si).
+    const t = setInterval(loadConversations, 15000);
     return () => clearInterval(t);
   }, [loadConversations]);
 
