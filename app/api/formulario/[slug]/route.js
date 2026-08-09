@@ -30,6 +30,21 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "Informe um WhatsApp válido." }, { status: 400 });
   }
 
+  // Rota pública, sem login. Sem limite, um POST anônimo com campos de texto
+  // gigantes ia direto pro camposCustom (JSON em texto no SQLite) — já tivemos
+  // o banco inflar até travar o servidor por causa de mídia sem limite, e isso
+  // é o mesmo risco só que via texto em vez de arquivo.
+  if (respostas && typeof respostas === "object") {
+    for (const valor of Object.values(respostas)) {
+      if (typeof valor === "string" && valor.length > 2000) {
+        return NextResponse.json({ error: "Resposta muito longa em um dos campos." }, { status: 400 });
+      }
+    }
+    if (JSON.stringify(respostas).length > 20000) {
+      return NextResponse.json({ error: "Formulário muito grande." }, { status: 400 });
+    }
+  }
+
   const tail = telDigits.slice(-8);
   let contact = await prisma.contact.findFirst({ where: { phone: { endsWith: tail }, excluidoEm: null } });
 
