@@ -32,8 +32,13 @@ const nextConfig = {
         headers: [
           // Clickjacking: sem isso dá pra embutir o CRM num iframe invisível
           // sobre um site isca e fazer o operador logado clicar em "Excluir"
-          // ou "Dar baixa" achando que clicou noutra coisa.
-          { key: "X-Frame-Options", value: "DENY" },
+          // ou "Dar baixa" achando que clicou noutra coisa. DENY (em vez de
+          // SAMEORIGIN) quebrava o próprio visualizador de PDF do sistema —
+          // MediaBubble.jsx abre o PDF anexado num <iframe src="/uploads/...">
+          // DA MESMA origem, e DENY bloqueia framing mesmo same-origin. O
+          // ataque de clickjacking vem de outro site, então SAMEORIGIN já
+          // fecha o buraco sem quebrar o preview.
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           // O navegador adivinhava o tipo do arquivo pelo conteúdo. Como
           // qualquer um sobe anexo (o cliente manda no WhatsApp), um arquivo
           // com conteúdo de HTML podia ser servido e executado como página.
@@ -58,7 +63,7 @@ const nextConfig = {
           // console do navegador pra decidir a política definitiva sem risco.
           {
             key: "Content-Security-Policy-Report-Only",
-            value: "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+            value: "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'self'; frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
           },
         ],
       },
