@@ -12,6 +12,12 @@ export async function POST(req) {
   if (!(body.name || "").trim() && !(body.phone || "").replace(/\D/g, "")) {
     return NextResponse.json({ error: "Informe ao menos o nome ou o telefone." }, { status: 400 });
   }
+  if ((body.name || "").length > 500) {
+    return NextResponse.json({ error: "Nome muito longo." }, { status: 400 });
+  }
+  if ((body.notes || "").length > 20000) {
+    return NextResponse.json({ error: "Observação muito longa." }, { status: 400 });
+  }
 
   // Evita duplicar lead: se já existe um contato com o mesmo telefone (últimos
   // 8 dígitos, tolerando formatação/DDI diferentes — mesma regra do webhook do

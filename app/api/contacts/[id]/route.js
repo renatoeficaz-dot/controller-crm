@@ -75,6 +75,20 @@ export async function PATCH(req, { params }) {
   if ("fixado" in body) data.fixado = !!body.fixado;
   if ("corCard" in body) data.corCard = body.corCard || null;
 
+  // Nenhum teto de tamanho aqui: uma sessão comprometida (ou um bug de front
+  // que manda o campo errado) conseguia gravar texto de qualquer tamanho em
+  // "notes"/"camposCustom" — mesmo risco de inflar o banco que já corrigimos
+  // no formulário público, só que pelo lado autenticado.
+  if (data.notes && data.notes.length > 20000) {
+    return NextResponse.json({ error: "Observação muito longa." }, { status: 400 });
+  }
+  if (data.name && data.name.length > 500) {
+    return NextResponse.json({ error: "Nome muito longo." }, { status: 400 });
+  }
+  if (data.camposCustom && data.camposCustom.length > 50000) {
+    return NextResponse.json({ error: "Campos personalizados excedem o tamanho permitido." }, { status: 400 });
+  }
+
   // Item 191: guarda quem era o responsável antes de trocar — sem isso a
   // troca fica muda, ninguém consegue ver depois quem cuidava do lead antes.
   let responsavelAntes = null;
