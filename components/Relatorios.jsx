@@ -186,13 +186,34 @@ export default function Relatorios() {
   const lucroPorEstado = useMemo(() => agruparLucro("estado", null), [stagesFiltrados]);
   // Recebido por estado (valor bruto pago, sem descontar o capital emprestado)
   // — diferente do "Lucro por Região" acima, que já é recebido - emprestado.
-  const recebidoPorEstado = useMemo(
-    () =>
-      lucroPorEstado
-        .map((r) => ({ ...r, value: r.recebido, color: "#059669" }))
-        .sort((a, b) => b.value - a.value),
-    [lucroPorEstado]
-  );
+  // Respeita o mesmo período (ini/fim) do "Total recebido" da página, senão a
+  // soma dos estados não bate com o total mostrado ali em cima.
+  const { recebidoPorEstado, recebidoPorEstadoDetalhe } = useMemo(() => {
+    const porEstado = new Map(); // uf -> { recebido, clientes: Map(contactId -> {nome, phone, id, valor}) }
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        const valorPeriodo = (c.parcelas || [])
+          .filter((p) => {
+            if (!p.paid || !p.paidAt) return false;
+            const d = new Date(p.paidAt).toLocaleDateString("en-CA");
+            return d >= ini && d <= fim;
+          })
+          .reduce((acc, p) => acc + (p.amountPago ?? p.amount), 0);
+        if (valorPeriodo <= 0) continue;
+        const uf = c.estado || "Não identificado";
+        if (!porEstado.has(uf)) porEstado.set(uf, { recebido: 0, clientes: [] });
+        const row = porEstado.get(uf);
+        row.recebido += valorPeriodo;
+        row.clientes.push({ id: c.id, contactId: c.id, nome: c.name, phone: c.phone, valor: valorPeriodo });
+      }
+    }
+    const lista = Array.from(porEstado.entries())
+      .map(([uf, row]) => ({ label: uf, value: row.recebido, recebido: row.recebido, color: "#059669", clientes: row.clientes.length }))
+      .sort((a, b) => b.value - a.value);
+    const detalhe = new Map(Array.from(porEstado.entries()).map(([uf, row]) => [uf, row.clientes.sort((a, b) => b.valor - a.valor)]));
+    return { recebidoPorEstado: lista, recebidoPorEstadoDetalhe: detalhe };
+  }, [stagesFiltrados, ini, fim]);
+  const [estadoDetalheAberto, setEstadoDetalheAberto] = useState(null); // uf | null
 
   // Curva de safra: agrupa clientes pelo mês em que o capital foi liberado —
   // mostra se a carteira está melhorando ou piorando ao longo do tempo (uma
@@ -1445,9 +1466,9 @@ export default function Relatorios() {
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           {recebidoPorEstado.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4">Nenhum cliente com capital liberado.</p>
+            <p className="text-sm text-slate-400 py-4">Nenhum cliente recebido no período.</p>
           ) : (
-            <HBarChart data={recebidoPorEstado} valueFmt={money} />
+            <HBarChart data={recebidoPorEstado} valueFmt={money} onBarClick={(d) => setEstadoDetalheAberto(d.label)} />
           )}
         </div>
       </section>
@@ -2094,6 +2115,47 @@ export default function Relatorios() {
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      )}
+
+      {estadoDetalheAberto && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
+          onClick={() => setEstadoDetalheAberto(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto thin-scroll"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-semibold text-slate-800">
+                Recebido em {estadoDetalheAberto}{" "}
+                <span className="text-slate-400 font-normal">
+                  ({(recebidoPorEstadoDetalhe.get(estadoDetalheAberto) || []).length})
+                </span>
+              </h3>
+              <button onClick={() => setEstadoDetalheAberto(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <div className="p-5">
+              <ul className="divide-y divide-slate-50">
+                {(recebidoPorEstadoDetalhe.get(estadoDetalheAberto) || []).map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => { setEstadoDetalheAberto(null); setOpenContactId(c.contactId); }}
+                      className="w-full flex items-center justify-between gap-3 py-2.5 text-left hover:bg-slate-50/80 transition-colors rounded-lg px-1.5 -mx-1.5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-slate-700 truncate">{c.nome || "Sem nome"}</p>
+                        <p className="text-xs text-slate-400 truncate">{c.phone || "sem telefone"}</p>
+                      </div>
+                      <span className="text-sm font-medium text-emerald-600 shrink-0">{money(c.valor)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       )}
