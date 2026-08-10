@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, veTodosLeads } from "@/lib/session";
 import { hojeStr, dueStr, parcelaAtrasada, valorEmAberto } from "@/lib/finance";
 
-// Quem cobrar hoje: clientes em Recebimento/Cravo com parcela vencida em aberto.
+// Quem cobrar hoje: clientes em Recebimento com parcela vencida em aberto.
+// Cravo (quem já virou calote) NÃO entra aqui — cobrador não deve gastar o
+// Modo Foco/fila diária revisitando quem já foi considerado perda; esse
+// acompanhamento é separado (ver checarCravoParado em lib/alertas.js).
 // A ordem é por prioridade = valor em aberto x peso do atraso — quem atrasou
 // pouco tem mais chance de pagar, então vale abordar antes de virar caso perdido.
 function pesoAtraso(dias) {
@@ -17,7 +20,7 @@ export async function GET() {
   const hoje = hojeStr();
 
   const stages = await prisma.stage.findMany({
-    where: { name: { in: ["Recebimento", "Cravo"] } },
+    where: { name: "Recebimento" },
     select: { id: true, name: true },
   });
   if (!stages.length) return NextResponse.json([]);
