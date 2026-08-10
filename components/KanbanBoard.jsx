@@ -792,11 +792,12 @@ export default function KanbanBoard() {
             });
             // Soma do que ainda falta receber (parcelas do ciclo atual não baixadas)
             // e contagem de atrasados/vencem hoje entre os leads visíveis nesta
-            // coluna — só faz sentido em "Recebimento".
-            const totalAReceber =
-              stage.name === "Recebimento"
-                ? visiveis.reduce((sum, c) => sum + valorAReceber(c), 0)
-                : 0;
+            // coluna. Em Cravo o cliente já é considerado calote, mas o valor em
+            // aberto ainda importa pra saber quanto tem represado ali.
+            const mostraTotal = stage.name === "Recebimento" || stage.name === "Cravo";
+            const totalAReceber = mostraTotal
+              ? visiveis.reduce((sum, c) => sum + valorAReceber(c), 0)
+              : 0;
             const qtdAtrasados =
               stage.name === "Recebimento"
                 ? visiveis.filter((c) => situacaoContato(c) === "atrasado").length
@@ -837,7 +838,7 @@ export default function KanbanBoard() {
                       )}
                     </div>
                   </div>
-                  {stage.name === "Recebimento" && (
+                  {mostraTotal && (
                     <div className="flex items-center gap-2 pl-[18px]">
                       <p className="text-xs text-emerald-700 font-medium">
                         A receber: {money(totalAReceber)}
