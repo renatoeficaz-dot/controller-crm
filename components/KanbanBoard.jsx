@@ -163,6 +163,7 @@ export default function KanbanBoard() {
   const [estadoFiltro, setEstadoFiltro] = useState(""); // "" = todos; UF = só leads desse estado
   const [generoFiltro, setGeneroFiltro] = useState(""); // "" = todos; "masculino" | "feminino"
   const [tipoClienteFiltro, setTipoClienteFiltro] = useState(""); // "" = todos; "motoboy" | "uber" | "comerciante"
+  const [renovacaoFiltro, setRenovacaoFiltro] = useState(""); // "" = todos; "sim" = cicloAtual > 1; "nao" = 1º ciclo
   const [filtrosAbertos, setFiltrosAbertos] = useState(false); // modal com todos os filtros
   const [simuladorAberto, setSimuladorAberto] = useState(false);
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
@@ -349,6 +350,8 @@ export default function KanbanBoard() {
     if (estadoFiltro && c.estado !== estadoFiltro) return false;
     if (generoFiltro && c.genero !== generoFiltro) return false;
     if (tipoClienteFiltro && c.tipoCliente !== tipoClienteFiltro) return false;
+    if (renovacaoFiltro === "sim" && (c.cicloAtual || 1) <= 1) return false;
+    if (renovacaoFiltro === "nao" && (c.cicloAtual || 1) > 1) return false;
     if (tarefaFiltro && statusTarefas(c) !== tarefaFiltro) return false;
     if (tempoFiltro && diasNaEtapa(c) < Number(tempoFiltro)) return false;
     if (busca.trim()) {
@@ -448,6 +451,7 @@ export default function KanbanBoard() {
     (estadoFiltro ? 1 : 0) +
     (generoFiltro ? 1 : 0) +
     (tipoClienteFiltro ? 1 : 0) +
+    (renovacaoFiltro ? 1 : 0) +
     (tarefaFiltro ? 1 : 0) +
     etapaFiltro.length +
     (tempoFiltro ? 1 : 0);
@@ -578,7 +582,7 @@ export default function KanbanBoard() {
                   <button
                     onClick={() => {
                       setFiltros([]); setRespFiltro(""); setTagFiltro(""); setEstadoFiltro("");
-                      setGeneroFiltro(""); setTipoClienteFiltro(""); setTarefaFiltro("");
+                      setGeneroFiltro(""); setTipoClienteFiltro(""); setRenovacaoFiltro(""); setTarefaFiltro("");
                       setEtapaFiltro([]); setTempoFiltro("");
                     }}
                     className="text-xs text-red-400 hover:text-red-600"
@@ -696,6 +700,19 @@ export default function KanbanBoard() {
                   <option value="motoboy">Motoboy</option>
                   <option value="uber">Uber</option>
                   <option value="comerciante">Comerciante</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs text-slate-400">Renovação</span>
+                <select
+                  value={renovacaoFiltro}
+                  onChange={(e) => setRenovacaoFiltro(e.target.value)}
+                  className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">Todos</option>
+                  <option value="sim">Renovação (2º ciclo ou mais)</option>
+                  <option value="nao">1º empréstimo</option>
                 </select>
               </label>
 
