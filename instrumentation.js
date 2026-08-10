@@ -7,7 +7,7 @@ export async function register() {
   const { checarFollowUp30min, checarMensagensSemResposta } = await import("@/lib/followUp");
   const { recalcularScoresComportamentais } = await import("@/lib/atualizarScoreComportamental");
   const { rodarBackup } = await import("@/lib/backup");
-  const { checarResumoDiario, checarAlertasCriticos, checarCapitalOcioso } = await import("@/lib/alertas");
+  const { checarResumoDiario, checarAlertasCriticos, checarCapitalOcioso, checarCravoParado } = await import("@/lib/alertas");
   const { estenderRecorrenciasIlimitadas } = await import("@/lib/contasPagar");
   const { escalonarAtrasos } = await import("@/lib/escalonamentoAtraso");
   const { registrarMetaDoDia } = await import("@/lib/metas");
@@ -69,6 +69,9 @@ export async function register() {
         .catch((err) => console.error("[escalonamentoAtraso] erro:", err.message));
       // Dinheiro parado em caixa sem liberar capital não gira — avisa o dono.
       checarCapitalOcioso().catch((err) => console.error("[capitalOcioso] erro:", err.message));
+      // Cravo não recebe régua automática (de propósito) — sem isso, um lead
+      // podia ficar semanas parado sem ninguém notar.
+      checarCravoParado().catch((err) => console.error("[cravoParado] erro:", err.message));
     }
     if (ultimoDiaPurga !== hoje) {
       ultimoDiaPurga = hoje;
