@@ -184,6 +184,15 @@ export default function Relatorios() {
   const lucroPorGenero = useMemo(() => agruparLucro("genero", GENERO_LABEL), [stagesFiltrados]);
   const lucroPorTipoCliente = useMemo(() => agruparLucro("tipoCliente", TIPO_CLIENTE_LABEL), [stagesFiltrados]);
   const lucroPorEstado = useMemo(() => agruparLucro("estado", null), [stagesFiltrados]);
+  // Recebido por estado (valor bruto pago, sem descontar o capital emprestado)
+  // — diferente do "Lucro por Região" acima, que já é recebido - emprestado.
+  const recebidoPorEstado = useMemo(
+    () =>
+      lucroPorEstado
+        .map((r) => ({ ...r, value: r.recebido, color: "#059669" }))
+        .sort((a, b) => b.value - a.value),
+    [lucroPorEstado]
+  );
 
   // Curva de safra: agrupa clientes pelo mês em que o capital foi liberado —
   // mostra se a carteira está melhorando ou piorando ao longo do tempo (uma
@@ -1412,6 +1421,34 @@ export default function Relatorios() {
               )}
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Recebido por estado: valor bruto pago, sem descontar o capital emprestado */}
+      <section>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h2 className="text-sm font-semibold text-slate-700">
+            Recebido por estado <span className="text-slate-400 font-normal">— valor total já pago, por região</span>
+          </h2>
+          {recebidoPorEstado.length > 0 && (
+            <button
+              onClick={() => baixarCsv("recebido-por-estado", [
+                { label: "Estado", chave: "label" },
+                { label: "Clientes", chave: "clientes" },
+                { label: "Recebido", valor: (r) => numeroCsv(r.recebido) },
+              ], recebidoPorEstado)}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 shrink-0"
+            >
+              <Icone nome="baixar" className="w-3 h-3" /> CSV
+            </button>
+          )}
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          {recebidoPorEstado.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4">Nenhum cliente com capital liberado.</p>
+          ) : (
+            <HBarChart data={recebidoPorEstado} valueFmt={money} />
+          )}
         </div>
       </section>
 
