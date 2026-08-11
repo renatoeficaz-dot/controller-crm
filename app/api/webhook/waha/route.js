@@ -16,7 +16,7 @@ export async function POST(req) {
   if (!payload || payload.event !== "message") return NextResponse.json({ ok: true });
 
   const instance = payload.session || "";
-  const { fromMe, isGroup, number, pushName, text, media, location } = extractIncomingFromWaha(payload);
+  const { fromMe, isGroup, number, pushName, text, media, location, mediaKey } = extractIncomingFromWaha(payload);
 
   let mediaUrl = payload?.payload?.media?.url || null;
   const cfg = media && mediaUrl ? await prisma.config.findUnique({ where: { id: "singleton" } }) : null;
@@ -31,6 +31,7 @@ export async function POST(req) {
     media,
     location,
     downloadMedia: media && mediaUrl ? () => fetchIncomingMediaBase64Waha(mediaUrl, cfg?.wahaApiKey) : null,
+    waMessageId: mediaKey || null,
   });
 
   return NextResponse.json({ ok: true });

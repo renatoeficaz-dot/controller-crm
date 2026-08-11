@@ -1142,6 +1142,10 @@ model Message {
   fromMe    Boolean   @default(true) // true = enviada por nós, false = recebida do cliente
   status    String    @default("sent")
   instance  String? // instância da Evolution que originou/enviou (controle de visibilidade por usuário)
+  // id da mensagem no provedor (Evolution: data.key.id / WAHA: payload.id).
+  // Evolution/WAHA reentregam o mesmo webhook em retry de rede - sem isso o
+  // sistema processava a mensagem de novo e a IA respondia duplicado.
+  waMessageId String? @unique
   readAt    DateTime? // null = não visualizada pelo operador
   // "Apagar" (item 88) só remove da NOSSA visualização — o WhatsApp não tem
   // uma API confiável pra apagar "dos dois lados" sem risco de request

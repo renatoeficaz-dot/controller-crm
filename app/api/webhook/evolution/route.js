@@ -41,6 +41,7 @@ export async function POST(req) {
     media,
     location: extractIncomingLocation(data.message),
     downloadMedia: media ? () => fetchIncomingMediaBase64(instance, data.key) : null,
+    waMessageId: data.key?.id || null,
   });
 
   return NextResponse.json({ ok: true });
