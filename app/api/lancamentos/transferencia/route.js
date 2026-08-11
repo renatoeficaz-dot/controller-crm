@@ -21,7 +21,9 @@ export async function POST(req) {
 
   const transferenciaId = randomUUID();
   const desc = descricao?.trim() || `Transferência: ${origem.name} → ${destino.name}`;
-  const data = date ? new Date(date) : new Date();
+  // "YYYY-MM-DD" puro vira meia-noite UTC — em fuso negativo (Brasil) isso
+  // exibe um dia ANTES do que foi escolhido. Meio-dia evita virar o dia.
+  const data = date ? new Date(date + "T12:00:00") : new Date();
 
   const [saida, entrada] = await prisma.$transaction([
     prisma.lancamento.create({ data: { type: "saida", amount: v, description: desc, date: data, bancoId: origemId, transferenciaId } }),

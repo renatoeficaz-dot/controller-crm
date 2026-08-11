@@ -63,7 +63,10 @@ export async function POST(req) {
       type,
       amount,
       description: (body.description || "").trim() || null,
-      date: body.date ? new Date(body.date) : new Date(),
+      // "YYYY-MM-DD" puro vira meia-noite UTC — em fuso negativo (Brasil) isso
+      // exibe um dia ANTES do que foi escolhido. Meio-dia evita virar o dia
+      // em qualquer fuso real.
+      date: body.date ? new Date(body.date + "T12:00:00") : new Date(),
       categoriaId: body.categoriaId || null,
       bancoId: body.bancoId || null,
       contactId: body.contactId || null,
