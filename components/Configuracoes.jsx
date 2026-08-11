@@ -8,7 +8,7 @@ import { ACOES as ACOES_EXTRAS } from "@/lib/permissoes";
 import TemaToggle from "@/components/TemaToggle";
 import Icone from "@/components/Icones";
 import { ComissaoConfig, RiscoConfig, AuditoriaLog, IntegridadeConfig, SolicitacoesDesconto, UsoSistemaConfig, SaudeSistema } from "@/components/ConfigGestao";
-import { MotivosPerdaConfig, OperacaoConfig } from "@/components/ConfigOperacao";
+import { MotivosPerdaConfig, OperacaoConfig, LinksUteisConfig } from "@/components/ConfigOperacao";
 import ConfigEquipe from "@/components/ConfigEquipe";
 
 // Posição (fixed, em relação à viewport) do EmojiPicker a partir do botão que
@@ -170,6 +170,7 @@ const TABS = [
   { key: "aparencia", label: "Aparência", desc: "Tema claro, escuro ou do sistema" },
   { key: "alertas", label: "Alertas", desc: "Resumo diário e avisos críticos no seu WhatsApp" },
   { key: "backup", label: "Backup", desc: "Cópias automáticas do banco de dados" },
+  { key: "links", label: "Links úteis", desc: "Atalhos pros links que a equipe usa no dia a dia" },
 ];
 
 export default function Configuracoes() {
@@ -271,6 +272,7 @@ export default function Configuracoes() {
             {tab === "equipe" && <ConfigEquipe />}
             {tab === "risco" && <RiscoConfig />}
             {tab === "motivos" && <MotivosPerdaConfig />}
+            {tab === "links" && <LinksUteisConfig />}
             {tab === "operacao" && <OperacaoConfig />}
             {tab === "auditoria" && (
               <div className="space-y-4">

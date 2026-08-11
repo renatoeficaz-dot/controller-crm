@@ -790,6 +790,16 @@ model MotivoPerda {
   ordem Int    @default(0)
 }
 
+// Atalhos pra links que a equipe usa no dia a dia (painel da Evolution,
+// planilha, banco, etc.) — pra não ficar procurando em favorito de navegador.
+model LinkUtil {
+  id        String   @id @default(cuid())
+  titulo    String
+  url       String
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
 // Cada tentativa de contato feita pelo cobrador (ligou, foi no endereço...) —
 // serve pra medir esforço real gasto por cliente, não só o resultado.
 model TentativaContato {

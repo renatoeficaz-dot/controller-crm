@@ -82,7 +82,7 @@ export async function middleware(req) {
       "/api/motivos-perda", "/api/campos-personalizados", "/api/task-types",
       "/api/tags", "/api/templates", "/api/regras-cobranca", "/api/campanhas",
       "/api/backup", "/api/alertas", "/api/stages", "/api/usuarios",
-      "/api/solicitacoes-desconto", "/api/automacao",
+      "/api/solicitacoes-desconto", "/api/automacao", "/api/links-uteis",
     ];
     const ehApiSoAdmin = apisSoAdmin.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (ehApiSoAdmin && req.method !== "GET" && session.role !== "admin") {

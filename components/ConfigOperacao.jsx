@@ -70,6 +70,55 @@ export function MotivosPerdaConfig() {
   );
 }
 
+/* ---------------- Links úteis ---------------- */
+export function LinksUteisConfig() {
+  const [lista, setLista] = useState([]);
+  const [titulo, setTitulo] = useState("");
+  const [url, setUrl] = useState("");
+
+  const load = useCallback(() => {
+    fetch("/api/links-uteis").then((r) => r.json()).then(setLista).catch(() => {});
+  }, []);
+  useEffect(load, [load]);
+
+  async function adicionar(e) {
+    e.preventDefault();
+    if (!titulo.trim() || !url.trim()) return;
+    const res = await fetch("/api/links-uteis", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ titulo: titulo.trim(), url: url.trim() }),
+    });
+    if (res.ok) { setTitulo(""); setUrl(""); load(); }
+  }
+  async function remover(id) {
+    await fetch(`/api/links-uteis/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4 max-w-lg">
+      <Cabecalho icone="link" titulo="Links úteis" subtitulo="Atalhos que a equipe usa no dia a dia — painel da Evolution, planilha, banco etc." />
+      <form onSubmit={adicionar} className="flex flex-col gap-2">
+        <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título (ex.: Painel Evolution)" className="text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+        <div className="flex gap-2">
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+          <button className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 hover:bg-emerald-600">+</button>
+        </div>
+      </form>
+      <ul className="divide-y divide-slate-50">
+        {lista.map((l) => (
+          <li key={l.id} className="flex items-center justify-between py-2 text-sm gap-2">
+            <a href={l.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline truncate">
+              {l.titulo}
+            </a>
+            <button onClick={() => remover(l.id)} className="text-slate-300 hover:text-red-500 text-xs shrink-0">Remover</button>
+          </li>
+        ))}
+        {lista.length === 0 && <li className="text-xs text-slate-400 py-2">Nenhum link cadastrado ainda.</li>}
+      </ul>
+    </div>
+  );
+}
+
 /* ---------------- SLA de resposta, aviso de acúmulo, Pix (itens 1/58/20) ---------------- */
 export function OperacaoConfig() {
   const [c, setC] = useState(null);
