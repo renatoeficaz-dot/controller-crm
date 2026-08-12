@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import ContactModal from "./ContactModal";
 import MetasMini from "./MetasMini";
 import SimuladorModal from "./SimuladorModal";
+import ConsultaCpfModal from "./ConsultaCpfModal";
 import Icone from "@/components/Icones";
 import CampanhaMassaModal from "./CampanhaMassaModal";
 
@@ -166,6 +167,7 @@ export default function KanbanBoard() {
   const [renovacaoFiltro, setRenovacaoFiltro] = useState(""); // "" = todos; "sim" = cicloAtual > 1; "nao" = 1º ciclo
   const [filtrosAbertos, setFiltrosAbertos] = useState(false); // modal com todos os filtros
   const [simuladorAberto, setSimuladorAberto] = useState(false);
+  const [consultaCpfAberta, setConsultaCpfAberta] = useState(false);
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
   const [etapaFiltro, setEtapaFiltro] = useState([]); // stageIds selecionados; vazio = todas as colunas
   const [tempoFiltro, setTempoFiltro] = useState(""); // "" = todos; "3" | "7" | "15" | "30" = pelo menos N dias parado na etapa
@@ -494,6 +496,13 @@ export default function KanbanBoard() {
           className="flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors shrink-0"
         >
           <Icone nome="calculadora" className="w-3.5 h-3.5" /> Simular
+        </button>
+
+        <button
+          onClick={() => setConsultaCpfAberta(true)}
+          className="flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors shrink-0"
+        >
+          <Icone nome="lupa" className="w-3.5 h-3.5" /> Consultar CPF
         </button>
 
         <MetasMini />
@@ -1204,6 +1213,16 @@ export default function KanbanBoard() {
           contactId={openId}
           onClose={() => setOpenId(null)}
           onChanged={load}
+        />
+      )}
+
+      {consultaCpfAberta && (
+        <ConsultaCpfModal
+          onClose={() => setConsultaCpfAberta(false)}
+          onAbrirContato={(id) => {
+            setConsultaCpfAberta(false);
+            setOpenId(id);
+          }}
         />
       )}
     </>
