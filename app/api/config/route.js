@@ -22,6 +22,10 @@ const CAMPOS_SECRETOS = [
   // logado, a trava do webhook viraria enfeite — bastaria ler o token e
   // continuar injetando mensagem falsa.
   "webhookToken",
+  // As URLs dos gateways de WhatsApp também: a do WAHA é o IP cru da VPS numa
+  // porta sem TLS. Entregar isso pra qualquer usuário logado é dar o endereço
+  // de um serviço interno que não fica atrás do mesmo login do CRM.
+  "evolutionUrl", "wahaUrl",
 ];
 
 // Mudar isso aqui muda dinheiro (honorários, multa) ou credenciais de
@@ -46,7 +50,7 @@ export async function GET() {
 
 // Atualiza configurações globais (ex.: % de honorários)
 export async function PATCH(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   await getConfig();
   const data = {};
   if ("honorariosPct" in body) data.honorariosPct = Number(body.honorariosPct) || 0;

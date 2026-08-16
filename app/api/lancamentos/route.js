@@ -52,7 +52,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const type = body.type;
   const amount = Number(body.amount);
   if (!["entrada", "saida"].includes(type) || !amount || amount <= 0) {

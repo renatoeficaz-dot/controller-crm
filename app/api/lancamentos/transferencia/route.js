@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 // no destino, mesmo valor, vinculadas por transferenciaId — pra achar o par
 // depois e não deixar editar/excluir um lado sem avisar do outro.
 export async function POST(req) {
-  const { origemId, destinoId, valor, descricao, date } = await req.json().catch(() => ({}));
+  const { origemId, destinoId, valor, descricao, date } = await req.json().catch(() => ({})) ?? {};
   if (!origemId || !destinoId || origemId === destinoId) {
     return NextResponse.json({ error: "Escolha duas contas diferentes." }, { status: 400 });
   }

@@ -26,7 +26,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   if (!body.nome?.trim()) return NextResponse.json({ error: "Nome é obrigatório." }, { status: 400 });
   if (!body.numeroId) return NextResponse.json({ error: "Escolha o número de destino." }, { status: 400 });
 

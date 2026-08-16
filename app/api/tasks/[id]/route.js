@@ -11,7 +11,7 @@ export async function PATCH(req, { params }) {
   if (!_e) return NextResponse.json({ error: "Tarefa não encontrada." }, { status: 404 });
   const negado = await negarSeNaoPodeVerContato(_e.contactId);
   if (negado) return negado;
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const data = {};
   if ("title" in body) data.title = (body.title || "").trim();
   if ("notes" in body) data.notes = (body.notes || "").trim() || null;

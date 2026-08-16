@@ -56,7 +56,7 @@ export async function POST(req) {
     return NextResponse.json({ error: "Acesso restrito." }, { status: 403 });
   }
 
-  const d = await req.json().catch(() => ({}));
+  const d = await req.json().catch(() => ({})) ?? {};
 
   const pdf = await new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });

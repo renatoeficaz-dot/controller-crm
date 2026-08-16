@@ -4,7 +4,7 @@ import { pagarConta, estornarConta } from "@/lib/contasPagar";
 
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
 
   // Pagar/estornar tem efeito no caixa, então passa pelas funções que também
   // criam/removem o lançamento — nunca mexa no campo `pago` direto.

@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const name = (body.name || "").trim();
   if (!name) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
   const tipo = await prisma.taskType.create({ data: { name, color: body.color || "#6366f1", emoji: body.emoji || null } });

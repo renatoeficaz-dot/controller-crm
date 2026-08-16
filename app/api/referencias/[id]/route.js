@@ -5,7 +5,7 @@ import { normalizeBrPhone } from "@/lib/evolution";
 // Edita um contato de referência
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const data = {};
   if ("nome" in body) {
     const nome = (body.nome || "").trim();

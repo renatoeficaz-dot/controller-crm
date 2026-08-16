@@ -54,7 +54,7 @@ export async function PATCH(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const data = {};
   for (const f of [
     "name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf",

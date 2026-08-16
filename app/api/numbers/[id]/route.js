@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 // Edita um número (ex.: reatribuir usuário, mudar instância)
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const data = {};
   for (const f of ["label", "number", "instance"]) {
     if (f in body) data[f] = (body[f] || "").trim();

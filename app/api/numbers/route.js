@@ -23,7 +23,7 @@ export async function GET() {
 
 // Conecta/cadastra um novo número
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const label = (body.label || "").trim();
   const number = (body.number || "").trim();
   const instance = (body.instance || "").trim();

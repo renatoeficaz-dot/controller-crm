@@ -19,7 +19,7 @@ export async function POST(req, { params }) {
   if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
   const negado = await negarSeNaoPodeVerContato(_p.contactId);
   if (negado) return negado;
-  const { valor, formaPagamento } = await req.json().catch(() => ({}));
+  const { valor, formaPagamento } = await req.json().catch(() => ({})) ?? {};
   const v = Number(valor);
   if (!v || v <= 0) return NextResponse.json({ error: "Informe um valor válido." }, { status: 400 });
 

@@ -61,7 +61,7 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const payload = await req.json().catch(() => ({}));
+  const payload = await req.json().catch(() => ({})) ?? {};
   const { mediaType, mediaUrl: mediaUrlIn, mediaMimetype, mediaFileName, contactName, contactPhone } = payload;
   const body = payload.body || "";
 

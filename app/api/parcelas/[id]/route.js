@@ -22,7 +22,7 @@ export async function PATCH(req, { params }) {
   if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
   const negado = await negarSeNaoPodeVerContato(_p.contactId);
   if (negado) return negado;
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const paid = !!body.paid;
   const parcelaAtual = await prisma.parcela.findUnique({
     where: { id },

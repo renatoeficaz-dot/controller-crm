@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const type = body.type;
   const amount = Number(body.amount);
   if (!["entrada", "saida"].includes(type) || !amount || amount <= 0) {

@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const { name } = await req.json().catch(() => ({}));
+  const { name } = await req.json().catch(() => ({})) ?? {};
   if (!(name || "").trim()) {
     return NextResponse.json({ error: "Nome do banco é obrigatório." }, { status: 400 });
   }

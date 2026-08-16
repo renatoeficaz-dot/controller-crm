@@ -14,7 +14,7 @@ export async function POST(req, { params }) {
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({})) ?? {};
     const contact = await prisma.contact.findUnique({
       where: { id },
       select: { id: true, cpf: true },

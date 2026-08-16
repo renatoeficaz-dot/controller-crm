@@ -11,7 +11,7 @@ export async function PATCH(req, { params }) {
   const user = await getCurrentUser();
   if (!user || !isAdmin(user)) return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
 
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const status = body.status === "aprovado" ? "aprovado" : body.status === "recusado" ? "recusado" : null;
   if (!status) return NextResponse.json({ error: "Status inválido." }, { status: 400 });
 

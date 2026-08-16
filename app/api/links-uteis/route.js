@@ -9,7 +9,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const titulo = (body.titulo || "").trim();
   let url = (body.url || "").trim();
   if (!titulo || !url) {

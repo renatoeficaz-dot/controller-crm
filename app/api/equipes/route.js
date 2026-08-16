@@ -20,7 +20,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const nome = (body.nome || "").trim();
   if (!nome) return NextResponse.json({ error: "Nome da equipe é obrigatório." }, { status: 400 });
   const existe = await prisma.equipe.findUnique({ where: { nome } });

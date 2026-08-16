@@ -10,7 +10,7 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const { valor, vencimento, descricao } = await req.json().catch(() => ({}));
+  const { valor, vencimento, descricao } = await req.json().catch(() => ({})) ?? {};
   if (!valor || Number(valor) <= 0) return NextResponse.json({ error: "Valor inválido." }, { status: 400 });
   if (!vencimento) return NextResponse.json({ error: "Informe o vencimento." }, { status: 400 });
 

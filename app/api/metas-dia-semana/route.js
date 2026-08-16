@@ -10,7 +10,7 @@ export async function GET() {
 
 // Body: { diaSemana: 0-6, ...campos numéricos ou "" pra voltar a usar a meta global }
 export async function PATCH(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const diaSemana = Number(body.diaSemana);
   if (!Number.isInteger(diaSemana) || diaSemana < 0 || diaSemana > 6) {
     return NextResponse.json({ error: "diaSemana inválido (0-6)" }, { status: 400 });

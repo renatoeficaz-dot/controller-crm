@@ -20,7 +20,7 @@ function ipDe(req) {
 
 // Autentica login + senha e cria a sessão (cookie httpOnly assinado).
 export async function POST(req) {
-  const { login, password } = await req.json().catch(() => ({}));
+  const { login, password } = await req.json().catch(() => ({})) ?? {};
   const loginLimpo = (login || "").trim();
   const ip = ipDe(req);
   const desde = new Date(Date.now() - JANELA_MIN * 60 * 1000);

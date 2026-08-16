@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 export async function PATCH(req, { params }) {
   const { id } = await params;
   const user = await getCurrentUser();
-  const { tipo, conferido } = await req.json().catch(() => ({}));
+  const { tipo, conferido } = await req.json().catch(() => ({})) ?? {};
 
   const data = {};
   if (tipo) data.tipo = tipo;

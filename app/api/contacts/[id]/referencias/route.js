@@ -20,7 +20,7 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const nome = (body.nome || "").trim();
   const telefoneRaw = (body.telefone || "").trim();
   if (!nome || !telefoneRaw) {

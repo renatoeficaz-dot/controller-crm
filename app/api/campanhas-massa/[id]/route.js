@@ -4,7 +4,7 @@ import { whereDoFiltro } from "@/lib/campanhaMassa";
 
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const { status } = await req.json().catch(() => ({}));
+  const { status } = await req.json().catch(() => ({})) ?? {};
   if (!["enviando", "cancelada"].includes(status)) {
     return NextResponse.json({ error: "Status inválido." }, { status: 400 });
   }

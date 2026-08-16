@@ -14,7 +14,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   const user = await getCurrentUser();
-  const { tela, nome, filtros, compartilhada } = await req.json().catch(() => ({}));
+  const { tela, nome, filtros, compartilhada } = await req.json().catch(() => ({})) ?? {};
   if (!nome?.trim() || !tela) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
 
   const criada = await prisma.visaoSalva.create({

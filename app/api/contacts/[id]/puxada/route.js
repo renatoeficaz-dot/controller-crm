@@ -8,7 +8,7 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const { base64, fileName, mimetype } = await req.json().catch(() => ({}));
+  const { base64, fileName, mimetype } = await req.json().catch(() => ({})) ?? {};
   if (!base64) return NextResponse.json({ error: "Arquivo vazio." }, { status: 400 });
   if (mimetype !== "application/pdf") return NextResponse.json({ error: "Só é permitido anexar PDF." }, { status: 400 });
 

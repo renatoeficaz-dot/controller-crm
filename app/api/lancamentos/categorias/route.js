@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const { name, type } = await req.json().catch(() => ({}));
+  const { name, type } = await req.json().catch(() => ({})) ?? {};
   if (!(name || "").trim() || !["entrada", "saida"].includes(type)) {
     return NextResponse.json({ error: "Nome e tipo (entrada/saida) obrigatórios." }, { status: 400 });
   }

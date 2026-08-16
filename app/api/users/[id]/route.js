@@ -7,7 +7,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 // Edita um usuário (nome, login e/ou senha). Senha só muda se for enviada.
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const data = {};
 
   if ("name" in body) {

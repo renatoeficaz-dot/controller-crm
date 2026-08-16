@@ -10,7 +10,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const { name, color } = await req.json().catch(() => ({}));
+  const { name, color } = await req.json().catch(() => ({})) ?? {};
   if (!(name || "").trim()) {
     return NextResponse.json({ error: "Nome da tag é obrigatório." }, { status: 400 });
   }

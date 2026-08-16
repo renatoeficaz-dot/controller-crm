@@ -11,7 +11,7 @@ export async function POST(req) {
   const user = await getCurrentUser();
   if (!user || !isAdmin(user)) return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
 
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const de = (body.de || "").trim();
   const para = (body.para || "").trim();
   const apenasEmRecebimento = !!body.apenasEmRecebimento;

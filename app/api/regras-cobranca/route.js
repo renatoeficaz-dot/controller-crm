@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   if (!body.mensagem?.trim()) {
     return NextResponse.json({ error: "Escreva a mensagem da faixa." }, { status: 400 });
   }

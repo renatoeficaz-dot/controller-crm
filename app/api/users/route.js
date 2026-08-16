@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { getCurrentUser, isAdmin } from "@/lib/session";
 
 const ROLES = ["admin", "vendedor", "cobrador"];
 const USER_SELECT = {
@@ -26,15 +27,36 @@ const USER_SELECT = {
 // e não 0 (que seria uma meta de zero vendas).
 const metaOuNull = (v) => (v === "" || v == null ? null : Number(v) || null);
 
+// Campos que só o admin pode ver. `login` é metade da credencial: a tela de
+// login gasta bcrypt de propósito pra não revelar quais logins existem, e essa
+// rota entregava a lista inteira pra qualquer um logado. O resto (permissões,
+// somenteLeitura, último acesso) diz qual conta vale a pena atacar — conta
+// parada de admin é o alvo ideal.
+const CAMPOS_SO_ADMIN = [
+  "login", "permissoesExtras", "paginasVisiveis", "somenteLeitura",
+  "verTodosLeads", "ultimoAcessoEm",
+  "metaVendasMinimaPropria", "metaVendasMediaPropria", "metaVendasDiaPropria",
+];
+
 // Lista os usuários (sem expor o hash da senha), com nível e permissões
 export async function GET() {
   const users = await prisma.user.findMany({ orderBy: { name: "asc" }, select: USER_SELECT });
-  return NextResponse.json(users);
+  const user = await getCurrentUser().catch(() => null);
+  if (isAdmin(user)) return NextResponse.json(users);
+
+  // As telas comuns (seletor de responsável no Chat, Kanban, ficha do lead)
+  // só precisam de id/nome — nunca dos campos acima.
+  const seguro = users.map((u) => {
+    const copia = { ...u };
+    for (const campo of CAMPOS_SO_ADMIN) delete copia[campo];
+    return copia;
+  });
+  return NextResponse.json(seguro);
 }
 
 // Cria um usuário (nome, login, senha, nível e permissões)
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const name = (body.name || "").trim();
   const login = (body.login || "").trim();
   const password = body.password || "";

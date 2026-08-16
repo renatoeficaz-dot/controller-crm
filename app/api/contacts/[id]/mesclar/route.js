@@ -14,7 +14,7 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "Sem permissão para mesclar cadastros." }, { status: 403 });
   }
 
-  const { comId } = await req.json().catch(() => ({}));
+  const { comId } = await req.json().catch(() => ({})) ?? {};
   if (!comId) return NextResponse.json({ error: "Informe o cadastro a mesclar." }, { status: 400 });
 
   try {

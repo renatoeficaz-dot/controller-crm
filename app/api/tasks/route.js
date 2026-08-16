@@ -31,7 +31,7 @@ export async function GET(req) {
 // Cria uma tarefa avulsa pra um lead (diferente das tarefas automáticas de cobrança,
 // que nascem vinculadas a uma parcela).
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const title = (body.title || "").trim();
   const contactId = body.contactId;
   if (!title || !contactId) {

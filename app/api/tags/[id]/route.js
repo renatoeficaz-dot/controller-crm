@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const { name, color } = await req.json().catch(() => ({}));
+  const { name, color } = await req.json().catch(() => ({})) ?? {};
   const data = {};
   if (name) data.name = name.trim();
   if (color) data.color = color;

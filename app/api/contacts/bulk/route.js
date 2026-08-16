@@ -10,7 +10,7 @@ function hojeUTC() {
 // Ações em massa sobre um conjunto de leads (os que estão no filtro do funil).
 // body: { ids: string[], action: "stage" | "responsavel" | "delete", value?: string }
 export async function POST(req) {
-  const { ids, action, value } = await req.json().catch(() => ({}));
+  const { ids, action, value } = await req.json().catch(() => ({})) ?? {};
   if (!Array.isArray(ids) || ids.length === 0) {
     return NextResponse.json({ error: "Nenhuma lead selecionada." }, { status: 400 });
   }

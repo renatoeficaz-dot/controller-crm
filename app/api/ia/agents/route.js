@@ -9,7 +9,7 @@ export async function GET() {
 
 // Cria um novo agente
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const name = (body.name || "").trim() || "Novo agente";
   const agent = await prisma.iaAgent.create({ data: { name } });
   return NextResponse.json(agent);

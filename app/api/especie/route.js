@@ -34,7 +34,7 @@ export async function POST(req) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
 
-  const { valor, observacao, usuario: usuarioPedido } = await req.json().catch(() => ({}));
+  const { valor, observacao, usuario: usuarioPedido } = await req.json().catch(() => ({})) ?? {};
   const usuario = isAdmin(user) && usuarioPedido ? usuarioPedido : user.name;
   if (!valor || Number(valor) <= 0) return NextResponse.json({ error: "Valor inválido." }, { status: 400 });
 

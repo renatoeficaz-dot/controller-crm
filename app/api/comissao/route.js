@@ -23,7 +23,7 @@ export async function PATCH(req) {
   const user = await getCurrentUser();
   if (!isAdmin(user)) return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
 
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) ?? {};
   const num = (v) => (v === "" || v == null ? 0 : Number(v) || 0);
   const data = {
     metaDiariaValor: num(body.metaDiariaValor),
