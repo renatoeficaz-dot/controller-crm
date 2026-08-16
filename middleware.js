@@ -52,6 +52,41 @@ export function ipDoCliente(req) {
   return req.headers.get("x-real-ip") || "desconhecido";
 }
 
+// Permissão de verdade, lida do banco — com cache curto pra não virar uma
+// consulta por requisição. 30s é o atraso máximo entre tirar a permissão de
+// alguém e isso valer na prática; em troca, um usuário ativo gera no máximo
+// 2 consultas por minuto (índice de chave primária, custo desprezível).
+const CACHE_MS = 30_000;
+const cachePermissoes = new Map();
+
+async function permissoesAtuais(uid) {
+  const agora = Date.now();
+  const guardado = cachePermissoes.get(uid);
+  if (guardado && agora - guardado.em < CACHE_MS) return guardado.valor;
+
+  let valor = null;
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const u = await prisma.user.findUnique({
+      where: { id: uid },
+      select: { role: true, somenteLeitura: true, paginasVisiveis: true },
+    });
+    valor = u ? { role: u.role, somenteLeitura: !!u.somenteLeitura, paginas: u.paginasVisiveis || null } : null;
+  } catch {
+    // Banco fora do ar não pode derrubar o sistema inteiro: mantém o que o
+    // token diz (é o comportamento antigo) em vez de bloquear todo mundo.
+    return guardado?.valor ?? undefined;
+  }
+  cachePermissoes.set(uid, { em: agora, valor });
+  return valor;
+}
+
+// Limpeza do cache, pra memória não crescer sem fim.
+setInterval(() => {
+  const agora = Date.now();
+  for (const [uid, v] of cachePermissoes) if (agora - v.em > CACHE_MS * 4) cachePermissoes.delete(uid);
+}, 5 * 60_000);
+
 export async function middleware(req) {
   const { pathname } = req.nextUrl;
 
@@ -72,7 +107,29 @@ export async function middleware(req) {
   }
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  const session = token ? await verifySession(token) : null;
+  let session = token ? await verifySession(token) : null;
+
+  // O token guarda role/somenteLeitura/paginas de quando a pessoa entrou, e
+  // vale 30 dias. Sem reconferir no banco, mexer na permissão não surtia
+  // efeito nenhum em quem já estava logado: rebaixar um admin, marcar alguém
+  // como somente leitura ou até EXCLUIR o usuário deixava o acesso de pé até
+  // o token vencer. Na prática, demitir não tirava o acesso à carteira.
+  if (session?.uid) {
+    // null = usuário não existe mais. undefined = não deu pra conferir (banco
+    // fora do ar) — nesse caso segue com o que o token diz, senão uma falha de
+    // banco desloga a empresa inteira.
+    const atual = await permissoesAtuais(session.uid);
+    if (atual === null) {
+      // usuário não existe mais: derruba a sessão
+      const resposta = pathname.startsWith("/api/")
+        ? NextResponse.json({ error: "Sessão inválida." }, { status: 401 })
+        : NextResponse.redirect(new URL("/login", req.url));
+      resposta.cookies.delete(SESSION_COOKIE);
+      return resposta;
+    }
+    if (atual) session = { ...session, ...atual };
+  }
+
   if (session) {
     // Páginas exclusivas de administrador
     const adminPages = ["/configuracoes", "/lancamentos"];
@@ -163,6 +220,10 @@ export async function middleware(req) {
 // URL. O PDF da puxada já pedia login — só a imagem não, porque a extensão
 // dela estava na lista de exclusão. Agora os dois pedem sessão.
 export const config = {
+  // Runtime Node (não Edge): sem isso o middleware não consegue consultar o
+  // banco, e é justamente essa consulta que faz tirar permissão de alguém
+  // surtir efeito de verdade (ver permissoesAtuais acima).
+  runtime: "nodejs",
   matcher: [
     "/uploads/:path*",
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico)$).*)",
