@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
 import { normalizeBrPhone } from "@/lib/evolution";
+import { lerCorpo } from "@/lib/corpo";
 
 // Lista as mensagens prontas (ordenadas)
 export async function GET() {
@@ -13,7 +14,7 @@ export async function GET() {
 
 // Cria uma mensagem pronta
 export async function POST(req) {
-  const data = await req.json().catch(() => ({})) ?? {};
+  const data = await lerCorpo(req);
   const title = (data.title || "").trim();
   const mediaType = data.mediaType || null;
 

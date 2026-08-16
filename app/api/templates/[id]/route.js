@@ -2,11 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
 import { normalizeBrPhone } from "@/lib/evolution";
+import { lerCorpo } from "@/lib/corpo";
 
 // Edita uma mensagem pronta
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const data = {};
   if ("title" in body) data.title = (body.title || "").trim();
   if ("body" in body) data.body = (body.body || "").trim();

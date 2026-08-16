@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { normalizeBrPhone } from "@/lib/evolution";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function GET(_req, { params }) {
   const { id } = await params;
@@ -12,7 +13,7 @@ export async function GET(_req, { params }) {
 // Edita um agente (nome, prompt, modelos, modo de resposta)
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const data = {};
   if ("name" in body) data.name = (body.name || "").trim();
   if ("prompt" in body) data.prompt = (body.prompt || "").trim() || null;

@@ -5,6 +5,7 @@ import { valorParcelaAtual } from "@/lib/finance";
 import { atualizarScoreDoContato } from "@/lib/atualizarScoreComportamental";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 // Baixa PARCIAL (item 93): cliente pagou parte da parcela hoje, o resto continua
 // em aberto. Cada chamada soma ao Parcela.valorPago e gera um lançamento de
@@ -19,7 +20,7 @@ export async function POST(req, { params }) {
   if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
   const negado = await negarSeNaoPodeVerContato(_p.contactId);
   if (negado) return negado;
-  const { valor, formaPagamento } = await req.json().catch(() => ({})) ?? {};
+  const { valor, formaPagamento } = await lerCorpo(req);
   const v = Number(valor);
   if (!v || v <= 0) return NextResponse.json({ error: "Informe um valor válido." }, { status: 400 });
 

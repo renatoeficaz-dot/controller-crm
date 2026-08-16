@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { criarContaPagar } from "@/lib/contasPagar";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function GET(req) {
   const sp = new URL(req.url).searchParams;
@@ -29,7 +30,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   if (!body.descricao?.trim()) {
     return NextResponse.json({ error: "Informe a descrição da conta." }, { status: 400 });
   }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { podeExecutar } from "@/lib/permissoes";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { lerCorpo } from "@/lib/corpo";
 
 // pendente -> aprovado -> pago. Cada passo só anda pra frente.
 export async function PATCH(req, { params }) {
@@ -12,7 +13,7 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ error: "Sem permissão para aprovar comissão." }, { status: 403 });
   }
 
-  const { status } = await req.json().catch(() => ({})) ?? {};
+  const { status } = await lerCorpo(req);
   if (!["aprovado", "pago"].includes(status)) {
     return NextResponse.json({ error: "Status inválido." }, { status: 400 });
   }

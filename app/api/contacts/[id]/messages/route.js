@@ -4,6 +4,7 @@ import { sendWhatsappText, sendWhatsappMedia, sendWhatsappAudio, sendWhatsappCon
 import { getCurrentUser, mensagensWhere } from "@/lib/session";
 import { readMediaAsBase64 } from "@/lib/mediaStorage";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 // Lista mensagens do contato (conforme os WhatsApp que o usuário pode ver).
 // Não traz o campo mediaUrl (base64) — mídia é carregada sob demanda via
@@ -61,7 +62,7 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const payload = await req.json().catch(() => ({})) ?? {};
+  const payload = await lerCorpo(req);
   const { mediaType, mediaUrl: mediaUrlIn, mediaMimetype, mediaFileName, contactName, contactPhone } = payload;
   const body = payload.body || "";
 

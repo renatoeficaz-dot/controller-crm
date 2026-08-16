@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { contarAlvos } from "@/lib/campanhaMassa";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function GET() {
   const lista = await prisma.campanhaMassa.findMany({ orderBy: { createdAt: "desc" }, take: 50 });
@@ -12,7 +13,7 @@ export async function GET() {
 // Assim dá pra conferir "totalAlvos" antes de mandar de verdade.
 export async function POST(req) {
   const user = await getCurrentUser();
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   if (!body.nome?.trim() || !body.numeroId) {
     return NextResponse.json({ error: "Nome e número de envio são obrigatórios." }, { status: 400 });
   }

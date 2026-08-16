@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
 
 // Gera um slug legível a partir do nome, com sufixo aleatório pra garantir
 // unicidade sem precisar o usuário escolher (ex.: "Instagram SP" -> "instagram-sp-a1b2").
@@ -26,7 +27,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   if (!body.nome?.trim()) return NextResponse.json({ error: "Nome é obrigatório." }, { status: 400 });
   if (!body.numeroId) return NextResponse.json({ error: "Escolha o número de destino." }, { status: 400 });
 

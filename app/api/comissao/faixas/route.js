@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { lerCorpo } from "@/lib/corpo";
 
 // Faixas do bônus progressivo (item 221) — só admin.
 export async function GET() {
@@ -12,7 +13,7 @@ export async function GET() {
 export async function POST(req) {
   const user = await getCurrentUser();
   if (!isAdmin(user)) return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const minValor = Number(body.minValor);
   const pctBonus = Number(body.pctBonus);
   if (!minValor || minValor <= 0 || !pctBonus || pctBonus <= 0) {

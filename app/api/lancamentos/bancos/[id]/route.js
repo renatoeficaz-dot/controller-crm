@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const name = (body.name || "").trim();
   if (!name) return NextResponse.json({ error: "Nome não pode ficar vazio." }, { status: 400 });
   const banco = await prisma.banco.update({ where: { id }, data: { name } });

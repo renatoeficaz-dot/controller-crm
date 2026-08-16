@@ -83,6 +83,14 @@ export async function middleware(req) {
       "/api/tags", "/api/templates", "/api/regras-cobranca", "/api/campanhas",
       "/api/backup", "/api/alertas", "/api/stages", "/api/usuarios",
       "/api/solicitacoes-desconto", "/api/automacao", "/api/links-uteis",
+      // "/api/campanhas" NÃO cobre "/api/campanhas-massa" (o casamento exige
+      // igualdade ou prefixo + "/"), então o disparo em massa ficava aberto:
+      // qualquer usuário logado criava uma campanha e mandava mensagem pra
+      // base inteira — conta de WhatsApp banida e custo de envio.
+      "/api/campanhas-massa",
+      // Dispara na hora a régua de cobrança (a mesma do job de 5 em 5 min).
+      // Aberto, virava um botão de spam pra carteira toda.
+      "/api/lembretes/run",
     ];
     const ehApiSoAdmin = apisSoAdmin.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (ehApiSoAdmin && req.method !== "GET" && session.role !== "admin") {

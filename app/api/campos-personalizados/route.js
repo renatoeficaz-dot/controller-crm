@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function GET() {
   const lista = await prisma.campoPersonalizado.findMany({ orderBy: [{ ordem: "asc" }] });
@@ -7,7 +8,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const { label, tipo, opcoes } = await req.json().catch(() => ({})) ?? {};
+  const { label, tipo, opcoes } = await lerCorpo(req);
   if (!label?.trim()) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
 
   const chave = label.trim().toLowerCase()

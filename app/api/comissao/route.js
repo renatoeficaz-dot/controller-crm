@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { resumoComissao } from "@/lib/comissao";
+import { lerCorpo } from "@/lib/corpo";
 
 // Resumo de comissão. Sem ?nome, é o do próprio usuário logado (é o painel que
 // o cobrador vê). Com ?nome, só admin pode consultar de outra pessoa.
@@ -23,7 +24,7 @@ export async function PATCH(req) {
   const user = await getCurrentUser();
   if (!isAdmin(user)) return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
 
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const num = (v) => (v === "" || v == null ? 0 : Number(v) || 0);
   const data = {
     metaDiariaValor: num(body.metaDiariaValor),

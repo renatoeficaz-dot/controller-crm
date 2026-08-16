@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function PATCH(req, { params }) {
   const { id } = await params;
@@ -11,7 +12,7 @@ export async function PATCH(req, { params }) {
   if (!_e) return NextResponse.json({ error: "Tarefa não encontrada." }, { status: 404 });
   const negado = await negarSeNaoPodeVerContato(_e.contactId);
   if (negado) return negado;
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const data = {};
   if ("title" in body) data.title = (body.title || "").trim();
   if ("notes" in body) data.notes = (body.notes || "").trim() || null;

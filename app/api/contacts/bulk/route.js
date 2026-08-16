@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
+import { getCurrentUser, isAdmin } from "@/lib/session";
 
 // Data local de hoje como UTC-midnight (evita drift de fuso nas parcelas)
 function hojeUTC() {
@@ -10,7 +12,7 @@ function hojeUTC() {
 // Ações em massa sobre um conjunto de leads (os que estão no filtro do funil).
 // body: { ids: string[], action: "stage" | "responsavel" | "delete", value?: string }
 export async function POST(req) {
-  const { ids, action, value } = await req.json().catch(() => ({})) ?? {};
+  const { ids, action, value } = await lerCorpo(req);
   if (!Array.isArray(ids) || ids.length === 0) {
     return NextResponse.json({ error: "Nenhuma lead selecionada." }, { status: 400 });
   }
@@ -22,6 +24,13 @@ export async function POST(req) {
   }
 
   if (action === "delete") {
+    // Isto é deleteMany DEFINITIVO — não passa pelo excluidoEm (a exclusão com
+    // 24h de desfazer). Sem trava, qualquer usuário logado (vendedor, cobrador)
+    // apagava a carteira inteira mandando a lista de ids, sem volta.
+    const user = await getCurrentUser().catch(() => null);
+    if (!isAdmin(user)) {
+      return NextResponse.json({ error: "Só o administrador pode excluir leads em massa." }, { status: 403 });
+    }
     const r = await prisma.contact.deleteMany({ where });
     return NextResponse.json({ ok: true, deleted: r.count });
   }

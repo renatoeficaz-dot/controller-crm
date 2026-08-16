@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { lerCorpo } from "@/lib/corpo";
 
 // Garante que a linha única de config exista
 async function getConfig() {
@@ -50,7 +51,7 @@ export async function GET() {
 
 // Atualiza configurações globais (ex.: % de honorários)
 export async function PATCH(req) {
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   await getConfig();
   const data = {};
   if ("honorariosPct" in body) data.honorariosPct = Number(body.honorariosPct) || 0;

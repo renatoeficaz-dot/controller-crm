@@ -3,6 +3,7 @@ import { mesclarContatos } from "@/lib/duplicados";
 import { getCurrentUser } from "@/lib/session";
 import { podeExecutar } from "@/lib/permissoes";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function POST(req, { params }) {
   const { id } = await params;
@@ -14,7 +15,7 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "Sem permissão para mesclar cadastros." }, { status: 403 });
   }
 
-  const { comId } = await req.json().catch(() => ({})) ?? {};
+  const { comId } = await lerCorpo(req);
   if (!comId) return NextResponse.json({ error: "Informe o cadastro a mesclar." }, { status: 400 });
 
   try {

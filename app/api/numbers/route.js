@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
+import { lerCorpo } from "@/lib/corpo";
 
 // Lista os números conectados (com o usuário atribuído). Todo mundo logado
 // pode ler (seletor de número no Chat, na ficha do lead, etc.) — mas o
@@ -23,7 +24,7 @@ export async function GET() {
 
 // Conecta/cadastra um novo número
 export async function POST(req) {
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const label = (body.label || "").trim();
   const number = (body.number || "").trim();
   const instance = (body.instance || "").trim();

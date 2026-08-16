@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { signSession, SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/auth";
+import { lerCorpo } from "@/lib/corpo";
 
 const JANELA_MIN = 15;      // conta as falhas dos últimos 15 minutos
 const MAX_POR_LOGIN = 8;    // erros no MESMO login antes de travar
@@ -20,7 +21,7 @@ function ipDe(req) {
 
 // Autentica login + senha e cria a sessão (cookie httpOnly assinado).
 export async function POST(req) {
-  const { login, password } = await req.json().catch(() => ({})) ?? {};
+  const { login, password } = await lerCorpo(req);
   const loginLimpo = (login || "").trim();
   const ip = ipDe(req);
   const desde = new Date(Date.now() - JANELA_MIN * 60 * 1000);

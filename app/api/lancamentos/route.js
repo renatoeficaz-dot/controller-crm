@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
 
 const ORDER_MAP = {
   recentes: { date: "desc" },
@@ -52,7 +53,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const type = body.type;
   const amount = Number(body.amount);
   if (!["entrada", "saida"].includes(type) || !amount || amount <= 0) {

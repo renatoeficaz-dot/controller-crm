@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { getSession } from "@/lib/session";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 // Adiciona uma parcela AVULSA (item 105) — taxa extra, multa acordada à parte,
 // etc. Não mexe no plano original de 10; só soma mais uma linha na lista.
@@ -10,7 +11,7 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const { valor, vencimento, descricao } = await req.json().catch(() => ({})) ?? {};
+  const { valor, vencimento, descricao } = await lerCorpo(req);
   if (!valor || Number(valor) <= 0) return NextResponse.json({ error: "Valor inválido." }, { status: 400 });
   if (!vencimento) return NextResponse.json({ error: "Informe o vencimento." }, { status: 400 });
 

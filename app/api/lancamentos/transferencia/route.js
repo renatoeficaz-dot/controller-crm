@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { lerCorpo } from "@/lib/corpo";
 
 // Transferência entre contas (item 133) = uma saída na origem + uma entrada
 // no destino, mesmo valor, vinculadas por transferenciaId — pra achar o par
 // depois e não deixar editar/excluir um lado sem avisar do outro.
 export async function POST(req) {
-  const { origemId, destinoId, valor, descricao, date } = await req.json().catch(() => ({})) ?? {};
+  const { origemId, destinoId, valor, descricao, date } = await lerCorpo(req);
   if (!origemId || !destinoId || origemId === destinoId) {
     return NextResponse.json({ error: "Escolha duas contas diferentes." }, { status: 400 });
   }

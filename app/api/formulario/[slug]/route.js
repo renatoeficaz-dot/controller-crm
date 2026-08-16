@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { onlyDigits } from "@/lib/evolution";
 import { ufFromPhone } from "@/lib/ddd";
+import { lerCorpo } from "@/lib/corpo";
 
 // Rota PÚBLICA (sem autenticação) — recebe o formulário de pré-cadastro
 // preenchido antes do WhatsApp e cria o lead já com os campos preenchidos.
@@ -20,7 +21,7 @@ export async function POST(req, { params }) {
   const campanha = await prisma.linkCampanha.findUnique({ where: { slug }, include: { numero: true } });
   if (!campanha) return NextResponse.json({ error: "Link não encontrado." }, { status: 404 });
 
-  const { respostas } = await req.json().catch(() => ({})) ?? {};
+  const { respostas } = await lerCorpo(req);
   // Nome e telefone são campos FIXOS da página pública (app/f/[slug]/page.js
   // sempre os pergunta, além do que foi configurado em formCampos) — vêm
   // direto em respostas.nome/respostas.telefone, não dentro de formCampos.

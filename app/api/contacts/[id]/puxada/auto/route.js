@@ -6,6 +6,7 @@ import { gerarPuxadaPdfBuffer } from "@/lib/puxadaPdf";
 import { extrairDadosPuxada, calcularScore } from "@/lib/scoreCredito";
 import { validarCPF } from "@/lib/cpf";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,7 @@ export async function POST(req, { params }) {
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
   try {
-    const body = await req.json().catch(() => ({})) ?? {};
+    const body = await lerCorpo(req);
     const contact = await prisma.contact.findUnique({
       where: { id },
       select: { id: true, cpf: true },

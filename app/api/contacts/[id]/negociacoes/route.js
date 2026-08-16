@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { criarAcordoParcelado } from "@/lib/acordo";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 // Histórico de negociações do lead — o que já foi oferecido e o que ele aceitou
 // ou recusou. Evita oferecer o mesmo desconto duas vezes pra quem já ignorou.
@@ -24,7 +25,7 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const session = await getSession();
 
   if (body.tipo === "acordo_parcelado") {

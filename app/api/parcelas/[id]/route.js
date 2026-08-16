@@ -5,6 +5,7 @@ import { atualizarScoreDoContato } from "@/lib/atualizarScoreComportamental";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { podeExecutar } from "@/lib/permissoes";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 // Marca uma parcela como paga / pendente.
 // body.amountPago (opcional): valor realmente cobrado — permite ao cobrador
@@ -22,7 +23,7 @@ export async function PATCH(req, { params }) {
   if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
   const negado = await negarSeNaoPodeVerContato(_p.contactId);
   if (negado) return negado;
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const paid = !!body.paid;
   const parcelaAtual = await prisma.parcela.findUnique({
     where: { id },

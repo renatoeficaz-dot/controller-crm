@@ -2,13 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 // Anexa (ou substitui) o PDF da puxada (consulta de crédito) do lead.
 export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const { base64, fileName, mimetype } = await req.json().catch(() => ({})) ?? {};
+  const { base64, fileName, mimetype } = await lerCorpo(req);
   if (!base64) return NextResponse.json({ error: "Arquivo vazio." }, { status: 400 });
   if (mimetype !== "application/pdf") return NextResponse.json({ error: "Só é permitido anexar PDF." }, { status: 400 });
 

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function GET(req) {
   const contactId = new URL(req.url).searchParams.get("contactId");
@@ -13,7 +14,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   if (!body.contactId || !body.numeroId || !body.dataHora) {
     return NextResponse.json({ error: "Lead, número e data/hora são obrigatórios." }, { status: 400 });
   }

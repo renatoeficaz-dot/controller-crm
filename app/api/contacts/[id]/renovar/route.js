@@ -4,6 +4,7 @@ import { gerarParcelas } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
 import { getSession } from "@/lib/session";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 // Renova o empréstimo: incrementa o ciclo, gera novas parcelas com os dados fornecidos.
 // Exige que TODAS as parcelas do ciclo atual estejam pagas.
@@ -11,7 +12,7 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
 
   const contact = await prisma.contact.findUnique({
     where: { id },

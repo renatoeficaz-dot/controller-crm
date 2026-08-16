@@ -1,51 +1,66 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
 
 // Edita um número (ex.: reatribuir usuário, mudar instância)
 export async function PATCH(req, { params }) {
-  const { id } = await params;
-  const body = await req.json().catch(() => ({})) ?? {};
-  const data = {};
-  for (const f of ["label", "number", "instance"]) {
-    if (f in body) data[f] = (body[f] || "").trim();
+  try {
+    const { id } = await params;
+    const body = await lerCorpo(req);
+    const data = {};
+    for (const f of ["label", "number", "instance"]) {
+      if (f in body) data[f] = (body[f] || "").trim();
+    }
+    if ("userId" in body) data.userId = body.userId || null;
+    if ("agentId" in body) data.agentId = body.agentId || null;
+    if ("provider" in body) data.provider = body.provider === "waha" ? "waha" : "evolution";
+    if ("estadosCobranca" in body) data.estadosCobranca = (body.estadosCobranca || "").trim() || null;
+    if ("mensagemCobranca" in body) data.mensagemCobranca = (body.mensagemCobranca || "").trim() || null;
+    if ("aquecimentoAtivo" in body) {
+      data.aquecimentoAtivo = !!body.aquecimentoAtivo;
+      // Liga o cronômetro no momento em que o aquecimento é ativado — sem data,
+      // não dá pra saber em que degrau da escada o número está.
+      if (body.aquecimentoAtivo) data.aquecimentoDesde = new Date();
+    }
+    if ("limiteEnviosHora" in body) data.limiteEnviosHora = body.limiteEnviosHora === "" || body.limiteEnviosHora == null ? null : Number(body.limiteEnviosHora) || null;
+    if ("proxyServer" in body) data.proxyServer = (body.proxyServer || "").trim() || null;
+    if ("proxyUsername" in body) data.proxyUsername = (body.proxyUsername || "").trim() || null;
+    if ("proxyPassword" in body) data.proxyPassword = (body.proxyPassword || "").trim() || null;
+  
+    // Só um número pode ser "padrão" por vez — desmarca os outros antes.
+    if (body.padrao === true) {
+      await prisma.whatsappNumber.updateMany({ where: { padrao: true }, data: { padrao: false } });
+      data.padrao = true;
+    } else if (body.padrao === false) {
+      data.padrao = false;
+    }
+  
+    const updated = await prisma.whatsappNumber.update({
+      where: { id },
+      data,
+      include: {
+        user: { select: { id: true, name: true } },
+      },
+    });
+    return NextResponse.json(updated);
+  } catch (err) {
+    // Registro do `where` não existe (link velho, dois cliques, id
+    // chutado): é "não achei", não erro de servidor.
+    if (ehNaoEncontrado(err)) return respostaNaoEncontrado();
+    throw err;
   }
-  if ("userId" in body) data.userId = body.userId || null;
-  if ("agentId" in body) data.agentId = body.agentId || null;
-  if ("provider" in body) data.provider = body.provider === "waha" ? "waha" : "evolution";
-  if ("estadosCobranca" in body) data.estadosCobranca = (body.estadosCobranca || "").trim() || null;
-  if ("mensagemCobranca" in body) data.mensagemCobranca = (body.mensagemCobranca || "").trim() || null;
-  if ("aquecimentoAtivo" in body) {
-    data.aquecimentoAtivo = !!body.aquecimentoAtivo;
-    // Liga o cronômetro no momento em que o aquecimento é ativado — sem data,
-    // não dá pra saber em que degrau da escada o número está.
-    if (body.aquecimentoAtivo) data.aquecimentoDesde = new Date();
-  }
-  if ("limiteEnviosHora" in body) data.limiteEnviosHora = body.limiteEnviosHora === "" || body.limiteEnviosHora == null ? null : Number(body.limiteEnviosHora) || null;
-  if ("proxyServer" in body) data.proxyServer = (body.proxyServer || "").trim() || null;
-  if ("proxyUsername" in body) data.proxyUsername = (body.proxyUsername || "").trim() || null;
-  if ("proxyPassword" in body) data.proxyPassword = (body.proxyPassword || "").trim() || null;
-
-  // Só um número pode ser "padrão" por vez — desmarca os outros antes.
-  if (body.padrao === true) {
-    await prisma.whatsappNumber.updateMany({ where: { padrao: true }, data: { padrao: false } });
-    data.padrao = true;
-  } else if (body.padrao === false) {
-    data.padrao = false;
-  }
-
-  const updated = await prisma.whatsappNumber.update({
-    where: { id },
-    data,
-    include: {
-      user: { select: { id: true, name: true } },
-    },
-  });
-  return NextResponse.json(updated);
 }
 
 // Remove um número
 export async function DELETE(_req, { params }) {
-  const { id } = await params;
-  await prisma.whatsappNumber.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+  try {
+    const { id } = await params;
+    await prisma.whatsappNumber.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    // Registro do `where` não existe (link velho, dois cliques, id
+    // chutado): é "não achei", não erro de servidor.
+    if (ehNaoEncontrado(err)) return respostaNaoEncontrado();
+    throw err;
+  }
 }

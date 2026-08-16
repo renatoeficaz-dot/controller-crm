@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { whereDoFiltro } from "@/lib/campanhaMassa";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const { status } = await req.json().catch(() => ({})) ?? {};
+  const { status } = await lerCorpo(req);
   if (!["enviando", "cancelada"].includes(status)) {
     return NextResponse.json({ error: "Status inválido." }, { status: 400 });
   }

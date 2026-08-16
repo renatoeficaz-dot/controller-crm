@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { valorParcelaAtual } from "@/lib/finance";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 // Item 165: cobrador pede desconto pontual numa parcela — só vira valor de
 // verdade quando um admin aprovar (ver app/api/solicitacoes-desconto).
@@ -15,7 +16,7 @@ export async function POST(req, { params }) {
   if (!_p) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
   const negado = await negarSeNaoPodeVerContato(_p.contactId);
   if (negado) return negado;
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const valorPedido = Number(body.valorPedido);
   const motivo = (body.motivo || "").trim();
   if (!valorPedido || valorPedido <= 0) return NextResponse.json({ error: "Informe o valor com desconto." }, { status: 400 });

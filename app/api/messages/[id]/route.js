@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { lerCorpo } from "@/lib/corpo";
 
 // "Apagar" (item 88) só some da NOSSA visualização — sem API confiável de
 // "apagar dos dois lados" testável sem acesso ao provedor ao vivo.
@@ -13,7 +14,7 @@ export async function PATCH(req, { params }) {
   const negado = await negarSeNaoPodeVerContato(atual.contactId);
   if (negado) return negado;
 
-  const { apagada } = await req.json().catch(() => ({})) ?? {};
+  const { apagada } = await lerCorpo(req);
   const message = await prisma.message.update({ where: { id }, data: { apagada: !!apagada } });
   return NextResponse.json(message);
 }

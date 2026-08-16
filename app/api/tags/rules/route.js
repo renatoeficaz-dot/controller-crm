@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function POST(req) {
-  const { match, tagId } = await req.json().catch(() => ({})) ?? {};
+  const { match, tagId } = await lerCorpo(req);
   if (!(match || "").trim() || !tagId) {
     return NextResponse.json({ error: "Preencha o texto e escolha a tag." }, { status: 400 });
   }

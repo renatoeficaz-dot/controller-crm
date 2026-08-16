@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function PATCH(req, { params }) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const type = body.type;
   const amount = Number(body.amount);
   if (!["entrada", "saida"].includes(type) || !amount || amount <= 0) {

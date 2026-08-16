@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import PDFDocument from "pdfkit";
 import { getCurrentUser, podeAcessarPagina } from "@/lib/session";
+import { lerCorpo } from "@/lib/corpo";
 
 export const runtime = "nodejs";
 
@@ -56,7 +57,7 @@ export async function POST(req) {
     return NextResponse.json({ error: "Acesso restrito." }, { status: 403 });
   }
 
-  const d = await req.json().catch(() => ({})) ?? {};
+  const d = await lerCorpo(req);
 
   const pdf = await new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });

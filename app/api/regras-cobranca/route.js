@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
 
 export async function GET() {
   const regras = await prisma.regraCobranca.findMany({ orderBy: [{ ordem: "asc" }, { diasMin: "asc" }] });
@@ -7,7 +8,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   if (!body.mensagem?.trim()) {
     return NextResponse.json({ error: "Escreva a mensagem da faixa." }, { status: 400 });
   }

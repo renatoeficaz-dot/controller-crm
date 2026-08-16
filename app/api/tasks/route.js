@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
 
 // Lista tarefas (com filtros opcionais) — usado na aba "Tarefas" e no card do lead.
 export async function GET(req) {
@@ -31,7 +32,7 @@ export async function GET(req) {
 // Cria uma tarefa avulsa pra um lead (diferente das tarefas automáticas de cobrança,
 // que nascem vinculadas a uma parcela).
 export async function POST(req) {
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const title = (body.title || "").trim();
   const contactId = body.contactId;
   if (!title || !contactId) {

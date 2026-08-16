@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { lerCorpo } from "@/lib/corpo";
 
 // Links úteis (atalhos) que a equipe usa no dia a dia — configurável em
 // Configurações > Links úteis.
@@ -9,7 +10,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const titulo = (body.titulo || "").trim();
   let url = (body.url || "").trim();
   if (!titulo || !url) {

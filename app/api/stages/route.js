@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, kanbansVisiveis, veTodosLeads } from "@/lib/session";
+import { lerCorpo } from "@/lib/corpo";
 
 // Lista as colunas do Kanban com seus contatos, respeitando as permissões do usuário:
 // - colunas: só as que ele pode ver (admin/sem restrição = todas)
@@ -102,7 +103,7 @@ export async function GET() {
 
 // Cria uma nova coluna
 export async function POST(req) {
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const last = await prisma.stage.findFirst({ orderBy: { order: "desc" } });
   const stage = await prisma.stage.create({
     data: {

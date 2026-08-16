@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { lerCorpo } from "@/lib/corpo";
 
 // Item 185: transfere de uma vez todos os leads de um cobrador/vendedor pra
 // outro — usado quando alguém sai da equipe ou troca de função. Só mexe em
@@ -11,7 +12,7 @@ export async function POST(req) {
   const user = await getCurrentUser();
   if (!user || !isAdmin(user)) return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
 
-  const body = await req.json().catch(() => ({})) ?? {};
+  const body = await lerCorpo(req);
   const de = (body.de || "").trim();
   const para = (body.para || "").trim();
   const apenasEmRecebimento = !!body.apenasEmRecebimento;
