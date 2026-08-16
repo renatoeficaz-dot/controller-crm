@@ -35,11 +35,28 @@ setInterval(() => {
   }
 }, 5 * 60_000);
 
+// IP real do cliente, pro rate limit não ser contornável.
+//
+// Pegar `x-forwarded-for.split(",")[0]` (o PRIMEIRO da cadeia) parece certo mas
+// é o contrário: o proxy ACRESCENTA o IP que ele viu no FIM da lista, então o
+// primeiro item é justamente o pedaço que o cliente mandou e pode inventar.
+// Bastava variar esse cabeçalho a cada requisição pra nunca bater no teto —
+// tanto o de 400/min da API quanto o de tentativas de login por IP.
+// O último item é o que o nosso proxy escreveu, esse não dá pra forjar.
+export function ipDoCliente(req) {
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const partes = xff.split(",").map((p) => p.trim()).filter(Boolean);
+    if (partes.length) return partes[partes.length - 1];
+  }
+  return req.headers.get("x-real-ip") || "desconhecido";
+}
+
 export async function middleware(req) {
   const { pathname } = req.nextUrl;
 
   if (pathname.startsWith("/api/") && !pathname.startsWith("/api/webhook")) {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "desconhecido";
+    const ip = ipDoCliente(req);
     if (acimaDoLimite(ip)) {
       return NextResponse.json({ error: "Muitas requisições. Tente novamente em instantes." }, { status: 429 });
     }

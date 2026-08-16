@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 const SELECT = {
   id: true,
@@ -22,7 +22,7 @@ export async function GET() {
 
 export async function POST(req) {
   const body = await lerCorpo(req);
-  const nome = (body.nome || "").trim();
+  const nome = texto(body.nome);
   if (!nome) return NextResponse.json({ error: "Nome da equipe é obrigatório." }, { status: 400 });
   const existe = await prisma.equipe.findUnique({ where: { nome } });
   if (existe) return NextResponse.json({ error: "Já existe uma equipe com esse nome." }, { status: 409 });

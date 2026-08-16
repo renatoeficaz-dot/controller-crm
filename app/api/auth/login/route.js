@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { signSession, SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/auth";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 const JANELA_MIN = 15;      // conta as falhas dos últimos 15 minutos
 const MAX_POR_LOGIN = 8;    // erros no MESMO login antes de travar
@@ -14,15 +14,29 @@ const MAX_POR_IP = 20;      // erros do MESMO IP (cobre ataque varrendo vários 
 // e é justamente a lista que o atacante precisa antes de tentar força bruta.
 const HASH_FALSO = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
+// Mesmo motivo do middleware: o PRIMEIRO item do x-forwarded-for é o que o
+// cliente mandou (o proxy acrescenta o IP real no FIM). Usar o primeiro deixava
+// a trava por IP inútil — bastava trocar o cabeçalho a cada tentativa pra
+// varrer senhas em várias contas sem nunca ser barrado.
 function ipDe(req) {
   const xf = req.headers.get("x-forwarded-for");
-  return (xf ? xf.split(",")[0] : req.headers.get("x-real-ip") || "").trim() || null;
+  if (xf) {
+    const partes = xf.split(",").map((p) => p.trim()).filter(Boolean);
+    if (partes.length) return partes[partes.length - 1];
+  }
+  return (req.headers.get("x-real-ip") || "").trim() || null;
 }
 
 // Autentica login + senha e cria a sessão (cookie httpOnly assinado).
 export async function POST(req) {
   const { login, password } = await lerCorpo(req);
-  const loginLimpo = (login || "").trim();
+  // Esta rota é PÚBLICA (sem sessão). Mandar objeto ou array no campo login —
+  // `{"login":{"$ne":null}}`, o payload clássico de tentativa de injeção —
+  // fazia `(login || "").trim()` estourar TypeError e derrubar a requisição
+  // com 500: erro remoto, sem precisar de conta nenhuma. Só string serve;
+  // qualquer outro tipo é credencial inválida.
+  const loginLimpo = texto(login);
+  const senhaTexto = typeof password === "string" ? password : "";
   const ip = ipDe(req);
   const desde = new Date(Date.now() - JANELA_MIN * 60 * 1000);
 
@@ -42,7 +56,7 @@ export async function POST(req) {
   const user = await prisma.user.findUnique({ where: { login: loginLimpo } });
   // Compara SEMPRE, mesmo sem usuário, pra o tempo de resposta não entregar
   // se o login existe (ver HASH_FALSO acima).
-  const senhaOk = await bcrypt.compare(password || "", user?.passwordHash || HASH_FALSO);
+  const senhaOk = await bcrypt.compare(senhaTexto, user?.passwordHash || HASH_FALSO);
 
   if (!user || !senhaOk) {
     await prisma.loginTentativa.create({ data: { login: loginLimpo || "(vazio)", ip } }).catch(() => {});

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { texto } from "@/lib/corpo";
 
 export const runtime = "nodejs";
 
@@ -62,7 +63,7 @@ export async function POST(_req, { params }) {
     if (!res.ok) {
       return NextResponse.json({ error: data?.error?.message || `IA respondeu ${res.status}` }, { status: 502 });
     }
-    const resumo = data?.choices?.[0]?.message?.content?.trim();
+    const resumo = data?.choices?.[0]?.texto(message?.content);
     if (!resumo) return NextResponse.json({ error: "A IA não devolveu um resumo." }, { status: 502 });
     return NextResponse.json({ resumo, mensagensLidas: mensagens.length });
   } catch (err) {

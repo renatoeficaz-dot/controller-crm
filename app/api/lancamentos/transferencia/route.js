@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 // Transferência entre contas (item 133) = uma saída na origem + uma entrada
 // no destino, mesmo valor, vinculadas por transferenciaId — pra achar o par
@@ -21,7 +21,7 @@ export async function POST(req) {
   if (!origem || !destino) return NextResponse.json({ error: "Conta não encontrada." }, { status: 404 });
 
   const transferenciaId = randomUUID();
-  const desc = descricao?.trim() || `Transferência: ${origem.name} → ${destino.name}`;
+  const desc = texto(descricao) || `Transferência: ${origem.name} → ${destino.name}`;
   // "YYYY-MM-DD" puro vira meia-noite UTC — em fuso negativo (Brasil) isso
   // exibe um dia ANTES do que foi escolhido. Meio-dia evita virar o dia.
   const data = date ? new Date(date + "T12:00:00") : new Date();

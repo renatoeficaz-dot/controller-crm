@@ -5,7 +5,7 @@ import { atualizarScoreDoContato } from "@/lib/atualizarScoreComportamental";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { podeExecutar } from "@/lib/permissoes";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 // Marca uma parcela como paga / pendente.
 // body.amountPago (opcional): valor realmente cobrado — permite ao cobrador
@@ -56,7 +56,7 @@ export async function PATCH(req, { params }) {
     if (!podeExecutar(user, acaoNecessaria)) {
       return NextResponse.json({ error: "Sem permissão para essa alteração." }, { status: 403 });
     }
-    const motivo = (body.motivo || "").trim();
+    const motivo = texto(body.motivo);
     if (!motivo) {
       return NextResponse.json({ error: "Informe o motivo da alteração." }, { status: 400 });
     }

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { ufFromPhone } from "@/lib/ddd";
 import { getIaConfig, detectarGeneroPorNome } from "@/lib/ia";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 // Cria um novo contato (cai na coluna informada, ou na primeira)
 export async function POST(req) {
@@ -10,7 +10,7 @@ export async function POST(req) {
 
   // Sem nome E sem telefone o cadastro não serve pra nada: não dá pra falar com
   // ele nem identificar quem é, mas ele entrava no funil e contava nas métricas.
-  if (!(body.name || "").trim() && !(body.phone || "").replace(/\D/g, "")) {
+  if (!texto(body.name) && !texto(body.phone).replace(/\D/g, "")) {
     return NextResponse.json({ error: "Informe ao menos o nome ou o telefone." }, { status: 400 });
   }
   if ((body.name || "").length > 500) {
@@ -23,7 +23,7 @@ export async function POST(req) {
   // Evita duplicar lead: se já existe um contato com o mesmo telefone (últimos
   // 8 dígitos, tolerando formatação/DDI diferentes — mesma regra do webhook do
   // WhatsApp), reaproveita o card existente em vez de criar um novo.
-  const phoneDigits = (body.phone || "").replace(/\D/g, "");
+  const phoneDigits = texto(body.phone).replace(/\D/g, "");
   if (phoneDigits) {
     const tail = phoneDigits.slice(-8);
     const existing = await prisma.contact.findFirst({ where: { phone: { endsWith: tail } } });

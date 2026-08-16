@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 export async function GET() {
   const tipos = await prisma.taskType.findMany({ orderBy: { createdAt: "asc" } });
@@ -9,7 +9,7 @@ export async function GET() {
 
 export async function POST(req) {
   const body = await lerCorpo(req);
-  const name = (body.name || "").trim();
+  const name = texto(body.name);
   if (!name) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
   const tipo = await prisma.taskType.create({ data: { name, color: body.color || "#6366f1", emoji: body.emoji || null } });
   return NextResponse.json(tipo);

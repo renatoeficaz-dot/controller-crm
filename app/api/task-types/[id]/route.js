@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
 
 export async function PATCH(req, { params }) {
   try {
@@ -8,7 +8,7 @@ export async function PATCH(req, { params }) {
     const body = await lerCorpo(req);
     const data = {};
     if ("name" in body) {
-      const name = (body.name || "").trim();
+      const name = texto(body.name);
       if (!name) return NextResponse.json({ error: "Nome não pode ficar vazio." }, { status: 400 });
       data.name = name;
     }

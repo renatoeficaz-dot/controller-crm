@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
 
 export async function PATCH(req, { params }) {
   try {
@@ -9,7 +9,7 @@ export async function PATCH(req, { params }) {
     const data = {};
     if ("diasMin" in body) data.diasMin = Number(body.diasMin);
     if ("diasMax" in body) data.diasMax = body.diasMax === "" || body.diasMax == null ? null : Number(body.diasMax);
-    if ("mensagem" in body) data.mensagem = (body.mensagem || "").trim();
+    if ("mensagem" in body) data.mensagem = texto(body.mensagem);
     if ("ativa" in body) data.ativa = !!body.ativa;
     if ("ordem" in body) data.ordem = Number(body.ordem);
     if ("canalSugerido" in body) data.canalSugerido = body.canalSugerido || null;

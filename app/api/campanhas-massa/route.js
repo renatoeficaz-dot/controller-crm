@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { contarAlvos } from "@/lib/campanhaMassa";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 export async function GET() {
   const lista = await prisma.campanhaMassa.findMany({ orderBy: { createdAt: "desc" }, take: 50 });
@@ -14,10 +14,10 @@ export async function GET() {
 export async function POST(req) {
   const user = await getCurrentUser();
   const body = await lerCorpo(req);
-  if (!body.nome?.trim() || !body.numeroId) {
+  if (!texto(body.nome) || !body.numeroId) {
     return NextResponse.json({ error: "Nome e número de envio são obrigatórios." }, { status: 400 });
   }
-  if (!body.templateId && !body.mensagem?.trim()) {
+  if (!body.templateId && !texto(body.mensagem)) {
     return NextResponse.json({ error: "Escolha uma mensagem pronta ou escreva o texto." }, { status: 400 });
   }
   const filtros = JSON.stringify(body.filtros || {});

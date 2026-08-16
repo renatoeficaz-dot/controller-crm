@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 // Muda o vencimento de uma parcela (itens 103/104 — alterar data ou "adiar"
 // são a mesma operação). Sempre com motivo, registrado em ParcelaAjuste.
@@ -18,7 +18,7 @@ export async function PATCH(req, { params }) {
   if (negado) return negado;
   const { novoVencimento, motivo } = await lerCorpo(req);
   if (!novoVencimento) return NextResponse.json({ error: "Informe a nova data." }, { status: 400 });
-  if (!motivo?.trim()) return NextResponse.json({ error: "Informe o motivo." }, { status: 400 });
+  if (!texto(motivo)) return NextResponse.json({ error: "Informe o motivo." }, { status: 400 });
 
   const parcela = await prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { name: true } }, task: true } });
   if (!parcela) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });

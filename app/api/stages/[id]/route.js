@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
 
 // Edita uma etapa (ex.: nome, cor, responsável automático)
 export async function PATCH(req, { params }) {
@@ -8,7 +8,7 @@ export async function PATCH(req, { params }) {
     const { id } = await params;
     const body = await lerCorpo(req);
     const data = {};
-    if ("name" in body) data.name = (body.name || "").trim();
+    if ("name" in body) data.name = texto(body.name);
     if ("color" in body) data.color = body.color || "#64748b";
     if ("autoResponsavel" in body) data.autoResponsavel = body.autoResponsavel || null;
     if ("distribuicaoPool" in body) data.distribuicaoPool = body.distribuicaoPool || null;

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { lerFormulario } from "@/lib/corpo";
 import { NextResponse } from "next/server";
 import { saveMediaBuffer } from "@/lib/mediaStorage";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
@@ -16,7 +17,8 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
-  const form = await req.formData();
+  const form = await lerFormulario(req);
+  if (!form) return NextResponse.json({ error: "Envie o arquivo como formulário." }, { status: 400 });
   const file = form.get("file");
   const tipo = form.get("tipo") || "outro";
   if (!file || typeof file === "string") {

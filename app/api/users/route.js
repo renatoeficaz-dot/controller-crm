@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getCurrentUser, isAdmin } from "@/lib/session";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 const ROLES = ["admin", "vendedor", "cobrador"];
 const USER_SELECT = {
@@ -58,8 +58,8 @@ export async function GET() {
 // Cria um usuário (nome, login, senha, nível e permissões)
 export async function POST(req) {
   const body = await lerCorpo(req);
-  const name = (body.name || "").trim();
-  const login = (body.login || "").trim();
+  const name = texto(body.name);
+  const login = texto(body.login);
   const password = body.password || "";
 
   if (!name || !login || !password) {

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 export async function PATCH(req, { params }) {
   const { id } = await params;
@@ -15,7 +15,7 @@ export async function PATCH(req, { params }) {
     data: {
       type,
       amount,
-      description: (body.description || "").trim() || null,
+      description: texto(body.description) || null,
       // "YYYY-MM-DD" puro vira meia-noite UTC — em fuso negativo (Brasil) isso
       // exibe um dia ANTES do que foi escolhido. Meio-dia evita virar o dia
       // em qualquer fuso real.

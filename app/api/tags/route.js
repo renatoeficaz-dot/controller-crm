@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 export async function GET() {
   const tags = await prisma.tag.findMany({
@@ -12,7 +12,7 @@ export async function GET() {
 
 export async function POST(req) {
   const { name, color } = await lerCorpo(req);
-  if (!(name || "").trim()) {
+  if (!texto(name)) {
     return NextResponse.json({ error: "Nome da tag é obrigatório." }, { status: 400 });
   }
   // Só cor hexadecimal: qualquer outro texto era aceito e a etiqueta saía

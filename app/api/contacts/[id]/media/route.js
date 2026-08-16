@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { lerFormulario } from "@/lib/corpo";
 import { NextResponse } from "next/server";
 import { sendWhatsappMedia, sendWhatsappAudio, resolveInstanceForContact } from "@/lib/evolution";
 import { saveMediaBuffer } from "@/lib/mediaStorage";
@@ -22,7 +23,8 @@ export async function POST(req, { params }) {
   const contact = await prisma.contact.findUnique({ where: { id } });
   if (!contact) return NextResponse.json({ error: "Contato não encontrado" }, { status: 404 });
 
-  const form = await req.formData();
+  const form = await lerFormulario(req);
+  if (!form) return NextResponse.json({ error: "Envie o arquivo como formulário." }, { status: 400 });
   const file = form.get("file");
   const kind = form.get("kind") || "document"; // audio | image | document
   const caption = form.get("caption") || "";

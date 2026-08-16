@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { pagarConta, estornarConta } from "@/lib/contasPagar";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
 
 export async function PATCH(req, { params }) {
   try {
@@ -19,12 +19,12 @@ export async function PATCH(req, { params }) {
     }
   
     const data = {};
-    if ("descricao" in body) data.descricao = (body.descricao || "").trim();
+    if ("descricao" in body) data.descricao = texto(body.descricao);
     if ("valor" in body) data.valor = Number(body.valor) || 0;
     if ("vencimento" in body) data.vencimento = new Date(body.vencimento + "T00:00:00.000Z");
     if ("categoriaId" in body) data.categoriaId = body.categoriaId || null;
     if ("bancoId" in body) data.bancoId = body.bancoId || null;
-    if ("observacao" in body) data.observacao = (body.observacao || "").trim() || null;
+    if ("observacao" in body) data.observacao = texto(body.observacao) || null;
   
     const conta = await prisma.contaPagar.update({ where: { id }, data });
     return NextResponse.json(conta);

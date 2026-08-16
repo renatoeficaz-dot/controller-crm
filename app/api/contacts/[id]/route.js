@@ -5,7 +5,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
 import { valorEmAberto } from "@/lib/finance";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
+import { lerCorpo, texto, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
 
 // Busca um contato com suas mensagens (conforme permissão de WhatsApp) e parcelas.
 // mediaUrl (base64) fica de fora — mídia é carregada sob demanda via /api/messages/[id]/media.
@@ -61,7 +61,11 @@ export async function PATCH(req, { params }) {
     for (const f of [
       "name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf",
     ]) {
-      if (f in body) data[f] = body[f] || null;
+      // Todos estes são texto no banco. Repassar o valor cru deixava o Prisma
+      // recusar (e a rota estourar 500) quando vinha número/objeto/array —
+      // basta um cliente mandar {"phone": 456}. Normaliza pra texto; vazio
+      // vira null, que é como o campo "em branco" é guardado.
+      if (f in body) data[f] = texto(body[f]) || null;
     }
     if ("chatFixado" in body) data.chatFixado = !!body.chatFixado;
     if ("chatArquivado" in body) data.chatArquivado = !!body.chatArquivado;

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getSession } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
 
 // Edita um usuário (nome, login e/ou senha). Senha só muda se for enviada.
 export async function PATCH(req, { params }) {
@@ -13,13 +13,13 @@ export async function PATCH(req, { params }) {
     const data = {};
   
     if ("name" in body) {
-      const name = (body.name || "").trim();
+      const name = texto(body.name);
       if (!name) return NextResponse.json({ error: "Nome não pode ficar vazio." }, { status: 400 });
       data.name = name;
     }
   
     if ("login" in body) {
-      const login = (body.login || "").trim();
+      const login = texto(body.login);
       if (!login) return NextResponse.json({ error: "Login não pode ficar vazio." }, { status: 400 });
       const other = await prisma.user.findUnique({ where: { login } });
       if (other && other.id !== id) {

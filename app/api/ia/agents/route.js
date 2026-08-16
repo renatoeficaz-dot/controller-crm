@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 // Lista os agentes de IA cadastrados
 export async function GET() {
@@ -11,7 +11,7 @@ export async function GET() {
 // Cria um novo agente
 export async function POST(req) {
   const body = await lerCorpo(req);
-  const name = (body.name || "").trim() || "Novo agente";
+  const name = texto(body.name) || "Novo agente";
   const agent = await prisma.iaAgent.create({ data: { name } });
   return NextResponse.json(agent);
 }

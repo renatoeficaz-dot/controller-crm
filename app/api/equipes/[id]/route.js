@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
 
 const SELECT = {
   id: true,
@@ -21,7 +21,7 @@ export async function PATCH(req, { params }) {
     const body = await lerCorpo(req);
     const data = {};
     if ("nome" in body) {
-      const nome = (body.nome || "").trim();
+      const nome = texto(body.nome);
       if (!nome) return NextResponse.json({ error: "Nome não pode ficar vazio." }, { status: 400 });
       const outra = await prisma.equipe.findUnique({ where: { nome } });
       if (outra && outra.id !== id) return NextResponse.json({ error: "Já existe uma equipe com esse nome." }, { status: 409 });

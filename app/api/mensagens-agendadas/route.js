@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 export async function GET(req) {
   const contactId = new URL(req.url).searchParams.get("contactId");
@@ -18,7 +18,7 @@ export async function POST(req) {
   if (!body.contactId || !body.numeroId || !body.dataHora) {
     return NextResponse.json({ error: "Lead, número e data/hora são obrigatórios." }, { status: 400 });
   }
-  if (!body.templateId && !body.corpo?.trim()) {
+  if (!body.templateId && !texto(body.corpo)) {
     return NextResponse.json({ error: "Escolha uma mensagem pronta ou escreva o texto." }, { status: 400 });
   }
   if (Number.isNaN(new Date(body.dataHora).getTime())) {

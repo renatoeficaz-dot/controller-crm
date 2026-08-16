@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 // Lista tarefas (com filtros opcionais) — usado na aba "Tarefas" e no card do lead.
 export async function GET(req) {
@@ -33,7 +33,7 @@ export async function GET(req) {
 // que nascem vinculadas a uma parcela).
 export async function POST(req) {
   const body = await lerCorpo(req);
-  const title = (body.title || "").trim();
+  const title = texto(body.title);
   const contactId = body.contactId;
   if (!title || !contactId) {
     return NextResponse.json({ error: "Preencha o título e o lead." }, { status: 400 });
@@ -42,7 +42,7 @@ export async function POST(req) {
     data: {
       contactId,
       title,
-      notes: (body.notes || "").trim() || null,
+      notes: texto(body.notes) || null,
       dueDate: body.dueDate ? new Date(body.dueDate) : new Date(),
       tipoId: body.tipoId || null,
       responsavel: body.responsavel || null,

@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 import { criarAcordoParcelado } from "@/lib/acordo";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 // Histórico de negociações do lead — o que já foi oferecido e o que ele aceitou
 // ou recusou. Evita oferecer o mesmo desconto duas vezes pra quem já ignorou.
@@ -61,7 +61,7 @@ export async function POST(req, { params }) {
       valorOriginal: body.valorOriginal != null ? Number(body.valorOriginal) : null,
       valorNegociado: body.valorNegociado != null ? Number(body.valorNegociado) : null,
       aceito: body.tipo === "desconto_aceito",
-      notas: (body.notas || "").trim() || null,
+      notas: texto(body.notas) || null,
       usuario: session?.name || null,
     },
   });

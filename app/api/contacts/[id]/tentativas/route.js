@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 export async function GET(_req, { params }) {
   const { id } = await params;
@@ -37,7 +37,7 @@ export async function POST(req, { params }) {
         body.resultado === "prometeu" && body.dataPromessa
           ? new Date(String(body.dataPromessa).slice(0, 10) + "T00:00:00.000Z")
           : null,
-      notas: (body.notas || "").trim() || null,
+      notas: texto(body.notas) || null,
       usuario: user?.name || null,
     },
   });

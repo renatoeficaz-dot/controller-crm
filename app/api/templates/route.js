@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
 import { normalizeBrPhone } from "@/lib/evolution";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 // Lista as mensagens prontas (ordenadas)
 export async function GET() {
@@ -15,7 +15,7 @@ export async function GET() {
 // Cria uma mensagem pronta
 export async function POST(req) {
   const data = await lerCorpo(req);
-  const title = (data.title || "").trim();
+  const title = texto(data.title);
   const mediaType = data.mediaType || null;
 
   if (!title) {
@@ -24,11 +24,11 @@ export async function POST(req) {
 
   // Validação por tipo
   if (!mediaType || mediaType === "text") {
-    if (!(data.body || "").trim()) {
+    if (!texto(data.body)) {
       return NextResponse.json({ error: "Preencha a mensagem." }, { status: 400 });
     }
   } else if (mediaType === "contact") {
-    if (!(data.contactName || "").trim() || !(data.contactPhone || "").trim()) {
+    if (!texto(data.contactName) || !texto(data.contactPhone)) {
       return NextResponse.json({ error: "Preencha nome e telefone do contato." }, { status: 400 });
     }
     if (!normalizeBrPhone(data.contactPhone)) {
@@ -58,13 +58,13 @@ export async function POST(req) {
   const tpl = await prisma.messageTemplate.create({
     data: {
       title,
-      body: (data.body || "").trim(),
+      body: texto(data.body),
       mediaType: mediaType || null,
       mediaUrl,
       mediaMimetype: data.mediaMimetype || null,
       mediaFileName: data.mediaFileName || null,
-      contactName: (data.contactName || "").trim() || null,
-      contactPhone: mediaType === "contact" ? normalizeBrPhone(data.contactPhone) : (data.contactPhone || "").trim() || null,
+      contactName: texto(data.contactName) || null,
+      contactPhone: mediaType === "contact" ? normalizeBrPhone(data.contactPhone) : texto(data.contactPhone) || null,
       interno: !!data.interno,
       order: (last?.order ?? -1) + 1,
     },

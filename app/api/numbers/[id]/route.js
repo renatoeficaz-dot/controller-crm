@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
 
 // Edita um número (ex.: reatribuir usuário, mudar instância)
 export async function PATCH(req, { params }) {
@@ -9,13 +9,13 @@ export async function PATCH(req, { params }) {
     const body = await lerCorpo(req);
     const data = {};
     for (const f of ["label", "number", "instance"]) {
-      if (f in body) data[f] = (body[f] || "").trim();
+      if (f in body) data[f] = texto(body[f]);
     }
     if ("userId" in body) data.userId = body.userId || null;
     if ("agentId" in body) data.agentId = body.agentId || null;
     if ("provider" in body) data.provider = body.provider === "waha" ? "waha" : "evolution";
-    if ("estadosCobranca" in body) data.estadosCobranca = (body.estadosCobranca || "").trim() || null;
-    if ("mensagemCobranca" in body) data.mensagemCobranca = (body.mensagemCobranca || "").trim() || null;
+    if ("estadosCobranca" in body) data.estadosCobranca = texto(body.estadosCobranca) || null;
+    if ("mensagemCobranca" in body) data.mensagemCobranca = texto(body.mensagemCobranca) || null;
     if ("aquecimentoAtivo" in body) {
       data.aquecimentoAtivo = !!body.aquecimentoAtivo;
       // Liga o cronômetro no momento em que o aquecimento é ativado — sem data,
@@ -23,9 +23,9 @@ export async function PATCH(req, { params }) {
       if (body.aquecimentoAtivo) data.aquecimentoDesde = new Date();
     }
     if ("limiteEnviosHora" in body) data.limiteEnviosHora = body.limiteEnviosHora === "" || body.limiteEnviosHora == null ? null : Number(body.limiteEnviosHora) || null;
-    if ("proxyServer" in body) data.proxyServer = (body.proxyServer || "").trim() || null;
-    if ("proxyUsername" in body) data.proxyUsername = (body.proxyUsername || "").trim() || null;
-    if ("proxyPassword" in body) data.proxyPassword = (body.proxyPassword || "").trim() || null;
+    if ("proxyServer" in body) data.proxyServer = texto(body.proxyServer) || null;
+    if ("proxyUsername" in body) data.proxyUsername = texto(body.proxyUsername) || null;
+    if ("proxyPassword" in body) data.proxyPassword = texto(body.proxyPassword) || null;
   
     // Só um número pode ser "padrão" por vez — desmarca os outros antes.
     if (body.padrao === true) {

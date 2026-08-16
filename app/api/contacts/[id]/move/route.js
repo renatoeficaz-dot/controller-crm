@@ -27,7 +27,14 @@ export async function PATCH(req, { params }) {
     const session = await getSession();
     // Só admin pode forçar (ignorar bloqueio de CPF / limite de escalonamento).
     const forcar = !!forcarPedido && session?.role === "admin";
-  
+
+    // Sem isso, um corpo sem stageId virava findUnique({ where: { id: undefined } }),
+    // que o Prisma recusa lançando erro — a rota estourava 500 antes de chegar
+    // na validação logo abaixo, que já trataria o caso como 404.
+    if (typeof stageId !== "string" || !stageId) {
+      return NextResponse.json({ error: "Escolha a coluna de destino." }, { status: 400 });
+    }
+
     const [contact, stage, config] = await Promise.all([
       prisma.contact.findUnique({ where: { id }, include: { parcelas: true } }),
       prisma.stage.findUnique({ where: { id: stageId } }),

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 // Garante que a linha única de config exista
 async function getConfig() {
@@ -54,21 +54,29 @@ export async function PATCH(req) {
   const body = await lerCorpo(req);
   await getConfig();
   const data = {};
-  if ("honorariosPct" in body) data.honorariosPct = Number(body.honorariosPct) || 0;
-  if ("multaPct" in body) data.multaPct = Number(body.multaPct) || 0;
-  if ("pagamentoHoraLimite" in body) data.pagamentoHoraLimite = (body.pagamentoHoraLimite || "").trim() || null;
-  if ("evolutionUrl" in body) data.evolutionUrl = (body.evolutionUrl || "").trim() || null;
-  if ("evolutionApiKey" in body) data.evolutionApiKey = (body.evolutionApiKey || "").trim() || null;
-  if ("wahaUrl" in body) data.wahaUrl = (body.wahaUrl || "").trim() || null;
-  if ("wahaApiKey" in body) data.wahaApiKey = (body.wahaApiKey || "").trim() || null;
-  if ("webhookToken" in body) data.webhookToken = (body.webhookToken || "").trim() || null;
-  if ("deepinfraApiKey" in body) data.deepinfraApiKey = (body.deepinfraApiKey || "").trim() || null;
-  if ("fishAudioApiKey" in body) data.fishAudioApiKey = (body.fishAudioApiKey || "").trim() || null;
-  if ("elevenLabsApiKey" in body) data.elevenLabsApiKey = (body.elevenLabsApiKey || "").trim() || null;
+  // Estes dois definem TODO o dinheiro do sistema (parcela = capital x
+  // (1 + honorários/100); atraso = valor x (1 + multa/100)) e eram os únicos
+  // percentuais sem faixa: `Number(x) || 0` aceitava -50 (inverte a conta e a
+  // empresa passa a pagar pra emprestar) e 1e9 (parcela astronômica em toda a
+  // carteira). Os outros percentuais da tela já usavam Math.min/Math.max.
+  // O teto é folgado de propósito — 80% é o valor real de uso, 1000% é só pra
+  // barrar o absurdo e o erro de digitação, não pra limitar a operação.
+  const pctFinanceiro = (v) => Math.min(1000, Math.max(0, Number(v) || 0));
+  if ("honorariosPct" in body) data.honorariosPct = pctFinanceiro(body.honorariosPct);
+  if ("multaPct" in body) data.multaPct = pctFinanceiro(body.multaPct);
+  if ("pagamentoHoraLimite" in body) data.pagamentoHoraLimite = texto(body.pagamentoHoraLimite) || null;
+  if ("evolutionUrl" in body) data.evolutionUrl = texto(body.evolutionUrl) || null;
+  if ("evolutionApiKey" in body) data.evolutionApiKey = texto(body.evolutionApiKey) || null;
+  if ("wahaUrl" in body) data.wahaUrl = texto(body.wahaUrl) || null;
+  if ("wahaApiKey" in body) data.wahaApiKey = texto(body.wahaApiKey) || null;
+  if ("webhookToken" in body) data.webhookToken = texto(body.webhookToken) || null;
+  if ("deepinfraApiKey" in body) data.deepinfraApiKey = texto(body.deepinfraApiKey) || null;
+  if ("fishAudioApiKey" in body) data.fishAudioApiKey = texto(body.fishAudioApiKey) || null;
+  if ("elevenLabsApiKey" in body) data.elevenLabsApiKey = texto(body.elevenLabsApiKey) || null;
   if ("contaLiberacaoId" in body) data.contaLiberacaoId = body.contaLiberacaoId || null;
   if ("contaRecebimentoId" in body) data.contaRecebimentoId = body.contaRecebimentoId || null;
-  if ("horarioComercialInicio" in body) data.horarioComercialInicio = (body.horarioComercialInicio || "").trim() || null;
-  if ("horarioComercialFim" in body) data.horarioComercialFim = (body.horarioComercialFim || "").trim() || null;
+  if ("horarioComercialInicio" in body) data.horarioComercialInicio = texto(body.horarioComercialInicio) || null;
+  if ("horarioComercialFim" in body) data.horarioComercialFim = texto(body.horarioComercialFim) || null;
   if ("metaPctRecebimentoMinima" in body) data.metaPctRecebimentoMinima = Math.min(100, Math.max(0, Number(body.metaPctRecebimentoMinima) || 0));
   if ("metaPctRecebimentoMedia" in body) data.metaPctRecebimentoMedia = Math.min(100, Math.max(0, Number(body.metaPctRecebimentoMedia) || 0));
   if ("metaPctRecebimento" in body) data.metaPctRecebimento = Math.min(100, Math.max(0, Number(body.metaPctRecebimento) || 0));
@@ -78,10 +86,10 @@ export async function PATCH(req) {
   if ("descontoAtivo" in body) data.descontoAtivo = !!body.descontoAtivo;
   if ("descontoPct" in body) data.descontoPct = Math.min(100, Math.max(0, Number(body.descontoPct) || 0));
   if ("descontoDiasMin" in body) data.descontoDiasMin = Math.max(0, Number(body.descontoDiasMin) || 0);
-  if ("descontoMensagem" in body) data.descontoMensagem = (body.descontoMensagem || "").trim() || null;
-  if ("alertaWhatsapp" in body) data.alertaWhatsapp = (body.alertaWhatsapp || "").replace(/\D/g, "") || null;
+  if ("descontoMensagem" in body) data.descontoMensagem = texto(body.descontoMensagem) || null;
+  if ("alertaWhatsapp" in body) data.alertaWhatsapp = texto(body.alertaWhatsapp).replace(/\D/g, "") || null;
   if ("alertaResumoDiario" in body) data.alertaResumoDiario = !!body.alertaResumoDiario;
-  if ("alertaHora" in body) data.alertaHora = (body.alertaHora || "").trim() || null;
+  if ("alertaHora" in body) data.alertaHora = texto(body.alertaHora) || null;
   if ("alertaCriticos" in body) data.alertaCriticos = !!body.alertaCriticos;
   if ("alertaCapitalMin" in body) data.alertaCapitalMin = Math.max(0, Number(body.alertaCapitalMin) || 0);
 
@@ -103,7 +111,7 @@ export async function PATCH(req) {
         : Math.max(1, Number(body.escalonamentoAtrasoDias) || 1);
   }
   if ("escalonamentoAtrasoResponsavel" in body) {
-    data.escalonamentoAtrasoResponsavel = (body.escalonamentoAtrasoResponsavel || "").trim() || null;
+    data.escalonamentoAtrasoResponsavel = texto(body.escalonamentoAtrasoResponsavel) || null;
   }
   if ("capitalOciosoDias" in body) data.capitalOciosoDias = Math.max(0, Number(body.capitalOciosoDias) || 0);
 
@@ -131,15 +139,15 @@ export async function PATCH(req) {
   }
 
   // Pix pra gerar Copia-e-Cola/QR das parcelas.
-  if ("pixChave" in body) data.pixChave = (body.pixChave || "").trim() || null;
-  if ("pixNomeRecebedor" in body) data.pixNomeRecebedor = (body.pixNomeRecebedor || "").trim() || null;
-  if ("pixCidade" in body) data.pixCidade = (body.pixCidade || "").trim() || null;
+  if ("pixChave" in body) data.pixChave = texto(body.pixChave) || null;
+  if ("pixNomeRecebedor" in body) data.pixNomeRecebedor = texto(body.pixNomeRecebedor) || null;
+  if ("pixCidade" in body) data.pixCidade = texto(body.pixCidade) || null;
 
   // Mensagem automática de Pix pra adimplentes.
   if ("pixAdimplentesAtivo" in body) data.pixAdimplentesAtivo = !!body.pixAdimplentesAtivo;
   if ("pixAdimplentesDiasAntes" in body) data.pixAdimplentesDiasAntes = Math.max(0, Math.min(5, Number(body.pixAdimplentesDiasAntes) || 0));
   if ("pixAdimplentesHora" in body) data.pixAdimplentesHora = (body.pixAdimplentesHora || "08:00").trim();
-  if ("pixAdimplentesMensagem" in body) data.pixAdimplentesMensagem = (body.pixAdimplentesMensagem || "").trim() || null;
+  if ("pixAdimplentesMensagem" in body) data.pixAdimplentesMensagem = texto(body.pixAdimplentesMensagem) || null;
 
   const mudouSensivel = CAMPOS_AUDITADOS.some((c) => c in data);
   const antes = mudouSensivel ? await prisma.config.findUnique({ where: { id: "singleton" } }) : null;

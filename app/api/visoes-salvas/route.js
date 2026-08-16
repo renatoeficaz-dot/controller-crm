@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 export async function GET(req) {
   const user = await getCurrentUser();
@@ -16,7 +16,7 @@ export async function GET(req) {
 export async function POST(req) {
   const user = await getCurrentUser();
   const { tela, nome, filtros, compartilhada } = await lerCorpo(req);
-  if (!nome?.trim() || !tela) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
+  if (!texto(nome) || !tela) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
 
   const criada = await prisma.visaoSalva.create({
     data: {

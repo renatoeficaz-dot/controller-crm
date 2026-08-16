@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { normalizeBrPhone } from "@/lib/evolution";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
-import { lerCorpo } from "@/lib/corpo";
+import { lerCorpo, texto } from "@/lib/corpo";
 
 // Lista os contatos de referência (item 73) de um lead
 export async function GET(_req, { params }) {
@@ -22,8 +22,8 @@ export async function POST(req, { params }) {
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
   const body = await lerCorpo(req);
-  const nome = (body.nome || "").trim();
-  const telefoneRaw = (body.telefone || "").trim();
+  const nome = texto(body.nome);
+  const telefoneRaw = texto(body.telefone);
   if (!nome || !telefoneRaw) {
     return NextResponse.json({ error: "Preencha nome e telefone." }, { status: 400 });
   }
