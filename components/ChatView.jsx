@@ -9,6 +9,7 @@ import { interpolarVariaveis } from "@/lib/variaveis";
 import { parcelaAtrasada } from "@/lib/finance";
 import { UFS_BR } from "@/lib/ddd";
 import Icone from "@/components/Icones";
+import AgendarMensagemModal from "./AgendarMensagemModal";
 
 // Data de hoje (local) como "YYYY-MM-DD"
 function todayStr() {
@@ -109,6 +110,7 @@ export default function ChatView() {
   const [resumo, setResumo] = useState(null); // { dia, semana, mes, pendenteTotal, clientes }
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [agendarAberto, setAgendarAberto] = useState(false);
   const [attachError, setAttachError] = useState("");
   const [multaPct, setMultaPct] = useState(50);
   const [tasks, setTasks] = useState([]);
@@ -1132,12 +1134,32 @@ export default function ChatView() {
                   <Icone nome={recording ? "parar" : "microfone"} className="w-4 h-4" />
                 </button>
                 <button
+                  type="button"
+                  onClick={() => setAgendarAberto(true)}
+                  disabled={uploading || recording}
+                  title="Agendar esta mensagem pra outro momento"
+                  className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
+                >
+                  <Icone nome="relogio" className="w-4 h-4" />
+                </button>
+                <button
                   disabled={sending || !text.trim()}
                   className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
                 >
                   Enviar
                 </button>
               </form>
+              {agendarAberto && (
+                <AgendarMensagemModal
+                  contactId={selectedId}
+                  textoInicial={text}
+                  templates={templates}
+                  numbers={numbers}
+                  numeroInicial={numbers.find((n) => n.instance === selectedInstance)?.id || ""}
+                  onClose={() => setAgendarAberto(false)}
+                  onAgendado={() => {}}
+                />
+              )}
             </div>
           </>
         ) : (
