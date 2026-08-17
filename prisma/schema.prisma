@@ -1111,6 +1111,14 @@ model MensagemAgendada {
   template   MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   templateId String?
   corpo      String? // texto livre, quando não usa um template
+  // Mídia anexada direto neste agendamento (áudio gravado ou imagem escolhida
+  // na hora) — diferente de usar um template pronto. Permite combinar com
+  // `corpo`: as duas viram mensagens separadas, na ordem de `ordemMidia`.
+  midiaUrl      String?
+  midiaMimetype String?
+  midiaFileName String?
+  midiaTipo     String? // "audio" | "image" | "document"
+  ordemMidia    String           @default("depois") // "antes" | "depois" do texto
   dataHora   DateTime
   enviado    Boolean          @default(false)
   enviadoEm  DateTime?

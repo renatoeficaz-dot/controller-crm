@@ -14,7 +14,6 @@ import PixModal from "./PixModal";
 import DocumentosPopup from "./DocumentosPopup";
 import TimelineLead from "./TimelineLead";
 import AgendarMensagemModal from "./AgendarMensagemModal";
-import AgendamentosPendentesModal from "./AgendamentosPendentesModal";
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -146,7 +145,6 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [timelineAberta, setTimelineAberta] = useState(false);
   const [camposDef, setCamposDef] = useState([]);
   const [agendarAberto, setAgendarAberto] = useState(false);
-  const [agendamentosAberto, setAgendamentosAberto] = useState(false);
   const [honorariosPct, setHonorariosPct] = useState(30);
   const [multaPct, setMultaPct] = useState(50);
   const [escalonamentoCfg, setEscalonamentoCfg] = useState(null);
@@ -179,6 +177,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [renovForm, setRenovForm] = useState({ valorCapital: "", pagamentoCapital: "" });
   const [renovando, setRenovando] = useState(false);
   const [tasks, setTasks] = useState([]);
+  const [agendamentos, setAgendamentos] = useState([]);
   const [taskTypes, setTaskTypes] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
@@ -194,11 +193,25 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     setTasks(Array.isArray(data) ? data : []);
   }, [contactId]);
 
+  // Mensagens agendadas pra esse lead, direto no card — pra dar pra cancelar
+  // sem precisar abrir outra tela procurando qual é a certa.
+  const loadAgendamentos = useCallback(async () => {
+    const data = await fetch(`/api/mensagens-agendadas?contactId=${contactId}`).then((r) => r.json()).catch(() => []);
+    setAgendamentos((Array.isArray(data) ? data : []).filter((m) => !m.enviado));
+  }, [contactId]);
+
+  async function cancelarAgendamento(id) {
+    if (!confirm("Cancelar esse agendamento?")) return;
+    await fetch(`/api/mensagens-agendadas/${id}`, { method: "DELETE" });
+    loadAgendamentos();
+  }
+
   const loadContact = useCallback(async () => {
     const [res, cfg] = await Promise.all([
       fetch(`/api/contacts/${contactId}`),
       fetch("/api/config").then((r) => r.json()).catch(() => null),
       loadTasks(),
+      loadAgendamentos(),
     ]);
     const data = await res.json();
     setContact(data);
@@ -959,6 +972,29 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               )}
             </div>
 
+            {/* Mensagens agendadas — visível direto no card, pra dar pra
+                cancelar sem precisar procurar em outra tela. */}
+            {agendamentos.length > 0 && (
+              <div className="border border-slate-200 rounded-lg p-2.5">
+                <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
+                  <Icone nome="relogio" className="w-3.5 h-3.5" /> Mensagens agendadas ({agendamentos.length})
+                </span>
+                <ul className="mt-1.5 space-y-1.5">
+                  {agendamentos.map((m) => (
+                    <li key={m.id} className="flex items-center justify-between gap-2 text-xs bg-slate-50 rounded-lg px-2 py-1.5">
+                      <div className="min-w-0">
+                        <p className="text-slate-500">{fmtTime(m.dataHora)}</p>
+                        <p className="text-slate-700 truncate">
+                          {m.template?.title || m.corpo || (m.midiaTipo === "audio" ? "🎤 Áudio" : m.midiaTipo === "image" ? "🖼️ Imagem" : "(mídia)")}
+                        </p>
+                      </div>
+                      <button onClick={() => cancelarAgendamento(m.id)} className="text-red-500 hover:text-red-600 shrink-0">Cancelar</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Tarefas do lead */}
             <div className="border border-slate-200 rounded-lg p-2.5">
               <div className="flex items-center justify-between">
@@ -1505,14 +1541,6 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               <Icone nome="relogio" className="w-4 h-4" />
             </button>
             <button
-              type="button"
-              onClick={() => setAgendamentosAberto(true)}
-              title="Ver/cancelar mensagens agendadas"
-              className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
-            >
-              <Icone nome="calendario" className="w-4 h-4" />
-            </button>
-            <button
               onClick={send}
               disabled={sending || !text.trim()}
               className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-40"
@@ -1674,7 +1702,6 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       )}
 
       {pixAberto && <PixModal parcela={pixAberto} onClose={() => setPixAberto(null)} />}
-      {agendamentosAberto && <AgendamentosPendentesModal contactId={contactId} onClose={() => setAgendamentosAberto(false)} />}
       {documentosAberto && <DocumentosPopup contactId={contactId} messages={messages} onClose={() => setDocumentosAberto(false)} />}
       {agendarAberto && (
         <AgendarMensagemModal
@@ -1684,7 +1711,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
           numbers={numbers}
           numeroInicial={numbers.find((n) => n.instance === selectedInstance)?.id || ""}
           onClose={() => setAgendarAberto(false)}
-          onAgendado={() => setSavedFlash(true)}
+          onAgendado={() => { setSavedFlash(true); loadAgendamentos(); }}
         />
       )}
 

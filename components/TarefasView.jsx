@@ -26,6 +26,7 @@ export default function TarefasView() {
   const [error, setError] = useState("");
   const [fStatus, setFStatus] = useState("pendentes"); // pendentes | todas | concluidas
   const [fTipo, setFTipo] = useState("");
+  const [fResponsavel, setFResponsavel] = useState(""); // "" = todos; nome do usuário = só as tarefas dele
   const [openContactId, setOpenContactId] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [overCol, setOverCol] = useState(null);
@@ -43,9 +44,10 @@ export default function TarefasView() {
     const q = new URLSearchParams();
     if (done) q.set("done", done);
     if (fTipo) q.set("tipoId", fTipo);
+    if (fResponsavel) q.set("responsavel", fResponsavel);
     const data = await fetch(`/api/tasks?${q}`).then((r) => r.json()).catch(() => []);
     setTasks(Array.isArray(data) ? data : []);
-  }, [fStatus, fTipo]);
+  }, [fStatus, fTipo, fResponsavel]);
 
   const [users, setUsers] = useState([]);
 
@@ -311,6 +313,17 @@ export default function TarefasView() {
                 />
               </label>
             </div>
+            <label className="block">
+              <span className="text-xs text-slate-400">Responsável</span>
+              <select
+                value={form.responsavel}
+                onChange={(e) => setForm((f) => ({ ...f, responsavel: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="">— Segue o responsável do lead —</option>
+                {users.map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
+              </select>
+            </label>
             <label className="block sm:col-span-2">
               <span className="text-xs text-slate-400">Observações (opcional)</span>
               <input
@@ -358,6 +371,14 @@ export default function TarefasView() {
           {tipos.map((t) => (
             <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
           ))}
+        </select>
+        <select
+          value={fResponsavel}
+          onChange={(e) => setFResponsavel(e.target.value)}
+          className="text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white outline-none"
+        >
+          <option value="">Todos os responsáveis</option>
+          {users.map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
         </select>
         <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5 ml-auto">
           {[{ k: "pipeline", l: "Pipeline" }, { k: "calendario", l: "Calendário" }].map((o) => (
@@ -504,6 +525,11 @@ export default function TarefasView() {
                             )}
                             {venceHoje && (
                               <span className="text-[10px] font-medium rounded-full px-1.5 py-0.5 bg-amber-500 text-white shrink-0">Hoje</span>
+                            )}
+                            {(t.responsavel || t.contact?.responsavel) && (
+                              <span className="text-[10px] font-medium rounded-full px-1.5 py-0.5 bg-slate-200 text-slate-600 shrink-0">
+                                {t.responsavel || t.contact?.responsavel}
+                              </span>
                             )}
                           </div>
                           <p className="text-xs text-slate-400 mt-1">

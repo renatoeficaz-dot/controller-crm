@@ -15,14 +15,19 @@ export async function GET(req) {
   if (done === "false") where.done = false;
   if (tipoId) where.tipoId = tipoId;
 
+  // Tarefa sem responsavel próprio segue implícito o responsável do LEAD (ver
+  // comentário no schema) — filtrar só por task.responsavel escondia a
+  // maioria das tarefas de cada pessoa, que nunca tiveram isso preenchido.
   const responsavel = searchParams.get("responsavel");
-  if (responsavel) where.responsavel = responsavel;
+  if (responsavel) {
+    where.OR = [{ responsavel }, { responsavel: null, contact: { responsavel } }];
+  }
 
   const tasks = await prisma.task.findMany({
     where,
     orderBy: { dueDate: "asc" },
     include: {
-      contact: { select: { id: true, name: true, phone: true } },
+      contact: { select: { id: true, name: true, phone: true, responsavel: true } },
       tipo: { select: { id: true, name: true, color: true, emoji: true } },
     },
   });
@@ -48,7 +53,7 @@ export async function POST(req) {
       responsavel: body.responsavel || null,
     },
     include: {
-      contact: { select: { id: true, name: true, phone: true } },
+      contact: { select: { id: true, name: true, phone: true, responsavel: true } },
       tipo: { select: { id: true, name: true, color: true, emoji: true } },
     },
   });
