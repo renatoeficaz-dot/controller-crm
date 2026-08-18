@@ -103,12 +103,12 @@ function PieChart({ data, title, periodo, onPeriodo }) {
   );
 }
 
-function StatCard({ icon, label, value, color, onEdit }) {
+function StatCard({ icon, label, value, color, onEdit, sub }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 flex items-center gap-3 relative">
       <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}><Icone nome={icon} className="w-5 h-5" /></span>
       <div className="min-w-0">
-        <p className="text-xs text-slate-400 truncate">{label}</p>
+        <p className="text-xs text-slate-400 truncate">{label}{sub && <span className="text-slate-300"> · {sub}</span>}</p>
         <p className="text-lg font-semibold text-slate-800 truncate">{value}</p>
       </div>
       {onEdit && (
@@ -276,6 +276,21 @@ export default function LancamentosView() {
     setDraft(EMPTY_FILTROS);
     setFiltros(EMPTY_FILTROS);
   }
+
+  // Label do período em uso pelos cards de Entradas/Saídas/Saldo do período,
+  // pra deixar claro que eles NÃO são o mesmo escopo do "Saldo atual da conta"
+  // (que é sempre a soma de tudo, desde sempre, em todas as contas).
+  const periodoLabel = useMemo(() => {
+    const fmt = (s) => {
+      if (!s) return "";
+      const [y, m, d] = s.split("-");
+      return `${d}/${m}`;
+    };
+    if (filtros.ini && filtros.fim) return `${fmt(filtros.ini)} a ${fmt(filtros.fim)}`;
+    if (filtros.ini) return `desde ${fmt(filtros.ini)}`;
+    if (filtros.fim) return `até ${fmt(filtros.fim)}`;
+    return "todo o histórico";
+  }, [filtros.ini, filtros.fim]);
 
   // Resumo (sobre o período/filtros já aplicados)
   const resumo = useMemo(() => {
@@ -748,9 +763,9 @@ export default function LancamentosView() {
               color="bg-slate-100"
               onEdit={() => setEditandoSaldo({ novoSaldo: String((saldoAtual?.saldo ?? 0).toFixed(2)), motivo: "" })}
             />
-            <StatCard icon="seta-cima" label="Entradas" value={money(resumo.entradas)} color="bg-emerald-50 text-emerald-600" />
-            <StatCard icon="seta-baixo" label="Saídas" value={money(resumo.saidas)} color="bg-red-50 text-red-600" />
-            <StatCard icon="calendario" label="Saldo do período" value={money(resumo.saldo)} color="bg-sky-50 text-sky-600" />
+            <StatCard icon="seta-cima" label="Entradas" sub={periodoLabel} value={money(resumo.entradas)} color="bg-emerald-50 text-emerald-600" />
+            <StatCard icon="seta-baixo" label="Saídas" sub={periodoLabel} value={money(resumo.saidas)} color="bg-red-50 text-red-600" />
+            <StatCard icon="calendario" label="Saldo do período" sub={periodoLabel} value={money(resumo.saldo)} color="bg-sky-50 text-sky-600" />
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4 md:gap-6">
