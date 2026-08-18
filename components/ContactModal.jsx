@@ -180,7 +180,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [agendamentos, setAgendamentos] = useState([]);
   const [taskTypes, setTaskTypes] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
+  const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00", responsavel: "" });
   const [taskFormErro, setTaskFormErro] = useState("");
   const chatEnd = useRef(null);
   const fileInputRef = useRef(null);
@@ -519,7 +519,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       setTaskFormErro(d.error || "Não foi possível criar a tarefa.");
       return;
     }
-    setTaskForm({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
+    setTaskForm({ title: "", tipoId: "", dueDate: "", dueTime: "09:00", responsavel: "" });
     setShowTaskForm(false);
     loadTasks();
   }
@@ -1021,6 +1021,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
                     ))}
                   </select>
+                  <select
+                    value={taskForm.responsavel}
+                    onChange={(e) => setTaskForm((f) => ({ ...f, responsavel: e.target.value }))}
+                    className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none"
+                  >
+                    <option value="">— Segue o responsável do lead —</option>
+                    {users.map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
+                  </select>
                   <div className="flex gap-1.5">
                     <input
                       type="date"
@@ -1052,6 +1060,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         <span className="text-[9px] font-medium rounded-full px-1.5 py-0.5 text-white shrink-0" style={{ backgroundColor: t.tipo.color }}>
                           {t.tipo.emoji ? `${t.tipo.emoji} ` : ""}{t.tipo.name}
                         </span>
+                      )}
+                      {/* Só mostra quando é diferente do responsável padrão do lead —
+                          senão seria o mesmo selo repetido em toda tarefa da ficha. */}
+                      {t.responsavel && (
+                        <span className="text-[9px] font-medium rounded-full px-1.5 py-0.5 bg-slate-200 text-slate-600 shrink-0">{t.responsavel}</span>
                       )}
                       <button onClick={() => removeTask(t.id)} className="text-red-400 hover:text-red-600 shrink-0">×</button>
                     </li>
