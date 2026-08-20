@@ -10,6 +10,7 @@ export async function register() {
   const { checarResumoDiario, checarAlertasCriticos, checarCapitalOcioso, checarCravoParado } = await import("@/lib/alertas");
   const { estenderRecorrenciasIlimitadas } = await import("@/lib/contasPagar");
   const { escalonarAtrasos } = await import("@/lib/escalonamentoAtraso");
+  const { checarLeadsParados } = await import("@/lib/autoVendaPerdida");
   const { registrarMetaDoDia } = await import("@/lib/metas");
   const { purgarExcluidos, purgarTentativasLogin } = await import("@/lib/purgaExcluidos");
   const { enviarMensagensAgendadas } = await import("@/lib/mensagemAgendada");
@@ -38,6 +39,10 @@ export async function register() {
     // trabalho do cobrador via fila de cobrança/régua.
     enviarPixAdimplentes().catch((err) => console.error("[pixAdimplentes] erro:", err.message));
     checarFollowUp30min().catch((err) => console.error("[followUp30min] erro:", err.message));
+    // Lead parado demais em "Em conversa" (24h) ou "Documentação" (48h) cai
+    // sozinho pra "Venda perdida" — precisa checar a cada 5 min, não 1x/dia,
+    // senão passa o dia inteiro sem ninguém notar que sumiu.
+    checarLeadsParados().catch((err) => console.error("[leadsParados] erro:", err.message));
     checarMensagensSemResposta().catch((err) => console.error("[mensagensSemResposta] erro:", err.message));
     checarResumoDiario().catch((err) => console.error("[resumoDiario] erro:", err.message));
     checarAlertasCriticos().catch((err) => console.error("[alertasCriticos] erro:", err.message));
