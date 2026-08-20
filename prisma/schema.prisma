@@ -41,6 +41,8 @@ model Contact {
   tipoCliente String?
   // CPF do lead — preenchido manualmente ou pela IA ao ler um documento (RG/CNH) recebido.
   cpf         String?
+  // Endereço do lead — preenchido manualmente ou pela IA ao ler um comprovante de residência recebido.
+  endereco    String?
   notes       String?
   order       Int       @default(0)
   stage       Stage     @relation(fields: [stageId], references: [id])

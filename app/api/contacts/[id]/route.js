@@ -78,7 +78,7 @@ export async function PATCH(req, { params }) {
     const body = await lerCorpo(req);
     const data = {};
     for (const f of [
-      "name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf",
+      "name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf", "endereco",
       "pixChave", "pixNomeCompleto",
     ]) {
       // Todos estes são texto no banco. Repassar o valor cru deixava o Prisma

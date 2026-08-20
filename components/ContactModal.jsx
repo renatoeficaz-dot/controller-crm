@@ -169,6 +169,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [cpfCopiado, setCpfCopiado] = useState(false);
   const [pixChaveCopiada, setPixChaveCopiada] = useState(false);
   const [pixNomeCopiado, setPixNomeCopiado] = useState(false);
+  const [enderecoCopiado, setEnderecoCopiado] = useState(false);
+  const [cpfAnaliseCopiado, setCpfAnaliseCopiado] = useState(false);
+  const [telefoneCopiadoId, setTelefoneCopiadoId] = useState(null);
   const [allTags, setAllTags] = useState([]);
   const [contactTags, setContactTags] = useState([]);
   const [numbers, setNumbers] = useState([]);
@@ -232,6 +235,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       genero: data.genero || "",
       tipoCliente: data.tipoCliente || "",
       cpf: data.cpf || "",
+      endereco: data.endereco || "",
       camposCustom: JSON.parse(data.camposCustom || "{}"),
     });
     setMessages(data.messages || []);
@@ -772,6 +776,99 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 ))}
               </select>
             </label>
+
+            {mostraChecklistAnalise && (
+              <div className="border border-slate-200 bg-slate-50/60 rounded-lg p-2.5 space-y-2">
+                <span className="text-xs font-semibold text-slate-600">Dados pra conferência</span>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] text-slate-400">Telefones</span>
+                  {[
+                    { id: "cliente", nome: contact?.name || "Cliente", telefone: form.phone },
+                    ...(contact?.referencias || []).map((r) => ({ id: r.id, nome: r.nome, telefone: r.telefone })),
+                  ]
+                    .filter((t) => t.telefone)
+                    .map((t) => (
+                      <div key={t.id} className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-lg px-2 py-1.5">
+                        <span className="flex-1 min-w-0 truncate">
+                          <span className="text-slate-700">{t.telefone}</span>
+                          <span className="text-slate-400"> — {t.nome}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(t.telefone);
+                              setTelefoneCopiadoId(t.id);
+                              setTimeout(() => setTelefoneCopiadoId(null), 1500);
+                            } catch {}
+                          }}
+                          title="Copiar telefone"
+                          className="shrink-0 flex items-center justify-center text-slate-400 hover:text-emerald-600"
+                        >
+                          <Icone nome={telefoneCopiadoId === t.id ? "check" : "copiar"} className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                </div>
+
+                <label className="block">
+                  <span className="text-[11px] text-slate-400">CPF</span>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={form.cpf || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value.replace(/\D/g, "").slice(0, 11) }))}
+                      className="flex-1 min-w-0 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                    />
+                    {form.cpf && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(form.cpf);
+                            setCpfAnaliseCopiado(true);
+                            setTimeout(() => setCpfAnaliseCopiado(false), 1500);
+                          } catch {}
+                        }}
+                        title="Copiar CPF"
+                        className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300"
+                      >
+                        <Icone nome={cpfAnaliseCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </label>
+
+                <label className="block">
+                  <span className="text-[11px] text-slate-400">Endereço</span>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={form.endereco || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, endereco: e.target.value }))}
+                      className="flex-1 min-w-0 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                    />
+                    {form.endereco && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(form.endereco);
+                            setEnderecoCopiado(true);
+                            setTimeout(() => setEnderecoCopiado(false), 1500);
+                          } catch {}
+                        }}
+                        title="Copiar endereço"
+                        className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300"
+                      >
+                        <Icone nome={enderecoCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </label>
+              </div>
+            )}
 
             {mostraChecklistAnalise && (
               <div className="border border-amber-200 bg-amber-50/50 rounded-lg p-2.5 space-y-1.5">
