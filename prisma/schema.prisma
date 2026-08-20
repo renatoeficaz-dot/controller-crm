@@ -48,6 +48,11 @@ model Contact {
   messages    Message[]
 
   // Financeiro / cobrança
+  // Dados pra liberar o pagamento do empréstimo — só fazem sentido a partir de
+  // "Análise" (quando já se sabe que o capital vai sair), por isso só aparecem
+  // no formulário nessa etapa e em "Liberação pagamento".
+  pixChave         String? // chave Pix de quem recebe a liberação
+  pixNomeCompleto  String? // nome completo do titular da chave Pix
   valorCapital     Float? // valor do empréstimo (base do cálculo dos honorários)
   pagamentoCapital DateTime? // data da entrega do capital; 1ª cobrança = +1 dia
   responsavel      String? // usuário responsável pela lead

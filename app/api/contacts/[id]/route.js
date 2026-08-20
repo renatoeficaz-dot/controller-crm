@@ -60,6 +60,7 @@ export async function PATCH(req, { params }) {
     const data = {};
     for (const f of [
       "name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf",
+      "pixChave", "pixNomeCompleto",
     ]) {
       // Todos estes são texto no banco. Repassar o valor cru deixava o Prisma
       // recusar (e a rota estourar 500) quando vinha número/objeto/array —
