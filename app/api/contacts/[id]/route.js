@@ -6,6 +6,7 @@ import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
 import { valorEmAberto } from "@/lib/finance";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo, texto, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
+import { markMessagesAsRead } from "@/lib/evolution";
 
 // Busca um contato com suas mensagens (conforme permissão de WhatsApp) e parcelas.
 // mediaUrl (base64) fica de fora — mídia é carregada sob demanda via /api/messages/[id]/media.
@@ -42,11 +43,29 @@ export async function GET(_req, { params }) {
     },
   });
   if (!contact) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
-  // Marca as mensagens recebidas como lidas ao abrir o contato
+  // Marca as mensagens recebidas como lidas ao abrir o contato — e, junto,
+  // manda a confirmação de leitura de verdade pro WhatsApp do cliente (double
+  // -check azul), não só no nosso banco.
+  const naoLidas = await prisma.message.findMany({
+    where: { contactId: id, fromMe: false, readAt: null },
+    select: { waMessageId: true, instance: true },
+  });
   await prisma.message.updateMany({
     where: { contactId: id, fromMe: false, readAt: null },
     data: { readAt: new Date() },
   });
+  if (naoLidas.length && contact.phone) {
+    const porInstancia = new Map();
+    for (const m of naoLidas) {
+      if (!m.waMessageId) continue;
+      const chave = m.instance || "";
+      if (!porInstancia.has(chave)) porInstancia.set(chave, []);
+      porInstancia.get(chave).push(m.waMessageId);
+    }
+    for (const [instance, ids] of porInstancia) {
+      markMessagesAsRead(contact.phone, ids, instance || undefined).catch(() => {});
+    }
+  }
   return NextResponse.json(contact);
 }
 
