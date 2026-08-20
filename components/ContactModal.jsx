@@ -225,6 +225,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       pagamentoCapital: toDateInput(data.pagamentoCapital),
       pixChave: data.pixChave || "",
       pixNomeCompleto: data.pixNomeCompleto || "",
+      checklistTelefoneBate: !!data.checklistTelefoneBate,
+      checklistDivergenciaPrint: !!data.checklistDivergenciaPrint,
       responsavel: data.responsavel || "",
       estado: data.estado || "",
       genero: data.genero || "",
@@ -692,6 +694,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // Chave Pix e nome do titular só fazem sentido perto da hora de liberar o
   // capital — antes disso (Novo, Em conversa, Documentação) é ruído no card.
   const mostraDadosPix = ["Análise", "Liberação pagamento"].includes(contact?.stage?.name);
+  // Conferência do lead antes de avançar — só faz sentido enquanto ele ainda
+  // está sendo analisado, por isso some depois que sai de "Análise".
+  const mostraChecklistAnalise = contact?.stage?.name === "Análise";
   const resumo = resumoCobranca(form.valorCapital, honorariosPct);
   // Limite de capital do ciclo atual, quando o escalonamento está ligado.
   const limiteCiclo = escalonamentoCfg ? limiteEscalonado(cicloAtual, escalonamentoCfg) : null;
@@ -767,6 +772,33 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 ))}
               </select>
             </label>
+
+            {mostraChecklistAnalise && (
+              <div className="border border-amber-200 bg-amber-50/50 rounded-lg p-2.5 space-y-1.5">
+                <span className="text-xs font-semibold text-amber-700">Checklist da análise</span>
+                <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!form.checklistTelefoneBate}
+                    onChange={(e) => setForm((f) => ({ ...f, checklistTelefoneBate: e.target.checked }))}
+                    className="mt-0.5"
+                  />
+                  Telefone precisa bater o do cliente ou 2 pelo menos
+                </label>
+                <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!form.checklistDivergenciaPrint}
+                    onChange={(e) => setForm((f) => ({ ...f, checklistDivergenciaPrint: e.target.checked }))}
+                    className="mt-0.5"
+                  />
+                  Divergência de print
+                  {/* A IA marca isso sozinha quando o horário do print não bate com
+                      o horário real de envio (>5min) — nesse caso o lead já foi
+                      movido pra "Venda perdida" por suspeita de fraude. */}
+                </label>
+              </div>
+            )}
 
             <label className="block">
               <span className="text-xs text-slate-400">Observações</span>

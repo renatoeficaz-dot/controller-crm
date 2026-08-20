@@ -6,6 +6,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { podeExecutar } from "@/lib/permissoes";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo, texto } from "@/lib/corpo";
+import { criarTarefaConferirPagamento } from "@/lib/tarefaConferirPagamento";
 
 // Marca uma parcela como paga / pendente.
 // body.amountPago (opcional): valor realmente cobrado — permite ao cobrador
@@ -94,6 +95,7 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Essa parcela já foi baixada por outra pessoa — atualize a tela." }, { status: 409 });
     }
     parcela = await prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { id: true, name: true } } } });
+    await criarTarefaConferirPagamento(parcela.contactId).catch(() => {});
   } else {
     parcela = await prisma.parcela.update({
       where: { id },

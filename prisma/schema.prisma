@@ -116,6 +116,14 @@ model Contact {
   motivoPerda String?
   perdidoEm   DateTime?
 
+  // Checklist de conferência em "Análise" (conferência manual, exceto onde
+  // dito o contrário). checklistDivergenciaPrint também é marcado sozinho
+  // pela IA quando o horário do print destoa em mais de 5min do horário real
+  // de envio (ver detectarHorarioPrint em lib/ia.js) — nesse caso o lead já
+  // vai direto pra "Venda perdida" por suspeita de fraude.
+  checklistTelefoneBate     Boolean @default(false)
+  checklistDivergenciaPrint Boolean @default(false)
+
   // Organização do funil (itens 54/55): fixar no topo da coluna, cor manual.
   fixado  Boolean @default(false)
   corCard String?

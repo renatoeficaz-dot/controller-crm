@@ -6,6 +6,7 @@ import { atualizarScoreDoContato } from "@/lib/atualizarScoreComportamental";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo } from "@/lib/corpo";
+import { criarTarefaConferirPagamento } from "@/lib/tarefaConferirPagamento";
 
 // Baixa PARCIAL (item 93): cliente pagou parte da parcela hoje, o resto continua
 // em aberto. Cada chamada soma ao Parcela.valorPago e gera um lançamento de
@@ -86,6 +87,7 @@ export async function POST(req, { params }) {
   if (completaAgora) {
     await prisma.task.updateMany({ where: { parcelaId: id }, data: { done: true } });
     await atualizarScoreDoContato(parcela.contactId).catch(() => {});
+    await criarTarefaConferirPagamento(parcela.contactId).catch(() => {});
   }
 
   registrarAuditoria({
@@ -135,6 +137,7 @@ export async function POST(req, { params }) {
       });
       if (completaProx) {
         await prisma.task.updateMany({ where: { parcelaId: prox.id }, data: { done: true } });
+        await criarTarefaConferirPagamento(parcela.contactId).catch(() => {});
       }
       registrarAuditoria({
         usuario: user?.name,
