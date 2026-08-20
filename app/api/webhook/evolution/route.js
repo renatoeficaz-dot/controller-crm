@@ -3,6 +3,7 @@ import {
   extractIncomingText,
   detectIncomingMedia,
   extractIncomingLocation,
+  extractIncomingContacts,
   fetchIncomingMediaBase64,
   onlyDigits,
 } from "@/lib/evolution";
@@ -40,6 +41,7 @@ export async function POST(req) {
     text: extractIncomingText(data.message),
     media,
     location: extractIncomingLocation(data.message),
+    contacts: extractIncomingContacts(data.message),
     downloadMedia: media ? () => fetchIncomingMediaBase64(instance, data.key) : null,
     waMessageId: data.key?.id || null,
   });
