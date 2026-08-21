@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { regenerarParcelas, lancarLiberacaoCapital } from "@/lib/cobranca";
-import { sendRecebimentoNotice } from "@/lib/ia";
+import { sendRecebimentoNotice, sendTemplateByTitle } from "@/lib/ia";
+import { resolveInstanceForContact } from "@/lib/evolution";
 import { dentroDoHorarioComercial } from "@/lib/horarioComercial";
 import { limiteEscalonado } from "@/lib/escalonamento";
 import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
@@ -198,7 +199,15 @@ export async function PATCH(req, { params }) {
       await sendRecebimentoNotice(updated).catch(() => {});
       await lancarLiberacaoCapital(updated).catch(() => {});
     }
-  
+
+    // Qualquer lead que vai pra "Venda perdida" por suspeita de fraude (manual
+    // aqui, ou automático em lib/ia.js na detecção de print) recebe a mesma
+    // mensagem pronta "Suspeita de Fraude" (cadastrada em Configurações).
+    if (stage.name === "Venda perdida" && trocandoDeEtapa && motivoPerda === "Suspeita de fraude") {
+      const instance = await resolveInstanceForContact(id);
+      await sendTemplateByTitle("Suspeita de Fraude", updated, instance).catch(() => {});
+    }
+
     return NextResponse.json(updated);
   } catch (err) {
     // Registro do `where` não existe (link velho, dois cliques, id

@@ -126,6 +126,14 @@ model Contact {
   checklistTelefoneBate     Boolean @default(false)
   checklistDivergenciaPrint Boolean @default(false)
 
+  // Agendamento da vídeo chamada com o cobrador (fluxo à parte, não é o
+  // Agente vendas): quando o cliente escreve pro número do cobrador em
+  // Análise/Liberação pagamento, manda a mensagem fixa de agendamento uma
+  // única vez (videoChamadaSolicitadaEm marca isso) e, na resposta seguinte,
+  // extrai o horário escolhido pelo cliente pra criar o lembrete.
+  videoChamadaSolicitadaEm DateTime?
+  videoChamadaHorario      DateTime?
+
   // Organização do funil (itens 54/55): fixar no topo da coluna, cor manual.
   fixado  Boolean @default(false)
   corCard String?
