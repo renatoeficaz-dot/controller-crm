@@ -870,6 +870,67 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </div>
             )}
 
+            {/* Dados pra liberar o pagamento — só em Análise/Liberação pagamento
+                (é quando começa a fazer sentido pedir/conferir esses dados). */}
+            {mostraDadosPix && (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs text-slate-400">Chave Pix</span>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={form.pixChave || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, pixChave: e.target.value }))}
+                      className="flex-1 min-w-0 text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                    />
+                    {form.pixChave && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(form.pixChave);
+                            setPixChaveCopiada(true);
+                            setTimeout(() => setPixChaveCopiada(false), 1500);
+                          } catch {}
+                        }}
+                        title="Copiar chave Pix"
+                        className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
+                      >
+                        <Icone nome={pixChaveCopiada ? "check" : "copiar"} className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </label>
+                <label className="block">
+                  <span className="text-xs text-slate-400">Nome completo (quem recebe)</span>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={form.pixNomeCompleto || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, pixNomeCompleto: e.target.value }))}
+                      className="flex-1 min-w-0 text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                    />
+                    {form.pixNomeCompleto && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(form.pixNomeCompleto);
+                            setPixNomeCopiado(true);
+                            setTimeout(() => setPixNomeCopiado(false), 1500);
+                          } catch {}
+                        }}
+                        title="Copiar nome"
+                        className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
+                      >
+                        <Icone nome={pixNomeCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </label>
+              </div>
+            )}
+
             {mostraChecklistAnalise && (
               <div className="border border-amber-200 bg-amber-50/50 rounded-lg p-2.5 space-y-1.5">
                 <span className="text-xs font-semibold text-amber-700">Checklist da análise</span>
@@ -1271,67 +1332,6 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 />
               </label>
             </div>
-
-            {/* Dados pra liberar o pagamento — só a partir de "Análise" (é quando
-                começa a fazer sentido pedir/conferir esses dados). */}
-            {mostraDadosPix && (
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-xs text-slate-400">Chave Pix</span>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      value={form.pixChave || ""}
-                      onChange={(e) => setForm((f) => ({ ...f, pixChave: e.target.value }))}
-                      className="flex-1 min-w-0 text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-                    />
-                    {form.pixChave && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(form.pixChave);
-                            setPixChaveCopiada(true);
-                            setTimeout(() => setPixChaveCopiada(false), 1500);
-                          } catch {}
-                        }}
-                        title="Copiar chave Pix"
-                        className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
-                      >
-                        <Icone nome={pixChaveCopiada ? "check" : "copiar"} className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </label>
-                <label className="block">
-                  <span className="text-xs text-slate-400">Nome completo (quem recebe)</span>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      value={form.pixNomeCompleto || ""}
-                      onChange={(e) => setForm((f) => ({ ...f, pixNomeCompleto: e.target.value }))}
-                      className="flex-1 min-w-0 text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-                    />
-                    {form.pixNomeCompleto && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(form.pixNomeCompleto);
-                            setPixNomeCopiado(true);
-                            setTimeout(() => setPixNomeCopiado(false), 1500);
-                          } catch {}
-                        }}
-                        title="Copiar nome"
-                        className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
-                      >
-                        <Icone nome={pixNomeCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </label>
-              </div>
-            )}
 
             {/* Seção de cobrança — aparece quando o contato está em "Recebimento" */}
             {isRecebimento && (

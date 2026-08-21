@@ -2994,35 +2994,56 @@ function MetaDiaSemanaConfig() {
 function TiposTarefaConfig() {
   const [tipos, setTipos] = useState([]);
   const [form, setForm] = useState({ name: "", color: "#6366f1", emoji: "" });
+  const [editId, setEditId] = useState(null); // null = criando; id = editando
   const [saving, setSaving] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiPos, setEmojiPos] = useState(null);
+  const editando = editId !== null;
 
   const load = useCallback(async () => {
     setTipos(await fetch("/api/task-types").then((r) => r.json()).catch(() => []));
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  async function create(e) {
+  function iniciarEdicao(t) {
+    setEditId(t.id);
+    setForm({ name: t.name, color: t.color, emoji: t.emoji || "" });
+  }
+  function cancelarEdicao() {
+    setEditId(null);
+    setForm({ name: "", color: "#6366f1", emoji: "" });
+  }
+
+  async function salvar(e) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
-    await fetch("/api/task-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    await fetch(editando ? `/api/task-types/${editId}` : "/api/task-types", {
+      method: editando ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
     setForm({ name: "", color: "#6366f1", emoji: "" });
+    setEditId(null);
     setSaving(false);
     load();
   }
 
   async function remove(id) {
     if (!confirm("Excluir este tipo de tarefa? As tarefas que usam ele ficam sem tipo.")) return;
+    if (id === editId) cancelarEdicao();
     await fetch(`/api/task-types/${id}`, { method: "DELETE" });
     load();
   }
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      <form onSubmit={create} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
-        <SectionHeader icon="tarefa" title="Novo tipo de tarefa" subtitle="Categorias pra organizar as tarefas dos leads (ex.: Ligação, Visita, Cobrança extra)." />
+      <form onSubmit={salvar} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
+        <SectionHeader
+          icon="tarefa"
+          title={editando ? "Editar tipo de tarefa" : "Novo tipo de tarefa"}
+          subtitle="Categorias pra organizar as tarefas dos leads (ex.: Ligação, Visita, Cobrança extra)."
+        />
         <div className="flex gap-2">
           <div className="block shrink-0 w-16 relative">
             <span className="text-xs text-slate-400">Emoji</span>
@@ -3052,22 +3073,34 @@ function TiposTarefaConfig() {
             />
           </label>
         </div>
-        <button disabled={saving} className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50">
-          {saving ? "Salvando…" : "Criar tipo"}
-        </button>
+        <div className="flex gap-2">
+          <button disabled={saving} className="flex-1 bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50">
+            {saving ? "Salvando…" : editando ? "Salvar alterações" : "Criar tipo"}
+          </button>
+          {editando && (
+            <button type="button" onClick={cancelarEdicao} className="px-3 text-sm text-slate-500 hover:text-slate-700">
+              Cancelar
+            </button>
+          )}
+        </div>
       </form>
 
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
         <h2 className="font-medium text-slate-800 mb-3">Tipos cadastrados ({tipos.length})</h2>
         <ul className="divide-y divide-slate-100">
           {tipos.map((t) => (
-            <li key={t.id} className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color }} />
+            <li key={t.id} className={`flex items-center justify-between py-2 ${editId === t.id ? "bg-emerald-50/60 -mx-2 px-2 rounded" : ""}`}>
+              <button
+                type="button"
+                onClick={() => iniciarEdicao(t)}
+                title="Clique para editar"
+                className="flex items-center gap-2 text-left hover:opacity-70"
+              >
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
                 {t.emoji && <span>{t.emoji}</span>}
                 <span className="text-sm text-slate-700">{t.name}</span>
-              </div>
-              <button onClick={() => remove(t.id)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
+              </button>
+              <button onClick={() => remove(t.id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">Excluir</button>
             </li>
           ))}
           {tipos.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhum tipo ainda.</li>}

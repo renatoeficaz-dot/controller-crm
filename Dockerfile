@@ -3,8 +3,11 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 
-# OpenSSL é necessário para o Prisma
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# OpenSSL é necessário para o Prisma. poppler-utils (pdftoppm) converte a 1ª
+# página de um PDF recebido (CNH digital, comprovante, extrato) em imagem, pra
+# poder passar pelo mesmo pipeline de visão que já analisa foto/documento —
+# sem isso, todo PDF recebido era ignorado silenciosamente pela IA.
+RUN apt-get update -y && apt-get install -y openssl poppler-utils && rm -rf /var/lib/apt/lists/*
 
 # Instala dependências (cache eficiente)
 COPY package.json package-lock.json ./
