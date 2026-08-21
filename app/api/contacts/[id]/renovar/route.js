@@ -20,7 +20,13 @@ export async function POST(req, { params }) {
   });
   if (!contact) return NextResponse.json({ error: "Contato não encontrado." }, { status: 404 });
 
-  const parcelasAtuais = contact.parcelas.filter((p) => p.ciclo === contact.cicloAtual);
+  // Parcela renegociada foi SUBSTITUÍDA por um acordo (o valor dela virou as
+  // novas parcelas) — nunca é marcada "paid" ela mesma, então contava como
+  // "em aberto" pra sempre e travava a renovação mesmo com o ciclo já
+  // quitado de verdade. A ficha (ContactModal) já exclui renegociada nesse
+  // mesmo cálculo; aqui não excluía, e por isso os dois lados divergiam:
+  // a tela mostrava tudo pago, mas clicar em "Renovar" dava esse erro.
+  const parcelasAtuais = contact.parcelas.filter((p) => p.ciclo === contact.cicloAtual && !p.renegociada);
   if (parcelasAtuais.length === 0) {
     return NextResponse.json({ error: "Gere as parcelas do ciclo atual primeiro." }, { status: 400 });
   }
