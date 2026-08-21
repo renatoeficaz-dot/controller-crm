@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto, nomeMuitoLongo } from "@/lib/corpo";
 
 export async function PATCH(req, { params }) {
   try {
@@ -10,6 +10,7 @@ export async function PATCH(req, { params }) {
     if ("name" in body) {
       const name = texto(body.name);
       if (!name) return NextResponse.json({ error: "Nome não pode ficar vazio." }, { status: 400 });
+      if (nomeMuitoLongo(name)) return NextResponse.json({ error: "Nome muito longo." }, { status: 400 });
       data.name = name;
     }
     if ("type" in body && ["entrada", "saida"].includes(body.type)) data.type = body.type;

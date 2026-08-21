@@ -16,7 +16,13 @@ export async function PATCH(req) {
   if (!Number.isInteger(diaSemana) || diaSemana < 0 || diaSemana > 6) {
     return NextResponse.json({ error: "diaSemana inválido (0-6)" }, { status: 400 });
   }
-  const num = (v) => (v === "" || v == null ? null : Number(v) || null);
+  // Teto pro mesmo bug de corrupção de linha (Int no schema) já corrigido em
+  // /api/config, /api/users/[id], /api/regras-cobranca e /api/numbers/[id].
+  const num = (v) => {
+    if (v === "" || v == null) return null;
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) ? Math.min(100000, Math.max(0, n)) || null : null;
+  };
   const data = {
     metaVendasMinima: num(body.metaVendasMinima),
     metaVendasMedia: num(body.metaVendasMedia),

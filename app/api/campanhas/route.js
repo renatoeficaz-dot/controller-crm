@@ -30,6 +30,12 @@ export async function POST(req) {
   const body = await lerCorpo(req);
   if (!texto(body.nome)) return NextResponse.json({ error: "Nome é obrigatório." }, { status: 400 });
   if (!body.numeroId) return NextResponse.json({ error: "Escolha o número de destino." }, { status: 400 });
+  if (texto(body.nome).length > 300) return NextResponse.json({ error: "Nome muito longo." }, { status: 400 });
+  // Sem essa checagem, um id de número inexistente (chutado, ou um número
+  // apagado entre o carregamento da tela e o clique) derrubava a rota com 500
+  // — o create() falha com violação de chave estrangeira, e nada tratava isso.
+  const numero = await prisma.whatsappNumber.findUnique({ where: { id: body.numeroId } });
+  if (!numero) return NextResponse.json({ error: "Número não encontrado." }, { status: 404 });
 
   let slug = gerarSlug(body.nome);
   // Colisão é raríssima (sufixo aleatório), mas garante unicidade mesmo assim.

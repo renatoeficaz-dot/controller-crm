@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto, nomeMuitoLongo } from "@/lib/corpo";
 
 export async function PATCH(req, { params }) {
   try {
@@ -10,10 +10,11 @@ export async function PATCH(req, { params }) {
     if ("name" in body) {
       const name = texto(body.name);
       if (!name) return NextResponse.json({ error: "Nome não pode ficar vazio." }, { status: 400 });
+      if (nomeMuitoLongo(name)) return NextResponse.json({ error: "Nome muito longo." }, { status: 400 });
       data.name = name;
     }
-    if ("color" in body) data.color = body.color;
-    if ("emoji" in body) data.emoji = body.emoji || null;
+    if ("color" in body && /^#[0-9a-fA-F]{6}$/.test(body.color || "")) data.color = body.color;
+    if ("emoji" in body) data.emoji = typeof body.emoji === "string" ? body.emoji.slice(0, 8) || null : null;
     const tipo = await prisma.taskType.update({ where: { id }, data });
     return NextResponse.json(tipo);
   } catch (err) {

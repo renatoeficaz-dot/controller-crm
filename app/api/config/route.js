@@ -62,6 +62,14 @@ export async function PATCH(req) {
   // O teto é folgado de propósito — 80% é o valor real de uso, 1000% é só pra
   // barrar o absurdo e o erro de digitação, não pra limitar a operação.
   const pctFinanceiro = (v) => Math.min(1000, Math.max(0, Number(v) || 0));
+  // Campos inteiros (Int no schema) sem teto máximo aceitavam qualquer valor
+  // — um número acima do limite de 32 bits (ex.: 999999999999) não dava erro
+  // na hora, mas CORROMPIA a linha: toda leitura/escrita seguinte de Config
+  // (GET e PATCH, usados o tempo todo pelo app) passava a quebrar com 500,
+  // até alguém consertar direto no banco. Teto bem folgado (nenhum desses
+  // campos é "dias" ou "quantidade" de verdade acima disso), só pra nunca
+  // mais estourar o tipo da coluna.
+  const inteiro = (v, min = 0) => Math.min(1000000, Math.max(min, Math.round(Number(v)) || min));
   if ("honorariosPct" in body) data.honorariosPct = pctFinanceiro(body.honorariosPct);
   if ("multaPct" in body) data.multaPct = pctFinanceiro(body.multaPct);
   if ("pagamentoHoraLimite" in body) data.pagamentoHoraLimite = texto(body.pagamentoHoraLimite) || null;
@@ -80,12 +88,12 @@ export async function PATCH(req) {
   if ("metaPctRecebimentoMinima" in body) data.metaPctRecebimentoMinima = Math.min(100, Math.max(0, Number(body.metaPctRecebimentoMinima) || 0));
   if ("metaPctRecebimentoMedia" in body) data.metaPctRecebimentoMedia = Math.min(100, Math.max(0, Number(body.metaPctRecebimentoMedia) || 0));
   if ("metaPctRecebimento" in body) data.metaPctRecebimento = Math.min(100, Math.max(0, Number(body.metaPctRecebimento) || 0));
-  if ("metaVendasMinima" in body) data.metaVendasMinima = Math.max(0, Number(body.metaVendasMinima) || 0);
-  if ("metaVendasMedia" in body) data.metaVendasMedia = Math.max(0, Number(body.metaVendasMedia) || 0);
-  if ("metaVendasDia" in body) data.metaVendasDia = Math.max(0, Number(body.metaVendasDia) || 0);
+  if ("metaVendasMinima" in body) data.metaVendasMinima = inteiro(body.metaVendasMinima);
+  if ("metaVendasMedia" in body) data.metaVendasMedia = inteiro(body.metaVendasMedia);
+  if ("metaVendasDia" in body) data.metaVendasDia = inteiro(body.metaVendasDia);
   if ("descontoAtivo" in body) data.descontoAtivo = !!body.descontoAtivo;
   if ("descontoPct" in body) data.descontoPct = Math.min(100, Math.max(0, Number(body.descontoPct) || 0));
-  if ("descontoDiasMin" in body) data.descontoDiasMin = Math.max(0, Number(body.descontoDiasMin) || 0);
+  if ("descontoDiasMin" in body) data.descontoDiasMin = inteiro(body.descontoDiasMin);
   if ("descontoMensagem" in body) data.descontoMensagem = texto(body.descontoMensagem) || null;
   if ("alertaWhatsapp" in body) data.alertaWhatsapp = texto(body.alertaWhatsapp).replace(/\D/g, "") || null;
   if ("alertaResumoDiario" in body) data.alertaResumoDiario = !!body.alertaResumoDiario;
@@ -108,12 +116,12 @@ export async function PATCH(req) {
     data.escalonamentoAtrasoDias =
       body.escalonamentoAtrasoDias === null || body.escalonamentoAtrasoDias === ""
         ? null
-        : Math.max(1, Number(body.escalonamentoAtrasoDias) || 1);
+        : inteiro(body.escalonamentoAtrasoDias, 1);
   }
   if ("escalonamentoAtrasoResponsavel" in body) {
     data.escalonamentoAtrasoResponsavel = texto(body.escalonamentoAtrasoResponsavel) || null;
   }
-  if ("capitalOciosoDias" in body) data.capitalOciosoDias = Math.max(0, Number(body.capitalOciosoDias) || 0);
+  if ("capitalOciosoDias" in body) data.capitalOciosoDias = inteiro(body.capitalOciosoDias);
 
   // Metas de valor (R$) — 0 significa "meta desligada", então não há mínimo.
   const rs = (v) => Math.max(0, Number(v) || 0);
@@ -132,10 +140,10 @@ export async function PATCH(req) {
 
   // SLA de 1ª resposta / aviso de acúmulo — null desliga.
   if ("slaPrimeiraRespostaMin" in body) {
-    data.slaPrimeiraRespostaMin = body.slaPrimeiraRespostaMin === null || body.slaPrimeiraRespostaMin === "" ? null : Math.max(1, Number(body.slaPrimeiraRespostaMin) || 1);
+    data.slaPrimeiraRespostaMin = body.slaPrimeiraRespostaMin === null || body.slaPrimeiraRespostaMin === "" ? null : inteiro(body.slaPrimeiraRespostaMin, 1);
   }
   if ("avisoAcumuloLimite" in body) {
-    data.avisoAcumuloLimite = body.avisoAcumuloLimite === null || body.avisoAcumuloLimite === "" ? null : Math.max(1, Number(body.avisoAcumuloLimite) || 1);
+    data.avisoAcumuloLimite = body.avisoAcumuloLimite === null || body.avisoAcumuloLimite === "" ? null : inteiro(body.avisoAcumuloLimite, 1);
   }
 
   // Pix pra gerar Copia-e-Cola/QR das parcelas.

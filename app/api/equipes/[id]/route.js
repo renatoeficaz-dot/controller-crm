@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
+import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto, nomeMuitoLongo } from "@/lib/corpo";
 
 const SELECT = {
   id: true,
@@ -23,11 +23,18 @@ export async function PATCH(req, { params }) {
     if ("nome" in body) {
       const nome = texto(body.nome);
       if (!nome) return NextResponse.json({ error: "Nome não pode ficar vazio." }, { status: 400 });
+      if (nomeMuitoLongo(nome)) return NextResponse.json({ error: "Nome muito longo." }, { status: 400 });
       const outra = await prisma.equipe.findUnique({ where: { nome } });
       if (outra && outra.id !== id) return NextResponse.json({ error: "Já existe uma equipe com esse nome." }, { status: 409 });
       data.nome = nome;
     }
-    const num = (v) => (v === "" || v == null ? null : Number(v) || null);
+    // Teto pro mesmo bug de corrupção de linha (Int no schema) já corrigido em
+    // /api/config, /api/users/[id], /api/regras-cobranca e /api/numbers/[id].
+    const num = (v) => {
+      if (v === "" || v == null) return null;
+      const n = Math.round(Number(v));
+      return Number.isFinite(n) ? Math.min(100000, Math.max(0, n)) || null : null;
+    };
     for (const campo of ["metaVendasMinima", "metaVendasMedia", "metaVendasDia", "metaPctRecebimentoMinima", "metaPctRecebimentoMedia", "metaPctRecebimento"]) {
       if (campo in body) data[campo] = num(body[campo]);
     }

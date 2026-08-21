@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { lerCorpo } from "@/lib/corpo";
-import { getCurrentUser, isAdmin } from "@/lib/session";
+import { getCurrentUser, isAdmin, veTodosLeads } from "@/lib/session";
 
 // Data local de hoje como UTC-midnight (evita drift de fuso nas parcelas)
 function hojeUTC() {
@@ -12,10 +12,29 @@ function hojeUTC() {
 // Ações em massa sobre um conjunto de leads (os que estão no filtro do funil).
 // body: { ids: string[], action: "stage" | "responsavel" | "delete", value?: string }
 export async function POST(req) {
-  const { ids, action, value } = await lerCorpo(req);
+  let { ids, action, value } = await lerCorpo(req);
   if (!Array.isArray(ids) || ids.length === 0) {
     return NextResponse.json({ error: "Nenhuma lead selecionada." }, { status: 400 });
   }
+
+  const user = await getCurrentUser().catch(() => null);
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  // Quem não vê todos os leads não pode mandar aqui um id de lead ALHEIO — a
+  // tela do funil já só mostra os dele, mas a API aceitava qualquer id que o
+  // corpo da requisição mandasse. Restringe aos leads que o usuário realmente
+  // pode ver, do mesmo jeito que a rota de detalhe individual já faz.
+  if (!veTodosLeads(user)) {
+    const meus = await prisma.contact.findMany({
+      where: { id: { in: ids }, responsavel: user.name },
+      select: { id: true },
+    });
+    ids = meus.map((c) => c.id);
+    if (!ids.length) {
+      return NextResponse.json({ error: "Nenhum desses leads é seu." }, { status: 403 });
+    }
+  }
+
   const where = { id: { in: ids } };
 
   if (action === "responsavel") {
@@ -27,7 +46,6 @@ export async function POST(req) {
     // Isto é deleteMany DEFINITIVO — não passa pelo excluidoEm (a exclusão com
     // 24h de desfazer). Sem trava, qualquer usuário logado (vendedor, cobrador)
     // apagava a carteira inteira mandando a lista de ids, sem volta.
-    const user = await getCurrentUser().catch(() => null);
     if (!isAdmin(user)) {
       return NextResponse.json({ error: "Só o administrador pode excluir leads em massa." }, { status: 403 });
     }

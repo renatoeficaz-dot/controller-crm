@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { lerCorpo, texto } from "@/lib/corpo";
+import { lerCorpo, texto, nomeMuitoLongo } from "@/lib/corpo";
 
 export async function GET() {
   const tags = await prisma.tag.findMany({
@@ -15,6 +15,7 @@ export async function POST(req) {
   if (!texto(name)) {
     return NextResponse.json({ error: "Nome da tag é obrigatório." }, { status: 400 });
   }
+  if (nomeMuitoLongo(name)) return NextResponse.json({ error: "Nome muito longo." }, { status: 400 });
   // Só cor hexadecimal: qualquer outro texto era aceito e a etiqueta saía
   // sem cor nenhuma na tela (o navegador ignora o valor inválido no estilo).
   const cor = /^#[0-9a-fA-F]{6}$/.test(color || "") ? color : "#6366f1";

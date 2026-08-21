@@ -26,7 +26,14 @@ const USER_SELECT = {
 
 // Meta individual: campo vazio significa "usa a meta global" — por isso null,
 // e não 0 (que seria uma meta de zero vendas).
-const metaOuNull = (v) => (v === "" || v == null ? null : Number(v) || null);
+// Teto pro mesmo bug de corrupção de linha (Int no schema) já corrigido em
+// /api/config, /api/users/[id], /api/regras-cobranca, /api/numbers/[id] e
+// /api/equipes/[id].
+const metaOuNull = (v) => {
+  if (v === "" || v == null) return null;
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.min(1000000, Math.max(0, n)) || null : null;
+};
 
 // Campos que só o admin pode ver. `login` é metade da credencial: a tela de
 // login gasta bcrypt de propósito pra não revelar quais logins existem, e essa

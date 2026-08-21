@@ -22,7 +22,15 @@ export async function PATCH(req, { params }) {
       // não dá pra saber em que degrau da escada o número está.
       if (body.aquecimentoAtivo) data.aquecimentoDesde = new Date();
     }
-    if ("limiteEnviosHora" in body) data.limiteEnviosHora = body.limiteEnviosHora === "" || body.limiteEnviosHora == null ? null : Number(body.limiteEnviosHora) || null;
+    if ("limiteEnviosHora" in body) {
+      // Teto pro mesmo bug de corrupção de linha (Int no schema) já corrigido
+      // em /api/config, /api/users/[id] e /api/regras-cobranca.
+      const n = Math.round(Number(body.limiteEnviosHora));
+      data.limiteEnviosHora =
+        body.limiteEnviosHora === "" || body.limiteEnviosHora == null || !Number.isFinite(n)
+          ? null
+          : Math.min(100000, Math.max(0, n)) || null;
+    }
     if ("proxyServer" in body) data.proxyServer = texto(body.proxyServer) || null;
     if ("proxyUsername" in body) data.proxyUsername = texto(body.proxyUsername) || null;
     if ("proxyPassword" in body) data.proxyPassword = texto(body.proxyPassword) || null;

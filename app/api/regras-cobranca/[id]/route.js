@@ -7,11 +7,17 @@ export async function PATCH(req, { params }) {
     const { id } = await params;
     const body = await lerCorpo(req);
     const data = {};
-    if ("diasMin" in body) data.diasMin = Number(body.diasMin);
-    if ("diasMax" in body) data.diasMax = body.diasMax === "" || body.diasMax == null ? null : Number(body.diasMax);
+    // Mesmo teto do POST — sem ele, valor fora da faixa de 32 bits corrompe a
+    // linha (Int no schema).
+    const clamp = (v) => {
+      const n = Math.round(Number(v));
+      return Number.isFinite(n) ? Math.min(100000, Math.max(-100000, n)) : 0;
+    };
+    if ("diasMin" in body) data.diasMin = clamp(body.diasMin);
+    if ("diasMax" in body) data.diasMax = body.diasMax === "" || body.diasMax == null ? null : clamp(body.diasMax);
     if ("mensagem" in body) data.mensagem = texto(body.mensagem);
     if ("ativa" in body) data.ativa = !!body.ativa;
-    if ("ordem" in body) data.ordem = Number(body.ordem);
+    if ("ordem" in body) data.ordem = clamp(body.ordem);
     if ("canalSugerido" in body) data.canalSugerido = body.canalSugerido || null;
     const regra = await prisma.regraCobranca.update({ where: { id }, data });
     return NextResponse.json(regra);

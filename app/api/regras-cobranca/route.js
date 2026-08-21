@@ -14,18 +14,25 @@ export async function POST(req) {
   }
   // Faixa invertida (mín. 30 e máx. 1) era aceita e nunca casava com atraso
   // nenhum: a régua ficava com uma faixa morta, sem ninguém perceber.
-  const dMin = Number(body.diasMin ?? 0);
-  const dMax = body.diasMax === "" || body.diasMax == null ? null : Number(body.diasMax);
+  // Teto nos números (Int no schema): sem ele, um valor fora da faixa de 32
+  // bits corrompia a LINHA (mesmo bug já corrigido em /api/config e
+  // /api/users/[id] — toda leitura seguinte dessa regra quebrava com 500).
+  const clamp = (v, def) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) ? Math.min(100000, Math.max(-100000, n)) : def;
+  };
+  const dMin = clamp(body.diasMin, 0);
+  const dMax = body.diasMax === "" || body.diasMax == null ? null : clamp(body.diasMax, null);
   if (dMax != null && dMax < dMin) {
     return NextResponse.json({ error: "O dia máximo não pode ser menor que o mínimo." }, { status: 400 });
   }
   const regra = await prisma.regraCobranca.create({
     data: {
-      diasMin: Number(body.diasMin ?? 0),
-      diasMax: body.diasMax === "" || body.diasMax == null ? null : Number(body.diasMax),
+      diasMin: dMin,
+      diasMax: dMax,
       mensagem: body.mensagem.trim(),
       ativa: body.ativa !== false,
-      ordem: Number(body.ordem ?? 0),
+      ordem: clamp(body.ordem, 0),
     },
   });
   return NextResponse.json(regra);

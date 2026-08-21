@@ -59,7 +59,15 @@ export async function PATCH(req, { params }) {
     }
   
     // Meta individual: vazio = null = usa a meta global (não é meta de zero).
-    const metaOuNull = (v) => (v === "" || v == null ? null : Number(v) || null);
+    // Sem teto, um valor fora da faixa de 32 bits (Int no schema) não dava erro
+    // amigável — corrompia a LINHA DESSE USUÁRIO: toda leitura/escrita dele
+    // (login incluído, se o campo entrar na sessão) passava a quebrar com 500,
+    // mesmo bug já visto e corrigido em /api/config.
+    const metaOuNull = (v) => {
+      if (v === "" || v == null) return null;
+      const n = Math.round(Number(v));
+      return Number.isFinite(n) ? Math.min(1000000, Math.max(0, n)) || null : null;
+    };
     for (const campo of ["metaVendasMinimaPropria", "metaVendasMediaPropria", "metaVendasDiaPropria"]) {
       if (campo in body) data[campo] = metaOuNull(body[campo]);
     }
