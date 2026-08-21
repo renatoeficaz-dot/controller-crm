@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import ContactModal from "./ContactModal";
 import MetasMini from "./MetasMini";
-import SimuladorModal from "./SimuladorModal";
 import ConsultaCpfModal from "./ConsultaCpfModal";
 import Icone from "@/components/Icones";
 import CampanhaMassaModal from "./CampanhaMassaModal";
@@ -166,7 +165,6 @@ export default function KanbanBoard() {
   const [tipoClienteFiltro, setTipoClienteFiltro] = useState(""); // "" = todos; "motoboy" | "uber" | "comerciante"
   const [renovacaoFiltro, setRenovacaoFiltro] = useState(""); // "" = todos; "sim" = cicloAtual > 1; "nao" = 1º ciclo
   const [filtrosAbertos, setFiltrosAbertos] = useState(false); // modal com todos os filtros
-  const [simuladorAberto, setSimuladorAberto] = useState(false);
   const [consultaCpfAberta, setConsultaCpfAberta] = useState(false);
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
   const [etapaFiltro, setEtapaFiltro] = useState([]); // stageIds selecionados; vazio = todas as colunas
@@ -489,13 +487,6 @@ export default function KanbanBoard() {
               {filtrosAtivosCount}
             </span>
           )}
-        </button>
-
-        <button
-          onClick={() => setSimuladorAberto(true)}
-          className="flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors shrink-0"
-        >
-          <Icone nome="calculadora" className="w-3.5 h-3.5" /> Simular
         </button>
 
         <button
@@ -1135,7 +1126,6 @@ export default function KanbanBoard() {
         Total de contatos: <span className="font-medium text-slate-700 ml-1">{totalContatos}</span>
       </div>
 
-      {simuladorAberto && <SimuladorModal onClose={() => setSimuladorAberto(false)} />}
 
       {/* Motivo estruturado ao mover pra "Venda perdida" (item 13) — o backend
           recusa a mudança de etapa sem isso, então precisa desse passo. */}
