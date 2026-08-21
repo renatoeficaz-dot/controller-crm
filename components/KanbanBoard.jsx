@@ -71,6 +71,21 @@ function valorAReceber(contact) {
     .reduce((sum, p) => sum + Math.max(0, p.amount - (p.valorPago || 0)), 0);
 }
 
+// Quantos dias a parcela mais atrasada do ciclo atual está vencida (0 se
+// nenhuma estiver atrasada) — usado pra ordenar "mais tempo inadimplente".
+function diasInadimplente(contact) {
+  const ciclo = contact.cicloAtual || 1;
+  const parcelas = (contact.parcelas || []).filter((p) => (p.ciclo || 1) === ciclo && !p.renegociada && !p.paid);
+  if (!parcelas.length) return 0;
+  const hoje = new Date(todayStr() + "T00:00:00.000Z");
+  let maxDias = 0;
+  for (const p of parcelas) {
+    const dias = Math.floor((hoje - new Date(p.dueDate)) / 86400000);
+    if (dias > maxDias) maxDias = dias;
+  }
+  return maxDias;
+}
+
 // Situação de cobrança do contato:
 //  "atrasado" = tem parcela vencida e não baixada
 //  "hoje"     = tem parcela que vence hoje e não baixada
@@ -791,6 +806,7 @@ export default function KanbanBoard() {
                 >
                   <option value="recentes">Mais recentes</option>
                   <option value="antigas">Mais antigas</option>
+                  <option value="inadimplencia">Mais tempo inadimplente</option>
                 </select>
               </label>
             </div>
@@ -803,6 +819,7 @@ export default function KanbanBoard() {
           {stages.map((stage) => {
             const isOver = overStage === stage.id;
             const visiveis = stage.contacts.filter(passaFiltro).sort((a, b) => {
+              if (ordem === "inadimplencia") return diasInadimplente(b) - diasInadimplente(a);
               const da = new Date(a.lastMessageAt || 0);
               const db = new Date(b.lastMessageAt || 0);
               return ordem === "recentes" ? db - da : da - db;
