@@ -35,6 +35,34 @@ setInterval(() => {
   }
 }, 5 * 60_000);
 
+// Webhook fica de fora do rate limit acima (não pode travar entrega real de
+// mensagem), mas isso o deixava com custo ZERO de abusar — cada mensagem
+// processada aqui dispara vários modelos de IA pagos (visão + texto) e pode
+// converter PDF (processo próprio), então uma enxurrada de POSTs falsos
+// custava dinheiro de verdade e derrubava a VPS de 2GB. Limite bem mais alto
+// que o normal (não é usuário real, é o relay da Evolution/WAHA — todo o
+// tráfego legítimo passa pelo MESMO IP do provedor), só pra segurar um
+// abuso/loop de verdade sem arriscar barrar mensagem legítima.
+const JANELA_WEBHOOK_MS = 60_000;
+const LIMITE_WEBHOOK_POR_JANELA = 1000;
+const contadorWebhookPorIp = new Map();
+function acimaDoLimiteWebhook(ip) {
+  const agora = Date.now();
+  const entrada = contadorWebhookPorIp.get(ip);
+  if (!entrada || agora - entrada.inicio > JANELA_WEBHOOK_MS) {
+    contadorWebhookPorIp.set(ip, { inicio: agora, contagem: 1 });
+    return false;
+  }
+  entrada.contagem += 1;
+  return entrada.contagem > LIMITE_WEBHOOK_POR_JANELA;
+}
+setInterval(() => {
+  const agora = Date.now();
+  for (const [ip, entrada] of contadorWebhookPorIp) {
+    if (agora - entrada.inicio > JANELA_WEBHOOK_MS) contadorWebhookPorIp.delete(ip);
+  }
+}, 5 * 60_000);
+
 // IP real do cliente, pro rate limit não ser contornável.
 //
 // Pegar `x-forwarded-for.split(",")[0]` (o PRIMEIRO da cadeia) parece certo mas
@@ -90,7 +118,12 @@ setInterval(() => {
 export async function middleware(req) {
   const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/webhook")) {
+  if (pathname.startsWith("/api/webhook")) {
+    const ip = ipDoCliente(req);
+    if (acimaDoLimiteWebhook(ip)) {
+      return NextResponse.json({ error: "Muitas requisições." }, { status: 429 });
+    }
+  } else if (pathname.startsWith("/api/")) {
     const ip = ipDoCliente(req);
     if (acimaDoLimite(ip)) {
       return NextResponse.json({ error: "Muitas requisições. Tente novamente em instantes." }, { status: 429 });

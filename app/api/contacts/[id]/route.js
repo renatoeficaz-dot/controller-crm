@@ -116,6 +116,17 @@ export async function PATCH(req, { params }) {
     if (data.camposCustom && data.camposCustom.length > 50000) {
       return NextResponse.json({ error: "Campos personalizados excedem o tamanho permitido." }, { status: 400 });
     }
+    // Mesmo teto dos campos acima — endereço/Pix são preenchidos tanto pelo
+    // usuário quanto pela IA (lendo documento), então herdam o mesmo risco.
+    if (data.endereco && data.endereco.length > 2000) {
+      return NextResponse.json({ error: "Endereço muito longo." }, { status: 400 });
+    }
+    if (data.pixChave && data.pixChave.length > 500) {
+      return NextResponse.json({ error: "Chave Pix muito longa." }, { status: 400 });
+    }
+    if (data.pixNomeCompleto && data.pixNomeCompleto.length > 500) {
+      return NextResponse.json({ error: "Nome muito longo." }, { status: 400 });
+    }
   
     // Item 191: guarda quem era o responsável antes de trocar — sem isso a
     // troca fica muda, ninguém consegue ver depois quem cuidava do lead antes.

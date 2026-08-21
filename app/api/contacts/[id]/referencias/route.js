@@ -27,6 +27,9 @@ export async function POST(req, { params }) {
   if (!nome || !telefoneRaw) {
     return NextResponse.json({ error: "Preencha nome e telefone." }, { status: 400 });
   }
+  if (nome.length > 200) {
+    return NextResponse.json({ error: "Nome muito longo." }, { status: 400 });
+  }
   const telefone = normalizeBrPhone(telefoneRaw) || telefoneRaw.replace(/\D/g, "");
   const contact = await prisma.contact.findUnique({ where: { id }, select: { id: true } });
   if (!contact) return NextResponse.json({ error: "Lead não encontrado." }, { status: 404 });
