@@ -914,7 +914,7 @@ export default function KanbanBoard() {
                         }}
                         onClick={() => setOpenId(c.id)}
                         title={semTarefa ? "Lead em Recebimento sem nenhuma tarefa cadastrada" : undefined}
-                        className={`group relative rounded-lg border p-3 cursor-pointer hover:shadow-sm transition-all active:cursor-grabbing ${style} ${
+                        className={`group relative rounded-lg border p-3 cursor-grab hover:shadow-sm transition-all active:cursor-grabbing ${style} ${
                           semTarefa ? "ring-2 ring-red-600" : ""
                         }`}
                         style={c.corCard ? { borderLeftWidth: 4, borderLeftColor: c.corCard } : undefined}
