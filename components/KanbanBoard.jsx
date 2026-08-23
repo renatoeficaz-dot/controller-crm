@@ -184,6 +184,8 @@ export default function KanbanBoard() {
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
   const [etapaFiltro, setEtapaFiltro] = useState([]); // stageIds selecionados; vazio = todas as colunas
   const [tempoFiltro, setTempoFiltro] = useState(""); // "" = todos; "3" | "7" | "15" | "30" = pelo menos N dias parado na etapa
+  const [criadoDeFiltro, setCriadoDeFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = lead criado a partir dessa data
+  const [criadoAteFiltro, setCriadoAteFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = lead criado até essa data
   const [bulkAction, setBulkAction] = useState(""); // "", stage, responsavel, unit, delete
   const [bulkValue, setBulkValue] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -369,6 +371,13 @@ export default function KanbanBoard() {
     if (renovacaoFiltro === "nao" && (c.cicloAtual || 1) > 1) return false;
     if (tarefaFiltro && statusTarefas(c) !== tarefaFiltro) return false;
     if (tempoFiltro && diasNaEtapa(c) < Number(tempoFiltro)) return false;
+    if (c.createdAt) {
+      const criado = new Date(c.createdAt).toLocaleDateString("en-CA"); // AAAA-MM-DD local
+      if (criadoDeFiltro && criado < criadoDeFiltro) return false;
+      if (criadoAteFiltro && criado > criadoAteFiltro) return false;
+    } else if (criadoDeFiltro || criadoAteFiltro) {
+      return false;
+    }
     if (busca.trim()) {
       const termo = busca.trim().toLowerCase();
       const nomeBate = (c.name || "").toLowerCase().includes(termo);
@@ -469,7 +478,9 @@ export default function KanbanBoard() {
     (renovacaoFiltro ? 1 : 0) +
     (tarefaFiltro ? 1 : 0) +
     etapaFiltro.length +
-    (tempoFiltro ? 1 : 0);
+    (tempoFiltro ? 1 : 0) +
+    (criadoDeFiltro ? 1 : 0) +
+    (criadoAteFiltro ? 1 : 0);
 
   return (
     <>
@@ -599,6 +610,7 @@ export default function KanbanBoard() {
                       setFiltros([]); setRespFiltro(""); setTagFiltro(""); setEstadoFiltro("");
                       setGeneroFiltro(""); setTipoClienteFiltro(""); setRenovacaoFiltro(""); setTarefaFiltro("");
                       setEtapaFiltro([]); setTempoFiltro("");
+                      setCriadoDeFiltro(""); setCriadoAteFiltro("");
                     }}
                     className="text-xs text-red-400 hover:text-red-600"
                   >
@@ -730,6 +742,24 @@ export default function KanbanBoard() {
                   <option value="nao">1º empréstimo</option>
                 </select>
               </label>
+
+              <div>
+                <span className="text-xs text-slate-400">Data de criação</span>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <input
+                    type="date"
+                    value={criadoDeFiltro}
+                    onChange={(e) => setCriadoDeFiltro(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  />
+                  <input
+                    type="date"
+                    value={criadoAteFiltro}
+                    onChange={(e) => setCriadoAteFiltro(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  />
+                </div>
+              </div>
 
               <label className="block">
                 <span className="text-xs text-slate-400">Tarefas</span>
