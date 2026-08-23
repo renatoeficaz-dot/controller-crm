@@ -22,6 +22,21 @@ function initials(name) {
 function todayStr() {
   return new Date().toLocaleDateString("en-CA");
 }
+function ontemStr() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString("en-CA");
+}
+function inicioSemanaStr() {
+  const d = new Date();
+  const dow = (d.getDay() + 6) % 7; // 0 = segunda
+  d.setDate(d.getDate() - dow);
+  return d.toLocaleDateString("en-CA");
+}
+function inicioMesStr() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString("en-CA");
+}
 
 const CORES_CARD = ["", "#fca5a5", "#fcd34d", "#86efac", "#93c5fd", "#d8b4fe"];
 
@@ -758,6 +773,36 @@ export default function KanbanBoard() {
                     onChange={(e) => setCriadoAteFiltro(e.target.value)}
                     className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
                   />
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { setCriadoDeFiltro(todayStr()); setCriadoAteFiltro(todayStr()); }}
+                    className="text-xs rounded-full px-3 py-1 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors"
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCriadoDeFiltro(ontemStr()); setCriadoAteFiltro(ontemStr()); }}
+                    className="text-xs rounded-full px-3 py-1 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors"
+                  >
+                    Ontem
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCriadoDeFiltro(inicioSemanaStr()); setCriadoAteFiltro(todayStr()); }}
+                    className="text-xs rounded-full px-3 py-1 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors"
+                  >
+                    Esta semana
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCriadoDeFiltro(inicioMesStr()); setCriadoAteFiltro(todayStr()); }}
+                    className="text-xs rounded-full px-3 py-1 border bg-white text-slate-600 border-slate-200 hover:border-slate-300 transition-colors"
+                  >
+                    Este mês
+                  </button>
                 </div>
               </div>
 
