@@ -13,6 +13,12 @@ const fmtData = (v) => new Date(diaStr(v) + "T00:00:00").toLocaleDateString("pt-
 const EMPTY = {
   descricao: "", valor: "", vencimento: hojeStr(), categoriaId: "", bancoId: "",
   observacao: "", recorrente: false, tipoRecorrencia: "meses", recorrenciaMeses: "12",
+  frequencia: "mensal",
+};
+
+const FREQUENCIA_LABEL = {
+  diaria: "Diária", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal",
+  bimestral: "Bimestral", trimestral: "Trimestral", semestral: "Semestral", anual: "Anual",
 };
 
 export default function ContasPagarView() {
@@ -214,7 +220,7 @@ export default function ContasPagarView() {
 
           <div className="sm:col-span-2 bg-slate-50 rounded-xl p-3.5">
             <label className="flex items-center justify-between gap-2">
-              <span className="text-sm text-slate-600">Repetir todo mês</span>
+              <span className="text-sm text-slate-600">Repetir</span>
               <button
                 type="button"
                 onClick={() => setForm((f) => ({ ...f, recorrente: !f.recorrente }))}
@@ -226,9 +232,21 @@ export default function ContasPagarView() {
 
             {form.recorrente && (
               <div className="mt-3 space-y-2">
+                <label className="block">
+                  <span className="text-xs text-slate-400">Frequência</span>
+                  <select
+                    value={form.frequencia}
+                    onChange={(e) => setForm((f) => ({ ...f, frequencia: e.target.value }))}
+                    className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+                  >
+                    {Object.entries(FREQUENCIA_LABEL).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                </label>
                 <div className="flex gap-1.5">
                   {[
-                    { key: "meses", label: "Por X meses" },
+                    { key: "meses", label: "Por X vezes" },
                     { key: "ilimitada", label: "Ilimitada" },
                   ].map((o) => (
                     <button
@@ -296,7 +314,9 @@ export default function ContasPagarView() {
                       <span className={`text-[10px] rounded-full px-2 py-0.5 ${s.cor}`}>{s.label}</span>
                       {(c.recorrente || c.origemId) && (
                         <span className="flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 bg-sky-50 text-sky-600" title="Faz parte de uma recorrência">
-                          <Icone nome="repetir" className="w-2.5 h-2.5" /> {c.recorrente && c.recorrenciaMeses == null ? "ilimitada" : "recorrente"}
+                          <Icone nome="repetir" className="w-2.5 h-2.5" />
+                          {c.recorrente && c.recorrenciaMeses == null ? "ilimitada" : "recorrente"}
+                          {c.frequencia && c.frequencia !== "mensal" && ` · ${FREQUENCIA_LABEL[c.frequencia] || c.frequencia}`}
                         </span>
                       )}
                     </div>

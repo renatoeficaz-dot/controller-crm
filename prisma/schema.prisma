@@ -992,7 +992,14 @@ model ContaPagar {
   // caso o job diário vai criando as próximas conforme o tempo passa, em vez
   // de gerar infinitas linhas de uma vez.
   recorrente       Boolean      @default(false)
+  // Apesar do nome (histórico — só existia "mensal" antes), esse campo hoje
+  // é "quantidade de ocorrências no total" pra QUALQUER frequência; null =
+  // ilimitada. A unidade de tempo entre uma ocorrência e a próxima é quem
+  // decide: o campo `frequencia` abaixo.
   recorrenciaMeses Int?
+  // "diaria" | "semanal" | "quinzenal" | "mensal" | "bimestral" | "trimestral"
+  // | "semestral" | "anual" — default "mensal" cobre as contas já existentes.
+  frequencia       String       @default("mensal")
   origem           ContaPagar?  @relation("Recorrencia", fields: [origemId], references: [id], onDelete: Cascade)
   origemId         String?
   ocorrencias      ContaPagar[] @relation("Recorrencia")

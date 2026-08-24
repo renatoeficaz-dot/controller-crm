@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { criarContaPagar } from "@/lib/contasPagar";
+import { criarContaPagar, FREQUENCIAS } from "@/lib/contasPagar";
 import { lerCorpo, texto } from "@/lib/corpo";
 
 export async function GET(req) {
@@ -50,8 +50,9 @@ export async function POST(req) {
   // "ilimitada" chega como recorrenciaMeses vazio/null com recorrente = true.
   const meses = body.recorrenciaMeses === "" || body.recorrenciaMeses == null ? null : Number(body.recorrenciaMeses);
   if (body.recorrente && meses != null && (meses < 2 || meses > 120)) {
-    return NextResponse.json({ error: "A repetição deve ser de 2 a 120 meses (ou ilimitada)." }, { status: 400 });
+    return NextResponse.json({ error: "A repetição deve ser de 2 a 120 vezes (ou ilimitada)." }, { status: 400 });
   }
+  const frequencia = FREQUENCIAS.includes(body.frequencia) ? body.frequencia : "mensal";
 
   const conta = await criarContaPagar({
     descricao: body.descricao.trim(),
@@ -62,6 +63,7 @@ export async function POST(req) {
     observacao: body.observacao,
     recorrente: !!body.recorrente,
     recorrenciaMeses: meses,
+    frequencia,
   });
 
   return NextResponse.json(conta);
