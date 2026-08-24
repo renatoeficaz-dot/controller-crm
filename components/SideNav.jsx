@@ -35,15 +35,17 @@ export default function SideNav() {
 
   // Selo de não lidas no ícone do Chat (item 90) — atualiza a cada 20s, leve
   // o bastante pra não pesar em background.
+  const rotaPublica = pathname === "/login" || pathname.startsWith("/v/") || pathname.startsWith("/f/") || pathname.startsWith("/l/");
+
   useEffect(() => {
-    if (pathname === "/login") return;
+    if (rotaPublica) return;
     const carregar = () => fetch("/api/chat/nao-lidas").then((r) => r.json()).then((d) => setNaoLidas(d.total || 0)).catch(() => {});
     carregar();
     const t = setInterval(carregar, 20000);
     return () => clearInterval(t);
   }, [pathname]);
 
-  if (pathname === "/login") return null;
+  if (rotaPublica) return null;
 
   const isAdmin = user?.role === "admin";
   const paginasPermitidas = isAdmin || !user?.paginasVisiveis

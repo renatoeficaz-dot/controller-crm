@@ -104,13 +104,26 @@ export default function VideoChamadaCall({ sessaoId, onClose }) {
 
   async function entrarNaChamada() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      // Pede os dois juntos primeiro; se só um dos dois estiver bloqueado
+      // (ex.: microfone negado, câmera liberada), pedir junto rejeita tudo —
+      // cair pra só vídeo (ou só áudio) evita travar a chamada por causa de
+      // uma permissão só.
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      } catch {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+        }
+      }
       streamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       const pc = criarPeerConnection();
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
     } catch {
-      setErro("Não foi possível acessar câmera/microfone. Confirme a permissão do navegador.");
+      setErro("Não foi possível acessar câmera nem microfone. Confirme a permissão desse site nas configurações do navegador.");
       setStatus("erro");
       return;
     }
@@ -195,6 +208,9 @@ export default function VideoChamadaCall({ sessaoId, onClose }) {
           {status === "erro" && (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
               <p className="text-red-400 text-sm">{erro}</p>
+              <button onClick={entrarNaChamada} className="bg-emerald-500 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-emerald-600">
+                Tentar de novo
+              </button>
               <button onClick={onClose} className="text-slate-300 text-sm underline">Fechar</button>
             </div>
           )}

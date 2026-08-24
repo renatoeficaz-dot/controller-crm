@@ -31,7 +31,7 @@ export default function TopNav() {
 
   useEffect(() => { setMenuOpen(false); }, [pathname]);
 
-  if (pathname === "/login") return null;
+  if (pathname === "/login" || pathname.startsWith("/v/") || pathname.startsWith("/f/") || pathname.startsWith("/l/")) return null;
 
   const isAdmin = user?.role === "admin";
   const paginasPermitidas = isAdmin || !user?.paginasVisiveis

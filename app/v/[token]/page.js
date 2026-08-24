@@ -97,6 +97,13 @@ export default function VideoChamadaPublica({ params }) {
       setStatusCaptura("Abrindo a câmera da frente…");
       const fotoFrenteBase64 = await tirarFoto("user");
 
+      // tirarFoto() nunca rejeita (engole o erro e devolve null) — sem essa
+      // checagem, negar a câmera nas duas fotos passava direto pro "Tudo
+      // certo!" sem nunca ter capturado nada, e o cliente nem ficava sabendo.
+      if (!fotoTrasBase64 && !fotoFrenteBase64) {
+        throw new Error("sem_camera");
+      }
+
       setStatusCaptura("Pegando sua localização…");
       const loc = await pegarLocalizacao();
 
@@ -114,7 +121,7 @@ export default function VideoChamadaPublica({ params }) {
       });
       setPasso("pronto");
     } catch {
-      setErro("Não foi possível concluir a verificação. Confirme que deu permissão pra câmera e localização, e tente de novo.");
+      setErro("Não foi possível acessar a câmera. Confirme a permissão de câmera pra esse site nas configurações do navegador e tente de novo.");
       setPasso("erro-captura");
     } finally {
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -187,14 +194,28 @@ export default function VideoChamadaPublica({ params }) {
     if (!res.ok) { setErro(d.error || "Não foi possível entrar na chamada."); return; }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      // Pede câmera+microfone juntos primeiro; se o navegador negar por causa
+      // só de UM dos dois (ex.: microfone bloqueado nas configurações do
+      // site, câmera liberada), pedir os dois juntos rejeita tudo — cair pra
+      // só vídeo (ou só áudio) deixa a chamada acontecer mesmo assim, em vez
+      // de travar o cliente inteiro por causa de uma permissão só.
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      } catch {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+        }
+      }
       streamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       const pc = criarPeerConnection();
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
     } catch {
-      setErro("Não foi possível acessar câmera/microfone. Confirme a permissão e tente de novo.");
-      setPasso("erro-captura");
+      setErro("Não foi possível acessar câmera nem microfone pra vídeo chamada. Confirme a permissão desse site nas configurações do navegador e tente de novo.");
+      setPasso("erro-chamada");
       return;
     }
 
@@ -302,6 +323,15 @@ export default function VideoChamadaPublica({ params }) {
       <Centro>
         <p style={{ color: "#dc2626", marginBottom: 16 }}>{erro}</p>
         <button onClick={() => { setPasso("capturando"); iniciarCaptura(); }} style={botaoPrimario}>Tentar de novo</button>
+      </Centro>
+    );
+  }
+
+  if (passo === "erro-chamada") {
+    return (
+      <Centro>
+        <p style={{ color: "#dc2626", marginBottom: 16 }}>{erro}</p>
+        <button onClick={() => { setPasso("pronto"); entrarNaSala(); }} style={botaoPrimario}>Tentar de novo</button>
       </Centro>
     );
   }
