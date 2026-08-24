@@ -163,6 +163,9 @@ export default function Icone({ nome, className = "w-4 h-4" }) {
     case "parar":
       return <svg {...p}><rect x="6" y="6" width="12" height="12" rx="1.5" /></svg>;
 
+    case "video": // câmera de vídeo (botão de vídeo chamada)
+      return <svg {...p}><rect x="3" y="6" width="12" height="12" rx="2" /><path d="m15 10 6-3.5v11L15 14z" /></svg>;
+
     case "imagem":
       return (
         <svg {...p}>

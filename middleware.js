@@ -7,7 +7,10 @@ import { SESSION_COOKIE, verifySession } from "@/lib/auth";
 // formulário de pré-cadastro que ele pode abrir — os dois são o lead
 // preenchendo, não um usuário do CRM. Precisa da barra no fim pra não bater
 // com "/lancamentos" (que É protegida).
-const PUBLIC_PREFIXES = ["/api/auth/login", "/api/auth/logout", "/api/webhook", "/login", "/l/", "/f/", "/api/formulario"];
+// /v/ é a página pública de vídeo chamada (consentimento + captura antes da
+// sala) — o cliente abre pelo link do WhatsApp, sem login. A "senha" da URL
+// é o token longo, não uma sessão.
+const PUBLIC_PREFIXES = ["/api/auth/login", "/api/auth/logout", "/api/webhook", "/login", "/l/", "/f/", "/api/formulario", "/v/", "/api/video-chamada"];
 
 // Rate limit genérico por IP em toda /api/*: nenhuma rota (fora o login, que já
 // tem o próprio limite) tinha teto nenhum — um script com token de sessão

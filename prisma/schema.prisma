@@ -65,6 +65,7 @@ model Contact {
   lancamentos      Lancamento[]
   tentativas       TentativaContato[]
   responsavelLogs  ResponsavelLog[]
+  videoChamadaSessoes VideoChamadaSessao[]
 
   // Atendimento manual: enquanto true, a IA não responde esse lead — o
   // humano assumiu a conversa. É ligado automaticamente ao mover o lead pra
@@ -821,6 +822,39 @@ model LinkUtil {
   url       String
   ordem     Int      @default(0)
   createdAt DateTime @default(now())
+}
+
+// Link de vídeo chamada com verificação prévia (item novo): antes de entrar
+// na chamada de vídeo de verdade, o cliente passa por uma tela pública de
+// consentimento e, se aceitar, o navegador dele captura foto da câmera de
+// trás, da câmera da frente, localização e informações do dispositivo — tudo
+// fica registrado aqui, ligado ao lead, antes da sala de vídeo ser liberada.
+model VideoChamadaSessao {
+  id        String  @id @default(cuid())
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String
+  // Token aleatório e não-adivinhável — é a única "senha" da URL pública
+  // (/v/[token]), então precisa ser longo o bastante pra não dar pra
+  // enumerar por força bruta.
+  token     String  @unique
+
+  criadoPor String? // nome de quem gerou o link (usuário logado)
+  criadoEm  DateTime @default(now())
+
+  // Consentimento — nada é capturado antes disso ficar marcado.
+  aceitoEm DateTime?
+
+  // Captura (só depois do aceite)
+  fotoTrasUrl    String?
+  fotoFrenteUrl  String?
+  latitude       Float?
+  longitude      Float?
+  dispositivo    String? // navigator.userAgent resumido
+  capturadoEm    DateTime?
+
+  // Sala de vídeo liberada só depois da captura — nome da sala = token, então
+  // não precisa guardar URL nenhuma, mas o timestamp marca que ele chegou lá.
+  entrouNaSalaEm DateTime?
 }
 
 // Cada tentativa de contato feita pelo cobrador (ligou, foi no endereço...) —

@@ -111,6 +111,7 @@ export default function ChatView() {
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [agendarAberto, setAgendarAberto] = useState(false);
+  const [gerandoLinkVideo, setGerandoLinkVideo] = useState(false);
   const [attachError, setAttachError] = useState("");
   const [multaPct, setMultaPct] = useState(50);
   const [tasks, setTasks] = useState([]);
@@ -422,6 +423,23 @@ export default function ChatView() {
     const data = await res.json().catch(() => ({}));
     if (data.message) setMessages((prev) => [...prev, data.message]);
     if (!res.ok) alert(data.error || "Falha ao enviar — a mensagem ficou marcada como \"falhou\" na conversa.");
+    loadConversations();
+  }
+
+  async function gerarLinkVideoChamada() {
+    if (!selectedId || gerandoLinkVideo) return;
+    if (!confirm("Gerar link de vídeo chamada e mandar pro cliente agora?")) return;
+    setGerandoLinkVideo(true);
+    const res = await fetch(`/api/contacts/${selectedId}/video-chamada-link`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instance: selectedInstance }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setGerandoLinkVideo(false);
+    if (!res.ok) { alert(d.error || "Não foi possível gerar o link."); return; }
+    if (d.message) setMessages((prev) => [...prev, d.message]);
+    if (!d.mensagemEnviada) alert(`Não deu pra mandar pelo WhatsApp automaticamente. Copie e mande na mão:\n${d.link}`);
     loadConversations();
   }
 
@@ -1141,6 +1159,15 @@ export default function ChatView() {
                   className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
                 >
                   <Icone nome="relogio" className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={gerarLinkVideoChamada}
+                  disabled={uploading || recording || gerandoLinkVideo}
+                  title="Gerar link de vídeo chamada com verificação"
+                  className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
+                >
+                  <Icone nome="video" className="w-4 h-4" />
                 </button>
                 <button
                   disabled={sending || !text.trim()}
