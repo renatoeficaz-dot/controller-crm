@@ -643,6 +643,39 @@ export default function Relatorios() {
     return keys.map((k) => ({ label: labels[k], value: Math.round((map.get(k) || 0) * 100) / 100 }));
   }, [stagesFiltrados, ini, fim, criacaoGranularidade]);
 
+  // Compara QUANDO o lead entrou no funil (Contact.createdAt) com em quantos
+  // desses viraram venda (entrouRecebimentoEm) ou viraram Cravo/calote
+  // (deuCalote — fica marcado pra sempre, mesmo que o lead já tenha saído de
+  // Cravo depois). Junto com inadimplenciaPorCriacao acima, fecha as 3
+  // perguntas de "horário de entrada": vira venda mais em qual horário, vira
+  // calote mais em qual horário, e paga melhor em qual horário.
+  const conversaoPorCriacao = useMemo(() => {
+    const { keys, labels, keyFn } = CRIACAO_AGRUPAMENTOS[criacaoGranularidade];
+    const map = new Map();
+    for (const s of stagesFiltrados) {
+      for (const c of s.contacts || []) {
+        if (!c.createdAt) continue;
+        const k = keyFn(new Date(c.createdAt));
+        if (!map.has(k)) map.set(k, { total: 0, venda: 0, cravo: 0 });
+        const row = map.get(k);
+        row.total++;
+        if (c.entrouRecebimentoEm) row.venda++;
+        if (c.deuCalote) row.cravo++;
+      }
+    }
+    return keys.map((k) => {
+      const row = map.get(k) || { total: 0, venda: 0, cravo: 0 };
+      return {
+        label: labels[k],
+        total: row.total,
+        venda: row.venda,
+        cravo: row.cravo,
+        pctVenda: row.total > 0 ? Math.round((row.venda / row.total) * 100) : 0,
+        pctCravo: row.total > 0 ? Math.round((row.cravo / row.total) * 100) : 0,
+      };
+    });
+  }, [stagesFiltrados, criacaoGranularidade]);
+
   // Lista de UFs presentes na base, pro seletor (só mostra o que existe).
   const ufsDisponiveis = useMemo(() => {
     const set = new Set();
@@ -1581,6 +1614,34 @@ export default function Relatorios() {
                   data={recebidoPorCriacao}
                   color="#059669"
                   tooltip={(d) => `${d.label}: ${money(d.value)}`}
+                />
+              </div>
+            )}
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-5 overflow-x-auto">
+            <p className="text-xs text-slate-400 mb-2">% que viram venda (Recebimento) por {CRIACAO_AGRUPAMENTOS[criacaoGranularidade].label.toLowerCase()} de entrada</p>
+            {conversaoPorCriacao.every((d) => d.total === 0) ? (
+              <p className="text-sm text-slate-400 py-4">Nenhum lead no período selecionado.</p>
+            ) : (
+              <div style={{ minWidth: criacaoGranularidade === "semana" ? undefined : criacaoGranularidade === "hora" ? 620 : 700 }}>
+                <VBarChart
+                  data={conversaoPorCriacao.map((d) => ({ label: d.label, value: d.pctVenda, venda: d.venda, total: d.total }))}
+                  color="#059669"
+                  tooltip={(d) => `${d.label}: ${d.value}% viraram venda (${d.venda} de ${d.total})`}
+                />
+              </div>
+            )}
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-5 overflow-x-auto">
+            <p className="text-xs text-slate-400 mb-2">% que viram Cravo (calote) por {CRIACAO_AGRUPAMENTOS[criacaoGranularidade].label.toLowerCase()} de entrada</p>
+            {conversaoPorCriacao.every((d) => d.total === 0) ? (
+              <p className="text-sm text-slate-400 py-4">Nenhum lead no período selecionado.</p>
+            ) : (
+              <div style={{ minWidth: criacaoGranularidade === "semana" ? undefined : criacaoGranularidade === "hora" ? 620 : 700 }}>
+                <VBarChart
+                  data={conversaoPorCriacao.map((d) => ({ label: d.label, value: d.pctCravo, cravo: d.cravo, total: d.total }))}
+                  color="#ef4444"
+                  tooltip={(d) => `${d.label}: ${d.value}% viraram Cravo (${d.cravo} de ${d.total})`}
                 />
               </div>
             )}

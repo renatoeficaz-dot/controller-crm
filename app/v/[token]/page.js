@@ -130,15 +130,23 @@ export default function VideoChamadaPublica({ params }) {
     return (
       <Centro>
         <h1 style={titulo}>Vídeo chamada</h1>
-        <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.6, margin: "0 0 16px" }}>
-          Antes da vídeo chamada, precisamos confirmar sua identidade. Ao continuar, vamos:
+        <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.6, margin: "0 0 10px", textAlign: "left" }}>
+          Antes de entrar na vídeo chamada, precisamos confirmar que é realmente você quem está do outro lado — é uma etapa de segurança padrão pra evitar fraude e proteger tanto você quanto a operação.
         </p>
-        <ul style={{ fontSize: 13, color: "#475569", lineHeight: 1.8, margin: "0 0 20px", paddingLeft: 20 }}>
-          <li>Tirar uma foto com a câmera de trás e outra com a da frente</li>
-          <li>Pegar sua localização</li>
-          <li>Registrar informações do seu aparelho</li>
-        </ul>
-        <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 20px" }}>
+        <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, margin: "0 0 14px", textAlign: "left" }}>
+          Essa confirmação é feita uma única vez, leva menos de um minuto e as informações coletadas são usadas apenas para verificação de identidade — não são compartilhadas com terceiros e ficam vinculadas só ao seu atendimento.
+        </p>
+        <details style={{ margin: "0 0 16px", textAlign: "left" }}>
+          <summary style={{ fontSize: 12, color: "#0f766e", cursor: "pointer", fontWeight: 600, listStyle: "none" }}>
+            Ver o que será coletado
+          </summary>
+          <ul style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6, margin: "8px 0 0", paddingLeft: 18 }}>
+            <li>Uma foto com a câmera de trás e outra com a da frente</li>
+            <li>Sua localização</li>
+            <li>Informações do seu aparelho</li>
+          </ul>
+        </details>
+        <p style={{ fontSize: 11, color: "#94a3b8", margin: "0 0 20px", textAlign: "left" }}>
           Isso só acontece se você aceitar. Sem essa confirmação não é possível continuar pra vídeo chamada.
         </p>
         <button onClick={aceitar} style={botaoPrimario}>Aceitar e continuar</button>
