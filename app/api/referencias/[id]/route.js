@@ -3,8 +3,10 @@ import { NextResponse } from "next/server";
 import { normalizeBrPhone } from "@/lib/evolution";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
+import { getCurrentUser } from "@/lib/session";
 
-// Edita um contato de referência
+// Edita um contato de referência — só admin, mesma regra do POST em
+// app/api/contacts/[id]/referencias/route.js.
 export async function PATCH(req, { params }) {
   try {
     const { id } = await params;
@@ -15,6 +17,8 @@ export async function PATCH(req, { params }) {
     if (!ref) return respostaNaoEncontrado();
     const negado = await negarSeNaoPodeVerContato(ref.contactId);
     if (negado) return negado;
+    const user = await getCurrentUser();
+    if (user?.role !== "admin") return NextResponse.json({ error: "Só admin pode editar contato de referência." }, { status: 403 });
 
     const body = await lerCorpo(req);
     const data = {};
@@ -30,7 +34,8 @@ export async function PATCH(req, { params }) {
       data.telefone = normalizeBrPhone(telefoneRaw) || telefoneRaw.replace(/\D/g, "");
     }
     if ("relacao" in body) data.relacao = body.relacao || null;
-  
+    if ("dataNascimento" in body) data.dataNascimento = texto(body.dataNascimento).slice(0, 20) || null;
+
     const referencia = await prisma.contatoReferencia.update({ where: { id }, data });
     return NextResponse.json(referencia);
   } catch (err) {
@@ -41,7 +46,7 @@ export async function PATCH(req, { params }) {
   }
 }
 
-// Remove um contato de referência
+// Remove um contato de referência — só admin.
 export async function DELETE(_req, { params }) {
   try {
     const { id } = await params;
@@ -49,6 +54,8 @@ export async function DELETE(_req, { params }) {
     if (!ref) return respostaNaoEncontrado();
     const negado = await negarSeNaoPodeVerContato(ref.contactId);
     if (negado) return negado;
+    const user = await getCurrentUser();
+    if (user?.role !== "admin") return NextResponse.json({ error: "Só admin pode remover contato de referência." }, { status: 403 });
 
     await prisma.contatoReferencia.delete({ where: { id } });
     return NextResponse.json({ ok: true });

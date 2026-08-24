@@ -50,6 +50,14 @@ const toDateInput = (iso) => (iso ? new Date(iso).toISOString().slice(0, 10) : "
 
 export default function ContactModal({ contactId, onClose, onChanged }) {
   const [contact, setContact] = useState(null);
+  // Contatos de referência (item 73) só podem ser editados por admin — quem
+  // não é admin só vê/copia, não cadastra nem apaga (decisão consciente do
+  // Renato: são dados sensíveis de terceiros, não do próprio lead).
+  const [usuarioAtual, setUsuarioAtual] = useState(null);
+  useEffect(() => {
+    fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then(setUsuarioAtual).catch(() => {});
+  }, []);
+  const isAdmin = usuarioAtual?.role === "admin";
   const [messages, setMessages] = useState([]);
   const [parcelas, setParcelas] = useState([]);
   // Item 173: 3 envios seguidos falhando (sem sucesso nem resposta entre eles)
@@ -230,6 +238,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       pixNomeCompleto: data.pixNomeCompleto || "",
       checklistTelefoneBate: !!data.checklistTelefoneBate,
       checklistDivergenciaPrint: !!data.checklistDivergenciaPrint,
+      checklistAntecedentes: !!data.checklistAntecedentes,
       responsavel: data.responsavel || "",
       estado: data.estado || "",
       genero: data.genero || "",
@@ -783,17 +792,31 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
                 <div className="space-y-1">
                   <span className="text-[11px] text-slate-400">Telefones</span>
+                  {/* Sempre mostra Cliente + Contato 1 + Contato 2 (mesmo vazios, como
+                      lembrete do que falta pegar) — contatos 3+ só aparecem se já
+                      cadastrados. Cadastro/edição fica no card "Contatos de referência",
+                      mais abaixo (só admin edita, aqui é só visualizar/copiar). */}
                   {[
-                    { id: "cliente", nome: contact?.name || "Cliente", telefone: form.phone },
-                    ...(contact?.referencias || []).map((r) => ({ id: r.id, nome: r.nome, telefone: r.telefone })),
-                  ]
-                    .filter((t) => t.telefone)
-                    .map((t) => (
-                      <div key={t.id} className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-lg px-2 py-1.5">
-                        <span className="flex-1 min-w-0 truncate">
-                          <span className="text-slate-700">{t.telefone}</span>
-                          <span className="text-slate-400"> — {t.nome}</span>
-                        </span>
+                    { id: "cliente", rotulo: "Cliente", nome: contact?.name || "", telefone: form.phone },
+                    ...[0, 1].map((i) => {
+                      const r = (contact?.referencias || [])[i];
+                      return { id: r?.id || `contato-${i + 1}`, rotulo: `Contato ${i + 1}`, nome: r?.nome || "", telefone: r?.telefone || "" };
+                    }),
+                    ...(contact?.referencias || []).slice(2).map((r, i) => ({ id: r.id, rotulo: `Contato ${i + 3}`, nome: r.nome, telefone: r.telefone })),
+                  ].map((t) => (
+                    <div key={t.id} className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-lg px-2 py-1.5">
+                      <span className="text-slate-400 shrink-0 w-16">{t.rotulo}</span>
+                      <span className="flex-1 min-w-0 truncate">
+                        {t.telefone ? (
+                          <>
+                            <span className="text-slate-700">{t.telefone}</span>
+                            {t.nome && <span className="text-slate-400"> — {t.nome}</span>}
+                          </>
+                        ) : (
+                          <span className="text-slate-300 italic">pendente</span>
+                        )}
+                      </span>
+                      {t.telefone && (
                         <button
                           type="button"
                           onClick={async () => {
@@ -808,8 +831,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         >
                           <Icone nome={telefoneCopiadoId === t.id ? "check" : "copiar"} className="w-3.5 h-3.5" />
                         </button>
-                      </div>
-                    ))}
+                      )}
+                    </div>
+                  ))}
                 </div>
 
                 <label className="block">
@@ -954,6 +978,15 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   {/* A IA marca isso sozinha quando o horário do print não bate com
                       o horário real de envio (>5min) — nesse caso o lead já foi
                       movido pra "Venda perdida" por suspeita de fraude. */}
+                </label>
+                <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!form.checklistAntecedentes}
+                    onChange={(e) => setForm((f) => ({ ...f, checklistAntecedentes: e.target.checked }))}
+                    className="mt-0.5"
+                  />
+                  Antecedentes conferidos
                 </label>
               </div>
             )}
@@ -1137,6 +1170,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             <ReferenciasContato
               contactId={contactId}
               referencias={contact?.referencias}
+              isAdmin={isAdmin}
               onChange={(lista) => setContact((c) => ({ ...c, referencias: lista }))}
             />
 

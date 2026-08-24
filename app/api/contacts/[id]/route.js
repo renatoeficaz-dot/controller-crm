@@ -99,6 +99,7 @@ export async function PATCH(req, { params }) {
     if ("iaPausada" in body) data.iaPausada = !!body.iaPausada;
     if ("checklistTelefoneBate" in body) data.checklistTelefoneBate = !!body.checklistTelefoneBate;
     if ("checklistDivergenciaPrint" in body) data.checklistDivergenciaPrint = !!body.checklistDivergenciaPrint;
+    if ("checklistAntecedentes" in body) data.checklistAntecedentes = !!body.checklistAntecedentes;
     if ("camposCustom" in body) data.camposCustom = body.camposCustom ? JSON.stringify(body.camposCustom) : null;
     if ("fixado" in body) data.fixado = !!body.fixado;
     if ("corCard" in body) data.corCard = body.corCard || null;
