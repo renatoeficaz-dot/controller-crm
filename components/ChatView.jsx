@@ -16,6 +16,38 @@ function todayStr() {
   return new Date().toLocaleDateString("en-CA");
 }
 
+// Texto da mensagem com URLs viradas em link clicável (abre em nova aba) —
+// sem isso o link de vídeo chamada, puxada etc. mandado pro cliente aparecia
+// só como texto solto no chat, precisando copiar e colar.
+const URL_REGEX = /(https?:\/\/[^\s<]+[^\s<.,;:!?)"'\]])/g;
+function LinkifiedText({ text }) {
+  // split() com grupo de captura devolve os trechos casados intercalados nos
+  // índices ímpares — usa isso em vez de re-testar com a MESMA regex (que tem
+  // flag "g" e guarda posição entre chamadas de .test(), dando falso negativo
+  // alternado se testada de novo depois do split).
+  const partes = String(text ?? "").split(URL_REGEX);
+  return (
+    <p className="whitespace-pre-wrap break-words">
+      {partes.map((parte, i) =>
+        i % 2 === 1 ? (
+          <a
+            key={i}
+            href={parte}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="underline underline-offset-2 hover:opacity-80 break-all"
+          >
+            {parte}
+          </a>
+        ) : (
+          parte
+        )
+      )}
+    </p>
+  );
+}
+
 // Dia da semana + data + hora em que o lead entrou no funil.
 function fmtCriacao(iso) {
   if (!iso) return "—";
@@ -1044,7 +1076,7 @@ export default function ChatView() {
                     ) : (
                       <>
                         {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && <MediaBubble message={m} />}
-                        {m.kind !== "location" && (m.kind === "text" || m.body) && <p>{m.body}</p>}
+                        {m.kind !== "location" && (m.kind === "text" || m.body) && <LinkifiedText text={m.body} />}
                       </>
                     )}
                     <p className={`text-[10px] mt-1 flex items-center gap-1 ${m.fromMe ? "text-emerald-200" : "text-slate-400"}`}>
