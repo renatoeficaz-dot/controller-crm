@@ -1,20 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState, use as usePromise } from "react";
+import { ICE_SERVERS } from "@/lib/webrtcConfig";
 
 // Página PÚBLICA (sem login) — o cliente abre pelo link mandado no WhatsApp.
 // Fluxo: consentimento -> captura (câmera de trás, câmera da frente,
-// localização, dispositivo) -> libera a sala de vídeo (Jitsi Meet público).
+// localização, dispositivo) -> vídeo chamada nativa (WebRTC P2P direto com o
+// atendente, sinalização via poll em /api/video-chamada/[token]/sinal — ver
+// esse arquivo pra entender o protocolo de troca de oferta/resposta/ICE).
 // Nada é capturado antes do cliente aceitar explicitamente.
 export default function VideoChamadaPublica({ params }) {
   const { token } = usePromise(params);
-  const [passo, setPasso] = useState("carregando"); // carregando | erro | consentimento | capturando | pronto | sala
+  const [passo, setPasso] = useState("carregando"); // carregando | erro | consentimento | capturando | pronto | chamando | sala | encerrada
   const [termosAbertos, setTermosAbertos] = useState(false);
   const [erro, setErro] = useState("");
   const [statusCaptura, setStatusCaptura] = useState(""); // texto de progresso durante a captura
-  const [sala, setSala] = useState(null);
+  const [micLigado, setMicLigado] = useState(true);
+  const [camLigada, setCamLigada] = useState(true);
   const videoRef = useRef(null);
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
   const streamRef = useRef(null);
+  const pcRef = useRef(null);
+  const sinaisVistosRef = useRef(0);
+  const pollRef = useRef(null);
+  const candidatosPendentesRef = useRef([]);
 
   useEffect(() => {
     fetch(`/api/video-chamada/${token}`)
@@ -111,13 +121,115 @@ export default function VideoChamadaPublica({ params }) {
     }
   }
 
+  async function mandarSinal(tipo, payload) {
+    await fetch(`/api/video-chamada/${token}/sinal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tipo, payload }),
+    }).catch(() => {});
+  }
+
+  function criarPeerConnection() {
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    pc.onicecandidate = (e) => {
+      if (e.candidate) mandarSinal("candidato", e.candidate.toJSON());
+    };
+    pc.ontrack = (e) => {
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = e.streams[0];
+    };
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "connected") setPasso("sala");
+      // O atendente pode cair de rede sem mandar "encerrar" explícito — sem
+      // isso o cliente ficava preso pra sempre na tela "chamando". A própria
+      // encerrarChamada é o guarda de idempotência (via pcRef.current null).
+      if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
+        encerrarChamada(false);
+      }
+    };
+    pcRef.current = pc;
+    return pc;
+  }
+
+  async function processarSinal(s) {
+    const pc = pcRef.current;
+    if (!pc) return;
+    const payload = s.payload ? JSON.parse(s.payload) : null;
+    if (s.tipo === "oferta") {
+      await pc.setRemoteDescription(new RTCSessionDescription(payload));
+      for (const c of candidatosPendentesRef.current) await pc.addIceCandidate(c).catch(() => {});
+      candidatosPendentesRef.current = [];
+      const resposta = await pc.createAnswer();
+      await pc.setLocalDescription(resposta);
+      mandarSinal("resposta", resposta);
+    } else if (s.tipo === "candidato") {
+      const candidato = new RTCIceCandidate(payload);
+      if (pc.remoteDescription) await pc.addIceCandidate(candidato).catch(() => {});
+      else candidatosPendentesRef.current.push(candidato);
+    } else if (s.tipo === "encerrar") {
+      encerrarChamada(false);
+    }
+  }
+
+  function iniciarPoll() {
+    pollRef.current = setInterval(async () => {
+      const d = await fetch(`/api/video-chamada/${token}/sinal?apos=${sinaisVistosRef.current}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      if (!d?.sinais?.length) return;
+      sinaisVistosRef.current = d.total;
+      for (const s of d.sinais) await processarSinal(s);
+    }, 1200);
+  }
+
   async function entrarNaSala() {
     const res = await fetch(`/api/video-chamada/${token}/entrar`, { method: "POST" });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) { setErro(d.error || "Não foi possível entrar na chamada."); return; }
-    setSala(d.sala);
-    setPasso("sala");
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      const pc = criarPeerConnection();
+      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+    } catch {
+      setErro("Não foi possível acessar câmera/microfone. Confirme a permissão e tente de novo.");
+      setPasso("erro-captura");
+      return;
+    }
+
+    setPasso("chamando");
+    await mandarSinal("pronto", null);
+    iniciarPoll();
   }
+
+  function encerrarChamada(avisar = true) {
+    if (!pcRef.current && !streamRef.current) return; // já encerrada, evita disparar 2x
+    if (avisar) mandarSinal("encerrar", null);
+    if (pollRef.current) clearInterval(pollRef.current);
+    pcRef.current?.close();
+    pcRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setPasso("encerrada");
+  }
+
+  function alternarMic() {
+    streamRef.current?.getAudioTracks().forEach((t) => (t.enabled = !t.enabled));
+    setMicLigado((v) => !v);
+  }
+  function alternarCam() {
+    streamRef.current?.getVideoTracks().forEach((t) => (t.enabled = !t.enabled));
+    setCamLigada((v) => !v);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pcRef.current?.close();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   if (passo === "carregando") {
     return <Centro><p style={{ color: "#94a3b8" }}>Carregando…</p></Centro>;
@@ -205,20 +317,55 @@ export default function VideoChamadaPublica({ params }) {
     );
   }
 
-  if (passo === "sala" && sala) {
+  if (passo === "chamando" || passo === "sala") {
     return (
-      <div style={{ position: "fixed", inset: 0, background: "#000" }}>
-        <iframe
-          title="Vídeo chamada"
-          src={`https://meet.jit.si/${sala}#config.prejoinPageEnabled=false`}
-          allow="camera; microphone; fullscreen; display-capture"
-          style={{ width: "100%", height: "100%", border: 0 }}
+      <div style={{ position: "fixed", inset: 0, background: "#0f172a" }}>
+        <video ref={remoteVideoRef} autoPlay playsInline style={{ width: "100%", height: "100%", objectFit: "cover", background: "#0f172a" }} />
+        <video
+          ref={localVideoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{ position: "absolute", top: 16, right: 16, width: 110, height: 150, objectFit: "cover", borderRadius: 12, border: "2px solid rgba(255,255,255,0.25)" }}
         />
+        {passo === "chamando" && (
+          <div style={{ position: "absolute", top: 16, left: 16, background: "rgba(15,23,42,0.75)", color: "#fff", fontSize: 13, padding: "8px 14px", borderRadius: 999 }}>
+            Aguardando o atendente entrar…
+          </div>
+        )}
+        <div style={{ position: "absolute", bottom: 28, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 14 }}>
+          <button onClick={alternarMic} style={botaoRedondo(micLigado)} title={micLigado ? "Desligar microfone" : "Ligar microfone"}>
+            {micLigado ? "🎤" : "🔇"}
+          </button>
+          <button onClick={alternarCam} style={botaoRedondo(camLigada)} title={camLigada ? "Desligar câmera" : "Ligar câmera"}>
+            {camLigada ? "📷" : "🚫"}
+          </button>
+          <button onClick={() => encerrarChamada(true)} style={{ ...botaoRedondo(true), background: "#dc2626" }} title="Encerrar chamada">
+            ✕
+          </button>
+        </div>
       </div>
     );
   }
 
+  if (passo === "encerrada") {
+    return (
+      <Centro>
+        <h1 style={titulo}>Chamada encerrada</h1>
+        <p style={{ fontSize: 14, color: "#334155" }}>Você já pode fechar esta janela.</p>
+      </Centro>
+    );
+  }
+
   return null;
+}
+
+function botaoRedondo(ativo) {
+  return {
+    width: 52, height: 52, borderRadius: "50%", border: 0, fontSize: 20,
+    background: ativo ? "rgba(255,255,255,0.15)" : "#475569", color: "#fff", cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center",
+  };
 }
 
 function Centro({ children }) {

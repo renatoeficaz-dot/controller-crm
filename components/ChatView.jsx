@@ -10,6 +10,7 @@ import { parcelaAtrasada } from "@/lib/finance";
 import { UFS_BR } from "@/lib/ddd";
 import Icone from "@/components/Icones";
 import AgendarMensagemModal from "./AgendarMensagemModal";
+import VideoChamadaCall from "./VideoChamadaCall";
 
 // Data de hoje (local) como "YYYY-MM-DD"
 function todayStr() {
@@ -144,6 +145,7 @@ export default function ChatView() {
   const [recording, setRecording] = useState(false);
   const [agendarAberto, setAgendarAberto] = useState(false);
   const [gerandoLinkVideo, setGerandoLinkVideo] = useState(false);
+  const [videoChamadaAberta, setVideoChamadaAberta] = useState(null); // sessaoId | null
   const [attachError, setAttachError] = useState("");
   const [multaPct, setMultaPct] = useState(50);
   const [tasks, setTasks] = useState([]);
@@ -473,6 +475,7 @@ export default function ChatView() {
     if (d.message) setMessages((prev) => [...prev, d.message]);
     if (!d.mensagemEnviada) alert(`Não deu pra mandar pelo WhatsApp automaticamente. Copie e mande na mão:\n${d.link}`);
     loadConversations();
+    if (d.id) setVideoChamadaAberta(d.id);
   }
 
   async function pickTemplate(id) {
@@ -1218,6 +1221,9 @@ export default function ChatView() {
                   onClose={() => setAgendarAberto(false)}
                   onAgendado={() => {}}
                 />
+              )}
+              {videoChamadaAberta && (
+                <VideoChamadaCall sessaoId={videoChamadaAberta} onClose={() => setVideoChamadaAberta(null)} />
               )}
             </div>
           </>

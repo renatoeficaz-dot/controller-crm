@@ -855,6 +855,26 @@ model VideoChamadaSessao {
   // Sala de vídeo liberada só depois da captura — nome da sala = token, então
   // não precisa guardar URL nenhuma, mas o timestamp marca que ele chegou lá.
   entrouNaSalaEm DateTime?
+
+  sinais VideoChamadaSinal[]
+}
+
+// Retransmissor de sinalização WebRTC (oferta/resposta SDP + candidatos ICE)
+// entre o atendente (autenticado) e o cliente (link público) — a vídeo chamada
+// em si é P2P direto entre os dois navegadores, isso aqui só troca o "endereço"
+// pra eles se acharem. Poll simples em vez de WebSocket: uma tabela com insert
+// só (nunca update), cada lado lê os sinais do OUTRO lado mais recentes que o
+// último id que já viu — evita corrida sem precisar de servidor à parte.
+model VideoChamadaSinal {
+  id        String   @id @default(cuid())
+  sessao    VideoChamadaSessao @relation(fields: [sessaoId], references: [id], onDelete: Cascade)
+  sessaoId  String
+  de        String // "staff" | "cliente"
+  tipo      String // "pronto" | "oferta" | "resposta" | "candidato" | "encerrar"
+  payload   String? // JSON do SDP ou do ICE candidate — vazio pra "pronto"/"encerrar"
+  createdAt DateTime @default(now())
+
+  @@index([sessaoId, createdAt])
 }
 
 // Cada tentativa de contato feita pelo cobrador (ligou, foi no endereço...) —
