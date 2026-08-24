@@ -43,7 +43,7 @@ function filtrarPorPeriodo(lancamentos, periodo) {
   return lancamentos.filter((l) => new Date(l.date).toLocaleDateString("en-CA") >= desde);
 }
 
-function PieChart({ data, title, periodo, onPeriodo }) {
+function PieChart({ data, title, periodo, onPeriodo, onSlice }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   let slices = [];
   if (total) {
@@ -82,15 +82,28 @@ function PieChart({ data, title, periodo, onPeriodo }) {
           <svg viewBox="0 0 200 200" className="w-36 h-36 mx-auto">
             {slices.map((s, i) =>
               s.pct >= 0.999 ? (
-                <circle key={i} cx={100} cy={100} r={80} fill={s.color} />
+                <circle
+                  key={i} cx={100} cy={100} r={80} fill={s.color}
+                  onClick={() => onSlice?.(s)}
+                  className={onSlice && s.categoriaId ? "cursor-pointer" : ""}
+                />
               ) : (
-                <path key={i} d={arc(100, 100, 80, s.start, s.end)} fill={s.color} />
+                <path
+                  key={i} d={arc(100, 100, 80, s.start, s.end)} fill={s.color}
+                  onClick={() => onSlice?.(s)}
+                  className={onSlice && s.categoriaId ? "cursor-pointer" : ""}
+                />
               )
             )}
           </svg>
           <ul className="mt-2 space-y-0.5">
             {slices.map((s, i) => (
-              <li key={i} className="flex items-center gap-2 text-[11px]">
+              <li
+                key={i}
+                onClick={() => onSlice?.(s)}
+                title={s.categoriaId ? "Ver todos os lançamentos desta categoria" : undefined}
+                className={`flex items-center gap-2 text-[11px] ${onSlice && s.categoriaId ? "cursor-pointer hover:text-emerald-600" : ""}`}
+              >
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
                 <span className="text-slate-600 truncate">{s.name}</span>
                 <span className="ml-auto text-slate-500">{(s.pct * 100).toFixed(0)}%</span>
@@ -277,6 +290,15 @@ export default function LancamentosView() {
     setFiltros(EMPTY_FILTROS);
   }
 
+  // Clicar numa categoria (na tabela ou no gráfico de pizza) filtra a lista
+  // pra mostrar só os lançamentos dela, sem precisar abrir o painel de Filtros.
+  function filtrarPorCategoria(categoriaId) {
+    if (!categoriaId) return;
+    setDraft((f) => ({ ...f, categoriaId }));
+    setFiltros((f) => ({ ...f, categoriaId }));
+    setFiltrosAbertos(true);
+  }
+
   // Label do período em uso pelos cards de Entradas/Saídas/Saldo do período,
   // pra deixar claro que eles NÃO são o mesmo escopo do "Saldo atual da conta"
   // (que é sempre a soma de tudo, desde sempre, em todas as contas).
@@ -354,9 +376,10 @@ export default function LancamentosView() {
     const map = {};
     for (const l of base) {
       const cat = l.categoria?.name || "Sem categoria";
-      map[cat] = (map[cat] || 0) + l.amount;
+      if (!map[cat]) map[cat] = { value: 0, categoriaId: l.categoriaId || null };
+      map[cat].value += l.amount;
     }
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
+    return Object.entries(map).map(([name, d]) => ({ name, value: d.value, categoriaId: d.categoriaId }));
   }
   const dadosEntradas = useMemo(() => agrupar(periodoEntradas, "entrada"), [lancamentos, periodoEntradas]);
   const dadosSaidas = useMemo(() => agrupar(periodoSaidas, "saida"), [lancamentos, periodoSaidas]);
@@ -666,11 +689,15 @@ export default function LancamentosView() {
               {categorias.map((c) => (
                 <li key={c.id} className="py-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1.5 min-w-0">
+                    <button
+                      onClick={() => filtrarPorCategoria(c.id)}
+                      title="Ver todos os lançamentos desta categoria"
+                      className="flex items-center gap-1.5 min-w-0 hover:text-emerald-600"
+                    >
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.type === "entrada" ? "bg-emerald-500" : "bg-red-500"}`} />
                       <span className="text-slate-700 truncate text-xs">{c.name}</span>
                       <span className={`text-[9px] uppercase shrink-0 ${c.type === "entrada" ? "text-emerald-500" : "text-red-500"}`}>{c.type}</span>
-                    </span>
+                    </button>
                     <button onClick={() => setCatAberta((v) => (v === c.id ? null : c.id))} className="text-slate-300 hover:text-slate-500 shrink-0">
                       {catAberta === c.id ? "︿" : "›"}
                     </button>
@@ -769,8 +796,8 @@ export default function LancamentosView() {
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4 md:gap-6">
-            <PieChart data={dadosEntradas} title="Entradas por categoria" periodo={periodoEntradas} onPeriodo={setPeriodoEntradas} />
-            <PieChart data={dadosSaidas} title="Saídas por categoria" periodo={periodoSaidas} onPeriodo={setPeriodoSaidas} />
+            <PieChart data={dadosEntradas} title="Entradas por categoria" periodo={periodoEntradas} onPeriodo={setPeriodoEntradas} onSlice={(s) => filtrarPorCategoria(s.categoriaId)} />
+            <PieChart data={dadosSaidas} title="Saídas por categoria" periodo={periodoSaidas} onPeriodo={setPeriodoSaidas} onSlice={(s) => filtrarPorCategoria(s.categoriaId)} />
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
@@ -820,7 +847,17 @@ export default function LancamentosView() {
                         </span>
                       </td>
                       <td className="px-4 py-2 text-slate-700 max-w-[200px] truncate">{l.description || "—"}</td>
-                      <td className="px-4 py-2 text-xs text-slate-500">{l.categoria?.name || "—"}</td>
+                      <td className="px-4 py-2 text-xs text-slate-500">
+                        {l.categoria ? (
+                          <button
+                            onClick={() => filtrarPorCategoria(l.categoriaId)}
+                            title="Ver todos os lançamentos desta categoria"
+                            className="hover:text-emerald-600 hover:underline"
+                          >
+                            {l.categoria.name}
+                          </button>
+                        ) : "—"}
+                      </td>
                       <td className="px-4 py-2 text-xs text-slate-500">{l.banco?.name || "—"}</td>
                       <td className="px-4 py-2 text-xs text-slate-500">{l.contact?.responsavel || "—"}</td>
                       <td className="px-4 py-2 text-xs text-slate-500">
