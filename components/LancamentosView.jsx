@@ -869,6 +869,9 @@ export default function LancamentosView() {
                       </td>
                       <td className={`px-4 py-2 text-right font-medium whitespace-nowrap ${l.type === "entrada" ? "text-emerald-600" : "text-red-600"}`}>
                         {l.type === "saida" ? "- " : ""}{money(l.amount)}
+                        {l.saldoApos != null && (
+                          <p className="text-[10px] font-normal text-slate-400 mt-0.5">Saldo após: {money(l.saldoApos)}</p>
+                        )}
                       </td>
                       <td className="px-2">
                         <div className="flex items-center gap-2">

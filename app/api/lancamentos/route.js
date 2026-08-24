@@ -60,7 +60,24 @@ export async function GET(req) {
     },
     take: 500,
   });
-  return NextResponse.json(lancamentos);
+
+  // Saldo da conta logo APÓS cada lançamento — precisa do histórico completo
+  // (sem os filtros da tela) em ordem cronológica real, senão um lançamento
+  // filtrado por categoria/banco mostraria um saldo que ignora tudo que
+  // aconteceu fora do filtro, o que não bate com o extrato de verdade.
+  const todos = await prisma.lancamento.findMany({
+    select: { id: true, type: true, amount: true },
+    orderBy: [{ date: "asc" }, { id: "asc" }],
+  });
+  let acumulado = 0;
+  const saldoPorId = new Map();
+  for (const l of todos) {
+    acumulado += l.type === "entrada" ? l.amount : -l.amount;
+    saldoPorId.set(l.id, acumulado);
+  }
+  const comSaldo = lancamentos.map((l) => ({ ...l, saldoApos: saldoPorId.get(l.id) ?? null }));
+
+  return NextResponse.json(comSaldo);
 }
 
 export async function POST(req) {
