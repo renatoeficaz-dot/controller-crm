@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, use as usePromise } from "react";
 export default function VideoChamadaPublica({ params }) {
   const { token } = usePromise(params);
   const [passo, setPasso] = useState("carregando"); // carregando | erro | consentimento | capturando | pronto | sala
+  const [termosAbertos, setTermosAbertos] = useState(false);
   const [erro, setErro] = useState("");
   const [statusCaptura, setStatusCaptura] = useState(""); // texto de progresso durante a captura
   const [sala, setSala] = useState(null);
@@ -130,26 +131,46 @@ export default function VideoChamadaPublica({ params }) {
     return (
       <Centro>
         <h1 style={titulo}>Vídeo chamada</h1>
-        <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.6, margin: "0 0 10px", textAlign: "left" }}>
-          Antes de entrar na vídeo chamada, precisamos confirmar que é realmente você quem está do outro lado — é uma etapa de segurança padrão pra evitar fraude e proteger tanto você quanto a operação.
+        <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.6, margin: "0 0 20px" }}>
+          Antes de entrar na vídeo chamada, precisamos confirmar sua identidade.
         </p>
-        <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, margin: "0 0 14px", textAlign: "left" }}>
-          Essa confirmação é feita uma única vez, leva menos de um minuto e as informações coletadas são usadas apenas para verificação de identidade — não são compartilhadas com terceiros e ficam vinculadas só ao seu atendimento.
-        </p>
-        <details style={{ margin: "0 0 16px", textAlign: "left" }}>
-          <summary style={{ fontSize: 12, color: "#0f766e", cursor: "pointer", fontWeight: 600, listStyle: "none" }}>
-            Ver o que será coletado
-          </summary>
-          <ul style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6, margin: "8px 0 0", paddingLeft: 18 }}>
-            <li>Uma foto com a câmera de trás e outra com a da frente</li>
-            <li>Sua localização</li>
-            <li>Informações do seu aparelho</li>
-          </ul>
-        </details>
-        <p style={{ fontSize: 11, color: "#94a3b8", margin: "0 0 20px", textAlign: "left" }}>
-          Isso só acontece se você aceitar. Sem essa confirmação não é possível continuar pra vídeo chamada.
-        </p>
-        <button onClick={aceitar} style={botaoPrimario}>Aceitar e continuar</button>
+        <button onClick={() => setTermosAbertos(true)} style={botaoPrimario}>Termos de vídeo chamada</button>
+
+        {termosAbertos && (
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 10 }}
+            onClick={() => setTermosAbertos(false)}
+          >
+            <div
+              style={{ maxWidth: 380, width: "100%", background: "#fff", borderRadius: 16, padding: "24px 22px", boxShadow: "0 10px 30px rgba(0,0,0,0.2)", textAlign: "left", maxHeight: "85vh", overflowY: "auto" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 style={{ ...titulo, fontSize: 16 }}>Termos de vídeo chamada</h2>
+              <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.6, margin: "0 0 10px" }}>
+                Antes de entrar na vídeo chamada, precisamos confirmar que é realmente você quem está do outro lado — é uma etapa de segurança padrão pra evitar fraude e proteger tanto você quanto a operação.
+              </p>
+              <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, margin: "0 0 14px" }}>
+                Essa confirmação é feita uma única vez, leva menos de um minuto e as informações coletadas são usadas apenas para verificação de identidade — não são compartilhadas com terceiros e ficam vinculadas só ao seu atendimento.
+              </p>
+              <p style={{ fontSize: 12, color: "#475569", fontWeight: 600, margin: "0 0 6px" }}>O que será coletado:</p>
+              <ul style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6, margin: "0 0 16px", paddingLeft: 18 }}>
+                <li>Uma foto com a câmera de trás e outra com a da frente</li>
+                <li>Sua localização</li>
+                <li>Informações do seu aparelho</li>
+              </ul>
+              <p style={{ fontSize: 11, color: "#94a3b8", margin: "0 0 20px" }}>
+                Isso só acontece se você aceitar. Sem essa confirmação não é possível continuar pra vídeo chamada.
+              </p>
+              <button onClick={aceitar} style={botaoPrimario}>Aceitar e continuar</button>
+              <button
+                onClick={() => setTermosAbertos(false)}
+                style={{ width: "100%", background: "transparent", color: "#64748b", border: 0, padding: "10px 16px", fontSize: 13, cursor: "pointer", marginTop: 4 }}
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
+        )}
       </Centro>
     );
   }
