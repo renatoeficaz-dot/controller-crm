@@ -435,6 +435,15 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       body: JSON.stringify(form),
     });
     const data = await res.json().catch(() => null);
+    // Sem essa checagem, um campo inválido em QUALQUER parte do formulário
+    // (nome muito longo, endereço muito longo, campos personalizados grandes
+    // demais...) fazia o PATCH inteiro falhar (400) mas o botão continuava
+    // piscando "Salvo ✓" como se tivesse dado certo — inclusive campos
+    // personalizados que a pessoa acabou de editar pareciam "não salvar".
+    if (!res.ok) {
+      alert(data?.error || "Não foi possível salvar. Confira os campos e tente de novo.");
+      return;
+    }
     setCaloteAviso(data?.caloteAviso || null);
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1500);
