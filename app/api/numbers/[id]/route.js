@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
+import { wahaSessionSlug } from "@/lib/waha";
 
 // Edita um número (ex.: reatribuir usuário, mudar instância)
 export async function PATCH(req, { params }) {
@@ -35,6 +36,14 @@ export async function PATCH(req, { params }) {
     if ("proxyUsername" in body) data.proxyUsername = texto(body.proxyUsername) || null;
     if ("proxyPassword" in body) data.proxyPassword = texto(body.proxyPassword) || null;
   
+    // WAHA só aceita [a-zA-Z0-9_-] no nome da sessão — mesma correção do
+    // POST em app/api/numbers/route.js, aqui pro caso de editar a instância
+    // (ou trocar o provider pra waha) de um número já cadastrado.
+    if ("instance" in data) {
+      const providerEfetivo = data.provider || (await prisma.whatsappNumber.findUnique({ where: { id }, select: { provider: true } }))?.provider;
+      if (providerEfetivo === "waha") data.instance = wahaSessionSlug(data.instance);
+    }
+
     // Só um número pode ser "padrão" por vez — desmarca os outros antes.
     if (body.padrao === true) {
       await prisma.whatsappNumber.updateMany({ where: { padrao: true }, data: { padrao: false } });

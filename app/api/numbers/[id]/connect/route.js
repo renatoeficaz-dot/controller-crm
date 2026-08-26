@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { connectInstance, setWebhook } from "@/lib/evolution";
-import { connectSessionWaha, fetchQrWaha } from "@/lib/waha";
+import { connectSessionWaha, fetchQrWaha, wahaSessionSlug } from "@/lib/waha";
 
 // Monta a URL pública do app a partir dos headers da requisição (Traefik define
 // host e x-forwarded-proto), para que o webhook funcione em http ou https sem config.
@@ -33,7 +33,17 @@ export async function POST(req, { params }) {
   const proxy = num.proxyServer ? { server: num.proxyServer, username: num.proxyUsername, password: num.proxyPassword } : null;
 
   if (num.provider === "waha") {
-    const result = await connectSessionWaha(wahaBase, wahaApikey, num.instance, webhookUrl, proxy);
+    // O WAHA só aceita [a-zA-Z0-9_-] no nome da sessão — `instance` é texto
+    // livre digitado ao cadastrar o número (ex.: "Cobrança SC", com cedilha e
+    // espaço), então dava erro 400 do WAHA ("Session name can only contain...")
+    // ao tentar conectar. Corrige o valor salvo pra ficar consistente daqui pra
+    // frente (mensagens/roteamento usam `instance` em vários lugares do app).
+    const sessionName = wahaSessionSlug(num.instance);
+    if (sessionName !== num.instance) {
+      await prisma.whatsappNumber.update({ where: { id }, data: { instance: sessionName } });
+      num.instance = sessionName;
+    }
+    const result = await connectSessionWaha(wahaBase, wahaApikey, sessionName, webhookUrl, proxy);
     if (result.error) return NextResponse.json({ error: result.error }, { status: 502 });
     if (result.connected) return NextResponse.json({ connected: true });
     // Sessão criada/iniciando — o QR só fica pronto depois que o status vira
@@ -41,7 +51,7 @@ export async function POST(req, { params }) {
     let qr = null;
     for (let i = 0; i < 4 && !qr; i++) {
       if (i > 0) await new Promise((r) => setTimeout(r, 1200));
-      qr = await fetchQrWaha(wahaBase, wahaApikey, num.instance);
+      qr = await fetchQrWaha(wahaBase, wahaApikey, sessionName);
     }
     return NextResponse.json(qr ? { qr } : { pending: true });
   }
