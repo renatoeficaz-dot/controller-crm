@@ -30,7 +30,17 @@ export default function MetasMini() {
   useEffect(() => {
     load();
     const t = setInterval(load, 30000);
-    return () => clearInterval(t);
+    // Navegador throttla o setInterval de aba em segundo plano (às vezes pra
+    // só 1x/minuto ou mais) — por isso essa pill ficava mostrando um número
+    // desatualizado quando a aba do funil ficava aberta em background
+    // enquanto pagamentos entravam em outra aba/tela. Recarrega na hora que
+    // a aba volta a ficar visível, sem esperar o próximo tick do intervalo.
+    const onVisible = () => { if (!document.hidden) load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [load]);
 
   if (!resumo) return null;
