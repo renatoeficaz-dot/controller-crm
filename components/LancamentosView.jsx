@@ -840,7 +840,10 @@ export default function LancamentosView() {
                 <tbody className="divide-y divide-slate-100">
                   {lancamentosPagina.map((l) => (
                     <tr key={l.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">{new Date(l.date).toLocaleDateString("pt-BR")}</td>
+                      <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">
+                        {new Date(l.date).toLocaleDateString("pt-BR")}
+                        <p className="text-[10px] text-slate-400 mt-0.5">{new Date(l.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+                      </td>
                       <td className="px-4 py-2">
                         <span className={`text-[10px] font-semibold uppercase rounded-full px-2 py-0.5 ${l.type === "entrada" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
                           {l.type === "entrada" ? "Entrada" : "Saída"}
