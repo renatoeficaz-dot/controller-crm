@@ -6,7 +6,6 @@ import { limiteEscalonado } from "@/lib/escalonamento";
 import { validarCPF } from "@/lib/cpf";
 import { UFS_BR } from "@/lib/ddd";
 import MediaBubble, { MediaLightbox } from "./MediaBubble";
-import PuxadaAnexo from "./PuxadaAnexo";
 import CobrancaLead from "./CobrancaLead";
 import ReferenciasContato from "./ReferenciasContato";
 import Icone from "@/components/Icones";
@@ -239,6 +238,10 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       checklistTelefoneBate: !!data.checklistTelefoneBate,
       checklistDivergenciaPrint: !!data.checklistDivergenciaPrint,
       checklistAntecedentes: !!data.checklistAntecedentes,
+      checklistAntecedenteCriminal: !!data.checklistAntecedenteCriminal,
+      checklistTelefoneClienteOk: !!data.checklistTelefoneClienteOk,
+      checklistCpfOk: !!data.checklistCpfOk,
+      checklistEnderecoOk: !!data.checklistEnderecoOk,
       responsavel: data.responsavel || "",
       estado: data.estado || "",
       genero: data.genero || "",
@@ -807,12 +810,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       cadastrados. Cadastro/edição fica no card "Contatos de referência",
                       mais abaixo (só admin edita, aqui é só visualizar/copiar). */}
                   {[
-                    { id: "cliente", rotulo: "Cliente", nome: contact?.name || "", telefone: form.phone },
+                    { id: "cliente", rotulo: "Cliente", nome: contact?.name || "", telefone: form.phone, tipo: "cliente" },
                     ...[0, 1].map((i) => {
                       const r = (contact?.referencias || [])[i];
-                      return { id: r?.id || `contato-${i + 1}`, rotulo: `Contato ${i + 1}`, nome: r?.nome || "", telefone: r?.telefone || "" };
+                      return { id: r?.id || `contato-${i + 1}`, rotulo: `Contato ${i + 1}`, nome: r?.nome || "", telefone: r?.telefone || "", tipo: "referencia", refId: r?.id, conferido: r?.conferido };
                     }),
-                    ...(contact?.referencias || []).slice(2).map((r, i) => ({ id: r.id, rotulo: `Contato ${i + 3}`, nome: r.nome, telefone: r.telefone })),
+                    ...(contact?.referencias || []).slice(2).map((r, i) => ({ id: r.id, rotulo: `Contato ${i + 3}`, nome: r.nome, telefone: r.telefone, tipo: "referencia", refId: r.id, conferido: r.conferido })),
                   ].map((t) => (
                     <div key={t.id} className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-lg px-2 py-1.5">
                       <span className="text-slate-400 shrink-0 w-16">{t.rotulo}</span>
@@ -827,20 +830,48 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         )}
                       </span>
                       {t.telefone && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(t.telefone);
-                              setTelefoneCopiadoId(t.id);
-                              setTimeout(() => setTelefoneCopiadoId(null), 1500);
-                            } catch {}
-                          }}
-                          title="Copiar telefone"
-                          className="shrink-0 flex items-center justify-center text-slate-400 hover:text-emerald-600"
-                        >
-                          <Icone nome={telefoneCopiadoId === t.id ? "check" : "copiar"} className="w-3.5 h-3.5" />
-                        </button>
+                        <>
+                          {/* Confirmar OK: telefone do cliente fica no form (salva junto
+                              com o resto), referência salva na hora (não passa pelo
+                              "Salvar" do card, é o mesmo padrão de outros toggles). */}
+                          <label className="shrink-0 flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer" title="Confirmar que esse dado está OK">
+                            <input
+                              type="checkbox"
+                              checked={t.tipo === "cliente" ? !!form.checklistTelefoneClienteOk : !!t.conferido}
+                              onChange={async (e) => {
+                                const marcado = e.target.checked;
+                                if (t.tipo === "cliente") {
+                                  setForm((f) => ({ ...f, checklistTelefoneClienteOk: marcado }));
+                                } else if (t.refId) {
+                                  setContact((c) => ({
+                                    ...c,
+                                    referencias: (c.referencias || []).map((r) => (r.id === t.refId ? { ...r, conferido: marcado } : r)),
+                                  }));
+                                  await fetch(`/api/referencias/${t.refId}`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ conferido: marcado }),
+                                  }).catch(() => {});
+                                }
+                              }}
+                            />
+                            OK
+                          </label>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(t.telefone);
+                                setTelefoneCopiadoId(t.id);
+                                setTimeout(() => setTelefoneCopiadoId(null), 1500);
+                              } catch {}
+                            }}
+                            title="Copiar telefone"
+                            className="shrink-0 flex items-center justify-center text-slate-400 hover:text-emerald-600"
+                          >
+                            <Icone nome={telefoneCopiadoId === t.id ? "check" : "copiar"} className="w-3.5 h-3.5" />
+                          </button>
+                        </>
                       )}
                     </div>
                   ))}
@@ -871,6 +902,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         <Icone nome={cpfAnaliseCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    <label className="shrink-0 flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer" title="Confirmar que esse dado está OK">
+                      <input
+                        type="checkbox"
+                        checked={!!form.checklistCpfOk}
+                        onChange={(e) => setForm((f) => ({ ...f, checklistCpfOk: e.target.checked }))}
+                      />
+                      OK
+                    </label>
                   </div>
                 </label>
 
@@ -899,7 +938,25 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         <Icone nome={enderecoCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    <label className="shrink-0 flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer" title="Confirmar que esse dado está OK">
+                      <input
+                        type="checkbox"
+                        checked={!!form.checklistEnderecoOk}
+                        onChange={(e) => setForm((f) => ({ ...f, checklistEnderecoOk: e.target.checked }))}
+                      />
+                      OK
+                    </label>
                   </div>
+                </label>
+
+                <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!form.checklistAntecedenteCriminal}
+                    onChange={(e) => setForm((f) => ({ ...f, checklistAntecedenteCriminal: e.target.checked }))}
+                    className="mt-0.5"
+                  />
+                  Antecedente criminal
                 </label>
               </div>
             )}
@@ -1175,22 +1232,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </div>
             )}
 
-            {/* Puxada (consulta de crédito) em PDF — fixa no card, não depende do chat */}
-            <PuxadaAnexo
-              contactId={contactId}
-              cpf={form.cpf || contact?.cpf}
-              puxadaUrl={contact?.puxadaUrl}
-              puxadaFileName={contact?.puxadaFileName}
-              puxadaScore={contact?.puxadaScore}
-              puxadaRisco={contact?.puxadaRisco}
-              puxadaLimite={contact?.puxadaLimite}
-              puxadaMotivos={contact?.puxadaMotivos}
-              puxadaRenda={contact?.puxadaRenda}
-              puxadaEmprestimos={contact?.puxadaEmprestimos}
-              puxadaCcf={contact?.puxadaCcf}
-              puxadaProcessos={contact?.puxadaProcessos}
-              onChange={(patch) => setContact((c) => ({ ...c, ...patch }))}
-            />
+            {/* Puxada (consulta de crédito) em PDF — removida do card por
+                pedido do usuário (por enquanto). Componente/rota seguem
+                intactos, é só não renderizar aqui. */}
 
             <ReferenciasContato
               contactId={contactId}

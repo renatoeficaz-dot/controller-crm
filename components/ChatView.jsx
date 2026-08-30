@@ -145,6 +145,7 @@ export default function ChatView() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [cpfCopiado, setCpfCopiado] = useState(false);
+  const [phoneCopiado, setPhoneCopiado] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [tplSent, setTplSent] = useState(false);
   const [numbers, setNumbers] = useState([]);
@@ -611,6 +612,30 @@ export default function ChatView() {
     setRecording(false);
   }
 
+  // Move de etapa pelo select do chat. Espelha o forçar/erro do Kanban e do
+  // modal "Dados do contato" — sem isso, um bloqueio (limite de escalonamento,
+  // CPF com calote, motivo de perda) fazia essa tela mostrar "Salvo ✓" mesmo
+  // com a etapa NUNCA tendo mudado de verdade (e o capital nunca liberado).
+  async function moveStageChat(stageId, forcar = false) {
+    const res = await fetch(`/api/contacts/${selectedId}/move`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stageId, forcar }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      if ((data?.bloqueioCpf || data?.escalonamentoExcedido) && !forcar) {
+        if (confirm(`${data.error}\n\nForçar mesmo assim? (só administrador consegue)`)) {
+          return moveStageChat(stageId, true);
+        }
+        return false;
+      }
+      alert(data?.error || "Não foi possível mover o contato.");
+      return false;
+    }
+    return true;
+  }
+
   async function saveContact() {
     setSaving(true);
     await fetch(`/api/contacts/${selectedId}`, {
@@ -624,11 +649,7 @@ export default function ChatView() {
     });
     // Mover de etapa
     if (form.stageId && form.stageId !== contact?.stageId) {
-      await fetch(`/api/contacts/${selectedId}/move`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stageId: form.stageId }),
-      });
+      await moveStageChat(form.stageId);
     }
     setSaving(false);
     setSaved(true);
@@ -1275,7 +1296,25 @@ export default function ChatView() {
             </label>
             <label className="block">
               <span className="text-[11px] text-slate-400">Telefone</span>
-              <input value={form.phone || ""} onChange={set("phone")} className={inputCls} />
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <input value={form.phone || ""} onChange={set("phone")} className={`flex-1 min-w-0 ${inputCls}`} />
+                {form.phone && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(form.phone);
+                        setPhoneCopiado(true);
+                        setTimeout(() => setPhoneCopiado(false), 1500);
+                      } catch {}
+                    }}
+                    title="Copiar telefone"
+                    className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
+                  >
+                    <Icone nome={phoneCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </label>
             <label className="block">
               <span className="text-[11px] text-slate-400">Tipo de cliente</span>

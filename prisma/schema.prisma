@@ -132,6 +132,16 @@ model Contact {
   checklistTelefoneBate     Boolean @default(false)
   checklistDivergenciaPrint Boolean @default(false)
   checklistAntecedentes     Boolean @default(false)
+  // Antecedente criminal: marcado quando a consulta de antecedentes ACHOU
+  // registro (diferente de checklistAntecedentes acima, que só diz que a
+  // conferência foi feita, não o resultado dela).
+  checklistAntecedenteCriminal Boolean @default(false)
+  // Confirmações "conferido/OK" de cada dado em "Dados pra conferência" —
+  // telefone do cliente, CPF e endereço (os contatos de referência têm o
+  // próprio campo `conferido` no model ContatoReferencia).
+  checklistTelefoneClienteOk Boolean @default(false)
+  checklistCpfOk             Boolean @default(false)
+  checklistEnderecoOk        Boolean @default(false)
 
   // Agendamento da vídeo chamada com o cobrador (fluxo à parte, não é o
   // Agente vendas): quando o cliente escreve pro número do cobrador em
@@ -423,6 +433,7 @@ model ContatoReferencia {
   telefone       String
   relacao        String? // "familiar" | "vizinho" | "amigo" | "trabalho" | "outro"
   dataNascimento String? // texto livre ("DD/MM/AAAA") — igual endereco/cpf do Contact, sem input de data
+  conferido      Boolean  @default(false) // "conferido/OK" marcado no card "Dados pra conferência"
   createdAt      DateTime @default(now())
 }
 

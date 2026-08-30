@@ -35,6 +35,7 @@ export async function PATCH(req, { params }) {
     }
     if ("relacao" in body) data.relacao = body.relacao || null;
     if ("dataNascimento" in body) data.dataNascimento = texto(body.dataNascimento).slice(0, 20) || null;
+    if ("conferido" in body) data.conferido = !!body.conferido;
 
     const referencia = await prisma.contatoReferencia.update({ where: { id }, data });
     return NextResponse.json(referencia);
