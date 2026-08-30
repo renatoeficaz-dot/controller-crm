@@ -243,6 +243,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       estado: data.estado || "",
       genero: data.genero || "",
       tipoCliente: data.tipoCliente || "",
+      horarioRecebimento: data.horarioRecebimento || "",
       cpf: data.cpf || "",
       endereco: data.endereco || "",
       camposCustom: JSON.parse(data.camposCustom || "{}"),
@@ -1088,6 +1089,21 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 <option value="comerciante">Comerciante</option>
               </select>
             </label>
+
+            {/* Horário de recebimento — só faz sentido pra quem não é uber (o
+                uber usa o horário limite geral de Configurações). O lembrete
+                diário desse cliente dispara 1h antes desse horário. */}
+            {form.tipoCliente && form.tipoCliente !== "uber" && (
+              <label className="block">
+                <span className="text-xs text-slate-400">Horário de recebimento</span>
+                <input
+                  type="time"
+                  value={form.horarioRecebimento || ""}
+                  onChange={(e) => setForm((f) => ({ ...f, horarioRecebimento: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                />
+              </label>
+            )}
 
             {/* Criação — quando o lead entrou no funil (dia da semana, data e hora). Só leitura. */}
             <div className="block">

@@ -58,12 +58,14 @@ export async function POST(req) {
     const stage = await prisma.stage.findUnique({ where: { id: value } });
     if (!stage) return NextResponse.json({ error: "Coluna não encontrada." }, { status: 404 });
 
-    // Regra: só vai para "Liberação pagamento" quem tem Valor do capital preenchido.
+    // Regra: só vai para "Liberação pagamento" quem tem Valor do capital E
+    // chave Pix preenchidos — mesma trava do move individual (sem Pix não dá
+    // pra liberar o pagamento de verdade).
     let alvo = ids;
     let skipped = 0;
     if (stage.name === "Liberação pagamento") {
       const validos = await prisma.contact.findMany({
-        where: { id: { in: ids }, valorCapital: { not: null } },
+        where: { id: { in: ids }, valorCapital: { not: null }, pixChave: { not: null } },
         select: { id: true },
       });
       alvo = validos.map((v) => v.id);

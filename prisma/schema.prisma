@@ -39,6 +39,11 @@ model Contact {
   genero      String?
   // Tipo de cliente ("motoboy" | "uber" | "comerciante") — cadastrado manualmente.
   tipoCliente String?
+  // Horário de recebimento ("HH:MM") — só faz sentido pra quem NÃO é uber (o
+  // uber usa o horário limite global de Config). O lembrete diário de cobrança
+  // desse contato dispara 1h antes desse horário específico, em vez do horário
+  // limite geral.
+  horarioRecebimento String?
   // CPF do lead — preenchido manualmente ou pela IA ao ler um documento (RG/CNH) recebido.
   cpf         String?
   // Endereço do lead — preenchido manualmente ou pela IA ao ler um comprovante de residência recebido.

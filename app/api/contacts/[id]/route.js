@@ -79,7 +79,7 @@ export async function PATCH(req, { params }) {
     const data = {};
     for (const f of [
       "name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf", "endereco",
-      "pixChave", "pixNomeCompleto",
+      "pixChave", "pixNomeCompleto", "horarioRecebimento",
     ]) {
       // Todos estes são texto no banco. Repassar o valor cru deixava o Prisma
       // recusar (e a rota estourar 500) quando vinha número/objeto/array —
@@ -135,8 +135,38 @@ export async function PATCH(req, { params }) {
     if ("responsavel" in body) {
       responsavelAntes = await prisma.contact.findUnique({ where: { id }, select: { responsavel: true } });
     }
-  
+
+    // Feed de atividade do lead (chat → "Atividade"): guarda o valor de ANTES
+    // dos campos relevantes pra montar o diff depois do update. Só os campos
+    // que valem a pena mostrar no feed — notes/camposCustom ficam de fora
+    // (podem ser gigantes e não é raro editar).
+    const CAMPOS_AUDITAVEIS = [
+      "name", "phone", "estado", "genero", "tipoCliente", "cpf", "endereco",
+      "pixChave", "pixNomeCompleto", "horarioRecebimento", "valorCapital", "iaPausada",
+    ];
+    const camposMudando = CAMPOS_AUDITAVEIS.filter((f) => f in data);
+    const antesAuditoria = camposMudando.length
+      ? await prisma.contact.findUnique({ where: { id }, select: Object.fromEntries(camposMudando.map((f) => [f, true])) })
+      : null;
+
     const contact = await prisma.contact.update({ where: { id }, data });
+
+    if (antesAuditoria) {
+      const session = await getSession().catch(() => null);
+      const mudou = camposMudando.filter((f) => String(antesAuditoria[f] ?? "") !== String(contact[f] ?? ""));
+      if (mudou.length) {
+        const detalhe = mudou
+          .map((f) => `${f}: "${antesAuditoria[f] ?? "—"}" → "${contact[f] ?? "—"}"`)
+          .join("; ");
+        registrarAuditoria({
+          usuario: session?.name,
+          acao: "editar_campo",
+          entidade: "Contact",
+          entidadeId: id,
+          detalhe,
+        });
+      }
+    }
   
     if ("responsavel" in body && responsavelAntes && responsavelAntes.responsavel !== contact.responsavel) {
       const session = await getSession().catch(() => null);

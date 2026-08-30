@@ -7,6 +7,7 @@ import { dentroDoHorarioComercial } from "@/lib/horarioComercial";
 import { limiteEscalonado } from "@/lib/escalonamento";
 import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { criarTarefaLiberarPagamento } from "@/lib/tarefaLiberarPagamento";
 import { getSession } from "@/lib/session";
 import { escolherPorCarga } from "@/lib/distribuicao";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
@@ -49,6 +50,15 @@ export async function PATCH(req, { params }) {
     if (stage.name === "Liberação pagamento" && !contact.valorCapital) {
       return NextResponse.json(
         { error: "Preencha o Valor do capital antes de mover para Liberação pagamento." },
+        { status: 422 }
+      );
+    }
+    // Sem chave Pix não dá pra liberar o pagamento de verdade — travar aqui
+    // evita o lead chegar em "Liberação pagamento" e o Kabrito descobrir só
+    // na hora que falta o dado essencial pra fazer o Pix.
+    if (stage.name === "Liberação pagamento" && !contact.pixChave) {
+      return NextResponse.json(
+        { error: "Preencha a chave Pix antes de mover para Liberação pagamento." },
         { status: 422 }
       );
     }
@@ -198,6 +208,12 @@ export async function PATCH(req, { params }) {
     if (entrandoRecebimento) {
       await sendRecebimentoNotice(updated).catch(() => {});
       await lancarLiberacaoCapital(updated).catch(() => {});
+    }
+
+    // Ao ENTRAR em "Liberação pagamento": cria sozinho o lembrete de fazer o
+    // Pix — sem isso dependia de alguém lembrar de criar a tarefa na mão.
+    if (stage.name === "Liberação pagamento" && trocandoDeEtapa) {
+      await criarTarefaLiberarPagamento(id).catch(() => {});
     }
 
     // Qualquer lead que vai pra "Venda perdida" por suspeita de fraude (manual

@@ -59,6 +59,15 @@ function fmtCriacao(iso) {
   return `${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)}, ${data} às ${hora}`;
 }
 
+// Data curta + hora pro feed de atividade ("30/08 14:05").
+function fmtAtividade(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${data} ${hora}`;
+}
+
 // Situação de cobrança do contato (mesma lógica do Kanban):
 //  "atrasado" = tem parcela vencida e não baixada
 //  "hoje"     = tem parcela que vence hoje e não baixada
@@ -149,6 +158,8 @@ export default function ChatView() {
   const [attachError, setAttachError] = useState("");
   const [multaPct, setMultaPct] = useState(50);
   const [tasks, setTasks] = useState([]);
+  const [atividade, setAtividade] = useState([]);
+  const [atividadeAberta, setAtividadeAberta] = useState(false);
   const [taskTypes, setTaskTypes] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
@@ -316,6 +327,14 @@ export default function ChatView() {
     setTasks(Array.isArray(data) ? data : []);
   }, [selectedId]);
 
+  const loadAtividade = useCallback(async () => {
+    if (!selectedId) return;
+    const requestedId = selectedId;
+    const data = await fetch(`/api/contacts/${requestedId}/atividade`).then((r) => r.json()).catch(() => []);
+    if (requestedId !== selectedIdRef.current) return;
+    setAtividade(Array.isArray(data) ? data : []);
+  }, [selectedId]);
+
   const loadContact = useCallback(async () => {
     if (!selectedId) return;
     const requestedId = selectedId;
@@ -379,6 +398,7 @@ export default function ChatView() {
 
   useEffect(() => {
     loadContact();
+    loadAtividade();
     ciclosRef.current = 0;
     loadMessages(true); // ao abrir a conversa, sempre completa
     if (!selectedId) return;
@@ -389,7 +409,7 @@ export default function ChatView() {
       loadMessages(ciclosRef.current % 10 === 0);
     }, 4000);
     return () => clearInterval(t);
-  }, [loadContact, loadMessages, selectedId]);
+  }, [loadContact, loadAtividade, loadMessages, selectedId]);
 
   // Número (instância) de onde a próxima mensagem vai sair. Ao trocar de
   // conversa, sugere automaticamente o último número usado nela (mesma regra
@@ -614,6 +634,7 @@ export default function ChatView() {
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
     loadContact();
+    loadAtividade();
   }
 
   async function toggleTag(tagId) {
@@ -1363,6 +1384,38 @@ export default function ChatView() {
             />
 
             <CobrancaLead contactId={selectedId} contact={contact} onChanged={loadContact} />
+
+            {/* Atividade do lead: quem mudou o quê (campo/etapa), IA ou usuário. */}
+            <div className="border border-slate-200 rounded-lg p-2.5">
+              <button
+                type="button"
+                onClick={() => setAtividadeAberta((v) => !v)}
+                className="w-full flex items-center justify-between"
+              >
+                <span className="text-[11px] font-medium text-slate-600">Atividade ({atividade.length})</span>
+                <span className="text-[11px] text-emerald-600">{atividadeAberta ? "Ocultar" : "Ver"}</span>
+              </button>
+              {atividadeAberta && (
+                <div className="mt-2 space-y-1.5 max-h-64 overflow-y-auto thin-scroll">
+                  {atividade.length === 0 && (
+                    <p className="text-[11px] text-slate-400">Nenhuma alteração registrada ainda.</p>
+                  )}
+                  {atividade.map((a, i) => (
+                    <div key={i} className="text-[11px] border-l-2 border-slate-200 pl-2">
+                      <div className="flex items-center gap-1 text-slate-500">
+                        <span className={`px-1 rounded text-[10px] font-medium ${a.usuario ? "bg-slate-100 text-slate-600" : "bg-emerald-50 text-emerald-700"}`}>
+                          {a.usuario || "IA"}
+                        </span>
+                        <span>{fmtAtividade(a.createdAt)}</span>
+                      </div>
+                      <p className="text-slate-700">
+                        {a.tipo === "etapa" ? `Etapa: ${a.detalhe}` : a.detalhe}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Tarefas do lead */}
             <div className="border border-slate-200 rounded-lg p-2.5">
