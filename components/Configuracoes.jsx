@@ -266,6 +266,7 @@ export default function Configuracoes() {
               <div className="space-y-4 max-w-md">
                 <MetasConfig />
                 <MetaDiaSemanaConfig />
+                <MetaVendasDataConfig />
               </div>
             )}
             {tab === "comissao" && <ComissaoConfig />}
@@ -2983,6 +2984,125 @@ function MetaDiaSemanaConfig() {
               <button type="button" disabled={salvando === dia} onClick={() => salvar(dia)} className="text-xs bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600 disabled:opacity-50">
                 {salvando === dia ? "Salvando…" : "Salvar"}
               </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Meta de vendas por DIA ESPECÍFICO do calendário (item novo) — diferente do
+// MetaDiaSemana acima (que repete toda semana), essa é pra planejar uma curva
+// de campanha com meta crescente dia a dia, mês a mês. Agrupado por mês pra
+// não virar uma lista gigante numa coluna só.
+function MetaVendasDataConfig() {
+  const [rows, setRows] = useState([]);
+  const [novoDia, setNovoDia] = useState("");
+  const [novaMeta, setNovaMeta] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [mesAberto, setMesAberto] = useState(null);
+
+  const load = useCallback(() => {
+    fetch("/api/metas-vendas-data").then((r) => r.json()).then((d) => setRows(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+  useEffect(load, [load]);
+
+  async function adicionar() {
+    if (!novoDia || novaMeta === "") return;
+    setSalvando(true);
+    setErro("");
+    const res = await fetch("/api/metas-vendas-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: novoDia, metaVendasDia: novaMeta }),
+    });
+    setSalvando(false);
+    if (!res.ok) { setErro((await res.json().catch(() => ({}))).error || "Erro ao salvar."); return; }
+    setNovoDia("");
+    setNovaMeta("");
+    load();
+  }
+
+  async function editarMeta(row, valor) {
+    if (valor === "" || Number(valor) === row.metaVendasDia) return;
+    await fetch("/api/metas-vendas-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: row.data.slice(0, 10), metaVendasDia: valor }),
+    });
+    load();
+  }
+
+  async function remover(id) {
+    await fetch(`/api/metas-vendas-data/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  // Agrupa por "YYYY-MM" pra render em seções colapsáveis por mês.
+  const porMes = new Map();
+  for (const r of rows) {
+    const chave = r.data.slice(0, 7);
+    if (!porMes.has(chave)) porMes.set(chave, []);
+    porMes.get(chave).push(r);
+  }
+  const meses = [...porMes.keys()].sort();
+
+  function labelMes(chave) {
+    const [ano, mes] = chave.split("-").map(Number);
+    return new Date(Date.UTC(ano, mes - 1, 1)).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
+  }
+  function labelDia(iso) {
+    const d = new Date(iso.slice(0, 10) + "T00:00:00.000Z");
+    return { data: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" }), diaSemana: DIAS_SEMANA[d.getUTCDay()] };
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
+      <SectionHeader icon="calendario" title="Meta de vendas por dia (calendário)" subtitle="Pra planejar uma curva de campanha com meta crescente dia a dia — tem prioridade sobre a meta do dia da semana e a meta global nesse dia exato." />
+
+      <div className="flex items-end gap-2 border border-slate-100 rounded-xl p-2.5">
+        <label className="block flex-1">
+          <span className="text-[10px] text-slate-400">Dia</span>
+          <input type="date" value={novoDia} onChange={(e) => setNovoDia(e.target.value)} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400" />
+        </label>
+        <label className="block w-24">
+          <span className="text-[10px] text-slate-400">Meta</span>
+          <input type="number" min={0} value={novaMeta} onChange={(e) => setNovaMeta(e.target.value)} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400" />
+        </label>
+        <button type="button" disabled={salvando} onClick={adicionar} className="shrink-0 bg-emerald-500 text-white text-xs rounded-lg px-3 py-2 hover:bg-emerald-600 disabled:opacity-50">
+          {salvando ? "Salvando…" : "+ Adicionar"}
+        </button>
+      </div>
+      {erro && <p className="text-xs text-red-500">{erro}</p>}
+
+      {meses.length === 0 && <p className="text-xs text-slate-400">Nenhum dia com meta própria cadastrada ainda.</p>}
+
+      {meses.map((chave) => (
+        <div key={chave} className="border border-slate-100 rounded-xl">
+          <button type="button" onClick={() => setMesAberto(mesAberto === chave ? null : chave)} className="w-full flex items-center justify-between px-3 py-2 text-left capitalize">
+            <span className="text-sm text-slate-700">{labelMes(chave)}</span>
+            <span className="text-[11px] text-slate-400">{porMes.get(chave).length} dia(s)</span>
+          </button>
+          {mesAberto === chave && (
+            <div className="px-3 pb-3 space-y-1 border-t border-slate-100 pt-2">
+              {porMes.get(chave).map((r) => {
+                const { data, diaSemana } = labelDia(r.data);
+                return (
+                  <div key={r.id} className="flex items-center gap-2 text-xs">
+                    <span className="text-slate-500 w-24 shrink-0">{data} · {diaSemana.slice(0, 3)}</span>
+                    <input
+                      type="number" min={0}
+                      defaultValue={r.metaVendasDia}
+                      onBlur={(e) => editarMeta(r, e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+                      className="w-20 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-emerald-400"
+                    />
+                    <button type="button" onClick={() => remover(r.id)} className="text-red-400 hover:text-red-600 ml-auto shrink-0">Excluir</button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

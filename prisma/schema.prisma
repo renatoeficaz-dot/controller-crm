@@ -1063,6 +1063,19 @@ model MetaDiaSemana {
   metaPctRecebimento       Float?
 }
 
+// Meta de vendas de um DIA ESPECÍFICO (calendário, não dia da semana) — pra
+// planejar uma curva de crescimento (ex.: campanha de 3 meses com meta
+// crescente dia a dia) sem que ela se repita toda semana como o
+// MetaDiaSemana faria. Tem prioridade sobre MetaDiaSemana/Config nesse dia
+// exato. Só a meta cheia (metaVendasDia) — sem mínima/média própria, que
+// continuam vindo do dia da semana/config.
+model MetaVendasData {
+  id            String   @id @default(cuid())
+  data          DateTime @unique // meia-noite UTC do dia (mesma convenção de MetaDiaria.dia)
+  metaVendasDia Int
+  createdAt     DateTime @default(now())
+}
+
 // Retrato de como foi cada dia: as metas que estavam valendo, o tamanho da
 // carteira naquele momento e o que de fato aconteceu.
 //
