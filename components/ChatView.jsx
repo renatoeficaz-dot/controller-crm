@@ -1032,9 +1032,18 @@ export default function ChatView() {
               >
                 ←
               </button>
-              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center shrink-0">
+              {/* No mobile, os botões de topo (Resumir/Ligar/IA/Dados) atulham o
+                  cabeçalho e empurram o chat pra baixo — clicar na foto abre
+                  os Dados do contato (como no WhatsApp de verdade), sem
+                  precisar do botão "Dados" que só aparece no desktop. */}
+              <button
+                type="button"
+                onClick={() => setShowInfo(true)}
+                title="Ver dados do contato"
+                className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center shrink-0"
+              >
                 {initials(selected.name)}
-              </div>
+              </button>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-800 truncate">{selected.name}</p>
                 {selected.phone && <p className="text-xs text-slate-400">{selected.phone}</p>}
@@ -1043,7 +1052,7 @@ export default function ChatView() {
                 onClick={gerarResumo}
                 disabled={resumindo}
                 title="Resumir a conversa com IA"
-                className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                className="hidden md:flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
               >
                 {resumindo ? "Resumindo…" : (<><Icone nome="estrela" className="w-3 h-3" /> Resumir</>)}
               </button>
@@ -1053,7 +1062,7 @@ export default function ChatView() {
                   target="_blank"
                   rel="noreferrer"
                   title="Abrir conversa no WhatsApp pra ligar pro cliente (o sistema não faz a chamada sozinho)"
-                  className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
+                  className="hidden md:flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
                 >
                   <Icone nome="cobranca" className="w-3 h-3" /> Ligar
                 </a>
@@ -1062,7 +1071,7 @@ export default function ChatView() {
                 <button
                   onClick={toggleIaPausada}
                   title={contact.iaPausada ? "IA desligada — clique para religar" : "IA ligada — clique para desligar (atendimento manual)"}
-                  className={`shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border ${
+                  className={`hidden md:inline-flex shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border ${
                     contact.iaPausada
                       ? "bg-red-50 text-red-600 border-red-200"
                       : "bg-emerald-50 text-emerald-600 border-emerald-200"
@@ -1073,7 +1082,7 @@ export default function ChatView() {
               )}
               <button
                 onClick={() => setShowInfo((v) => !v)}
-                className="text-xs text-emerald-600 hover:text-emerald-700 border border-emerald-200 rounded-lg px-2.5 py-1 shrink-0"
+                className="hidden md:inline-block text-xs text-emerald-600 hover:text-emerald-700 border border-emerald-200 rounded-lg px-2.5 py-1 shrink-0"
               >
                 {showInfo ? "Ocultar" : "Dados"}
               </button>

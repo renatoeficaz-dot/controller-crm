@@ -184,6 +184,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [numbers, setNumbers] = useState([]);
   const [selectedInstance, setSelectedInstance] = useState("");
   const [cicloAtual, setCicloAtual] = useState(1);
+  // No mobile, "Dados do contato" e o chat WhatsApp ficam empilhados — o
+  // formulário sozinho já ocupa até 50% da tela, atrapalhando o chat. Fica
+  // fechado por padrão e abre ao tocar na foto/ícone no cabeçalho do
+  // WhatsApp (só no mobile; no desktop as duas colunas sempre aparecem lado
+  // a lado, então isso não se aplica lá).
+  const [dadosAbertoMobile, setDadosAbertoMobile] = useState(false);
   const [showHistorico, setShowHistorico] = useState(false);
   const [showRenegociadas, setShowRenegociadas] = useState(false);
   const [renovForm, setRenovForm] = useState({ valorCapital: "", pagamentoCapital: "" });
@@ -763,13 +769,23 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
         className="bg-white md:rounded-2xl shadow-xl w-full h-full md:max-w-5xl md:h-[85vh] flex flex-col md:flex-row overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Coluna esquerda: dados do contato */}
-        <div className="w-full md:w-1/2 md:border-r border-b md:border-b-0 border-slate-200 flex flex-col max-h-[50vh] md:max-h-none">
+        {/* Coluna esquerda: dados do contato — no mobile só aparece depois de
+            tocar na foto no cabeçalho do WhatsApp (dadosAbertoMobile); no
+            desktop (md:) sempre visível, lado a lado com o chat. */}
+        <div className={`w-full md:w-1/2 md:border-r border-b md:border-b-0 border-slate-200 ${dadosAbertoMobile ? "flex" : "hidden md:flex"} flex-col max-h-[50vh] md:max-h-none`}>
           <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
             <h2 className="font-semibold text-slate-800">Dados do contato</h2>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
-              ×
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setDadosAbertoMobile(false)}
+                className="md:hidden text-xs text-emerald-600 hover:text-emerald-700"
+              >
+                Ver chat
+              </button>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
+                ×
+              </button>
+            </div>
           </div>
           <div className="p-5 flex flex-col gap-3 overflow-y-auto thin-scroll flex-1">
             {field("Nome", "name")}
@@ -1711,9 +1727,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
         {/* Coluna direita: chat WhatsApp */}
         <div className="w-full md:w-1/2 flex flex-col bg-slate-50 flex-1 min-h-0">
           <div className="px-5 py-4 border-b border-slate-200 bg-white flex items-center gap-2">
-            <span className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setDadosAbertoMobile(true)}
+              title="Ver dados do contato"
+              className="md:pointer-events-none w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0"
+            >
               <Icone nome="cobranca" className="w-3.5 h-3.5" />
-            </span>
+            </button>
             <div className="flex-1 min-w-0">
               <h2 className="font-semibold text-slate-800 text-sm leading-tight">WhatsApp</h2>
               <p className="text-xs text-slate-400 leading-tight">
