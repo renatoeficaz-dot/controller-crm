@@ -273,7 +273,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     setCicloAtual(data.cicloAtual || 1);
     if (cfg?.honorariosPct != null) setHonorariosPct(cfg.honorariosPct);
     if (cfg?.multaPct != null) setMultaPct(cfg.multaPct);
-    setHoraLimite(cfg?.pagamentoHoraLimite || "");
+    // Cliente não-uber com horário de recebimento próprio: multa/atraso passam
+    // a valer a partir DESSE horário, não do limite geral (que continua
+    // valendo pro uber e pra quem ainda não tem horário cadastrado).
+    const horarioProprio = data.tipoCliente && data.tipoCliente !== "uber" ? data.horarioRecebimento : null;
+    setHoraLimite(horarioProprio || cfg?.pagamentoHoraLimite || "");
     setEscalonamentoCfg(cfg?.escalonamentoAtivo ? cfg : null);
   }, [contactId]);
 

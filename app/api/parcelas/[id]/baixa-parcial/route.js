@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
-import { valorParcelaAtual } from "@/lib/finance";
+import { valorParcelaAtual, horaLimiteEfetiva } from "@/lib/finance";
 import { atualizarScoreDoContato } from "@/lib/atualizarScoreComportamental";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
@@ -25,13 +25,13 @@ export async function POST(req, { params }) {
   const v = Number(valor);
   if (!v || v <= 0) return NextResponse.json({ error: "Informe um valor válido." }, { status: 400 });
 
-  const parcela = await prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { id: true, name: true } } } });
+  const parcela = await prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { id: true, name: true, tipoCliente: true, horarioRecebimento: true } } } });
   if (!parcela) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
   if (parcela.paid) return NextResponse.json({ error: "Essa parcela já está totalmente paga." }, { status: 400 });
 
   const user = await getCurrentUser().catch(() => null);
   const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
-  const devido = valorParcelaAtual(parcela, undefined, { multaPct: cfg?.multaPct, horaLimite: cfg?.pagamentoHoraLimite });
+  const devido = valorParcelaAtual(parcela, undefined, { multaPct: cfg?.multaPct, horaLimite: horaLimiteEfetiva(parcela.contact, cfg) });
 
   // Ler o valorPago e depois gravar em dois passos separados perdia baixas
   // simultâneas: dois recebimentos ao mesmo tempo liam o mesmo saldo e o
@@ -110,7 +110,7 @@ export async function POST(req, { params }) {
     });
     for (const prox of proximas) {
       if (excedente <= 0.01) break;
-      const devidoProx = valorParcelaAtual(prox, undefined, { multaPct: cfg?.multaPct, horaLimite: cfg?.pagamentoHoraLimite });
+      const devidoProx = valorParcelaAtual(prox, undefined, { multaPct: cfg?.multaPct, horaLimite: horaLimiteEfetiva(parcela.contact, cfg) });
       const faltaProx = Math.round((devidoProx - prox.valorPago) * 100) / 100;
       // Arredonda em centavo: subtrair floats gera resto binário e o valor ia
       // pro banco como 59.40000000000001 — aparece assim em relatório e CSV.

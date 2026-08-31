@@ -49,6 +49,7 @@ export default function Relatorios() {
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [openContactId, setOpenContactId] = useState(null);
+  const [adimplenciaDetalheAberto, setAdimplenciaDetalheAberto] = useState(null); // "Adimplentes" | "Inadimplentes" | null
   const [agingDrill, setAgingDrill] = useState(null); // faixa de aging clicada (item 123) | null
 
   const load = useCallback(async () => {
@@ -723,17 +724,17 @@ export default function Relatorios() {
 
   // Adimplência: entre os clientes com empréstimo ativo (têm parcelas), quantos
   // têm alguma parcela vencida e não paga agora (inadimplente) vs nenhuma (adimplente).
-  const { adimplentes, inadimplentes } = useMemo(() => {
+  const { adimplentes, inadimplentes, adimplentesLista, inadimplentesLista } = useMemo(() => {
     const hoje = hojeStr();
-    let ad = 0, inad = 0;
+    const adLista = [], inadLista = [];
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
         if (!c.parcelas || c.parcelas.length === 0) continue;
         const temAtrasada = c.parcelas.some((p) => parcelaAtrasada(p, hoje));
-        if (temAtrasada) inad++; else ad++;
+        (temAtrasada ? inadLista : adLista).push({ id: c.id, name: c.name, phone: c.phone });
       }
     }
-    return { adimplentes: ad, inadimplentes: inad };
+    return { adimplentes: adLista.length, inadimplentes: inadLista.length, adimplentesLista: adLista, inadimplentesLista: inadLista };
   }, [stagesFiltrados]);
 
   // Em qual parcela o cliente parou de pagar: menor número de parcela vencida
@@ -914,17 +915,26 @@ export default function Relatorios() {
     [ltvData]
   );
 
-  // Novos indicadores
+  // Novos indicadores. "Novas vendas" tem dois períodos possíveis que não são
+  // a mesma coisa: o filtro avançado "Data de criação" (criacaoIni/Fim) e o
+  // período do card "Total recebido" (ini/fim, começa no início do mês). Sem
+  // essa distinção, os dois se combinavam (E lógico) — filtrar só por "Data
+  // de criação" ainda cortava pelo período do mês por baixo dos panos, e o
+  // número não batia com o que a pessoa configurou no filtro.
   const { novasVendas, renovacoes } = useMemo(() => {
     const all = stagesFiltrados.flatMap((s) => s.contacts || []);
-    const nv = all.filter((c) => {
-      if (!c.createdAt) return false;
-      const d = new Date(c.createdAt).toLocaleDateString("en-CA");
-      return d >= ini && d <= fim;
-    }).length;
+    const usaFiltroCriacao = !!(criacaoIni || criacaoFim);
+    // stagesFiltrados já aplica criacaoIni/Fim quando ativo — não filtra de novo aqui.
+    const nv = usaFiltroCriacao
+      ? all.length
+      : all.filter((c) => {
+          if (!c.createdAt) return false;
+          const d = new Date(c.createdAt).toLocaleDateString("en-CA");
+          return d >= ini && d <= fim;
+        }).length;
     const ren = all.filter((c) => (c.cicloAtual || 1) > 1).length;
     return { novasVendas: nv, renovacoes: ren };
-  }, [stagesFiltrados, ini, fim]);
+  }, [stagesFiltrados, ini, fim, criacaoIni, criacaoFim]);
 
   // Manda pro servidor os indicadores JÁ calculados aqui — refazer as contas
   // no backend abriria espaço pro PDF divergir do que está na tela.
@@ -1370,6 +1380,7 @@ export default function Relatorios() {
                 { label: "Adimplentes", value: adimplentes, color: "#059669" },
                 { label: "Inadimplentes", value: inadimplentes, color: "#ef4444" },
               ]}
+              onSegmentClick={(d) => d.value > 0 && setAdimplenciaDetalheAberto(d.label)}
             />
           )}
         </div>
@@ -2221,6 +2232,49 @@ export default function Relatorios() {
         </div>
       )}
 
+      {adimplenciaDetalheAberto && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
+          onClick={() => setAdimplenciaDetalheAberto(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto thin-scroll"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-semibold text-slate-800">
+                {adimplenciaDetalheAberto}{" "}
+                <span className="text-slate-400 font-normal">
+                  ({(adimplenciaDetalheAberto === "Adimplentes" ? adimplentesLista : inadimplentesLista).length})
+                </span>
+              </h3>
+              <button onClick={() => setAdimplenciaDetalheAberto(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <div className="p-5">
+              <ul className="divide-y divide-slate-50">
+                {(adimplenciaDetalheAberto === "Adimplentes" ? adimplentesLista : inadimplentesLista).map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => { setAdimplenciaDetalheAberto(null); setOpenContactId(c.id); }}
+                      className="w-full flex items-center justify-between gap-3 py-2.5 text-left hover:bg-slate-50/80 transition-colors rounded-lg px-1.5 -mx-1.5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-slate-700 truncate">{c.name}</p>
+                        <p className="text-xs text-slate-400">{c.phone || "sem telefone"}</p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+                {(adimplenciaDetalheAberto === "Adimplentes" ? adimplentesLista : inadimplentesLista).length === 0 && (
+                  <p className="text-sm text-slate-400 py-4">Nenhum cliente.</p>
+                )}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       {openContactId && (
         <ContactModal
           contactId={openContactId}
@@ -2318,7 +2372,7 @@ function VBarChart({ data, color = "#7c3aed", height = 160, tooltip }) {
 }
 
 // Donut de 2 (ou mais) categorias, com legenda + rótulo direto de valor/%.
-function DonutChart({ data, size = 150, strokeWidth = 26 }) {
+function DonutChart({ data, size = 150, strokeWidth = 26, onSegmentClick }) {
   const total = data.reduce((acc, d) => acc + d.value, 0) || 1;
   const r = (size - strokeWidth) / 2;
   const c = 2 * Math.PI * r;
@@ -2348,6 +2402,7 @@ function DonutChart({ data, size = 150, strokeWidth = 26 }) {
                   strokeLinecap="round"
                   onMouseEnter={() => setHover(i)}
                   onMouseLeave={() => setHover(null)}
+                  onClick={onSegmentClick ? () => onSegmentClick(d) : undefined}
                   style={{ cursor: "pointer", opacity: hover === null || hover === i ? 1 : 0.45, transition: "opacity .15s" }}
                 />
               );
@@ -2369,7 +2424,8 @@ function DonutChart({ data, size = 150, strokeWidth = 26 }) {
             className="flex items-center gap-2"
             onMouseEnter={() => setHover(i)}
             onMouseLeave={() => setHover(null)}
-            style={{ opacity: hover === null || hover === i ? 1 : 0.55, transition: "opacity .15s" }}
+            onClick={onSegmentClick ? () => onSegmentClick(d) : undefined}
+            style={{ opacity: hover === null || hover === i ? 1 : 0.55, transition: "opacity .15s", cursor: onSegmentClick ? "pointer" : undefined }}
           >
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
             <span className="text-slate-600">{d.label}</span>
