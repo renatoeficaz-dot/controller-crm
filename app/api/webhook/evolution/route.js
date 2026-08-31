@@ -6,6 +6,7 @@ import {
   extractIncomingContacts,
   fetchIncomingMediaBase64,
   onlyDigits,
+  telefoneDeJid,
 } from "@/lib/evolution";
 import { processIncomingMessage } from "@/lib/webhookCommon";
 import { webhookAutorizado } from "@/lib/webhookAuth";
@@ -28,7 +29,12 @@ export async function POST(req) {
   const data = payload.data || {};
   const fromMe = Boolean(data.key?.fromMe);
   const remoteJid = data.key?.remoteJid || "";
-  const number = onlyDigits(remoteJid.split("@")[0]);
+  // null quando o evento so traz @lid (sem telefone real) — processIncomingMessage
+  // ignora sozinho, e a mesma mensagem chega de novo com o JID verdadeiro.
+  const number = telefoneDeJid(remoteJid, [
+    data.key?.remoteJidAlt, data.key?.senderPn, data.key?.participantPn,
+    data.key?.participantAlt, data.key?.participant,
+  ]);
 
   const media = detectIncomingMedia(data.message);
 
