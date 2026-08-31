@@ -391,7 +391,6 @@ export default function Relatorios() {
   // 5. Faixa de ticket: acima de certo valor o calote costuma disparar — é o
   // dado que define o limite de crédito, hoje decidido no feeling.
   const porFaixaTicket = useMemo(() => {
-    const hoje = hojeStr();
     const faixas = [
       { label: "Até R$300", max: 300 },
       { label: "R$301–500", max: 500 },
@@ -408,7 +407,7 @@ export default function Relatorios() {
       faixa.recebido += recebidoDe(c);
       if ((c.parcelas || []).length > 0) {
         faixa.comParcelas++;
-        if (c.parcelas.some((p) => parcelaAtrasada(p, hoje))) faixa.inadimplentes++;
+        if (c._stage === "Cravo") faixa.inadimplentes++;
       }
     }
     return faixas
@@ -423,7 +422,6 @@ export default function Relatorios() {
   // 6. Ciclo: se o renovado paga muito melhor que o primeiro empréstimo, vale
   // mais renovar quem já provou que paga do que captar lead novo.
   const porCiclo = useMemo(() => {
-    const hoje = hojeStr();
     const map = new Map();
     for (const c of contatosFiltrados) {
       if (!c.valorCapital || c.valorCapital <= 0) continue;
@@ -438,7 +436,7 @@ export default function Relatorios() {
       row.recebido += recebidoDe(c);
       if ((c.parcelas || []).length > 0) {
         row.comParcelas++;
-        if (c.parcelas.some((p) => parcelaAtrasada(p, hoje))) row.inadimplentes++;
+        if (c._stage === "Cravo") row.inadimplentes++;
       }
       const pb = diasPaybackDe(c);
       if (pb != null) row.paybacks.push(pb);
@@ -549,7 +547,6 @@ export default function Relatorios() {
   // estão pagando. "Sem origem" = leads que não chegaram por nenhum link
   // (mensagem direta, indicação, etc.).
   const leadsPorCampanha = useMemo(() => {
-    const hoje = hojeStr();
     const map = new Map();
     for (const s of stages) {
       for (const c of s.contacts || []) {
@@ -566,7 +563,7 @@ export default function Relatorios() {
         const row = map.get(chave);
         row.leads++;
         if (c.parcelas && c.parcelas.length > 0) {
-          if (c.parcelas.some((p) => parcelaAtrasada(p, hoje))) row.inadimplentes++; else row.adimplentes++;
+          if (s.name === "Cravo") row.inadimplentes++; else row.adimplentes++;
         }
       }
     }
@@ -602,7 +599,6 @@ export default function Relatorios() {
 
   const inadimplenciaPorCriacao = useMemo(() => {
     const { keys, labels, keyFn } = CRIACAO_AGRUPAMENTOS[criacaoGranularidade];
-    const hoje = hojeStr();
     const map = new Map();
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
@@ -610,7 +606,7 @@ export default function Relatorios() {
         const k = keyFn(new Date(c.createdAt));
         if (!map.has(k)) map.set(k, { adimplentes: 0, inadimplentes: 0 });
         const row = map.get(k);
-        if (c.parcelas.some((p) => parcelaAtrasada(p, hoje))) row.inadimplentes++; else row.adimplentes++;
+        if (s.name === "Cravo") row.inadimplentes++; else row.adimplentes++;
       }
     }
     return keys.map((k) => {
