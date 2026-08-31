@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Icone from "@/components/Icones";
+import ContactModal from "@/components/ContactModal";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -25,6 +26,7 @@ function Cartao({ icone, titulo, subtitulo, children }) {
 // bloco de análises avançadas (só admin, a API já recusa quem não é).
 export default function RelatoriosAvancado() {
   const [dados, setDados] = useState(null);
+  const [openContactId, setOpenContactId] = useState(null);
 
   useEffect(() => {
     fetch("/api/relatorios/avancado").then((r) => (r.ok ? r.json() : null)).then(setDados).catch(() => setDados(null));
@@ -206,8 +208,10 @@ export default function RelatoriosAvancado() {
             <ul className="divide-y divide-slate-50 max-h-40 overflow-y-auto thin-scroll">
               {quitados.map((c) => (
                 <li key={c.id} className="py-1.5 flex items-center justify-between text-xs">
-                  <span className="text-slate-600">{c.nome}</span>
-                  <span className="text-slate-400">{fmtDia(c.quitadoEm)}</span>
+                  <button type="button" onClick={() => setOpenContactId(c.id)} className="text-slate-600 hover:text-emerald-600 hover:underline truncate text-left">
+                    {c.nome}
+                  </button>
+                  <span className="text-slate-400 shrink-0 ml-2">{fmtDia(c.quitadoEm)}</span>
                 </li>
               ))}
             </ul>
@@ -222,13 +226,19 @@ export default function RelatoriosAvancado() {
           <ul className="divide-y divide-slate-50">
             {pertoQuitar.map((c) => (
               <li key={c.id} className="py-1.5 flex items-center justify-between text-xs">
-                <span className="text-slate-600">{c.nome}</span>
-                <span className="text-slate-400">falta{c.faltam === 1 ? "" : "m"} {c.faltam} de {c.totalParcelas}</span>
+                <button type="button" onClick={() => setOpenContactId(c.id)} className="text-slate-600 hover:text-emerald-600 hover:underline truncate text-left">
+                  {c.nome}
+                </button>
+                <span className="text-slate-400 shrink-0 ml-2">falta{c.faltam === 1 ? "" : "m"} {c.faltam} de {c.totalParcelas}</span>
               </li>
             ))}
           </ul>
         )}
       </Cartao>
+
+      {openContactId && (
+        <ContactModal contactId={openContactId} onClose={() => setOpenContactId(null)} onChanged={() => {}} />
+      )}
     </div>
   );
 }
