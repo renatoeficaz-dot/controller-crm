@@ -58,6 +58,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   }, []);
   const isAdmin = usuarioAtual?.role === "admin";
   const [messages, setMessages] = useState([]);
+  const [atividade, setAtividade] = useState([]);
   const [parcelas, setParcelas] = useState([]);
   // Item 173: 3 envios seguidos falhando (sem sucesso nem resposta entre eles)
   // é o único sinal indireto que o WhatsApp dá de que o número te bloqueou.
@@ -65,6 +66,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     const enviadas = messages.filter((m) => m.fromMe).slice(-3);
     return enviadas.length === 3 && enviadas.every((m) => m.status === "falhou" || m.status === "erro");
   }, [messages]);
+  // Mensagens + atividade (campo/etapa) intercaladas por horário, igual
+  // mensagem de sistema — mesmo padrão do ChatView (aba Chat).
+  const timeline = useMemo(() => {
+    const msgs = messages.map((m) => ({ tipo: "msg", createdAt: m.createdAt, msg: m }));
+    const ativ = atividade.map((a) => ({ tipo: "atividade", createdAt: a.createdAt, ativ: a }));
+    return [...msgs, ...ativ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  }, [messages, atividade]);
   const [editandoBaixa, setEditandoBaixa] = useState(null); // { parcela, modo: "valor"|"desfazer", novoValor, motivo }
   const [pixAberto, setPixAberto] = useState(null); // parcela | null
   const [baixaParcialAberta, setBaixaParcialAberta] = useState(null); // parcela | null
@@ -225,12 +233,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   }
 
   const loadContact = useCallback(async () => {
-    const [res, cfg] = await Promise.all([
+    const [res, cfg, ativ] = await Promise.all([
       fetch(`/api/contacts/${contactId}`),
       fetch("/api/config").then((r) => r.json()).catch(() => null),
+      fetch(`/api/contacts/${contactId}/atividade`).then((r) => r.json()).catch(() => []),
       loadTasks(),
       loadAgendamentos(),
     ]);
+    setAtividade(Array.isArray(ativ) ? ativ : []);
     const data = await res.json();
     setContact(data);
     setForm({
@@ -1762,39 +1772,50 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
           )}
 
           <div className="flex-1 overflow-y-auto thin-scroll p-4 flex flex-col gap-2">
-            {messages.length === 0 && (
+            {timeline.length === 0 && (
               <p className="text-center text-xs text-slate-400 mt-4">
                 Nenhuma mensagem ainda. Diga olá!
               </p>
             )}
-            {messages.map((m) => (
+            {timeline.map((item) => item.tipo === "atividade" ? (
+              <p
+                key={`ativ-${item.ativ.createdAt}-${item.ativ.detalhe}`}
+                className="self-center max-w-[90%] text-center text-[11px] text-slate-500 bg-slate-200/70 rounded-full px-3 py-1"
+              >
+                <span className="font-semibold">{item.ativ.usuario || "IA"}</span>
+                {" "}
+                {item.ativ.tipo === "etapa" ? item.ativ.detalhe : `alterou — ${item.ativ.detalhe}`}
+                {" "}
+                <span className="text-slate-400">· {fmtTime(item.ativ.createdAt)}</span>
+              </p>
+            ) : (
               <div
-                key={m.id}
+                key={item.msg.id}
                 className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                  m.fromMe
+                  item.msg.fromMe
                     ? "self-end bg-emerald-500 text-white"
                     : "self-start bg-white border border-slate-200 text-slate-700"
                 }`}
               >
-                {m.instance && numbers.length > 1 && (
-                  <p className={`flex items-center gap-1 text-[10px] mb-0.5 ${m.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
-                    <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(m.instance, numbers)}
+                {item.msg.instance && numbers.length > 1 && (
+                  <p className={`flex items-center gap-1 text-[10px] mb-0.5 ${item.msg.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
+                    <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(item.msg.instance, numbers)}
                   </p>
                 )}
-                {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && (
-                  <MediaBubble message={m} />
+                {(item.msg.kind === "audio" || item.msg.kind === "image" || item.msg.kind === "document" || item.msg.kind === "location") && (
+                  <MediaBubble message={item.msg} />
                 )}
-                {m.kind !== "location" && m.body && (
-                  <p className="whitespace-pre-wrap break-words mt-1">{m.body}</p>
+                {item.msg.kind !== "location" && item.msg.body && (
+                  <p className="whitespace-pre-wrap break-words mt-1">{item.msg.body}</p>
                 )}
                 <span
                   className={`block text-[10px] mt-1 ${
-                    m.fromMe ? "text-emerald-100" : "text-slate-400"
+                    item.msg.fromMe ? "text-emerald-100" : "text-slate-400"
                   }`}
                 >
-                  {fmtTime(m.createdAt)}
-                  {m.fromMe && m.status === "simulado" ? " • simulado" : ""}
-                  {m.fromMe && m.status === "falhou" ? " • falhou ao enviar" : ""}
+                  {fmtTime(item.msg.createdAt)}
+                  {item.msg.fromMe && item.msg.status === "simulado" ? " • simulado" : ""}
+                  {item.msg.fromMe && item.msg.status === "falhou" ? " • falhou ao enviar" : ""}
                 </span>
               </div>
             ))}
