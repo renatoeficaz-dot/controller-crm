@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { aReceber, totalRecebido, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
-import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS } from "@/lib/finance";
+import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS, valorEmAberto } from "@/lib/finance";
 import ContactModal from "@/components/ContactModal";
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
 import Icone from "@/components/Icones";
@@ -808,6 +808,11 @@ export default function Relatorios() {
           .slice()
           .sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
         const recuperado = pagas.reduce((sum, p) => sum + (p.amountPago ?? p.amount), 0);
+        // Projetado: quanto ainda falta voltar desse cliente — soma das
+        // parcelas em aberto (não pagas, e não substituídas por acordo).
+        const projetado = (c.parcelas || [])
+          .filter((p) => !p.paid && !p.renegociada)
+          .reduce((sum, p) => sum + valorEmAberto(p), 0);
         let diasPayback = null;
         let acumulado = 0;
         const inicio = new Date(c.pagamentoCapital);
@@ -823,6 +828,7 @@ export default function Relatorios() {
           name: c.name,
           capital: c.valorCapital,
           recuperado,
+          projetado,
           pctRecuperado: c.valorCapital > 0 ? Math.min(100, Math.round((recuperado / c.valorCapital) * 100)) : 0,
           diasPayback,
         });
@@ -846,12 +852,14 @@ export default function Relatorios() {
       : null;
     const totalCapital = paybackData.reduce((s, d) => s + d.capital, 0);
     const totalRecuperado = paybackData.reduce((s, d) => s + d.recuperado, 0);
+    const totalProjetado = paybackData.reduce((s, d) => s + d.projetado, 0);
     return {
       mediaDias,
       qtdRecuperados: recuperados.length,
       totalClientes: paybackData.length,
       totalCapital,
       totalRecuperado,
+      totalProjetado,
     };
   }, [paybackData]);
 
@@ -1703,9 +1711,10 @@ export default function Relatorios() {
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Payback dos clientes <span className="text-slate-400 font-normal">— o que foi liberado, quanto voltou e em quanto tempo</span>
         </h2>
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-4 gap-4">
           <Card titulo="Capital enviado" valor={paybackStats.totalCapital} cor="violet" />
           <Card titulo="Capital recuperado" valor={paybackStats.totalRecuperado} cor="emerald" />
+          <Card titulo="Projetado a receber" valor={paybackStats.totalProjetado} cor="amber" />
           <div className="bg-white rounded-xl border border-slate-200 p-5">
             <p className="text-xs text-slate-400">Payback médio</p>
             <p className="text-2xl font-semibold mt-1 text-sky-600">
@@ -2291,6 +2300,7 @@ const CORES = {
   sky: "text-sky-600",
   violet: "text-violet-600",
   red: "text-red-500",
+  amber: "text-amber-600",
 };
 
 function Card({ titulo, valor, cor }) {
