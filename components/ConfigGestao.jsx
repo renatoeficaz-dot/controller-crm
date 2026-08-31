@@ -44,6 +44,10 @@ export function ComissaoConfig() {
   const [faixas, setFaixas] = useState([]);
   const [novaFaixa, setNovaFaixa] = useState({ minValor: "", pctBonus: "" });
   const [simulado, setSimulado] = useState("");
+  const [todosUsuarios, setTodosUsuarios] = useState([]);
+  const [colabSelecionado, setColabSelecionado] = useState("");
+  const [metasColab, setMetasColab] = useState({});
+  const [salvandoMetrica, setSalvandoMetrica] = useState(null);
 
   const loadFaixas = () => fetch("/api/comissao/faixas").then((r) => r.json()).then((d) => setFaixas(Array.isArray(d) ? d : [])).catch(() => {});
 
@@ -62,7 +66,8 @@ export function ComissaoConfig() {
     }).catch(() => {});
     loadFaixas();
     fetch("/api/users").then((r) => r.json()).then((us) => {
-      const cobradores = (Array.isArray(us) ? us : []).filter((u) => u.role === "cobrador");
+      const lista = Array.isArray(us) ? us : [];
+      const cobradores = lista.filter((u) => u.role === "cobrador");
       Promise.all(
         cobradores.map((u) =>
           fetch(`/api/comissao?nome=${encodeURIComponent(u.name)}`)
@@ -70,8 +75,56 @@ export function ComissaoConfig() {
             .catch(() => null)
         )
       ).then((rs) => setEquipe(rs.filter(Boolean)));
+      // Metas por colaborador não são só de cobrador (vendedor também move
+      // lead pra "Liberação pagamento"/"Recebimento", o que conta pra Análise
+      // e Recebimento) — oferece todo mundo exceto admin.
+      setTodosUsuarios(lista.filter((u) => u.role !== "admin"));
     }).catch(() => {});
   }, []);
+
+  const METRICAS_LABEL = {
+    analise: { titulo: "Análise", desc: "Quantidade de leads movidos para \"Liberação pagamento\"", unidade: "un" },
+    recebimento: { titulo: "Recebimento", desc: "Quantidade de leads movidos para \"Recebimento\"", unidade: "un" },
+    recuperacao: { titulo: "Recuperação", desc: "R$ cobrado nas baixas de parcela (sobrepõe a meta global acima só pra esse colaborador)", unidade: "R$" },
+    juros: { titulo: "Juros recebidos", desc: "R$ de multa por atraso cobrada (o que passou do valor normal da parcela)", unidade: "R$" },
+    cravo: { titulo: "Cravo recuperado", desc: "R$ cobrado de parcelas de leads que já estiveram em \"Cravo\"", unidade: "R$" },
+  };
+
+  function loadMetasColab(userId) {
+    if (!userId) { setMetasColab({}); return; }
+    fetch(`/api/comissao/metas?userId=${userId}`)
+      .then((r) => r.json())
+      .then((lista) => {
+        const porMetrica = {};
+        for (const m of Object.keys(METRICAS_LABEL)) {
+          const existente = (Array.isArray(lista) ? lista : []).find((x) => x.metrica === m);
+          porMetrica[m] = {
+            metaDiaria: existente?.metaDiaria || "",
+            bonusDiario: existente?.bonusDiario || "",
+            metaSemanal: existente?.metaSemanal || "",
+            bonusSemanal: existente?.bonusSemanal || "",
+          };
+        }
+        setMetasColab(porMetrica);
+      })
+      .catch(() => {});
+  }
+
+  useEffect(() => { loadMetasColab(colabSelecionado); }, [colabSelecionado]);
+
+  function setCampoMetrica(metrica, campo, valor) {
+    setMetasColab((p) => ({ ...p, [metrica]: { ...p[metrica], [campo]: valor } }));
+  }
+
+  async function salvarMetrica(metrica) {
+    setSalvandoMetrica(metrica);
+    await fetch("/api/comissao/metas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: colabSelecionado, metrica, ...metasColab[metrica] }),
+    });
+    setSalvandoMetrica(null);
+  }
 
   async function salvar(e) {
     e.preventDefault();
@@ -224,6 +277,90 @@ export function ComissaoConfig() {
             <p className="font-semibold text-emerald-700 pt-1 border-t border-emerald-100">
               ...ganho até {money(bonusSemanalSimulado + (f.progressivaAtiva ? bonusProgressivoSimulado : 0))} de bônus (fora o dia batido, que soma à parte).
             </p>
+          </div>
+        )}
+      </div>
+
+      {/* Meta de comissão por colaborador, por métrica */}
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
+        <Cabecalho
+          icone="meta"
+          titulo="Meta de comissão por colaborador"
+          subtitulo="Análise, Recebimento, Recuperação, Juros recebidos e Cravo recuperado — cada um com meta e bônus próprios, diário e semanal."
+        />
+        <label className="block max-w-sm">
+          <span className="text-xs text-slate-500">Colaborador</span>
+          <select
+            value={colabSelecionado}
+            onChange={(e) => setColabSelecionado(e.target.value)}
+            className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+          >
+            <option value="">— Selecione —</option>
+            {todosUsuarios.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </label>
+
+        {colabSelecionado && (
+          <div className="space-y-3">
+            {Object.entries(METRICAS_LABEL).map(([metrica, { titulo, desc, unidade }]) => (
+              <div key={metrica} className="border border-slate-200 rounded-lg p-3 space-y-2">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">{titulo}</p>
+                  <p className="text-[11px] text-slate-400">{desc}</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <label className="block">
+                    <span className="text-[10px] text-slate-400">Meta dia ({unidade})</span>
+                    <input
+                      type="number"
+                      step={unidade === "un" ? "1" : "0.01"}
+                      value={metasColab[metrica]?.metaDiaria ?? ""}
+                      onChange={(e) => setCampoMetrica(metrica, "metaDiaria", e.target.value)}
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] text-slate-400">Bônus dia (R$)</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={metasColab[metrica]?.bonusDiario ?? ""}
+                      onChange={(e) => setCampoMetrica(metrica, "bonusDiario", e.target.value)}
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] text-slate-400">Meta semana ({unidade})</span>
+                    <input
+                      type="number"
+                      step={unidade === "un" ? "1" : "0.01"}
+                      value={metasColab[metrica]?.metaSemanal ?? ""}
+                      onChange={(e) => setCampoMetrica(metrica, "metaSemanal", e.target.value)}
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] text-slate-400">Bônus semana (R$)</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={metasColab[metrica]?.bonusSemanal ?? ""}
+                      onChange={(e) => setCampoMetrica(metrica, "bonusSemanal", e.target.value)}
+                      className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                </div>
+                <button
+                  onClick={() => salvarMetrica(metrica)}
+                  disabled={salvandoMetrica === metrica}
+                  className="text-xs bg-slate-800 text-white rounded-lg px-3 py-1.5 hover:bg-slate-700 disabled:opacity-50"
+                >
+                  {salvandoMetrica === metrica ? "Salvando…" : "Salvar"}
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>

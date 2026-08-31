@@ -661,6 +661,30 @@ model ComissaoFaixa {
   pctBonus  Float
 }
 
+// Meta de comissão POR COLABORADOR, por métrica — além da meta global de
+// "recuperação" (ComissaoConfig, que serve de fallback quando não há linha
+// aqui pra esse usuário+métrica). Cada métrica é independente: bate a diária
+// OU a semanal, ganha o bônus dela.
+// metrica: "analise" (qtd de leads movidos p/ Liberação pagamento) |
+//          "recebimento" (qtd de leads movidos p/ Recebimento) |
+//          "recuperacao" (R$ cobrado — mesma coisa da meta global, mas
+//            específica desse colaborador quando cadastrada aqui) |
+//          "juros" (R$ de multa por atraso cobrada, isto é, o que passou do
+//            valor normal da parcela) |
+//          "cravo" (R$ cobrado de parcelas de leads que já estiveram em Cravo)
+model ComissaoMetaColaborador {
+  id           String @id @default(cuid())
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  metrica      String
+  metaDiaria   Float  @default(0)
+  bonusDiario  Float  @default(0)
+  metaSemanal  Float  @default(0)
+  bonusSemanal Float  @default(0)
+
+  @@unique([userId, metrica])
+}
+
 // Um "agente" de IA: prompt + modelos próprios. Cada número de WhatsApp escolhe
 // qual agente atende (ou nenhum).
 model IaAgent {
@@ -711,6 +735,10 @@ model User {
   metaVendasMinimaPropria Int?
   metaVendasMediaPropria  Int?
   metaVendasDiaPropria    Int?
+
+  // Metas de comissão por métrica (Análise, Recebimento, Recuperação, Juros,
+  // Cravo) — ver ComissaoMetaColaborador.
+  metasComissao ComissaoMetaColaborador[]
 
   // Permissões pontuais além do que o `role` já libera por padrão — CSV de
   // chaves (ver lib/permissoes.js). Só adiciona; nunca tira o que o role dá.
