@@ -52,13 +52,14 @@ export async function POST(req, { params }) {
     const data = completaAgora
       ? {
           valorPago: novoValorPago,
+          valorPagoEm: new Date(),
           paid: true,
           paidAt: new Date(),
           amountPago: novoValorPago,
           baixadoPor: atual.baixadoPor || user?.name || null,
           formaPagamento: formaPagamento || atual.formaPagamento || null,
         }
-      : { valorPago: novoValorPago, baixadoPor: atual.baixadoPor || user?.name || null };
+      : { valorPago: novoValorPago, valorPagoEm: new Date(), baixadoPor: atual.baixadoPor || user?.name || null };
 
     const atualizada = await tx.parcela.update({ where: { id }, data });
 
@@ -122,8 +123,8 @@ export async function POST(req, { params }) {
       await prisma.parcela.update({
         where: { id: prox.id },
         data: completaProx
-          ? { valorPago: novoValorPagoProx, paid: true, paidAt: new Date(), amountPago: novoValorPagoProx, baixadoPor: prox.baixadoPor || user?.name || null, formaPagamento: formaPagamento || prox.formaPagamento || null }
-          : { valorPago: novoValorPagoProx, baixadoPor: prox.baixadoPor || user?.name || null },
+          ? { valorPago: novoValorPagoProx, valorPagoEm: new Date(), paid: true, paidAt: new Date(), amountPago: novoValorPagoProx, baixadoPor: prox.baixadoPor || user?.name || null, formaPagamento: formaPagamento || prox.formaPagamento || null }
+          : { valorPago: novoValorPagoProx, valorPagoEm: new Date(), baixadoPor: prox.baixadoPor || user?.name || null },
       });
       await prisma.lancamento.create({
         data: {

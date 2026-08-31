@@ -319,6 +319,11 @@ model Parcela {
   // for menor que o valor devido, a parcela continua `paid = false` mas já
   // tem dinheiro registrado. Vira lançamento de entrada a cada incremento.
   valorPago      Float            @default(0)
+  // Quando o ultimo pagamento PARCIAL entrou. Sem isso o dinheiro de uma
+  // parcela parcial nao tinha data nenhuma, e todo relatorio/meta/comissao
+  // filtra por periodo usando paidAt (que so existe na baixa completa) —
+  // resultado: pagamento parcial entrava no caixa mas sumia de tudo o resto.
+  valorPagoEm    DateTime?
   // Nome de quem deu a baixa — alimenta o comparativo entre cobradores e o
   // cálculo de comissão (quem efetivamente recuperou o valor).
   baixadoPor     String?
