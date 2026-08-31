@@ -114,13 +114,12 @@ export default function Relatorios() {
   // clicar num deles abre o mesmo modal de contato usado no Kanban/Chat.
   const leadsDoEstadoFiltro = useMemo(() => {
     if (filtrosAtivosCount === 0) return [];
-    const hoje = hojeStr();
     const out = [];
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
         let situacao = "sem-cobranca";
         if (c.parcelas && c.parcelas.length > 0) {
-          situacao = c.parcelas.some((p) => parcelaAtrasada(p, hoje)) ? "inadimplente" : "adimplente";
+          situacao = s.name === "Cravo" ? "inadimplente" : "adimplente";
         }
         out.push({ id: c.id, name: c.name, phone: c.phone, stageName: s.name, situacao });
       }
@@ -131,7 +130,6 @@ export default function Relatorios() {
   // Adimplência agrupada por um campo do contato (gênero ou tipo de cliente) —
   // reaproveitado pros dois gráficos abaixo, um donut por valor do grupo.
   function agruparAdimplencia(campo, rotulos) {
-    const hoje = hojeStr();
     const map = new Map();
     for (const s of stages) {
       for (const c of s.contacts || []) {
@@ -139,8 +137,7 @@ export default function Relatorios() {
         const chave = c[campo] || "outros";
         if (!map.has(chave)) map.set(chave, { chave, adimplentes: 0, inadimplentes: 0 });
         const row = map.get(chave);
-        const temAtrasada = c.parcelas.some((p) => parcelaAtrasada(p, hoje));
-        if (temAtrasada) row.inadimplentes++; else row.adimplentes++;
+        if (s.name === "Cravo") row.inadimplentes++; else row.adimplentes++;
       }
     }
     return Array.from(map.values())
@@ -684,26 +681,31 @@ export default function Relatorios() {
     return Array.from(set).sort();
   }, [stages]);
 
-  // Resumo por estado — sempre com TODOS os leads (ignora o filtro acima),
-  // pra comparar os estados lado a lado numa tabela só.
+  // Resumo por estado — respeita os mesmos filtros do resto da página
+  // (Data de criação, Etapa, Estado, Gênero, Tipo de cliente). Antes ignorava
+  // esses filtros de propósito, mas isso deixava a tabela com números que não
+  // batiam com o resto da tela quando alguém filtrava (ex.: "Data de criação"
+  // continuava contando leads antigos aqui).
   const porEstado = useMemo(() => {
-    const hoje = hojeStr();
     const map = new Map();
-    for (const s of stages) {
+    for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
         const uf = c.estado || "Não identificado";
         if (!map.has(uf)) map.set(uf, { uf, leads: 0, emRecebimento: 0, adimplentes: 0, inadimplentes: 0 });
         const row = map.get(uf);
         row.leads++;
         if (s.name === "Recebimento") row.emRecebimento++;
+        // Inadimplente = está em "Cravo" (deu calote, é onde a cobrança
+        // desiste de tentar receber por bem) — não é só "tem parcela
+        // atrasada", que também pega quem ainda está sendo cobrado
+        // normalmente em Recebimento e só está alguns dias em atraso.
         if (c.parcelas && c.parcelas.length > 0) {
-          const temAtrasada = c.parcelas.some((p) => parcelaAtrasada(p, hoje));
-          if (temAtrasada) row.inadimplentes++; else row.adimplentes++;
+          if (s.name === "Cravo") row.inadimplentes++; else row.adimplentes++;
         }
       }
     }
     return Array.from(map.values()).sort((a, b) => b.leads - a.leads);
-  }, [stages]);
+  }, [stagesFiltrados]);
 
   function aplicarPreset(p) {
     setPreset(p.key);
@@ -722,16 +724,15 @@ export default function Relatorios() {
     [stagesFiltrados]
   );
 
-  // Adimplência: entre os clientes com empréstimo ativo (têm parcelas), quantos
-  // têm alguma parcela vencida e não paga agora (inadimplente) vs nenhuma (adimplente).
+  // Adimplência: entre os clientes com empréstimo ativo (têm parcelas), quem
+  // está em "Cravo" é inadimplente — atraso sozinho não conta, porque ainda
+  // pode estar em cobrança normal (Recebimento).
   const { adimplentes, inadimplentes, adimplentesLista, inadimplentesLista } = useMemo(() => {
-    const hoje = hojeStr();
     const adLista = [], inadLista = [];
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
         if (!c.parcelas || c.parcelas.length === 0) continue;
-        const temAtrasada = c.parcelas.some((p) => parcelaAtrasada(p, hoje));
-        (temAtrasada ? inadLista : adLista).push({ id: c.id, name: c.name, phone: c.phone });
+        (s.name === "Cravo" ? inadLista : adLista).push({ id: c.id, name: c.name, phone: c.phone });
       }
     }
     return { adimplentes: adLista.length, inadimplentes: inadLista.length, adimplentesLista: adLista, inadimplentesLista: inadLista };

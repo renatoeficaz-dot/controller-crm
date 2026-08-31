@@ -1151,6 +1151,14 @@ export default function KanbanBoard() {
                                   <Icone nome="local" className="w-2.5 h-2.5" /> {c.estado}
                                 </span>
                               )}
+                              {c.tipoCliente && (
+                                <span
+                                  className="flex items-center justify-center w-4 h-4 text-[9px] font-bold bg-indigo-100 text-indigo-600 rounded-full shrink-0"
+                                  title={{ uber: "Uber", motoboy: "Motoboy", comerciante: "Comerciante" }[c.tipoCliente] || c.tipoCliente}
+                                >
+                                  {{ uber: "U", motoboy: "M", comerciante: "C" }[c.tipoCliente] || "?"}
+                                </span>
+                              )}
                             </span>
                           </p>
                         )}
