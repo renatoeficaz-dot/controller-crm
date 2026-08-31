@@ -69,13 +69,11 @@ export default function TaskReminderWatcher() {
         }
       }
       if (novos.length) {
+        // Fica fixo na tela até o usuário resolver (Concluir) ou fechar (×) —
+        // sem sumir sozinho, senão a tarefa passa batido se ninguém olhar a
+        // tela bem na hora que o aviso aparece.
         setAvisos((atual) => [...atual, ...novos]);
         tocarAlerta();
-        novos.forEach((aviso) => {
-          setTimeout(() => {
-            setAvisos((atual) => atual.filter((a) => a.id !== aviso.id));
-          }, 20000);
-        });
       }
     }
 
@@ -86,6 +84,15 @@ export default function TaskReminderWatcher() {
 
   function dispensar(id) {
     setAvisos((atual) => atual.filter((a) => a.id !== id));
+  }
+
+  async function concluir(id) {
+    dispensar(id);
+    await fetch(`/api/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: true }),
+    }).catch(() => {});
   }
 
   if (!avisos.length) return null;
@@ -99,8 +106,14 @@ export default function TaskReminderWatcher() {
             <p className="text-xs font-semibold text-amber-300">Falta 1 minuto</p>
             <p className="text-sm truncate">{a.title}</p>
             {a.contactName && <p className="text-xs text-slate-400 truncate">{a.contactName}</p>}
+            <button
+              onClick={() => concluir(a.id)}
+              className="mt-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300"
+            >
+              ✓ Concluir
+            </button>
           </div>
-          <button onClick={() => dispensar(a.id)} className="text-slate-400 hover:text-white shrink-0 text-lg leading-none">×</button>
+          <button onClick={() => dispensar(a.id)} title="Fechar" className="text-slate-400 hover:text-white shrink-0 text-lg leading-none">×</button>
         </div>
       ))}
     </div>
