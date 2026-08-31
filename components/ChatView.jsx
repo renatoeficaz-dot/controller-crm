@@ -259,6 +259,16 @@ export default function ChatView() {
     [messages]
   );
 
+  // Timeline única: mensagens + atividade (campo/etapa) intercaladas por
+  // horário, igual mensagem de sistema do WhatsApp — assim dá pra ver ali no
+  // meio da conversa quem mudou o quê e quando, sem precisar abrir o painel
+  // "Dados" à parte.
+  const timeline = useMemo(() => {
+    const msgs = messages.map((m) => ({ tipo: "msg", createdAt: m.createdAt, msg: m }));
+    const ativ = atividade.map((a) => ({ tipo: "atividade", createdAt: a.createdAt, ativ: a }));
+    return [...msgs, ...ativ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  }, [messages, atividade]);
+
   // Aplica busca + filtros + ordenação na lista de conversas
   // Busca dentro das conversas (inclui transcrição de áudio, que fica no body).
   // Com debounce pra não disparar uma consulta por tecla digitada.
@@ -1097,17 +1107,27 @@ export default function ChatView() {
               </div>
             )}
             <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-2">
-              {messages.map((m) => (
-                <div key={m.id} className={`group flex items-center gap-1 ${m.fromMe ? "justify-end" : "justify-start"}`}>
+              {timeline.map((item) => item.tipo === "atividade" ? (
+                <div key={`ativ-${item.ativ.createdAt}-${item.ativ.detalhe}`} className="flex justify-center">
+                  <p className="max-w-[85%] text-center text-[11px] text-slate-500 bg-slate-200/70 rounded-full px-3 py-1">
+                    <span className="font-semibold">{item.ativ.usuario || "IA"}</span>
+                    {" "}
+                    {item.ativ.tipo === "etapa" ? item.ativ.detalhe : `alterou — ${item.ativ.detalhe}`}
+                    {" "}
+                    <span className="text-slate-400">· {fmtTime(item.ativ.createdAt)}</span>
+                  </p>
+                </div>
+              ) : (
+                <div key={item.msg.id} className={`group flex items-center gap-1 ${item.msg.fromMe ? "justify-end" : "justify-start"}`}>
                   {/* Ações aparecem só no hover, e só pras nossas — encaminhar
                       qualquer uma, apagar (item 88, só da nossa lista) só a nossa. */}
-                  {!m.apagada && (
-                    <span className={`shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${m.fromMe ? "order-first" : ""}`}>
-                      <button type="button" title="Encaminhar" onClick={() => setEncaminharMsg(m)} className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-emerald-600 hover:bg-slate-100">
+                  {!item.msg.apagada && (
+                    <span className={`shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${item.msg.fromMe ? "order-first" : ""}`}>
+                      <button type="button" title="Encaminhar" onClick={() => setEncaminharMsg(item.msg)} className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-emerald-600 hover:bg-slate-100">
                         <Icone nome="seta" className="w-3 h-3 -rotate-90" />
                       </button>
-                      {m.fromMe && (
-                        <button type="button" title="Apagar da minha lista" onClick={() => apagarMensagem(m.id)} className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-slate-100">
+                      {item.msg.fromMe && (
+                        <button type="button" title="Apagar da minha lista" onClick={() => apagarMensagem(item.msg.id)} className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-slate-100">
                           <Icone nome="x" className="w-3 h-3" />
                         </button>
                       )}
@@ -1115,27 +1135,27 @@ export default function ChatView() {
                   )}
                   <div
                     className={`max-w-[70%] rounded-xl px-3 py-2 text-sm ${
-                      m.fromMe
+                      item.msg.fromMe
                         ? "bg-emerald-500 text-white rounded-br-sm"
                         : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"
                     }`}
                   >
-                    {m.instance && instanciasNaConversa.size > 1 && (
-                      <p className={`flex items-center gap-1 text-[10px] mb-0.5 ${m.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
-                        <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(m.instance, numbers)}
+                    {item.msg.instance && instanciasNaConversa.size > 1 && (
+                      <p className={`flex items-center gap-1 text-[10px] mb-0.5 ${item.msg.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
+                        <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(item.msg.instance, numbers)}
                       </p>
                     )}
-                    {m.apagada ? (
-                      <p className={`italic ${m.fromMe ? "text-emerald-100" : "text-slate-400"}`}>Mensagem apagada</p>
+                    {item.msg.apagada ? (
+                      <p className={`italic ${item.msg.fromMe ? "text-emerald-100" : "text-slate-400"}`}>Mensagem apagada</p>
                     ) : (
                       <>
-                        {(m.kind === "audio" || m.kind === "image" || m.kind === "document" || m.kind === "location") && <MediaBubble message={m} />}
-                        {m.kind !== "location" && (m.kind === "text" || m.body) && <LinkifiedText text={m.body} />}
+                        {(item.msg.kind === "audio" || item.msg.kind === "image" || item.msg.kind === "document" || item.msg.kind === "location") && <MediaBubble message={item.msg} />}
+                        {item.msg.kind !== "location" && (item.msg.kind === "text" || item.msg.body) && <LinkifiedText text={item.msg.body} />}
                       </>
                     )}
-                    <p className={`text-[10px] mt-1 flex items-center gap-1 ${m.fromMe ? "text-emerald-200" : "text-slate-400"}`}>
-                      {fmtTime(m.createdAt)}
-                      {m.fromMe && m.status === "falhou" && (
+                    <p className={`text-[10px] mt-1 flex items-center gap-1 ${item.msg.fromMe ? "text-emerald-200" : "text-slate-400"}`}>
+                      {fmtTime(item.msg.createdAt)}
+                      {item.msg.fromMe && item.msg.status === "falhou" && (
                         <span className="text-red-100 bg-red-500/80 rounded-full px-1.5 font-medium">falhou</span>
                       )}
                     </p>
