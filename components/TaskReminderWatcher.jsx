@@ -54,7 +54,11 @@ function lerLS(chave, padrao) {
 // some quando a pessoa resolve de verdade (Concluir), abre a lead, ou fecha
 // no × — persistido em localStorage pra sobreviver a um F5/troca de aba.
 export default function TaskReminderWatcher() {
-  const [avisos, setAvisos] = useState(() => lerLS(LS_AVISOS, []));
+  const [avisos, setAvisos] = useState(() => {
+    const v = lerLS(LS_AVISOS, []);
+    console.log("[TaskReminderWatcher] montou, restaurado do localStorage:", v.length, v.map((a) => a.id));
+    return v;
+  });
   const [contatoAberto, setContatoAberto] = useState(null);
   const jaAvisados = useRef(new Set(lerLS(LS_VISTOS, [])));
   const nomeUsuario = useRef(null);
@@ -100,12 +104,15 @@ export default function TaskReminderWatcher() {
     return () => { cancelado = true; clearInterval(t); };
   }, []);
 
-  function dispensar(id) {
+  // eslint-disable-next-line no-console -- diagnóstico temporário: rastrear
+  // por que um aviso está sumindo sem a pessoa clicar em nada.
+  function dispensar(id, origem = "x") {
+    console.log(`[TaskReminderWatcher] removido (${origem}):`, id, new Date().toISOString());
     setAvisos((atual) => atual.filter((a) => a.id !== id));
   }
 
   async function concluir(id) {
-    dispensar(id);
+    dispensar(id, "concluir");
     await fetch(`/api/tasks/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -115,7 +122,7 @@ export default function TaskReminderWatcher() {
 
   function abrirLead(aviso) {
     if (!aviso.contactId) return;
-    dispensar(aviso.id);
+    dispensar(aviso.id, "abrir-lead");
     setContatoAberto(aviso.contactId);
   }
 
