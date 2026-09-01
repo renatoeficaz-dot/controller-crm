@@ -362,6 +362,22 @@ export default function ChatInternoView() {
     setSelecionada(p.conversaId);
   }
 
+  // Liga pra pessoa. Só em conversa direta: chamada em grupo precisaria de
+  // servidor de mídia (SFU), que é outra ordem de complexidade.
+  async function ligar(video) {
+    const alvo = (detalhe?.membros || []).find((m) => m.id !== eu?.id);
+    if (!alvo) return;
+    const res = await fetch("/api/chamadas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paraId: alvo.id, video }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) setErro(d.error || "Não foi possível ligar.");
+    // Quem atende e a janela da chamada são cuidados pelo ChamadaWatcher,
+    // que roda no app inteiro — inclusive pra quem ligou.
+  }
+
   async function apagarMensagem(msg) {
     if (!confirm("Apagar esta mensagem?")) return;
     const res = await fetch(`/api/chat-interno/mensagens/${msg.id}`, { method: "DELETE" });
@@ -578,6 +594,24 @@ export default function ChatInternoView() {
                 <p className="text-sm font-medium text-slate-800 truncate">{tituloAberta}</p>
                 <p className="text-xs text-slate-400 truncate">{(detalhe?.membros || []).map((m) => m.name).join(", ")}</p>
               </div>
+              {!detalhe?.grupo && (
+                <>
+                  <button
+                    onClick={() => ligar(false)}
+                    title="Ligar (voz)"
+                    className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-300"
+                  >
+                    <Icone nome="cobranca" className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => ligar(true)}
+                    title="Chamada de vídeo (dá pra espelhar a tela)"
+                    className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-300"
+                  >
+                    <Icone nome="video" className="w-4 h-4" />
+                  </button>
+                </>
+              )}
               <button
                 onClick={excluirConversa}
                 title="Excluir esta conversa"

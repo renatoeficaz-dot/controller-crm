@@ -7,6 +7,7 @@ import DeepInfraBalanceBanner from "@/components/DeepInfraBalanceBanner";
 import UsoAtivoTracker from "@/components/UsoAtivoTracker";
 import TaskReminderWatcher from "@/components/TaskReminderWatcher";
 import ChatInternoWatcher from "@/components/ChatInternoWatcher";
+import ChamadaWatcher from "@/components/ChamadaWatcher";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,6 +55,7 @@ export default function RootLayout({ children }) {
         <UsoAtivoTracker />
         <TaskReminderWatcher />
         <ChatInternoWatcher />
+        <ChamadaWatcher />
       </body>
     </html>
   );

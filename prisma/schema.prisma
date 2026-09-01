@@ -748,6 +748,8 @@ model User {
 
   // Chat interno (conversa entre usuários do sistema)
   conversasInternas   ConversaInternaMembro[]
+  chamadasFeitas      ChamadaInterna[]       @relation("ChamadaDe")
+  chamadasRecebidas   ChamadaInterna[]       @relation("ChamadaPara")
   mensagensInternas   MensagemInterna[]      @relation("MensagemInternaAutor")
   mensagensAtribuidas MensagemInterna[]      @relation("MensagemInternaAtribuida")
   mencoesInternas     MensagemInterna[]      @relation("MensagemInternaMencoes")
@@ -1420,4 +1422,46 @@ model MensagemInterna {
   createdAt DateTime @default(now())
 
   @@index([conversaId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Chamada interna (voz/video) entre dois USUARIOS do sistema. Mesma base
+// WebRTC da video chamada com o cliente: o servidor so retransmite a
+// sinalizacao (oferta/resposta/ICE) — audio e video vao direto entre os dois
+// navegadores, nunca passam pela VPS.
+// Um-a-um de proposito: chamada em grupo exigiria servidor de midia (SFU),
+// que e outra ordem de complexidade e custo.
+// ---------------------------------------------------------------------------
+
+model ChamadaInterna {
+  id     String @id @default(cuid())
+  de     User   @relation("ChamadaDe", fields: [deId], references: [id], onDelete: Cascade)
+  deId   String
+  para   User   @relation("ChamadaPara", fields: [paraId], references: [id], onDelete: Cascade)
+  paraId String
+
+  video  Boolean @default(true) // false = so audio
+  // "chamando" | "aceita" | "recusada" | "encerrada"
+  status String  @default("chamando")
+
+  criadaEm    DateTime  @default(now())
+  aceitaEm    DateTime?
+  encerradaEm DateTime?
+
+  sinais ChamadaInternaSinal[]
+
+  @@index([paraId, status])
+  @@index([deId, status])
+}
+
+model ChamadaInternaSinal {
+  id        String         @id @default(cuid())
+  chamada   ChamadaInterna @relation(fields: [chamadaId], references: [id], onDelete: Cascade)
+  chamadaId String
+  deId      String // userId de quem mandou — o outro lado le so o que nao e dele
+  tipo      String // "pronto" | "oferta" | "resposta" | "candidato" | "encerrar"
+  payload   String?
+  createdAt DateTime @default(now())
+
+  @@index([chamadaId, createdAt])
 }
