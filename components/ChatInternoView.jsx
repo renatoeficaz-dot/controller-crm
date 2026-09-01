@@ -4,6 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icone from "@/components/Icones";
 import ContactModal from "@/components/ContactModal";
 
+// Emojis mais usados no dia a dia da equipe. Lista fixa de propósito: um
+// seletor completo exigiria biblioteca externa (centenas de KB) pra um chat
+// interno de 4 pessoas.
+const EMOJIS = [
+  "👍", "👎", "👌", "🙏", "👏", "💪", "🤝", "✅", "❌", "⚠️",
+  "🔥", "🎯", "💰", "📌", "📎", "⏰", "🚀", "✨", "💡", "📊",
+  "😀", "😅", "😂", "🙂", "😉", "😍", "🤔", "😐", "😴", "🥳",
+  "😢", "😡", "😱", "🤯", "🫡", "🤞", "👀", "❤️", "🎉", "☕",
+];
+
 const fmtHora = (d) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
@@ -161,6 +171,7 @@ export default function ChatInternoView() {
   const [gravando, setGravando] = useState(false);
   const [leadAberta, setLeadAberta] = useState(null);
   const [sugestoes, setSugestoes] = useState([]);
+  const [emojiAberto, setEmojiAberto] = useState(false);
   const [pendencias, setPendencias] = useState([]);
   const [listaPendAberta, setListaPendAberta] = useState(false);
   const [destacada, setDestacada] = useState(null);
@@ -288,6 +299,7 @@ export default function ChatInternoView() {
     setTexto("");
     setCobrarDe("");
     setPrioridade("media");
+    setEmojiAberto(false);
     setRespondendo(null);
     setSugestoes([]);
     carregarDetalhe(selecionada);
@@ -754,11 +766,35 @@ export default function ChatInternoView() {
                   ))}
                 </div>
               )}
+              {emojiAberto && (
+                <div className="flex flex-wrap gap-1 bg-slate-50 border border-slate-200 rounded-lg p-2 max-h-32 overflow-y-auto thin-scroll">
+                  {EMOJIS.map((e) => (
+                    <button
+                      key={e}
+                      type="button"
+                      onClick={() => setTexto((t) => t + e)}
+                      className="text-lg leading-none rounded px-1 py-0.5 hover:bg-slate-200"
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={() => setEmojiAberto((v) => !v)}
+                  title="Emojis"
+                  className={`shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border text-lg leading-none ${
+                    emojiAberto ? "bg-amber-50 border-amber-300" : "border-slate-200 hover:border-emerald-300"
+                  }`}
+                >
+                  🙂
+                </button>
                 <input
                   ref={fileRef}
                   type="file"
-                  accept="image/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.zip,.rar"
+                  accept="image/*,image/gif,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.zip,.rar"
                   onChange={escolherArquivo}
                   className="hidden"
                 />
@@ -766,7 +802,7 @@ export default function ChatInternoView() {
                   type="button"
                   onClick={() => fileRef.current?.click()}
                   disabled={enviando}
-                  title="Anexar arquivo ou imagem"
+                  title="Anexar imagem, GIF, PDF ou arquivo"
                   className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 disabled:opacity-50"
                 >
                   <Icone nome="clipe" className="w-4 h-4" />
