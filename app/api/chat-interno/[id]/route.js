@@ -16,6 +16,11 @@ async function membroOuNulo(conversaId, userId) {
 const INCLUI_MENSAGEM = {
   autor: { select: { id: true, name: true } },
   atribuidoA: { select: { id: true, name: true } },
+  mencionados: { select: { id: true, name: true } },
+  // Lead encaminhado: o card é montado no front com esses campos.
+  contact: {
+    select: { id: true, name: true, phone: true, valorCapital: true, stage: { select: { name: true } } },
+  },
   respondeA: {
     select: {
       id: true,
@@ -25,6 +30,22 @@ const INCLUI_MENSAGEM = {
     },
   },
 };
+
+// Quem foi marcado com @ no texto. Em vez de confiar numa lista mandada pelo
+// front (que pode divergir do texto), lê do próprio corpo casando com os
+// nomes de quem está na conversa — assim o "@Fulano" escrito e a marcação
+// gravada nunca ficam diferentes. Nome com espaço também casa ("@Arthur
+// trabalho"), por isso testa do nome mais longo pro mais curto.
+function acharMencionados(corpo, membros) {
+  if (!corpo.includes("@")) return [];
+  const texto = corpo.toLowerCase();
+  const ordenados = [...membros].sort((a, b) => b.name.length - a.name.length);
+  const achados = [];
+  for (const m of ordenados) {
+    if (texto.includes("@" + m.name.toLowerCase())) achados.push(m.id);
+  }
+  return achados;
+}
 
 // Mensagens da conversa (e marca como lida até agora).
 export async function GET(_req, { params }) {
@@ -74,6 +95,7 @@ export async function POST(req, { params }) {
   let corpo = "";
   let atribuidoAId = null;
   let respondeAId = null;
+  let contactId = null;
   let midia = null;
 
   const contentType = req.headers.get("content-type") || "";
@@ -82,6 +104,7 @@ export async function POST(req, { params }) {
     corpo = texto(fd.get("body")) || "";
     atribuidoAId = texto(fd.get("atribuidoAId")) || null;
     respondeAId = texto(fd.get("respondeAId")) || null;
+    contactId = texto(fd.get("contactId")) || null;
     const file = fd.get("file");
     if (file && typeof file === "object" && typeof file.arrayBuffer === "function") {
       const mime = file.type || "application/octet-stream";
@@ -98,10 +121,18 @@ export async function POST(req, { params }) {
     corpo = texto(body.body) || "";
     atribuidoAId = texto(body.atribuidoAId) || null;
     respondeAId = texto(body.respondeAId) || null;
+    contactId = texto(body.contactId) || null;
   }
 
-  // Mensagem sem texto é válida quando tem anexo (um print sozinho, um áudio).
-  if (!corpo && !midia) return NextResponse.json({ error: "Escreva uma mensagem." }, { status: 400 });
+  // Mensagem sem texto é válida quando tem anexo (um print, um áudio) ou
+  // quando é só o encaminhamento de uma lead pra equipe olhar.
+  if (!corpo && !midia && !contactId) {
+    return NextResponse.json({ error: "Escreva uma mensagem." }, { status: 400 });
+  }
+  if (contactId) {
+    const existe = await prisma.contact.findUnique({ where: { id: contactId }, select: { id: true } });
+    if (!existe) return NextResponse.json({ error: "Lead não encontrada." }, { status: 400 });
+  }
   if (corpo.length > 5000) return NextResponse.json({ error: "Mensagem muito longa." }, { status: 400 });
 
   // Só dá pra cobrar quem participa da conversa.
@@ -121,8 +152,23 @@ export async function POST(req, { params }) {
     }
   }
 
+  const membros = await prisma.conversaInternaMembro.findMany({
+    where: { conversaId: id },
+    select: { user: { select: { id: true, name: true } } },
+  });
+  const mencoes = acharMencionados(corpo, membros.map((m) => m.user));
+
   const msg = await prisma.mensagemInterna.create({
-    data: { conversaId: id, autorId: user.id, body: corpo, atribuidoAId, respondeAId, ...(midia || {}) },
+    data: {
+      conversaId: id,
+      autorId: user.id,
+      body: corpo,
+      atribuidoAId,
+      respondeAId,
+      contactId,
+      ...(mencoes.length ? { mencionados: { connect: mencoes.map((mid) => ({ id: mid })) } } : {}),
+      ...(midia || {}),
+    },
     include: INCLUI_MENSAGEM,
   });
   // updatedAt da conversa é o que ordena a lista por "mais recente".

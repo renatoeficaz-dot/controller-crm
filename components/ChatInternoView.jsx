@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icone from "@/components/Icones";
+import ContactModal from "@/components/ContactModal";
 
 const fmtHora = (d) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
@@ -23,6 +24,82 @@ function resumo(m) {
   if (m?.mediaKind === "audio") return "🎤 áudio";
   if (m?.mediaKind === "document") return "📎 arquivo";
   return "mensagem";
+}
+
+// Texto com as @mencoes destacadas. Casa do nome mais longo pro mais curto
+// pra "@Arthur trabalho" nao virar "@Arthur" + " trabalho" solto.
+function TextoComMencoes({ body, mencionados, claro }) {
+  if (!body) return null;
+  const nomes = (mencionados || []).map((m) => m.name).sort((a, b) => b.length - a.length);
+  if (!nomes.length) return <p className="whitespace-pre-wrap break-words">{body}</p>;
+
+  // Varredura manual em vez de regex: os nomes vêm do cadastro e podem ter
+  // qualquer caractere (ponto, parêntese, emoji), o que quebraria um regex
+  // montado com eles.
+  const partes = [];
+  const minusculo = body.toLowerCase();
+  let i = 0;
+  let buffer = "";
+  while (i < body.length) {
+    let achou = null;
+    if (body[i] === "@") {
+      for (const nome of nomes) {
+        if (minusculo.startsWith("@" + nome.toLowerCase(), i)) {
+          achou = body.slice(i, i + 1 + nome.length);
+          break;
+        }
+      }
+    }
+    if (achou) {
+      if (buffer) { partes.push({ texto: buffer }); buffer = ""; }
+      partes.push({ texto: achou, mencao: true });
+      i += achou.length;
+    } else {
+      buffer += body[i];
+      i += 1;
+    }
+  }
+  if (buffer) partes.push({ texto: buffer });
+
+  return (
+    <p className="whitespace-pre-wrap break-words">
+      {partes.map((p, idx) =>
+        p.mencao ? (
+          <span
+            key={idx}
+            className={`font-semibold rounded px-0.5 ${claro ? "text-sky-700 bg-sky-100" : "text-white bg-emerald-600/60"}`}
+          >
+            {p.texto}
+          </span>
+        ) : (
+          <span key={idx}>{p.texto}</span>
+        )
+      )}
+    </p>
+  );
+}
+
+// Lead encaminhada pro chat interno: card clicavel que abre a ficha completa.
+function CardLead({ contact, onAbrir, claro }) {
+  if (!contact) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onAbrir(contact.id)}
+      className={`mt-1 w-full text-left rounded-lg border px-2.5 py-2 transition-colors ${
+        claro ? "bg-white border-slate-200 hover:border-emerald-300" : "bg-emerald-600/40 border-emerald-300 hover:bg-emerald-600/60"
+      }`}
+    >
+      <p className={`text-[10px] font-semibold ${claro ? "text-slate-400" : "text-emerald-100"}`}>LEAD</p>
+      <p className={`text-sm font-medium truncate ${claro ? "text-slate-800" : "text-white"}`}>{contact.name}</p>
+      <p className={`text-[11px] truncate ${claro ? "text-slate-500" : "text-emerald-50"}`}>
+        {contact.phone || "sem telefone"}
+        {contact.stage?.name ? ` · ${contact.stage.name}` : ""}
+        {contact.valorCapital ? ` · R$ ${contact.valorCapital}` : ""}
+      </p>
+      <p className={`text-[10px] mt-0.5 underline ${claro ? "text-emerald-600" : "text-emerald-100"}`}>abrir ficha</p>
+    </button>
+  );
 }
 
 // Anexo dentro do balão: imagem abre em nova aba, áudio toca ali, resto vira
@@ -72,6 +149,8 @@ export default function ChatInternoView() {
   const [erro, setErro] = useState("");
   const [soPendentes, setSoPendentes] = useState(false);
   const [gravando, setGravando] = useState(false);
+  const [leadAberta, setLeadAberta] = useState(null);
+  const [sugestoes, setSugestoes] = useState([]);
   const fimRef = useRef(null);
   const selRef = useRef(null);
   const fileRef = useRef(null);
@@ -181,6 +260,7 @@ export default function ChatInternoView() {
     setTexto("");
     setCobrarDe("");
     setRespondendo(null);
+    setSugestoes([]);
     carregarDetalhe(selecionada);
     carregarConversas();
   }
@@ -358,6 +438,11 @@ export default function ChatInternoView() {
                       {c.pendentes}
                     </span>
                   )}
+                  {c.mencoes > 0 && (
+                    <span className="bg-sky-500 text-white text-[10px] rounded-full px-1.5 py-0.5" title="Te marcaram">
+                      @{c.mencoes}
+                    </span>
+                  )}
                 </div>
               </div>
             </button>
@@ -432,7 +517,8 @@ export default function ChatInternoView() {
                           <span className="font-semibold">{m.respondeA.autor?.name}</span>: {resumo(m.respondeA)}
                         </div>
                       )}
-                      {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
+                      <TextoComMencoes body={m.body} mencionados={m.mencionados} claro={claro} />
+                      <CardLead contact={m.contact} onAbrir={setLeadAberta} claro={claro} />
                       <Anexo m={m} />
                       <div
                         className={`flex items-center gap-2 mt-1 text-[10px] ${minha && !pedido ? "text-emerald-100" : "text-slate-400"}`}
@@ -501,6 +587,24 @@ export default function ChatInternoView() {
                     ))}
                 </select>
               </div>
+              {sugestoes.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {sugestoes.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => {
+                        // Troca o "@parcial" que a pessoa digitou pelo nome completo
+                        setTexto((t) => t.replace(/@[^@]*$/, `@${u.name} `));
+                        setSugestoes([]);
+                      }}
+                      className="text-[11px] rounded-full px-2 py-0.5 bg-sky-100 text-sky-700 hover:bg-sky-200"
+                    >
+                      @{u.name}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-2 items-center">
                 <input
                   ref={fileRef}
@@ -533,7 +637,19 @@ export default function ChatInternoView() {
                 </button>
                 <input
                   value={texto}
-                  onChange={(e) => setTexto(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setTexto(v);
+                    // Sugere membros enquanto a pessoa digita depois do @
+                    const m = v.match(/@([^@]*)$/);
+                    if (!m) return setSugestoes([]);
+                    const busca = m[1].toLowerCase();
+                    setSugestoes(
+                      (detalhe?.membros || [])
+                        .filter((x) => x.id !== eu?.id && x.name.toLowerCase().includes(busca))
+                        .slice(0, 5)
+                    );
+                  }}
                   onPaste={aoColar}
                   placeholder={gravando ? "Gravando… clique no quadrado pra enviar" : "Escreva ou cole um print (Ctrl+V)…"}
                   className="flex-1 min-w-0 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
@@ -549,6 +665,14 @@ export default function ChatInternoView() {
           </>
         )}
       </div>
+
+      {leadAberta && (
+        <ContactModal
+          contactId={leadAberta}
+          onClose={() => setLeadAberta(null)}
+          onChanged={() => carregarDetalhe(selecionada)}
+        />
+      )}
     </div>
   );
 }

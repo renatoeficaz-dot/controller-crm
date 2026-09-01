@@ -25,7 +25,10 @@ export async function GET() {
       mensagens: {
         orderBy: { createdAt: "desc" },
         take: 1,
-        include: { autor: { select: { id: true, name: true } } },
+        include: {
+          autor: { select: { id: true, name: true } },
+          contact: { select: { name: true } },
+        },
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -45,6 +48,16 @@ export async function GET() {
       const pendentes = await prisma.mensagemInterna.count({
         where: { conversaId: c.id, atribuidoAId: user.id, resolvido: false },
       });
+      // Quantas vezes te marcaram com @ desde a ultima leitura — sem isso a
+      // marcacao passava batida numa conversa movimentada.
+      const mencoes = await prisma.mensagemInterna.count({
+        where: {
+          conversaId: c.id,
+          mencionados: { some: { id: user.id } },
+          autorId: { not: user.id },
+          ...(meu?.lidoAte ? { createdAt: { gt: meu.lidoAte } } : {}),
+        },
+      });
       return {
         id: c.id,
         titulo: tituloPara(c, user.id),
@@ -52,13 +65,14 @@ export async function GET() {
         membros: c.membros.map((m) => ({ id: m.user.id, name: m.user.name })),
         ultimaMensagem: c.mensagens[0]
           ? {
-              body: c.mensagens[0].body,
+              body: c.mensagens[0].body || (c.mensagens[0].contact ? `📋 ${c.mensagens[0].contact.name}` : ""),
               autor: c.mensagens[0].autor?.name,
               createdAt: c.mensagens[0].createdAt,
             }
           : null,
         naoLidas,
         pendentes,
+        mencoes,
         updatedAt: c.updatedAt,
       };
     })

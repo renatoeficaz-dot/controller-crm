@@ -37,6 +37,10 @@ export async function PATCH(req, { params }) {
     include: {
       autor: { select: { id: true, name: true } },
       atribuidoA: { select: { id: true, name: true } },
+      mencionados: { select: { id: true, name: true } },
+      contact: {
+        select: { id: true, name: true, phone: true, valorCapital: true, stage: { select: { name: true } } },
+      },
       respondeA: {
         select: { id: true, body: true, mediaKind: true, autor: { select: { id: true, name: true } } },
       },

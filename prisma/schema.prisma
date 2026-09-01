@@ -71,6 +71,7 @@ model Contact {
   tentativas       TentativaContato[]
   responsavelLogs  ResponsavelLog[]
   videoChamadaSessoes VideoChamadaSessao[]
+  mensagensInternas   MensagemInterna[] // leads encaminhados pro chat interno
 
   // Atendimento manual: enquanto true, a IA não responde esse lead — o
   // humano assumiu a conversa. É ligado automaticamente ao mover o lead pra
@@ -749,6 +750,7 @@ model User {
   conversasInternas   ConversaInternaMembro[]
   mensagensInternas   MensagemInterna[]      @relation("MensagemInternaAutor")
   mensagensAtribuidas MensagemInterna[]      @relation("MensagemInternaAtribuida")
+  mencoesInternas     MensagemInterna[]      @relation("MensagemInternaMencoes")
 
   // Permissões pontuais além do que o `role` já libera por padrão — CSV de
   // chaves (ver lib/permissoes.js). Só adiciona; nunca tira o que o role dá.
@@ -1395,6 +1397,15 @@ model MensagemInterna {
   respondeA   MensagemInterna?  @relation("RespostaInterna", fields: [respondeAId], references: [id], onDelete: SetNull)
   respondeAId String?
   respostas   MensagemInterna[] @relation("RespostaInterna")
+
+  // Pessoas marcadas com @ no texto. Diferente de atribuidoA: marcar so
+  // chama a atencao, nao cria pendencia pra resolver.
+  mencionados User[] @relation("MensagemInternaMencoes")
+
+  // Lead encaminhado do chat do cliente pro chat interno, pra equipe
+  // discutir. SetNull: apagar o lead nao apaga a conversa sobre ele.
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId String?
 
   createdAt DateTime @default(now())
 

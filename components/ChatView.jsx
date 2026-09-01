@@ -142,6 +142,11 @@ export default function ChatView() {
   const [stagesList, setStagesList] = useState([]);
   const [allTags, setAllTags] = useState([]);
   const [euAdmin, setEuAdmin] = useState(false);
+  const [encaminharLeadAberto, setEncaminharLeadAberto] = useState(false);
+  const [conversasInternas, setConversasInternas] = useState([]);
+  const [convInternaAlvo, setConvInternaAlvo] = useState("");
+  const [notaInterna, setNotaInterna] = useState("");
+  const [enviandoInterno, setEnviandoInterno] = useState(false);
   const [novaTag, setNovaTag] = useState("");
   const [criandoTag, setCriandoTag] = useState(false);
   const [contactTags, setContactTags] = useState([]);
@@ -703,6 +708,31 @@ export default function ChatView() {
     await toggleTag(t.id);
   }
 
+  // Manda a lead pro chat interno pra equipe discutir. A mensagem carrega o
+  // contactId, entao no chat interno ela vira um card clicavel que abre a
+  // ficha completa — em vez de alguem ter que procurar o nome na mao.
+  async function abrirEncaminharLead() {
+    setEncaminharLeadAberto(true);
+    const d = await fetch("/api/chat-interno").then((r) => r.json()).catch(() => []);
+    setConversasInternas(Array.isArray(d) ? d : []);
+  }
+
+  async function encaminharLead() {
+    if (!convInternaAlvo || !selectedId) return;
+    setEnviandoInterno(true);
+    const res = await fetch(`/api/chat-interno/${convInternaAlvo}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: notaInterna, contactId: selectedId }),
+    });
+    setEnviandoInterno(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d.error || "Não foi possível encaminhar."); return; }
+    setEncaminharLeadAberto(false);
+    setNotaInterna("");
+    setConvInternaAlvo("");
+  }
+
   // Liga/desliga a IA pra este lead — atendimento manual assume a conversa.
   async function toggleIaPausada() {
     if (!selectedId || !contact) return;
@@ -1083,6 +1113,13 @@ export default function ChatView() {
                 <p className="text-sm font-medium text-slate-800 truncate">{selected.name}</p>
                 {selected.phone && <p className="text-xs text-slate-400">{selected.phone}</p>}
               </div>
+              <button
+                onClick={abrirEncaminharLead}
+                title="Enviar esta lead pro chat interno da equipe"
+                className="hidden md:flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
+              >
+                <Icone nome="pessoas" className="w-3 h-3" /> Chat interno
+              </button>
               <button
                 onClick={gerarResumo}
                 disabled={resumindo}
@@ -1696,6 +1733,60 @@ export default function ChatView() {
       )}
 
       {/* Encaminhar mensagem (item 79) */}
+      {encaminharLeadAberto && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
+          onClick={() => setEncaminharLeadAberto(false)}
+        >
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-800">Enviar lead pro chat interno</h3>
+              <button onClick={() => setEncaminharLeadAberto(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-slate-500">
+                A equipe recebe um card de <strong>{selected?.name}</strong> e consegue abrir a ficha direto de lá.
+              </p>
+              <label className="block">
+                <span className="text-xs text-slate-500">Conversa</span>
+                <select
+                  value={convInternaAlvo}
+                  onChange={(e) => setConvInternaAlvo(e.target.value)}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">— Escolha —</option>
+                  {conversasInternas.map((c) => (
+                    <option key={c.id} value={c.id}>{c.grupo ? `Grupo: ${c.titulo}` : c.titulo}</option>
+                  ))}
+                </select>
+                {conversasInternas.length === 0 && (
+                  <span className="block text-[11px] text-amber-600 mt-1">
+                    Você ainda não tem conversa no chat interno — crie uma na aba "Chat interno".
+                  </span>
+                )}
+              </label>
+              <label className="block">
+                <span className="text-xs text-slate-500">Mensagem (opcional)</span>
+                <textarea
+                  value={notaInterna}
+                  onChange={(e) => setNotaInterna(e.target.value)}
+                  rows={3}
+                  placeholder="Ex.: @Fulano dá uma olhada nessa, o cliente sumiu"
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
+                />
+              </label>
+              <button
+                onClick={encaminharLead}
+                disabled={!convInternaAlvo || enviandoInterno}
+                className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50"
+              >
+                {enviandoInterno ? "Enviando…" : "Enviar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {encaminharMsg && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEncaminharMsg(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
