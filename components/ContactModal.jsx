@@ -189,6 +189,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [telefoneCopiadoId, setTelefoneCopiadoId] = useState(null);
   const [allTags, setAllTags] = useState([]);
   const [novaTag, setNovaTag] = useState("");
+  const [encaminharLeadAberto, setEncaminharLeadAberto] = useState(false);
+  const [conversasInternas, setConversasInternas] = useState([]);
+  const [convInternaAlvo, setConvInternaAlvo] = useState("");
+  const [notaInterna, setNotaInterna] = useState("");
+  const [pendenteDe, setPendenteDe] = useState("");
+  const [enviandoInterno, setEnviandoInterno] = useState(false);
   const [criandoTag, setCriandoTag] = useState(false);
   const [contactTags, setContactTags] = useState([]);
   const [numbers, setNumbers] = useState([]);
@@ -732,6 +738,31 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     setAllTags((prev) => [...prev, t].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
     setNovaTag("");
     await toggleTag(t.id);
+  }
+
+  // Manda a lead pro chat interno pra equipe discutir. A mensagem carrega o
+  // contactId, entao la ela vira um card clicavel que abre esta mesma ficha.
+  async function abrirEncaminharLead() {
+    setEncaminharLeadAberto(true);
+    const d = await fetch("/api/chat-interno").then((r) => r.json()).catch(() => []);
+    setConversasInternas(Array.isArray(d) ? d : []);
+  }
+
+  async function encaminharLead() {
+    if (!convInternaAlvo) return;
+    setEnviandoInterno(true);
+    const res = await fetch(`/api/chat-interno/${convInternaAlvo}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: notaInterna, contactId, atribuidoAId: pendenteDe || null }),
+    });
+    setEnviandoInterno(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d.error || "Não foi possível encaminhar."); return; }
+    setEncaminharLeadAberto(false);
+    setNotaInterna("");
+    setConvInternaAlvo("");
+    setPendenteDe("");
   }
 
   async function removeContact() {
@@ -1802,6 +1833,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </p>
             </div>
             <button
+              onClick={abrirEncaminharLead}
+              title="Enviar esta lead pro chat interno da equipe"
+              className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
+            >
+              <Icone nome="pessoas" className="w-3.5 h-3.5" /> Chat interno
+            </button>
+            <button
               onClick={toggleIaPausada}
               title={contact?.iaPausada ? "IA desligada — clique para religar" : "IA ligada — clique para desligar (atendimento manual)"}
               className={`shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border ${
@@ -2162,6 +2200,78 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </button>
               <button onClick={() => setEditandoBaixa(null)} className="px-4 text-sm text-slate-400 hover:text-slate-600">
                 Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {encaminharLeadAberto && (
+        <div
+          className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4"
+          onClick={() => setEncaminharLeadAberto(false)}
+        >
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-800">Enviar lead pro chat interno</h3>
+              <button onClick={() => setEncaminharLeadAberto(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-slate-500">
+                A equipe recebe um card de <strong>{contact?.name}</strong> e consegue abrir a ficha direto de la.
+              </p>
+              <label className="block">
+                <span className="text-xs text-slate-500">Conversa</span>
+                <select
+                  value={convInternaAlvo}
+                  onChange={(e) => { setConvInternaAlvo(e.target.value); setPendenteDe(""); }}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+                >
+                  <option value="">- Escolha -</option>
+                  {conversasInternas.map((c) => (
+                    <option key={c.id} value={c.id}>{c.grupo ? `Grupo: ${c.titulo}` : c.titulo}</option>
+                  ))}
+                </select>
+                {conversasInternas.length === 0 && (
+                  <span className="block text-[11px] text-amber-600 mt-1">
+                    Voce ainda nao tem conversa no chat interno - crie uma na aba Chat interno.
+                  </span>
+                )}
+              </label>
+              <label className="block">
+                <span className="text-xs text-slate-500">Marcar como pendente para (opcional)</span>
+                <select
+                  value={pendenteDe}
+                  onChange={(e) => setPendenteDe(e.target.value)}
+                  disabled={!convInternaAlvo}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 disabled:bg-slate-50"
+                >
+                  <option value="">- So encaminhar, sem cobrar ninguem -</option>
+                  {(conversasInternas.find((c) => c.id === convInternaAlvo)?.membros || [])
+                    .filter((m) => m.id !== usuarioAtual?.id)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} precisa resolver</option>
+                    ))}
+                </select>
+                <span className="block text-[11px] text-slate-400 mt-0.5">
+                  Fica pendente ate a pessoa ticar como resolvido no chat interno.
+                </span>
+              </label>
+              <label className="block">
+                <span className="text-xs text-slate-500">Mensagem (opcional)</span>
+                <textarea
+                  value={notaInterna}
+                  onChange={(e) => setNotaInterna(e.target.value)}
+                  rows={3}
+                  placeholder="Ex.: cliente sumiu, da uma olhada"
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-none"
+                />
+              </label>
+              <button
+                onClick={encaminharLead}
+                disabled={!convInternaAlvo || enviandoInterno}
+                className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50"
+              >
+                {enviandoInterno ? "Enviando..." : "Enviar"}
               </button>
             </div>
           </div>

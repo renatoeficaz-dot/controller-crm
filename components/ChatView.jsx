@@ -142,10 +142,12 @@ export default function ChatView() {
   const [stagesList, setStagesList] = useState([]);
   const [allTags, setAllTags] = useState([]);
   const [euAdmin, setEuAdmin] = useState(false);
+  const [meuId, setMeuId] = useState(null);
   const [encaminharLeadAberto, setEncaminharLeadAberto] = useState(false);
   const [conversasInternas, setConversasInternas] = useState([]);
   const [convInternaAlvo, setConvInternaAlvo] = useState("");
   const [notaInterna, setNotaInterna] = useState("");
+  const [pendenteDe, setPendenteDe] = useState("");
   const [enviandoInterno, setEnviandoInterno] = useState(false);
   const [novaTag, setNovaTag] = useState("");
   const [criandoTag, setCriandoTag] = useState(false);
@@ -250,7 +252,7 @@ export default function ChatView() {
     // Só admin pode criar etiqueta (a API recusa os demais) — sem saber o
     // papel, o campo apareceria pra todo mundo e daria erro ao usar.
     fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null))
-      .then((u) => setEuAdmin(u?.role === "admin")).catch(() => {});
+      .then((u) => { setEuAdmin(u?.role === "admin"); setMeuId(u?.id || null); }).catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
     fetch("/api/task-types").then((r) => r.json()).then((t) => setTaskTypes(Array.isArray(t) ? t : [])).catch(() => {});
@@ -723,7 +725,7 @@ export default function ChatView() {
     const res = await fetch(`/api/chat-interno/${convInternaAlvo}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: notaInterna, contactId: selectedId }),
+      body: JSON.stringify({ body: notaInterna, contactId: selectedId, atribuidoAId: pendenteDe || null }),
     });
     setEnviandoInterno(false);
     const d = await res.json().catch(() => ({}));
@@ -731,6 +733,7 @@ export default function ChatView() {
     setEncaminharLeadAberto(false);
     setNotaInterna("");
     setConvInternaAlvo("");
+    setPendenteDe("");
   }
 
   // Liga/desliga a IA pra este lead — atendimento manual assume a conversa.
@@ -1751,7 +1754,7 @@ export default function ChatView() {
                 <span className="text-xs text-slate-500">Conversa</span>
                 <select
                   value={convInternaAlvo}
-                  onChange={(e) => setConvInternaAlvo(e.target.value)}
+                  onChange={(e) => { setConvInternaAlvo(e.target.value); setPendenteDe(""); }}
                   className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
                 >
                   <option value="">— Escolha —</option>
@@ -1764,6 +1767,25 @@ export default function ChatView() {
                     Você ainda não tem conversa no chat interno — crie uma na aba "Chat interno".
                   </span>
                 )}
+              </label>
+              <label className="block">
+                <span className="text-xs text-slate-500">Marcar como pendente para (opcional)</span>
+                <select
+                  value={pendenteDe}
+                  onChange={(e) => setPendenteDe(e.target.value)}
+                  disabled={!convInternaAlvo}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 disabled:bg-slate-50"
+                >
+                  <option value="">- So encaminhar, sem cobrar ninguem -</option>
+                  {(conversasInternas.find((c) => c.id === convInternaAlvo)?.membros || [])
+                    .filter((m) => m.id !== meuId)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} precisa resolver</option>
+                    ))}
+                </select>
+                <span className="block text-[11px] text-slate-400 mt-0.5">
+                  Fica pendente ate a pessoa ticar como resolvido no chat interno.
+                </span>
               </label>
               <label className="block">
                 <span className="text-xs text-slate-500">Mensagem (opcional)</span>
