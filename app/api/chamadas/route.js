@@ -29,7 +29,11 @@ export async function GET() {
   const chamada = await prisma.chamadaInterna.findFirst({
     where: {
       OR: [
+        // recebendo (toca) e TAMBÉM a que eu mesmo fiz e ainda está chamando:
+        // sem esta segunda, quem liga não recebia nada de volta e a tela
+        // ficava igual — parecia que o botão não tinha funcionado.
         { paraId: user.id, status: "chamando" },
+        { deId: user.id, status: "chamando" },
         { status: "aceita", OR: [{ paraId: user.id }, { deId: user.id }] },
       ],
     },

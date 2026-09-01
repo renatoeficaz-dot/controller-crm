@@ -13,7 +13,9 @@ const INTERVALO = 4000; // chamada não pode demorar pra aparecer
 // enquanto a chamada estiver ativa, dos dois lados.
 export default function ChamadaWatcher() {
   const [euId, setEuId] = useState(null);
-  const [chamada, setChamada] = useState(null);
+  const [chamada, setChamada] = useState(null);      // recebendo (toca)
+  const [chamando, setChamando] = useState(null);    // eu liguei, aguardando
+  const [aviso, setAviso] = useState("");            // "recusou" / "não atendeu"
   const [emChamada, setEmChamada] = useState(null);
   const jaTocou = useRef(new Set());
 
@@ -34,6 +36,16 @@ export default function ChamadaWatcher() {
 
       if (!c) {
         setChamada(null);
+        // Estava chamando e a chamada sumiu = recusada ou expirou sem
+        // ninguém atender. Sem esse aviso, a tela só voltava ao normal e
+        // não dava pra saber o que aconteceu.
+        setChamando((atual) => {
+          if (atual) {
+            setAviso("Não atenderam.");
+            setTimeout(() => setAviso(""), 4000);
+          }
+          return null;
+        });
         // A janela some quando a chamada sai de "aceita" — ou seja, quando o
         // outro lado desligou.
         setEmChamada(null);
@@ -41,7 +53,12 @@ export default function ChamadaWatcher() {
       }
       if (c.status === "aceita") {
         setChamada(null);
+        setChamando(null);
         setEmChamada((atual) => (atual?.id === c.id ? atual : c));
+        return;
+      }
+      if (c.status === "chamando" && c.deId === euId) {
+        setChamando(c);
         return;
       }
       if (c.status === "chamando" && c.paraId === euId) {
@@ -74,8 +91,52 @@ export default function ChamadaWatcher() {
     if (acao === "aceitar" && r) setEmChamada(r);
   }, [chamada]);
 
+  async function cancelar() {
+    if (!chamando) return;
+    await fetch(`/api/chamadas/${chamando.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "encerrar" }),
+    }).catch(() => {});
+    setChamando(null);
+  }
+
   if (emChamada && euId) {
     return <ChamadaInterna chamada={emChamada} euId={euId} onEncerrar={() => setEmChamada(null)} />;
+  }
+
+  // Eu liguei e estou esperando atenderem.
+  if (chamando) {
+    return (
+      <div className="fixed bottom-4 left-4 z-[85] bg-slate-800 text-white rounded-xl shadow-2xl px-4 py-3 w-72">
+        <div className="flex items-center gap-2.5">
+          <span className="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center text-sm font-semibold animate-pulse">
+            {(chamando.para?.name || "?").slice(0, 2).toUpperCase()}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-slate-300">Chamando…</p>
+            <p className="text-sm font-medium truncate">{chamando.para?.name}</p>
+            <p className="text-[10px] text-slate-400">
+              {chamando.video ? "vídeo" : "voz"} · só toca se a pessoa estiver com o sistema aberto
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={cancelar}
+          className="mt-3 w-full bg-red-600 hover:bg-red-700 rounded-lg py-2 text-sm font-medium"
+        >
+          Cancelar
+        </button>
+      </div>
+    );
+  }
+
+  if (aviso && !chamada) {
+    return (
+      <div className="fixed bottom-4 left-4 z-[85] bg-slate-800 text-white rounded-xl shadow-lg px-4 py-3 text-sm">
+        {aviso}
+      </div>
+    );
   }
 
   if (!chamada) return null;
