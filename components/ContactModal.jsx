@@ -188,6 +188,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [cpfAnaliseCopiado, setCpfAnaliseCopiado] = useState(false);
   const [telefoneCopiadoId, setTelefoneCopiadoId] = useState(null);
   const [allTags, setAllTags] = useState([]);
+  const [novaTag, setNovaTag] = useState("");
+  const [criandoTag, setCriandoTag] = useState(false);
   const [contactTags, setContactTags] = useState([]);
   const [numbers, setNumbers] = useState([]);
   const [selectedInstance, setSelectedInstance] = useState("");
@@ -710,6 +712,26 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       body: JSON.stringify({ tagId }),
     });
     onChanged?.();
+  }
+
+  // Cria a etiqueta e já aplica nesta lead — sem isso era preciso sair pra
+  // Configurações, criar lá e voltar. Etiqueta é global (compartilhada entre
+  // todos os leads), por isso só admin cria: a API recusa os demais.
+  async function criarEAplicarTag() {
+    const nome = novaTag.trim();
+    if (!nome) return;
+    setCriandoTag(true);
+    const res = await fetch("/api/tags", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: nome }),
+    });
+    const t = await res.json().catch(() => ({}));
+    setCriandoTag(false);
+    if (!res.ok) { alert(t.error || "Não foi possível criar a etiqueta."); return; }
+    setAllTags((prev) => [...prev, t].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
+    setNovaTag("");
+    await toggleTag(t.id);
   }
 
   async function removeContact() {
@@ -1404,7 +1426,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             </div>
 
             {/* Tags / Etiquetas */}
-            {allTags.length > 0 && (
+            {(allTags.length > 0 || isAdmin) && (
               <div>
                 <span className="text-xs text-slate-400">Etiquetas</span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
@@ -1422,7 +1444,31 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       </button>
                     );
                   })}
+                  {allTags.length === 0 && !isAdmin && (
+                    <span className="text-[11px] text-slate-400">Nenhuma etiqueta cadastrada.</span>
+                  )}
                 </div>
+                {isAdmin && (
+                  <div className="flex gap-1.5 mt-1.5">
+                    <input
+                      value={novaTag}
+                      onChange={(e) => setNovaTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); criarEAplicarTag(); }
+                      }}
+                      placeholder="Nova etiqueta…"
+                      className="flex-1 min-w-0 text-[11px] border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={criarEAplicarTag}
+                      disabled={criandoTag || !novaTag.trim()}
+                      className="shrink-0 text-[11px] bg-slate-800 text-white rounded px-2.5 py-1 hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {criandoTag ? "…" : "+ Criar"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

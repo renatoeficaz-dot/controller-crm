@@ -141,6 +141,9 @@ export default function ChatView() {
   const [users, setUsers] = useState([]);
   const [stagesList, setStagesList] = useState([]);
   const [allTags, setAllTags] = useState([]);
+  const [euAdmin, setEuAdmin] = useState(false);
+  const [novaTag, setNovaTag] = useState("");
+  const [criandoTag, setCriandoTag] = useState(false);
   const [contactTags, setContactTags] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -239,6 +242,10 @@ export default function ChatView() {
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsers).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
+    // Só admin pode criar etiqueta (a API recusa os demais) — sem saber o
+    // papel, o campo apareceria pra todo mundo e daria erro ao usar.
+    fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null))
+      .then((u) => setEuAdmin(u?.role === "admin")).catch(() => {});
     fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
     fetch("/api/task-types").then((r) => r.json()).then((t) => setTaskTypes(Array.isArray(t) ? t : [])).catch(() => {});
@@ -676,6 +683,24 @@ export default function ChatView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tagId }),
     });
+  }
+
+  // Cria a etiqueta e já aplica nesta lead, sem sair pro Configurações.
+  async function criarEAplicarTag() {
+    const nome = novaTag.trim();
+    if (!nome) return;
+    setCriandoTag(true);
+    const res = await fetch("/api/tags", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: nome }),
+    });
+    const t = await res.json().catch(() => ({}));
+    setCriandoTag(false);
+    if (!res.ok) { alert(t.error || "Não foi possível criar a etiqueta."); return; }
+    setAllTags((prev) => [...prev, t].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
+    setNovaTag("");
+    await toggleTag(t.id);
   }
 
   // Liga/desliga a IA pra este lead — atendimento manual assume a conversa.
@@ -1550,7 +1575,7 @@ export default function ChatView() {
             </div>
 
             {/* Tags */}
-            {allTags.length > 0 && (
+            {(allTags.length > 0 || euAdmin) && (
               <div>
                 <span className="text-[11px] text-slate-400">Etiquetas</span>
                 <div className="flex flex-wrap gap-1 mt-1">
@@ -1569,6 +1594,27 @@ export default function ChatView() {
                     );
                   })}
                 </div>
+                {euAdmin && (
+                  <div className="flex gap-1.5 mt-1.5">
+                    <input
+                      value={novaTag}
+                      onChange={(e) => setNovaTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); criarEAplicarTag(); }
+                      }}
+                      placeholder="Nova etiqueta…"
+                      className="flex-1 min-w-0 text-[10px] border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={criarEAplicarTag}
+                      disabled={criandoTag || !novaTag.trim()}
+                      className="shrink-0 text-[10px] bg-slate-800 text-white rounded px-2.5 py-1 hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {criandoTag ? "…" : "+ Criar"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
