@@ -48,3 +48,39 @@ export async function PATCH(req, { params }) {
   });
   return NextResponse.json(atualizada);
 }
+
+// Apaga a mensagem (soft): o balão passa a mostrar "Mensagem apagada".
+// Pode apagar quem escreveu ou um admin — ninguém apaga mensagem de outro.
+export async function DELETE(_req, { params }) {
+  const { id } = await params;
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  const msg = await prisma.mensagemInterna.findUnique({ where: { id } });
+  if (!msg) return NextResponse.json({ error: "Mensagem não encontrada." }, { status: 404 });
+
+  const membro = await prisma.conversaInternaMembro.findUnique({
+    where: { conversaId_userId: { conversaId: msg.conversaId, userId: user.id } },
+  });
+  if (!membro) return NextResponse.json({ error: "Sem acesso a essa conversa." }, { status: 403 });
+  if (msg.autorId !== user.id && !isAdmin(user)) {
+    return NextResponse.json({ error: "Só quem escreveu (ou um admin) pode apagar." }, { status: 403 });
+  }
+
+  // Zera o conteúdo junto: sem isso o texto/anexo continuava no banco e
+  // voltaria pra tela em qualquer consulta que não filtrasse `apagada`.
+  await prisma.mensagemInterna.update({
+    where: { id },
+    data: {
+      apagada: true,
+      apagadaEm: new Date(),
+      apagadaPor: user.name,
+      body: "",
+      mediaUrl: null,
+      mediaKind: null,
+      mediaMime: null,
+      mediaNome: null,
+    },
+  });
+  return NextResponse.json({ ok: true });
+}

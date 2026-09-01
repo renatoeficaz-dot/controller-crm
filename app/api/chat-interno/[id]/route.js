@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, isAdmin } from "@/lib/session";
 import { lerCorpo, texto } from "@/lib/corpo";
 import { saveMediaBuffer } from "@/lib/mediaStorage";
 
@@ -178,4 +178,23 @@ export async function POST(req, { params }) {
     .catch(() => {});
 
   return NextResponse.json(msg);
+}
+
+// Exclui a conversa inteira (mensagens e membros vão junto por cascade).
+// Só quem criou ou um admin — senão qualquer participante apagaria a
+// conversa dos outros. Aqui é exclusão de verdade: conversa interna não
+// tem histórico a preservar como o do cliente.
+export async function DELETE(_req, { params }) {
+  const { id } = await params;
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  const membro = await membroOuNulo(id, user.id);
+  if (!membro) return NextResponse.json({ error: "Sem acesso a essa conversa." }, { status: 403 });
+
+  const conversa = await prisma.conversaInterna.findUnique({ where: { id }, select: { criadaPor: true } });
+  if (conversa?.criadaPor !== user.name && !isAdmin(user)) {
+    return NextResponse.json({ error: "Só quem criou (ou um admin) pode excluir a conversa." }, { status: 403 });
+  }
+  await prisma.conversaInterna.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
 }

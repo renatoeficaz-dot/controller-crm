@@ -1407,6 +1407,13 @@ model MensagemInterna {
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   contactId String?
 
+  // Apagar e SOFT (igual o chat do WhatsApp): a linha fica e o balao mostra
+  // "Mensagem apagada". Sumir com o registro quebraria as respostas que
+  // citam essa mensagem e apagaria a prova de um pedido ja resolvido.
+  apagada   Boolean   @default(false)
+  apagadaEm DateTime?
+  apagadaPor String?
+
   createdAt DateTime @default(now())
 
   @@index([conversaId, createdAt])

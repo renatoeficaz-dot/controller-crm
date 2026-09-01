@@ -312,6 +312,31 @@ export default function ChatInternoView() {
     setGravando(false);
   }
 
+  async function apagarMensagem(msg) {
+    if (!confirm("Apagar esta mensagem?")) return;
+    const res = await fetch(`/api/chat-interno/mensagens/${msg.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setErro(d.error || "Não foi possível apagar.");
+      return;
+    }
+    carregarDetalhe(selecionada);
+    carregarConversas();
+  }
+
+  async function excluirConversa() {
+    if (!confirm("Excluir esta conversa e todas as mensagens dela? Não dá pra desfazer.")) return;
+    const res = await fetch(`/api/chat-interno/${selecionada}`, { method: "DELETE" });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setErro(d.error || "Não foi possível excluir.");
+      return;
+    }
+    setSelecionada(null);
+    setDetalhe(null);
+    carregarConversas();
+  }
+
   async function alternarResolvido(msg) {
     const res = await fetch(`/api/chat-interno/mensagens/${msg.id}`, {
       method: "PATCH",
@@ -465,6 +490,13 @@ export default function ChatInternoView() {
                 <p className="text-xs text-slate-400 truncate">{(detalhe?.membros || []).map((m) => m.name).join(", ")}</p>
               </div>
               <button
+                onClick={excluirConversa}
+                title="Excluir esta conversa"
+                className="shrink-0 text-xs rounded-full px-2.5 py-1 border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-300"
+              >
+                Excluir
+              </button>
+              <button
                 onClick={() => setSoPendentes((v) => !v)}
                 className={`shrink-0 text-xs rounded-full px-2.5 py-1 border ${soPendentes ? "bg-amber-50 text-amber-700 border-amber-200" : "border-slate-200 text-slate-500 hover:bg-slate-50"}`}
               >
@@ -517,9 +549,15 @@ export default function ChatInternoView() {
                           <span className="font-semibold">{m.respondeA.autor?.name}</span>: {resumo(m.respondeA)}
                         </div>
                       )}
-                      <TextoComMencoes body={m.body} mencionados={m.mencionados} claro={claro} />
-                      <CardLead contact={m.contact} onAbrir={setLeadAberta} claro={claro} />
-                      <Anexo m={m} />
+                      {m.apagada ? (
+                        <p className={`italic ${claro ? "text-slate-400" : "text-emerald-100"}`}>Mensagem apagada</p>
+                      ) : (
+                        <>
+                          <TextoComMencoes body={m.body} mencionados={m.mencionados} claro={claro} />
+                          <CardLead contact={m.contact} onAbrir={setLeadAberta} claro={claro} />
+                          <Anexo m={m} />
+                        </>
+                      )}
                       <div
                         className={`flex items-center gap-2 mt-1 text-[10px] ${minha && !pedido ? "text-emerald-100" : "text-slate-400"}`}
                       >
@@ -527,14 +565,26 @@ export default function ChatInternoView() {
                           {fmtDia(m.createdAt)} {fmtHora(m.createdAt)}
                         </span>
                         {m.resolvido && m.resolvidoPor && <span className="text-emerald-600">✓ {m.resolvidoPor}</span>}
-                        <button
-                          onClick={() => setRespondendo(m)}
-                          className={`opacity-0 group-hover:opacity-100 transition-opacity underline ${claro ? "text-slate-500" : "text-emerald-100"}`}
-                        >
-                          responder
-                        </button>
+                        {!m.apagada && (
+                          <>
+                            <button
+                              onClick={() => setRespondendo(m)}
+                              className={`opacity-0 group-hover:opacity-100 transition-opacity underline ${claro ? "text-slate-500" : "text-emerald-100"}`}
+                            >
+                              responder
+                            </button>
+                            {(minha || eu?.role === "admin") && (
+                              <button
+                                onClick={() => apagarMensagem(m)}
+                                className={`opacity-0 group-hover:opacity-100 transition-opacity underline ${claro ? "text-red-400 hover:text-red-600" : "text-emerald-100"}`}
+                              >
+                                apagar
+                              </button>
+                            )}
+                          </>
+                        )}
                       </div>
-                      {pedido && (
+                      {pedido && !m.apagada && (
                         <button
                           onClick={() => alternarResolvido(m)}
                           className={`mt-1.5 text-xs font-medium rounded px-2 py-1 border ${
