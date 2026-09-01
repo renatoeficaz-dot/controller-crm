@@ -79,6 +79,15 @@ function TextoComMencoes({ body, mencionados, claro }) {
   );
 }
 
+// Cores/rotulo por prioridade da pendencia. null = pendencia antiga (de antes
+// do campo existir) e cai em "media".
+const PRIORIDADE = {
+  urgente: { rotulo: "URGENTE", badge: "bg-red-600 text-white", caixa: "bg-red-50 border-red-400" },
+  media: { rotulo: "Média", badge: "bg-amber-400 text-white", caixa: "bg-amber-50 border-amber-300" },
+  baixa: { rotulo: "Baixa", badge: "bg-slate-300 text-slate-700", caixa: "bg-slate-50 border-slate-300" },
+};
+const estiloPrioridade = (p) => PRIORIDADE[p] || PRIORIDADE.media;
+
 // Lead encaminhada pro chat interno: card clicavel que abre a ficha completa.
 function CardLead({ contact, onAbrir, claro }) {
   if (!contact) return null;
@@ -141,6 +150,7 @@ export default function ChatInternoView() {
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [cobrarDe, setCobrarDe] = useState("");
+  const [prioridade, setPrioridade] = useState("media");
   const [respondendo, setRespondendo] = useState(null);
   const [novaAberta, setNovaAberta] = useState(false);
   const [novoGrupo, setNovoGrupo] = useState(false);
@@ -151,6 +161,9 @@ export default function ChatInternoView() {
   const [gravando, setGravando] = useState(false);
   const [leadAberta, setLeadAberta] = useState(null);
   const [sugestoes, setSugestoes] = useState([]);
+  const [pendencias, setPendencias] = useState([]);
+  const [listaPendAberta, setListaPendAberta] = useState(false);
+  const [destacada, setDestacada] = useState(null);
   const fimRef = useRef(null);
   const selRef = useRef(null);
   const fileRef = useRef(null);
@@ -167,8 +180,12 @@ export default function ChatInternoView() {
   }, []);
 
   const carregarConversas = useCallback(async () => {
-    const d = await fetch("/api/chat-interno").then((r) => r.json()).catch(() => []);
+    const [d, p] = await Promise.all([
+      fetch("/api/chat-interno").then((r) => r.json()).catch(() => []),
+      fetch("/api/chat-interno/pendencias").then((r) => r.json()).catch(() => []),
+    ]);
     setConversas(Array.isArray(d) ? d : []);
+    setPendencias(Array.isArray(p) ? p : []);
   }, []);
 
   const carregarDetalhe = useCallback(async (id) => {
@@ -201,8 +218,18 @@ export default function ChatInternoView() {
   }, [selecionada, carregarDetalhe]);
 
   useEffect(() => {
+    // Com uma pendência escolhida, rola até ELA em vez do fim da conversa.
+    if (destacada) {
+      const el = document.getElementById(`msg-${destacada}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const t = setTimeout(() => setDestacada(null), 4000);
+        return () => clearTimeout(t);
+      }
+      return;
+    }
     fimRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [detalhe?.mensagens?.length]);
+  }, [detalhe?.mensagens?.length, destacada]);
 
   const outrosUsuarios = useMemo(() => usuarios.filter((u) => u.id !== eu?.id), [usuarios, eu]);
 
@@ -237,7 +264,7 @@ export default function ChatInternoView() {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("body", corpo);
-      if (cobrarDe) fd.append("atribuidoAId", cobrarDe);
+      if (cobrarDe) { fd.append("atribuidoAId", cobrarDe); fd.append("prioridade", prioridade); }
       if (respondendo?.id) fd.append("respondeAId", respondendo.id);
       res = await fetch(`/api/chat-interno/${selecionada}`, { method: "POST", body: fd });
     } else {
@@ -247,6 +274,7 @@ export default function ChatInternoView() {
         body: JSON.stringify({
           body: corpo,
           atribuidoAId: cobrarDe || null,
+          prioridade: cobrarDe ? prioridade : null,
           respondeAId: respondendo?.id || null,
         }),
       });
@@ -259,6 +287,7 @@ export default function ChatInternoView() {
     }
     setTexto("");
     setCobrarDe("");
+    setPrioridade("media");
     setRespondendo(null);
     setSugestoes([]);
     carregarDetalhe(selecionada);
@@ -312,6 +341,15 @@ export default function ChatInternoView() {
     setGravando(false);
   }
 
+  // Abre a conversa da pendência e destaca a mensagem, pra pessoa cair
+  // direto no que estão esperando dela em vez de procurar na conversa.
+  function abrirPendencia(p) {
+    setListaPendAberta(false);
+    setSoPendentes(false);
+    setDestacada(p.id);
+    setSelecionada(p.conversaId);
+  }
+
   async function apagarMensagem(msg) {
     if (!confirm("Apagar esta mensagem?")) return;
     const res = await fetch(`/api/chat-interno/mensagens/${msg.id}`, { method: "DELETE" });
@@ -354,7 +392,13 @@ export default function ChatInternoView() {
 
   const mensagensVisiveis = useMemo(() => {
     const ms = detalhe?.mensagens || [];
-    return soPendentes ? ms.filter((m) => m.atribuidoAId && !m.resolvido) : ms;
+    if (!soPendentes) return ms;
+    // No modo "só pendentes" o que importa é o que queima primeiro, não a
+    // ordem cronológica: urgente no topo, depois média, depois baixa.
+    const peso = { urgente: 0, media: 1, baixa: 2 };
+    return ms
+      .filter((m) => m.atribuidoAId && !m.resolvido)
+      .sort((a, b) => (peso[a.prioridade] ?? 1) - (peso[b.prioridade] ?? 1));
   }, [detalhe, soPendentes]);
 
   const totalPendentes = conversas.reduce((s, c) => s + (c.pendentes || 0), 0);
@@ -377,10 +421,43 @@ export default function ChatInternoView() {
             </button>
           </div>
           <p className="text-[11px] text-slate-400 mt-0.5">Conversa entre a equipe — não vai pro cliente.</p>
-          {totalPendentes > 0 && (
-            <p className="mt-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-              {totalPendentes} pedido{totalPendentes > 1 ? "s" : ""} esperando você resolver
-            </p>
+          {pendencias.length > 0 && (
+            <div className="mt-1.5">
+              <button
+                onClick={() => setListaPendAberta((v) => !v)}
+                className="w-full text-left text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 hover:bg-amber-100 flex items-center justify-between gap-2"
+              >
+                <span>
+                  {pendencias.length} pedido{pendencias.length > 1 ? "s" : ""} esperando você resolver
+                </span>
+                <span className="shrink-0 text-amber-600">{listaPendAberta ? "ocultar" : "ver"}</span>
+              </button>
+              {listaPendAberta && (
+                <ul className="mt-1 space-y-1 max-h-56 overflow-y-auto thin-scroll">
+                  {pendencias.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        onClick={() => abrirPendencia(p)}
+                        className="w-full text-left rounded border border-slate-200 bg-white px-2 py-1.5 hover:border-emerald-300"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${estiloPrioridade(p.prioridade).badge}`}>
+                            {estiloPrioridade(p.prioridade).rotulo}
+                          </span>
+                          <span className="text-[10px] text-slate-400 truncate">
+                            {p.grupo ? p.conversaTitulo : p.autor}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-700 truncate mt-0.5">
+                          {p.body || (p.mediaKind ? "(anexo)" : "(sem texto)")}
+                        </p>
+                        {p.lead && <p className="text-[10px] text-emerald-600 truncate">lead: {p.lead.name}</p>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </div>
 
@@ -516,13 +593,19 @@ export default function ChatInternoView() {
                 const pedido = !!m.atribuidoAId;
                 const claro = pedido || !minha;
                 return (
-                  <div key={m.id} className={`group flex ${minha ? "justify-end" : "justify-start"}`}>
+                  <div
+                    key={m.id}
+                    id={`msg-${m.id}`}
+                    className={`group flex ${minha ? "justify-end" : "justify-start"} ${
+                      destacada === m.id ? "ring-2 ring-sky-400 rounded-xl" : ""
+                    }`}
+                  >
                     <div
                       className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
                         pedido
                           ? m.resolvido
                             ? "bg-emerald-50 border border-emerald-200 text-slate-700"
-                            : "bg-amber-50 border border-amber-300 text-slate-800"
+                            : `border ${estiloPrioridade(m.prioridade).caixa} text-slate-800`
                           : minha
                             ? "bg-emerald-500 text-white"
                             : "bg-white border border-slate-200 text-slate-800"
@@ -534,9 +617,14 @@ export default function ChatInternoView() {
                         </p>
                       )}
                       {pedido && (
-                        <p className="text-[11px] font-semibold text-amber-700 mb-1 flex items-center gap-1">
+                        <p className="text-[11px] font-semibold text-slate-600 mb-1 flex items-center gap-1 flex-wrap">
                           <Icone nome="alerta" className="w-3 h-3" />
                           Pedido para {m.atribuidoA?.name}
+                          {!m.resolvido && (
+                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${estiloPrioridade(m.prioridade).badge}`}>
+                              {estiloPrioridade(m.prioridade).rotulo}
+                            </span>
+                          )}
                           {m.resolvido && <span className="text-emerald-700">· resolvido</span>}
                         </p>
                       )}
@@ -636,6 +724,17 @@ export default function ChatInternoView() {
                       </option>
                     ))}
                 </select>
+                {cobrarDe && (
+                  <select
+                    value={prioridade}
+                    onChange={(e) => setPrioridade(e.target.value)}
+                    className="shrink-0 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  >
+                    <option value="baixa">Baixa</option>
+                    <option value="media">Média</option>
+                    <option value="urgente">Urgente</option>
+                  </select>
+                )}
               </div>
               {sugestoes.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">

@@ -793,6 +793,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // Chave Pix e nome do titular só fazem sentido perto da hora de liberar o
   // capital — antes disso (Novo, Em conversa, Documentação) é ruído no card.
   const mostraDadosPix = ["Análise", "Liberação pagamento"].includes(contact?.stage?.name);
+  const emLiberacao = contact?.stage?.name === "Liberação pagamento";
   // Conferência do lead antes de avançar — só faz sentido enquanto ele ainda
   // está sendo analisado, por isso some depois que sai de "Análise".
   const mostraChecklistAnalise = contact?.stage?.name === "Análise";
@@ -1542,6 +1543,86 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 />
               </label>
             </div>
+
+            {/* Liberação pagamento: o vendedor precisa saber AGORA quanto o
+                cliente vai pagar por dia (a seção de Cobrança abaixo só
+                aparece em Recebimento, quando as parcelas já existem) e
+                precisa da chave Pix à mão pra fazer a transferência. */}
+            {emLiberacao && (
+              <div className="border border-sky-200 bg-sky-50/50 rounded-lg p-3 mt-1 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-sky-800">Liberação do pagamento</h3>
+                  <span className="text-xs text-slate-400">honorários {honorariosPct}%</span>
+                </div>
+
+                {resumo.capital > 0 ? (
+                  <div>
+                    <p className="text-[11px] font-semibold text-slate-500 mb-1">Simulação (o que o cliente vai pagar)</p>
+                    <div className="grid grid-cols-2 gap-y-1 text-xs text-slate-600 bg-white rounded border border-slate-200 p-2">
+                      <span>Capital liberado</span>
+                      <span className="text-right font-medium">{money(resumo.capital)}</span>
+                      <span>Honorários ({honorariosPct}%)</span>
+                      <span className="text-right font-medium">{money(resumo.honorarios)}</span>
+                      <span className="text-slate-800 font-semibold">Total a pagar</span>
+                      <span className="text-right font-semibold text-sky-700">{money(resumo.total)}</span>
+                      <span className="text-slate-800 font-semibold">Parcela (10× diárias)</span>
+                      <span className="text-right font-semibold text-sky-700">{money(resumo.valorParcela)}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      De segunda a sábado, a 1ª no dia seguinte à liberação. As parcelas só são criadas
+                      de verdade quando o lead entra em &quot;Recebimento&quot;.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                    Preencha o <strong>Valor do capital</strong> acima pra ver a simulação das parcelas.
+                  </p>
+                )}
+
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-500 mb-1">Pix pra transferir</p>
+                  {form.pixChave ? (
+                    <div className="bg-white rounded border border-slate-200 p-2 space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] text-slate-400">Chave</p>
+                          <p className="text-sm text-slate-800 break-all">{form.pixChave}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(form.pixChave);
+                              setPixChaveCopiada(true);
+                              setTimeout(() => setPixChaveCopiada(false), 1500);
+                            } catch {}
+                          }}
+                          title="Copiar chave Pix"
+                          className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300"
+                        >
+                          <Icone nome={pixChaveCopiada ? "check" : "copiar"} className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="border-t border-slate-100 pt-1.5">
+                        <p className="text-[10px] text-slate-400">Recebedor</p>
+                        <p className="text-sm text-slate-800 truncate">
+                          {form.pixNomeCompleto || <span className="text-amber-600">nome não informado</span>}
+                        </p>
+                      </div>
+                      <div className="border-t border-slate-100 pt-1.5 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400">Valor a transferir</span>
+                        <span className="text-base font-semibold text-emerald-600">{money(resumo.capital)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                      Sem chave Pix cadastrada — preencha em &quot;Chave Pix&quot; acima. Sem ela o lead nem
+                      consegue ir pra esta etapa.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Seção de cobrança — aparece quando o contato está em "Recebimento" */}
             {isRecebimento && (

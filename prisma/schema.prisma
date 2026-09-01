@@ -1391,6 +1391,9 @@ model MensagemInterna {
   resolvido    Boolean   @default(false)
   resolvidoEm  DateTime?
   resolvidoPor String?
+  // "baixa" | "media" | "alta". So faz sentido junto de atribuidoA; null
+  // (pendencia antiga, de antes desse campo) e tratado como "media".
+  prioridade   String?
 
   // Responder citando outra mensagem da MESMA conversa. SetNull pra citacao
   // nao impedir apagar a original nem quebrar a conversa.

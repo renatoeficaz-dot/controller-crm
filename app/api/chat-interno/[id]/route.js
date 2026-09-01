@@ -31,6 +31,11 @@ const INCLUI_MENSAGEM = {
   },
 };
 
+// Prioridades aceitas numa pendencia. Qualquer outro valor cai pra null, que
+// a tela mostra como "media" — assim um valor inventado no corpo da
+// requisicao nunca vira badge estranho na conversa.
+const PRIORIDADES = ["baixa", "media", "urgente"];
+
 // Quem foi marcado com @ no texto. Em vez de confiar numa lista mandada pelo
 // front (que pode divergir do texto), lê do próprio corpo casando com os
 // nomes de quem está na conversa — assim o "@Fulano" escrito e a marcação
@@ -96,6 +101,7 @@ export async function POST(req, { params }) {
   let atribuidoAId = null;
   let respondeAId = null;
   let contactId = null;
+  let prioridade = null;
   let midia = null;
 
   const contentType = req.headers.get("content-type") || "";
@@ -105,6 +111,7 @@ export async function POST(req, { params }) {
     atribuidoAId = texto(fd.get("atribuidoAId")) || null;
     respondeAId = texto(fd.get("respondeAId")) || null;
     contactId = texto(fd.get("contactId")) || null;
+    prioridade = texto(fd.get("prioridade")) || null;
     const file = fd.get("file");
     if (file && typeof file === "object" && typeof file.arrayBuffer === "function") {
       const mime = file.type || "application/octet-stream";
@@ -122,6 +129,7 @@ export async function POST(req, { params }) {
     atribuidoAId = texto(body.atribuidoAId) || null;
     respondeAId = texto(body.respondeAId) || null;
     contactId = texto(body.contactId) || null;
+    prioridade = texto(body.prioridade) || null;
   }
 
   // Mensagem sem texto é válida quando tem anexo (um print, um áudio) ou
@@ -134,6 +142,9 @@ export async function POST(req, { params }) {
     if (!existe) return NextResponse.json({ error: "Lead não encontrada." }, { status: 400 });
   }
   if (corpo.length > 5000) return NextResponse.json({ error: "Mensagem muito longa." }, { status: 400 });
+
+  // Prioridade só existe dentro de uma pendência — sem alguém cobrado, some.
+  if (!atribuidoAId || !PRIORIDADES.includes(prioridade)) prioridade = null;
 
   // Só dá pra cobrar quem participa da conversa.
   if (atribuidoAId) {
@@ -166,6 +177,7 @@ export async function POST(req, { params }) {
       atribuidoAId,
       respondeAId,
       contactId,
+      prioridade,
       ...(mencoes.length ? { mencionados: { connect: mencoes.map((mid) => ({ id: mid })) } } : {}),
       ...(midia || {}),
     },
