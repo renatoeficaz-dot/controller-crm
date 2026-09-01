@@ -37,6 +37,9 @@ export async function PATCH(req, { params }) {
     include: {
       autor: { select: { id: true, name: true } },
       atribuidoA: { select: { id: true, name: true } },
+      respondeA: {
+        select: { id: true, body: true, mediaKind: true, autor: { select: { id: true, name: true } } },
+      },
     },
   });
   return NextResponse.json(atualizada);

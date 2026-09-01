@@ -1371,7 +1371,15 @@ model MensagemInterna {
   conversaId String
   autor      User            @relation("MensagemInternaAutor", fields: [autorId], references: [id], onDelete: Cascade)
   autorId    String
-  body       String
+  body       String // pode vir vazio quando a mensagem e so um anexo
+
+  // Anexo (print colado, arquivo escolhido ou audio gravado). Mesmo esquema
+  // do chat do WhatsApp: o arquivo vai pro disco (/uploads) e aqui fica so o
+  // caminho — guardar base64 no SQLite inchava o banco.
+  mediaUrl   String?
+  mediaKind  String? // "image" | "audio" | "document"
+  mediaMime  String?
+  mediaNome  String?
 
   // "Pedido de resolução": marca uma pessoa numa mensagem e cobra uma ação
   // dela. Enquanto resolvido=false a mensagem aparece como pendente pra quem
@@ -1381,6 +1389,12 @@ model MensagemInterna {
   resolvido    Boolean   @default(false)
   resolvidoEm  DateTime?
   resolvidoPor String?
+
+  // Responder citando outra mensagem da MESMA conversa. SetNull pra citacao
+  // nao impedir apagar a original nem quebrar a conversa.
+  respondeA   MensagemInterna?  @relation("RespostaInterna", fields: [respondeAId], references: [id], onDelete: SetNull)
+  respondeAId String?
+  respostas   MensagemInterna[] @relation("RespostaInterna")
 
   createdAt DateTime @default(now())
 

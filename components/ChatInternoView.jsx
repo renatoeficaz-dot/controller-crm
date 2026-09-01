@@ -15,6 +15,43 @@ function iniciais(nome) {
     .join("");
 }
 
+// Resumo curto de uma mensagem, pro bloco de citação (a original pode ser só
+// um anexo, sem texto nenhum).
+function resumo(m) {
+  if (m?.body) return m.body.length > 80 ? m.body.slice(0, 80) + "…" : m.body;
+  if (m?.mediaKind === "image") return "📷 imagem";
+  if (m?.mediaKind === "audio") return "🎤 áudio";
+  if (m?.mediaKind === "document") return "📎 arquivo";
+  return "mensagem";
+}
+
+// Anexo dentro do balão: imagem abre em nova aba, áudio toca ali, resto vira
+// link de download.
+function Anexo({ m }) {
+  if (!m.mediaUrl) return null;
+  if (m.mediaKind === "image") {
+    return (
+      <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="block mt-1">
+        <img src={m.mediaUrl} alt={m.mediaNome || "imagem"} className="rounded-lg max-h-64 max-w-full" />
+      </a>
+    );
+  }
+  if (m.mediaKind === "audio") {
+    return <audio controls src={m.mediaUrl} className="mt-1 max-w-full" />;
+  }
+  return (
+    <a
+      href={m.mediaUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="mt-1 flex items-center gap-1.5 text-xs underline break-all"
+    >
+      <Icone nome="clipe" className="w-3.5 h-3.5 shrink-0" />
+      {m.mediaNome || "arquivo"}
+    </a>
+  );
+}
+
 // Chat entre os USUÁRIOS do sistema (não é o WhatsApp do cliente). Além de
 // conversar, dá pra marcar alguém numa mensagem pedindo que resolva algo — a
 // mensagem fica pendente até ser ticada.
@@ -27,14 +64,20 @@ export default function ChatInternoView() {
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [cobrarDe, setCobrarDe] = useState("");
+  const [respondendo, setRespondendo] = useState(null);
   const [novaAberta, setNovaAberta] = useState(false);
   const [novoGrupo, setNovoGrupo] = useState(false);
   const [novoNome, setNovoNome] = useState("");
   const [novoMembros, setNovoMembros] = useState([]);
   const [erro, setErro] = useState("");
   const [soPendentes, setSoPendentes] = useState(false);
+  const [gravando, setGravando] = useState(false);
   const fimRef = useRef(null);
   const selRef = useRef(null);
+  const fileRef = useRef(null);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const streamRef = useRef(null);
   useEffect(() => {
     selRef.current = selecionada;
   }, [selecionada]);
@@ -73,6 +116,7 @@ export default function ChatInternoView() {
   useEffect(() => {
     if (selecionada) {
       setDetalhe(null);
+      setRespondendo(null);
       carregarDetalhe(selecionada);
     }
   }, [selecionada, carregarDetalhe]);
@@ -103,16 +147,31 @@ export default function ChatInternoView() {
     setSelecionada(d.id);
   }
 
-  async function enviar(e) {
-    e?.preventDefault();
-    if (!texto.trim() || !selecionada) return;
+  // Envio único pra texto e anexo: com arquivo vai multipart, sem arquivo vai
+  // JSON. Nos dois casos leva junto a citação e o "cobrar de".
+  async function enviarMensagem({ file = null, corpo = "" } = {}) {
+    if (!selecionada) return;
     setEnviando(true);
     setErro("");
-    const res = await fetch(`/api/chat-interno/${selecionada}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: texto, atribuidoAId: cobrarDe || null }),
-    });
+    let res;
+    if (file) {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("body", corpo);
+      if (cobrarDe) fd.append("atribuidoAId", cobrarDe);
+      if (respondendo?.id) fd.append("respondeAId", respondendo.id);
+      res = await fetch(`/api/chat-interno/${selecionada}`, { method: "POST", body: fd });
+    } else {
+      res = await fetch(`/api/chat-interno/${selecionada}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          body: corpo,
+          atribuidoAId: cobrarDe || null,
+          respondeAId: respondendo?.id || null,
+        }),
+      });
+    }
     setEnviando(false);
     const d = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -121,8 +180,56 @@ export default function ChatInternoView() {
     }
     setTexto("");
     setCobrarDe("");
+    setRespondendo(null);
     carregarDetalhe(selecionada);
     carregarConversas();
+  }
+
+  function enviarTexto(e) {
+    e?.preventDefault();
+    if (!texto.trim()) return;
+    enviarMensagem({ corpo: texto });
+  }
+
+  function escolherArquivo(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) enviarMensagem({ file, corpo: texto });
+  }
+
+  // Colar print (Ctrl+V) direto no campo — só intercepta quando o clipboard
+  // tem imagem; texto colado continua indo pro campo normalmente.
+  function aoColar(e) {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+    if (!item) return;
+    e.preventDefault();
+    const file = item.getAsFile();
+    if (file) enviarMensagem({ file, corpo: texto });
+  }
+
+  async function gravarAudio() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const rec = new MediaRecorder(stream);
+      rec.ondataavailable = (ev) => ev.data.size && chunksRef.current.push(ev.data);
+      rec.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        enviarMensagem({ file: new File([blob], `audio-${Date.now()}.webm`, { type: "audio/webm" }) });
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+      };
+      rec.start();
+      recorderRef.current = rec;
+      setGravando(true);
+    } catch {
+      setErro("Não foi possível acessar o microfone.");
+    }
+  }
+
+  function pararAudio() {
+    recorderRef.current?.stop();
+    setGravando(false);
   }
 
   async function alternarResolvido(msg) {
@@ -235,7 +342,7 @@ export default function ChatInternoView() {
                   <p className="text-sm font-medium text-slate-800 truncate">{c.titulo}</p>
                   <p className="text-xs text-slate-400 truncate">
                     {c.ultimaMensagem
-                      ? `${c.grupo && c.ultimaMensagem.autor ? c.ultimaMensagem.autor + ": " : ""}${c.ultimaMensagem.body}`
+                      ? `${c.grupo && c.ultimaMensagem.autor ? c.ultimaMensagem.autor + ": " : ""}${c.ultimaMensagem.body || "anexo"}`
                       : "Sem mensagens"}
                   </p>
                 </div>
@@ -290,8 +397,9 @@ export default function ChatInternoView() {
               {mensagensVisiveis.map((m) => {
                 const minha = m.autorId === eu?.id;
                 const pedido = !!m.atribuidoAId;
+                const claro = pedido || !minha;
                 return (
-                  <div key={m.id} className={`flex ${minha ? "justify-end" : "justify-start"}`}>
+                  <div key={m.id} className={`group flex ${minha ? "justify-end" : "justify-start"}`}>
                     <div
                       className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
                         pedido
@@ -315,7 +423,17 @@ export default function ChatInternoView() {
                           {m.resolvido && <span className="text-emerald-700">· resolvido</span>}
                         </p>
                       )}
-                      <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                      {m.respondeA && (
+                        <div
+                          className={`mb-1 border-l-2 pl-2 py-0.5 text-[11px] rounded ${
+                            claro ? "border-slate-300 bg-slate-100/70 text-slate-500" : "border-emerald-200 bg-emerald-400/30 text-emerald-50"
+                          }`}
+                        >
+                          <span className="font-semibold">{m.respondeA.autor?.name}</span>: {resumo(m.respondeA)}
+                        </div>
+                      )}
+                      {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
+                      <Anexo m={m} />
                       <div
                         className={`flex items-center gap-2 mt-1 text-[10px] ${minha && !pedido ? "text-emerald-100" : "text-slate-400"}`}
                       >
@@ -323,6 +441,12 @@ export default function ChatInternoView() {
                           {fmtDia(m.createdAt)} {fmtHora(m.createdAt)}
                         </span>
                         {m.resolvido && m.resolvidoPor && <span className="text-emerald-600">✓ {m.resolvidoPor}</span>}
+                        <button
+                          onClick={() => setRespondendo(m)}
+                          className={`opacity-0 group-hover:opacity-100 transition-opacity underline ${claro ? "text-slate-500" : "text-emerald-100"}`}
+                        >
+                          responder
+                        </button>
                       </div>
                       {pedido && (
                         <button
@@ -345,7 +469,21 @@ export default function ChatInternoView() {
 
             {erro && <p className="px-4 text-xs text-red-500 pb-1">{erro}</p>}
 
-            <form onSubmit={enviar} className="p-3 bg-white border-t border-slate-200 shrink-0 space-y-2">
+            <form onSubmit={enviarTexto} className="p-3 bg-white border-t border-slate-200 shrink-0 space-y-2">
+              {respondendo && (
+                <div className="flex items-center gap-2 bg-slate-100 border-l-2 border-emerald-400 rounded px-2 py-1.5">
+                  <div className="min-w-0 flex-1 text-[11px] text-slate-600">
+                    <span className="font-semibold">Respondendo {respondendo.autor?.name}:</span> {resumo(respondendo)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRespondendo(null)}
+                    className="shrink-0 text-slate-400 hover:text-slate-600 text-sm leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-400 shrink-0">Cobrar de:</span>
                 <select
@@ -363,16 +501,46 @@ export default function ChatInternoView() {
                     ))}
                 </select>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.zip,.rar"
+                  onChange={escolherArquivo}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={enviando}
+                  title="Anexar arquivo ou imagem"
+                  className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 disabled:opacity-50"
+                >
+                  <Icone nome="clipe" className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={gravando ? pararAudio : gravarAudio}
+                  disabled={enviando}
+                  title={gravando ? "Parar e enviar o áudio" : "Gravar áudio"}
+                  className={`shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border disabled:opacity-50 ${
+                    gravando
+                      ? "bg-red-500 border-red-500 text-white animate-pulse"
+                      : "border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-300"
+                  }`}
+                >
+                  <Icone nome={gravando ? "parar" : "microfone"} className="w-4 h-4" />
+                </button>
                 <input
                   value={texto}
                   onChange={(e) => setTexto(e.target.value)}
-                  placeholder="Escreva uma mensagem…"
-                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
+                  onPaste={aoColar}
+                  placeholder={gravando ? "Gravando… clique no quadrado pra enviar" : "Escreva ou cole um print (Ctrl+V)…"}
+                  className="flex-1 min-w-0 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
                 />
                 <button
                   disabled={enviando || !texto.trim()}
-                  className="bg-emerald-500 text-white rounded-lg px-4 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50"
+                  className="shrink-0 bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50"
                 >
                   {enviando ? "…" : "Enviar"}
                 </button>
