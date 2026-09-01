@@ -2,39 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Icone from "@/components/Icones";
+import { tocarAlerta } from "@/lib/somAlerta";
 import ContactModal from "@/components/ContactModal";
 
 const INTERVALO = 15000; // checa a cada 15s
 const JANELA_MS = 60000; // avisa quando falta <= 1min pro vencimento
 
-// Toca um bipe curto de duas notas via Web Audio API — sem precisar de
-// arquivo de áudio. AudioContext pode nascer "suspended" até o navegador ver
-// alguma interação do usuário na página; como o CRM já exige login (clique),
-// resume() aqui sempre destrava.
-function tocarAlerta() {
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AudioCtx();
-    if (ctx.state === "suspended") ctx.resume().catch(() => {});
-    const tocarNota = (freq, inicio, duracao) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime + inicio);
-      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + inicio + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + inicio + duracao);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(ctx.currentTime + inicio);
-      osc.stop(ctx.currentTime + inicio + duracao + 0.05);
-    };
-    tocarNota(880, 0, 0.18);
-    tocarNota(1175, 0.2, 0.22);
-    setTimeout(() => ctx.close().catch(() => {}), 700);
-  } catch {
-    // navegador sem suporte a Web Audio — só não toca som, o toast ainda aparece
-  }
-}
 
 const LS_AVISOS = "taskReminder_avisos"; // avisos ainda não resolvidos, sobrevive a reload/troca de página
 const LS_VISTOS = "taskReminder_vistos"; // ids já avisados (evita repetir o mesmo aviso depois de dispensado)
