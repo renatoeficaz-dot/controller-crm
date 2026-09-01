@@ -745,6 +745,11 @@ model User {
   // Cravo) — ver ComissaoMetaColaborador.
   metasComissao ComissaoMetaColaborador[]
 
+  // Chat interno (conversa entre usuários do sistema)
+  conversasInternas   ConversaInternaMembro[]
+  mensagensInternas   MensagemInterna[]      @relation("MensagemInternaAutor")
+  mensagensAtribuidas MensagemInterna[]      @relation("MensagemInternaAtribuida")
+
   // Permissões pontuais além do que o `role` já libera por padrão — CSV de
   // chaves (ver lib/permissoes.js). Só adiciona; nunca tira o que o role dá.
   // Ex.: um "vendedor" com "editar_valor_baixa" na lista ganha essa ação
@@ -1327,4 +1332,57 @@ model Message {
   // se grava.
   @@index([contactId, createdAt])
   @@index([fromMe, readAt])
+}
+
+// ---------------------------------------------------------------------------
+// Chat interno: conversa entre USUARIOS do sistema (nao e o WhatsApp do
+// cliente). Serve pra combinar trabalho e pedir que alguem resolva algo.
+// ---------------------------------------------------------------------------
+
+model ConversaInterna {
+  id        String   @id @default(cuid())
+  // Só em grupo. Na conversa direta o título é o nome do outro participante,
+  // resolvido na hora de listar (senão cada lado veria o próprio nome).
+  nome      String?
+  grupo     Boolean  @default(false)
+  criadaPor String? // nome de quem criou, só pra histórico
+  membros   ConversaInternaMembro[]
+  mensagens MensagemInterna[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ConversaInternaMembro {
+  id         String          @id @default(cuid())
+  conversa   ConversaInterna @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  conversaId String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  // Até quando essa pessoa já leu — base do contador de não lidas.
+  lidoAte    DateTime?
+  createdAt  DateTime        @default(now())
+
+  @@unique([conversaId, userId])
+}
+
+model MensagemInterna {
+  id         String          @id @default(cuid())
+  conversa   ConversaInterna @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  conversaId String
+  autor      User            @relation("MensagemInternaAutor", fields: [autorId], references: [id], onDelete: Cascade)
+  autorId    String
+  body       String
+
+  // "Pedido de resolução": marca uma pessoa numa mensagem e cobra uma ação
+  // dela. Enquanto resolvido=false a mensagem aparece como pendente pra quem
+  // foi marcado; ela (ou um admin) tica e vira resolvida.
+  atribuidoA   User?     @relation("MensagemInternaAtribuida", fields: [atribuidoAId], references: [id], onDelete: SetNull)
+  atribuidoAId String?
+  resolvido    Boolean   @default(false)
+  resolvidoEm  DateTime?
+  resolvidoPor String?
+
+  createdAt DateTime @default(now())
+
+  @@index([conversaId, createdAt])
 }

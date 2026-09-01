@@ -228,6 +228,7 @@ export async function middleware(req) {
       const apiDaPagina = {
         "/api/metas": "metas", "/api/cobranca": "cobranca", "/api/tasks": "tarefas",
         "/api/chat": "chat", "/api/relatorios": "relatorios",
+        "/api/chat-interno": "chat-interno",
       };
       for (const [prefixo, pagina] of Object.entries(apiDaPagina)) {
         if ((pathname === prefixo || pathname.startsWith(prefixo + "/")) && !permitidas.includes(pagina)) {

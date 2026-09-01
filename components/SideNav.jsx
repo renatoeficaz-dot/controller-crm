@@ -10,6 +10,7 @@ import Icone from "@/components/Icones";
 const links = [
   { href: "/contatos", label: "Contatos", icon: "funil", pagina: "contatos" },
   { href: "/chat", label: "Chat", icon: "chat", pagina: "chat" },
+  { href: "/chat-interno", label: "Chat interno", icon: "pessoas", pagina: "chat-interno" },
   { href: "/tarefas", label: "Tarefas", icon: "tarefa", pagina: "tarefas" },
   { href: "/cobranca", label: "Cobrança", icon: "cobranca", pagina: "cobranca" },
   { href: "/metas", label: "Metas", icon: "meta", pagina: "metas" },
