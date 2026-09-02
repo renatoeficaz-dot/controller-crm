@@ -77,7 +77,7 @@ export default function ManualView() {
           </div>
         </header>
 
-        <div className="md:grid md:grid-cols-[240px_1fr] md:gap-8 md:items-start">
+        <div className="md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-8 md:items-start">
           {/* Um tópico por módulo do menu */}
           <nav className="flex md:flex-col gap-1.5 mb-5 md:mb-0 overflow-x-auto pb-1 md:pb-0 md:sticky md:top-6">
             {TRILHAS.map((t) => {

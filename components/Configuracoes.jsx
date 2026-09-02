@@ -216,7 +216,7 @@ export default function Configuracoes() {
           ))}
         </nav>
 
-        <div className="md:grid md:grid-cols-[220px_1fr] md:gap-8 md:items-start">
+        <div className="md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-8 md:items-start">
           <nav className="hidden md:flex flex-col gap-0.5 sticky top-6">
             {TABS.map((t) => {
               const active = tab === t.key;
@@ -4452,7 +4452,7 @@ function AgentesIa() {
               <button onClick={() => setEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
             </div>
 
-            <div className="grid md:grid-cols-[220px_1fr] gap-0 overflow-y-auto thin-scroll">
+            <div className="grid md:grid-cols-[220px_minmax(0,1fr)] gap-0 overflow-y-auto thin-scroll">
               <div className="border-r border-slate-100 p-3">
                 <div className="flex items-center justify-between mb-2 px-1">
                   <h4 className="font-medium text-slate-800 text-sm">Agentes</h4>

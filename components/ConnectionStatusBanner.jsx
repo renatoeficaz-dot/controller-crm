@@ -37,14 +37,26 @@ export default function ConnectionStatusBanner() {
   if (desconectados.length === 0) return null;
 
   return (
+    // No celular a lista de números quebrava em várias linhas e o aviso comia
+    // 112px dos 812 da tela. Aqui vira uma linha só com a contagem; a lista
+    // completa continua no desktop, onde sobra largura.
     <div className="shrink-0 bg-red-600 text-white text-xs px-4 py-2 flex items-center gap-2 flex-wrap">
-      <span className="font-semibold flex items-center gap-1"><Icone nome="alerta" className="w-3.5 h-3.5" /> WhatsApp desconectado:</span>
-      {desconectados.map((n) => (
-        <span key={n.id} className="bg-red-700/60 rounded-full px-2 py-0.5">
-          {n.label} ({n.number})
-        </span>
-      ))}
-      <span className="text-red-100">— reconecte em Configurações → Números</span>
+      <span className="font-semibold flex items-center gap-1 shrink-0">
+        <Icone nome="alerta" className="w-3.5 h-3.5" /> WhatsApp desconectado:
+      </span>
+
+      <span className="sm:hidden">
+        {desconectados.length} número{desconectados.length === 1 ? "" : "s"} — reconecte em Configurações
+      </span>
+
+      <span className="hidden sm:flex sm:items-center sm:gap-2 sm:flex-wrap">
+        {desconectados.map((n) => (
+          <span key={n.id} className="bg-red-700/60 rounded-full px-2 py-0.5">
+            {n.label} ({n.number})
+          </span>
+        ))}
+        <span className="text-red-100">— reconecte em Configurações → Números</span>
+      </span>
     </div>
   );
 }

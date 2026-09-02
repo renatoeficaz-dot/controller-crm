@@ -59,7 +59,13 @@ export default function RootLayout({ children }) {
           <TopNav />
           <div className="flex-1 flex min-h-0 overflow-hidden">
             <SideNav />
-            <main className="flex-1 flex flex-col min-h-0 overflow-hidden">{children}</main>
+            {/* min-w-0 junto com min-h-0: um flex item nasce com
+                min-width:auto, então qualquer conteúdo largo (um <select> com
+                opção comprida, uma tabela) esticava o <main> para além da
+                tela em vez de caber nela. No celular isso cortava botões pra
+                fora da área visível, sem nem dar pra rolar até eles porque o
+                pai tem overflow escondido. */}
+            <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">{children}</main>
           </div>
           <ConnectionStatusBanner />
           <DeepInfraBalanceBanner />

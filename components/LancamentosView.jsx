@@ -534,8 +534,11 @@ export default function LancamentosView() {
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6">
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div>
+      {/* No mobile empilha: título e botões lado a lado passavam de 375px e o
+          "+ Novo lançamento" ficava cortado fora da tela (o container tem
+          overflow escondido, então nem dava pra rolar até ele). */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+        <div className="min-w-0">
           <h1 className="text-lg font-semibold text-slate-800">
             {aba === "lancamentos" ? "Lançamentos" : aba === "contas" ? "Contas a pagar" : "Fila de liberação"}
           </h1>
@@ -551,15 +554,16 @@ export default function LancamentosView() {
           <div className="shrink-0 flex items-center gap-2">
             <button
               onClick={() => setTransferAberta({ origemId: "", destinoId: "", valor: "", descricao: "" })}
-              className="flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-slate-50 transition-colors"
+              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-slate-50 transition-colors"
             >
-              Transferir entre contas
+              Transferir
+              <span className="hidden sm:inline">entre contas</span>
             </button>
             <button
               onClick={abrirNovo}
-              className="flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 transition-colors"
+              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 transition-colors"
             >
-              + Novo lançamento
+              + Novo<span className="hidden sm:inline">lançamento</span>
             </button>
           </div>
         )}
@@ -567,7 +571,9 @@ export default function LancamentosView() {
 
       {/* Contas a pagar é o que ainda VAI sair; lançamento é o que já saiu.
           Separar em abas evita misturar previsão com caixa realizado. */}
-      <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5 mb-4 md:mb-6 w-fit">
+      {/* As 3 abas não cabem em 375px: rolam na horizontal em vez de espremer
+          o texto. min-w-max impede que o flex encolha os botões. */}
+      <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5 mb-4 md:mb-6 w-fit max-w-full overflow-x-auto thin-scroll">
         {[
           { key: "lancamentos", label: "Lançamentos" },
           { key: "contas", label: "Contas a pagar" },
@@ -590,7 +596,13 @@ export default function LancamentosView() {
       ) : aba === "fila" ? (
         <FilaLiberacaoView />
       ) : (
-      <div className="grid lg:grid-cols-[300px_1fr] gap-4 md:gap-6 items-start">
+      // grid-cols-1 no mobile (= repeat(1, minmax(0,1fr))) e minmax(0,1fr) no
+      // desktop. Sem coluna explícita, a coluna implícita é `auto` e dimensiona
+      // pelo MAIOR conteúdo: a tabela tem w-full + min-w-[800px], então ela
+      // media 100% de um pai que media a tabela — a conta se realimentava e a
+      // coluna chegava a 56.000px, esticando a página inteira no celular em vez
+      // de a tabela rolar dentro do próprio wrapper.
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4 md:gap-6 items-start">
         {/* -------- Sidebar: filtros + categorias + bancos -------- */}
         <div className="space-y-4 md:space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4">
@@ -602,7 +614,7 @@ export default function LancamentosView() {
               <div className="space-y-3 mt-3">
                 <label className="block">
                   <span className="text-xs text-slate-400">Tipo</span>
-                  <select value={draft.type} onChange={setD("type")} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                  <select value={draft.type} onChange={setD("type")} className="mt-0.5 w-full min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
                     <option value="">Todos</option>
                     <option value="entrada">Entradas</option>
                     <option value="saida">Saídas</option>
@@ -610,21 +622,21 @@ export default function LancamentosView() {
                 </label>
                 <label className="block">
                   <span className="text-xs text-slate-400">Categoria</span>
-                  <select value={draft.categoriaId} onChange={setD("categoriaId")} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                  <select value={draft.categoriaId} onChange={setD("categoriaId")} className="mt-0.5 w-full min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
                     <option value="">Todas</option>
                     {categorias.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                   </select>
                 </label>
                 <label className="block">
                   <span className="text-xs text-slate-400">Banco / Conta</span>
-                  <select value={draft.bancoId} onChange={setD("bancoId")} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                  <select value={draft.bancoId} onChange={setD("bancoId")} className="mt-0.5 w-full min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
                     <option value="">Todos</option>
                     {bancos.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
                   </select>
                 </label>
                 <label className="block">
                   <span className="text-xs text-slate-400">Responsável</span>
-                  <select value={draft.responsavel} onChange={setD("responsavel")} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                  <select value={draft.responsavel} onChange={setD("responsavel")} className="mt-0.5 w-full min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
                     <option value="">Todos</option>
                     {users.map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
                   </select>
@@ -646,7 +658,7 @@ export default function LancamentosView() {
                 {tags.length > 0 && (
                   <label className="block">
                     <span className="text-xs text-slate-400">Tag (do lead)</span>
-                    <select value={draft.tagId} onChange={setD("tagId")} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                    <select value={draft.tagId} onChange={setD("tagId")} className="mt-0.5 w-full min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
                       <option value="">Todas</option>
                       {tags.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
                     </select>
@@ -654,7 +666,7 @@ export default function LancamentosView() {
                 )}
                 <label className="block">
                   <span className="text-xs text-slate-400">Ordenar por</span>
-                  <select value={draft.sort} onChange={setD("sort")} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                  <select value={draft.sort} onChange={setD("sort")} className="mt-0.5 w-full min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
                     <option value="recentes">Mais recentes</option>
                     <option value="antigos">Mais antigos</option>
                     <option value="maior_valor">Maior valor</option>
@@ -915,14 +927,14 @@ export default function LancamentosView() {
             <h3 className="font-semibold text-slate-800">Transferir entre contas</h3>
             <label className="block">
               <span className="text-xs text-slate-400">De</span>
-              <select value={transferAberta.origemId} onChange={(e) => setTransferAberta((f) => ({ ...f, origemId: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+              <select value={transferAberta.origemId} onChange={(e) => setTransferAberta((f) => ({ ...f, origemId: e.target.value }))} className="mt-0.5 w-full min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
                 <option value="">— Conta de origem —</option>
                 {bancos.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
               </select>
             </label>
             <label className="block">
               <span className="text-xs text-slate-400">Para</span>
-              <select value={transferAberta.destinoId} onChange={(e) => setTransferAberta((f) => ({ ...f, destinoId: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+              <select value={transferAberta.destinoId} onChange={(e) => setTransferAberta((f) => ({ ...f, destinoId: e.target.value }))} className="mt-0.5 w-full min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
                 <option value="">— Conta de destino —</option>
                 {bancos.filter((b) => b.id !== transferAberta.origemId).map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
               </select>
@@ -963,7 +975,7 @@ export default function LancamentosView() {
               <select
                 value={form.type}
                 onChange={(e) => setForm((f) => ({ ...f, type: e.target.value, recorrente: e.target.value === "saida" ? f.recorrente : false }))}
-                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+                className="mt-0.5 w-full min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
               >
                 <option value="entrada">Entrada</option>
                 <option value="saida">Saída</option>
@@ -1030,7 +1042,7 @@ export default function LancamentosView() {
             </label>
             <label className="block">
               <span className="text-xs text-slate-400">Banco</span>
-              <select value={form.bancoId} onChange={set("bancoId")} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+              <select value={form.bancoId} onChange={set("bancoId")} className="mt-0.5 w-full min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
                 <option value="">— Sem banco —</option>
                 {bancos.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
               </select>
