@@ -17,6 +17,19 @@ const TECLAS = [
 
 const OPERADORES = { "÷": "/", "×": "*", "−": "-", "+": "+" };
 
+// Vale só pra esta aba e morre quando ela fecha — é o que separa "navegar
+// dentro do sistema" de "abrir o sistema de novo".
+export const CHAVE_DESTRAVADO = "crm-calc-destravado";
+
+export function jaDestravado() {
+  try {
+    return sessionStorage.getItem(CHAVE_DESTRAVADO) === "1";
+  } catch {
+    // Navegador bloqueando storage: melhor pedir o código do que estourar.
+    return false;
+  }
+}
+
 export default function CalculadoraEntrada({ onAbrir }) {
   const [visor, setVisor] = useState("0");
   const [acumulado, setAcumulado] = useState(null); // { valor, op }
@@ -78,7 +91,14 @@ export default function CalculadoraEntrada({ onAbrir }) {
       .then((x) => (x.ok ? x.json() : null))
       .catch(() => null);
     setVerificando(false);
-    if (r?.ok) onAbrir?.();
+    if (r?.ok) {
+      // Marca a aba como destravada. sessionStorage e não memória: qualquer
+      // recarga de página (e algumas telas recarregam de verdade) remontava a
+      // trava e pedia o código de novo no meio do trabalho. Aqui ela some
+      // quando a aba/app fecha, que é o "abrir o sistema" de novo.
+      try { sessionStorage.setItem(CHAVE_DESTRAVADO, "1"); } catch {}
+      onAbrir?.();
+    }
     return !!r?.ok;
   }
 

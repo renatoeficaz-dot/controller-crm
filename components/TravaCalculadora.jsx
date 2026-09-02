@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import CalculadoraEntrada from "@/components/CalculadoraEntrada";
+import CalculadoraEntrada, { jaDestravado } from "@/components/CalculadoraEntrada";
 
 // Cobre o app inteiro com a calculadora a CADA abertura, mesmo com a sessão
 // já válida — foi o pedido: "que apareça toda vez que for abrir".
 //
-// O estado fica só em memória de propósito. Guardar em sessionStorage
-// sobreviveria ao F5 e a tela voltaria destravada, que é justamente o
-// contrário do pedido. Navegar dentro do app não repete a pergunta, porque o
-// layout não remonta na navegação do Next.
+// Destravar vale pra aba inteira (sessionStorage), não só pra este componente:
+// algumas telas recarregam a página de verdade, e aí a trava remontava e
+// pedia o código no meio do trabalho. Fechando a aba/app, ela volta — que é
+// o "abrir o sistema" de novo.
 //
 // Continua sendo DISFARCE, não segurança: quem protege os dados é o login.
 export default function TravaCalculadora({ children }) {
@@ -19,6 +19,8 @@ export default function TravaCalculadora({ children }) {
   const [estado, setEstado] = useState("checando"); // checando | travado | livre
 
   useEffect(() => {
+    // Já destravou nesta aba: não pergunta de novo a cada navegação.
+    if (jaDestravado()) return setEstado("livre");
     // A tela de login tem a própria calculadora; travar de novo aqui
     // empilharia duas.
     if (window.location.pathname === "/login") return setEstado("livre");

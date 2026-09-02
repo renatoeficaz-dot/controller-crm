@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import CalculadoraEntrada from "@/components/CalculadoraEntrada";
+import CalculadoraEntrada, { jaDestravado } from "@/components/CalculadoraEntrada";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,6 +26,8 @@ export default function LoginPage() {
       setCalculadoraAtiva(false);
       return;
     }
+    // Destravou nesta aba (veio da trava do app): não pede o código de novo.
+    if (jaDestravado()) { setCalculadoraAtiva(false); return; }
     fetch("/api/auth/calculadora")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setCalculadoraAtiva(!!d?.ativo))
