@@ -19,12 +19,12 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  // Expira as que ninguém atendeu antes de responder, senão a tela mostraria
-  // uma chamada de 10 minutos atrás como se estivesse tocando.
-  await prisma.chamadaInterna.updateMany({
-    where: { status: "chamando", criadaEm: { lt: new Date(Date.now() - EXPIRA_MS) } },
-    data: { status: "encerrada", encerradaEm: new Date() },
-  });
+  // Expirar aqui era um UPDATE a cada consulta — e esta rota é consultada de
+  // 4 em 4 segundos por CADA usuário logado. No SQLite toda escrita tranca o
+  // banco inteiro, então isso sozinho gerava uma trava por segundo e derrubava
+  // o resto do sistema com "socket timeout". Agora é só leitura: a chamada
+  // velha é filtrada pela data, sem gravar nada.
+  const limite = new Date(Date.now() - EXPIRA_MS);
 
   const chamada = await prisma.chamadaInterna.findFirst({
     where: {
@@ -32,8 +32,8 @@ export async function GET() {
         // recebendo (toca) e TAMBÉM a que eu mesmo fiz e ainda está chamando:
         // sem esta segunda, quem liga não recebia nada de volta e a tela
         // ficava igual — parecia que o botão não tinha funcionado.
-        { paraId: user.id, status: "chamando" },
-        { deId: user.id, status: "chamando" },
+        { paraId: user.id, status: "chamando", criadaEm: { gte: limite } },
+        { deId: user.id, status: "chamando", criadaEm: { gte: limite } },
         { status: "aceita", OR: [{ paraId: user.id }, { deId: user.id }] },
       ],
     },

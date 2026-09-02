@@ -73,9 +73,16 @@ export async function GET(_req, { params }) {
     }),
   ]);
 
-  await prisma.conversaInternaMembro
-    .update({ where: { id: membro.id }, data: { lidoAte: new Date() } })
-    .catch(() => {});
+  // Só grava "lido até" quando há mesmo mensagem nova. Gravar em toda consulta
+  // era uma escrita a cada 6 segundos por usuário com a conversa aberta — no
+  // SQLite cada escrita tranca o banco inteiro, e junto com o resto isso
+  // derrubava o sistema com "socket timeout".
+  const maisRecente = mensagens.length ? mensagens[mensagens.length - 1].createdAt : null;
+  if (maisRecente && (!membro.lidoAte || maisRecente > membro.lidoAte)) {
+    await prisma.conversaInternaMembro
+      .update({ where: { id: membro.id }, data: { lidoAte: new Date() } })
+      .catch(() => {});
+  }
 
   return NextResponse.json({
     id: conversa.id,
