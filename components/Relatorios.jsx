@@ -13,6 +13,10 @@ import RelatoriosAvancado from "@/components/RelatoriosAvancado";
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// "2026-09-15" -> "15/09". Corta a string em vez de usar new Date(): com a
+// data pura o JS assume UTC e, em UTC-3, o dia voltava um.
+const fmtDia = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "");
+
 // "YYYY-MM-DD" do 1º dia do mês corrente
 function inicioMesStr() {
   const d = new Date();
@@ -70,6 +74,12 @@ export default function Relatorios() {
   const [tempoEtapas, setTempoEtapas] = useState([]);
   useEffect(() => {
     fetch("/api/relatorios/tempo-etapas").then((r) => r.json()).then((d) => setTempoEtapas(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  // Projeção: precisa das metas FUTURAS, que não vêm no /api/stages.
+  const [projecao, setProjecao] = useState(null);
+  useEffect(() => {
+    fetch("/api/relatorios/projecao").then((r) => (r.ok ? r.json() : null)).then(setProjecao).catch(() => {});
   }, []);
 
   // Parâmetros de multa por atraso (vindos da config) para o cálculo "a receber".
@@ -1470,6 +1480,74 @@ export default function Relatorios() {
         </div>
       </section>
       </div>
+
+      {/* Projeção: o que entra e o que sobra SE as metas forem batidas. */}
+      {projecao && projecao.premissas?.diasComMeta > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-slate-700 mb-2">
+            Projeção — se bater as metas{" "}
+            <span className="text-slate-400 font-normal">
+              — {projecao.premissas.diasComMeta} dia(s) com meta cadastrada
+              {projecao.premissas.de ? `, de ${fmtDia(projecao.premissas.de)} a ${fmtDia(projecao.premissas.ate)}` : ""}
+            </span>
+          </h2>
+
+          <div className="grid lg:grid-cols-3 gap-4">
+            {projecao.niveis.map((n) => (
+              <div
+                key={n.chave}
+                className={`rounded-xl border p-4 ${
+                  n.chave === "maxima"
+                    ? "border-emerald-300 bg-emerald-50/50"
+                    : n.chave === "media"
+                      ? "border-sky-200 bg-sky-50/40"
+                      : "border-slate-200 bg-white"
+                }`}
+              >
+                <p className="text-sm font-semibold text-slate-700 mb-2">Meta {n.rotulo}</p>
+
+                <p className="text-[11px] text-slate-400">Recebimento por dia</p>
+                <p className="text-xl font-bold text-slate-800">{money(n.recebimentoMedioDia)}</p>
+                <p className="text-[11px] text-slate-400 mb-3">
+                  {n.clientesPagandoDia} clientes pagando · {money(n.recebimentoTotalPeriodo)} no período
+                </p>
+
+                <div className="grid grid-cols-2 gap-y-1 text-xs text-slate-600 border-t border-slate-200 pt-2">
+                  <span>Vendas</span>
+                  <span className="text-right font-medium">{n.vendas}</span>
+                  <span>Capital a liberar</span>
+                  <span className="text-right font-medium">{money(n.capitalALiberar)}</span>
+                  <span>Retorno esperado</span>
+                  <span className="text-right font-medium">{money(n.retornoEsperado)}</span>
+                  <span>Lucro bruto</span>
+                  <span className="text-right font-medium">{money(n.lucroBruto)}</span>
+                  <span className="text-red-600">Perda esperada</span>
+                  <span className="text-right font-medium text-red-600">− {money(n.perdaEsperada)}</span>
+                  <span className="font-semibold text-slate-800 pt-1 border-t border-slate-200">Lucro projetado</span>
+                  <span className="text-right font-bold text-emerald-700 pt-1 border-t border-slate-200">
+                    {money(n.lucroLiquido)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Premissas à vista: projeção sem premissa é número que ninguém
+              consegue conferir — e que envelhece sem avisar. */}
+          <p className="mt-2 text-[11px] text-slate-400">
+            Sobre médias históricas: ticket médio {money(projecao.premissas.ticketMedio)} (
+            {projecao.premissas.baseTicket} liberações dos últimos 90 dias), honorários{" "}
+            {projecao.premissas.honorariosPct}%, parcela média {money(projecao.premissas.parcelaMedia)} (
+            {projecao.premissas.numParcelas}× diárias), {projecao.premissas.diasUteis} dias úteis no período. As metas de vendas seguem a curva
+            planejada dia a dia; mínima e média são a mesma proporção que a configuração define entre
+            os níveis.
+            O lucro já desconta {projecao.premissas.taxaPerdaPct}% de perda — capital que saiu e não
+            voltou de quem deu calote. Recebimento por dia = % da carteira de hoje
+            ({projecao.premissas.carteiraAtual} clientes) × parcela média; como a carteira cresce com as
+            próprias vendas projetadas, esse número é conservador.
+          </p>
+        </section>
+      )}
 
       {/* Lucro real por perfil: recebido - emprestado, não só % de inadimplência */}
       <section>
