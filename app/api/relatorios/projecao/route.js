@@ -113,29 +113,27 @@ export async function GET(req) {
   // Só dia útil recebe (domingo é folga) — contar domingo inflaria o total.
   const diasUteis = metasData.filter((m) => ehDiaUtil(m.data.toISOString().slice(0, 10))).length;
 
-  // Mínima e média acompanham a CURVA, não um número fixo.
+  // Exatamente o mesmo encadeamento que registrarMetaDoDia usa: a meta que a
+  // projeção mostra tem que ser a meta ESTIPULADA, não uma derivada.
   //
-  // MetaVendasData só guarda a meta cheia do dia (a curva planejada: 4 no
-  // começo, 23 no fim). Mínima/média só existem na config, como valores fixos
-  // (1 e 2). Usá-los cru dava 64 vendas na mínima contra 994 na máxima — três
-  // níveis que não dá pra comparar, e uma "mínima" que a operação já supera
-  // hoje. Então aplico ao dia planejado a mesma PROPORÇÃO que a config define
-  // entre os níveis (1/3 e 2/3 aqui).
-  const cfgMax = cfg?.metaVendasDia ?? 5;
-  const razao = {
-    minima: cfgMax > 0 ? (cfg?.metaVendasMinima ?? 2) / cfgMax : 0,
-    media: cfgMax > 0 ? (cfg?.metaVendasMedia ?? 3) / cfgMax : 0,
-  };
-
+  // (Uma versão anterior inventava mínima/média como proporção da máxima, pra
+  // os três níveis "ficarem comparáveis". Isso mostrava número que não estava
+  // configurado em lugar nenhum — projeção que não bate com a meta real não
+  // serve pra decidir nada.)
   const vendasDe = (m, nivel) => {
     const ov = overrideDow.get(m.data.getUTCDay());
-    const planejado = m.metaVendasDia ?? ov?.metaVendasDia ?? cfgMax;
-    if (nivel === "maxima") return planejado;
-    // Sem proporção utilizável, cai no valor fixo da config — melhor um número
-    // conservador que um zero silencioso.
-    const fixo = nivel === "media" ? (cfg?.metaVendasMedia ?? 3) : (cfg?.metaVendasMinima ?? 2);
-    return razao[nivel] > 0 ? Math.max(1, Math.round(planejado * razao[nivel])) : fixo;
+    if (nivel === "maxima") {
+      return m.metaVendasDia ?? ov?.metaVendasDia ?? cfg?.metaVendasDia ?? 5;
+    }
+    if (nivel === "media") return ov?.metaVendasMedia ?? cfg?.metaVendasMedia ?? 3;
+    return ov?.metaVendasMinima ?? cfg?.metaVendasMinima ?? 2;
   };
+
+  // Mínima/média vêm de valor FIXO enquanto a máxima segue a curva por data?
+  // Então os três níveis não são comparáveis, e é preciso dizer isso na tela
+  // em vez de deixar o usuário achar que a conta está errada.
+  const temCurvaPorData = metasData.some((m) => m.metaVendasDia != null);
+  const minimaMediaSaoFixas = !porDiaSemana.length;
 
   const niveis = ["minima", "media", "maxima"].map((chave) => {
     const rotulo = { minima: "Mínima", media: "Média", maxima: "Máxima" }[chave];
@@ -163,6 +161,11 @@ export async function GET(req) {
   return NextResponse.json({
     // Premissas à vista: projeção sem premissa é número que ninguém confere.
     premissas: {
+      // Avisa quando mínima/média são um número fixo por dia e a máxima segue
+      // a curva por data: sem isso os totais parecem errados.
+      niveisIncomparaveis: temCurvaPorData && minimaMediaSaoFixas,
+      minimaPorDia: cfg?.metaVendasMinima ?? 2,
+      mediaPorDia: cfg?.metaVendasMedia ?? 3,
       diasComMeta: metasData.length,
       diasUteis,
       de: metasData[0].data.toISOString().slice(0, 10),

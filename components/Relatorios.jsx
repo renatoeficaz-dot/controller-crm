@@ -77,10 +77,19 @@ export default function Relatorios() {
   }, []);
 
   // Projeção: precisa das metas FUTURAS, que não vêm no /api/stages.
+  // O período é escolhido na tela; vazio = de hoje até a última meta cadastrada.
   const [projecao, setProjecao] = useState(null);
+  const [projDe, setProjDe] = useState("");
+  const [projAte, setProjAte] = useState("");
   useEffect(() => {
-    fetch("/api/relatorios/projecao").then((r) => (r.ok ? r.json() : null)).then(setProjecao).catch(() => {});
-  }, []);
+    const qs = new URLSearchParams();
+    if (projDe) qs.set("de", projDe);
+    if (projAte) qs.set("ate", projAte);
+    fetch(`/api/relatorios/projecao?${qs}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setProjecao)
+      .catch(() => {});
+  }, [projDe, projAte]);
 
   // Parâmetros de multa por atraso (vindos da config) para o cálculo "a receber".
   const multaOpts = useMemo(
@@ -1482,17 +1491,65 @@ export default function Relatorios() {
       </div>
 
       {/* Projeção: o que entra e o que sobra SE as metas forem batidas. */}
-      {projecao && projecao.premissas?.diasComMeta > 0 && (
+      {projecao && (
         <section>
-          <h2 className="text-sm font-semibold text-slate-700 mb-2">
-            Projeção — se bater as metas{" "}
-            <span className="text-slate-400 font-normal">
-              — {projecao.premissas.diasComMeta} dia(s) com meta cadastrada
-              {projecao.premissas.de ? `, de ${fmtDia(projecao.premissas.de)} a ${fmtDia(projecao.premissas.ate)}` : ""}
-            </span>
-          </h2>
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-2">
+            <h2 className="text-sm font-semibold text-slate-700">
+              Projeção — se bater as metas{" "}
+              <span className="text-slate-400 font-normal">
+                — {projecao.premissas?.diasComMeta || 0} dia(s) com meta cadastrada
+                {projecao.premissas?.de ? `, de ${fmtDia(projecao.premissas.de)} a ${fmtDia(projecao.premissas.ate)}` : ""}
+              </span>
+            </h2>
+            <div className="flex items-end gap-2">
+              <label className="block">
+                <span className="text-[11px] text-slate-400">De</span>
+                <input
+                  type="date"
+                  value={projDe}
+                  onChange={(e) => setProjDe(e.target.value)}
+                  className="mt-0.5 block text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[11px] text-slate-400">Até</span>
+                <input
+                  type="date"
+                  value={projAte}
+                  onChange={(e) => setProjAte(e.target.value)}
+                  className="mt-0.5 block text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
+                />
+              </label>
+              {(projDe || projAte) && (
+                <button
+                  type="button"
+                  onClick={() => { setProjDe(""); setProjAte(""); }}
+                  className="text-xs text-slate-400 hover:text-slate-600 underline pb-2"
+                >
+                  limpar
+                </button>
+              )}
+            </div>
+          </div>
 
-          <div className="grid lg:grid-cols-3 gap-4">
+          {projecao.premissas?.diasComMeta === 0 && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              Nenhuma meta de vendas cadastrada nesse período. Cadastre em Metas, ou amplie as datas.
+            </p>
+          )}
+
+          {projecao.premissas?.niveisIncomparaveis && (
+            <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+              A meta <strong>máxima</strong> segue a curva que você cadastrou dia a dia, mas a{" "}
+              <strong>mínima e a média</strong> são um número fixo por dia (
+              {projecao.premissas.minimaPorDia} e {projecao.premissas.mediaPorDia}), vindo das
+              Configurações. Por isso os três totais ficam tão distantes — os números abaixo são
+              exatamente os que estão estipulados hoje. Pra mínima e média acompanharem a curva, elas
+              precisam ser cadastradas por data também.
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {projecao.niveis.map((n) => (
               <div
                 key={n.chave}
