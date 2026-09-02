@@ -8,6 +8,7 @@ import UsoAtivoTracker from "@/components/UsoAtivoTracker";
 import TaskReminderWatcher from "@/components/TaskReminderWatcher";
 import ChatInternoWatcher from "@/components/ChatInternoWatcher";
 import ChamadaWatcher from "@/components/ChamadaWatcher";
+import TravaCalculadora from "@/components/TravaCalculadora";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,17 +52,22 @@ export default function RootLayout({ children }) {
           100vh/100% fixo, o teclado cobria o fim da conversa e a caixa de
           texto sem dar pra rolar até lá. */}
       <body className="h-dvh flex flex-col overflow-hidden">
-        <TopNav />
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          <SideNav />
-          <main className="flex-1 flex flex-col min-h-0 overflow-hidden">{children}</main>
-        </div>
-        <ConnectionStatusBanner />
-        <DeepInfraBalanceBanner />
-        <UsoAtivoTracker />
-        <TaskReminderWatcher />
-        <ChatInternoWatcher />
-        <ChamadaWatcher />
+        {/* A trava cobre TUDO — inclusive a navegação e os avisos. Se ficasse
+            só em volta do <main>, a barra lateral e o topo apareceriam por
+            cima da calculadora e entregariam o sistema. */}
+        <TravaCalculadora>
+          <TopNav />
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            <SideNav />
+            <main className="flex-1 flex flex-col min-h-0 overflow-hidden">{children}</main>
+          </div>
+          <ConnectionStatusBanner />
+          <DeepInfraBalanceBanner />
+          <UsoAtivoTracker />
+          <TaskReminderWatcher />
+          <ChatInternoWatcher />
+          <ChamadaWatcher />
+        </TravaCalculadora>
       </body>
     </html>
   );
