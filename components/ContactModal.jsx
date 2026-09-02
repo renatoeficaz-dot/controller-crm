@@ -803,7 +803,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     : [];
   // Conferência do lead antes de avançar — só faz sentido enquanto ele ainda
   // está sendo analisado, por isso some depois que sai de "Análise".
-  const mostraChecklistAnalise = contact?.stage?.name === "Análise";
+  // O checklist de conferência (referências, CPF, endereço, antecedente) abre
+  // já na DOCUMENTAÇÃO, não só na Análise: é nela que a equipe junta esses
+  // dados: deixar pra Análise obrigava a passar o lead de etapa antes de ter
+  // onde anotar o que já tinha coletado.
+  const mostraChecklistAnalise = ["Documentação", "Análise"].includes(contact?.stage?.name);
   const resumo = resumoCobranca(form.valorCapital, honorariosPct);
   // Limite de capital do ciclo atual, quando o escalonamento está ligado.
   const limiteCiclo = escalonamentoCfg ? limiteEscalonado(cicloAtual, escalonamentoCfg) : null;
