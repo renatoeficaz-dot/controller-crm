@@ -46,9 +46,15 @@ export async function GET(req) {
   const [carteira, vendasRecentes, historico] = await Promise.all([
     // Mesmo recorte da meta de recebimento: quem foi liberado hoje só começa a
     // pagar amanhã, então não é base de recebimento de hoje.
+    // Além de quantos são, PRECISO saber quando cada um sai — é a última
+    // parcela em aberto dele. Sem isso a carteira ficaria congelada no número
+    // de hoje e a projeção não enxergaria ninguém entrando nem saindo.
     stageReceb
-      ? prisma.contact.count({ where: whereCarteiraRecebimento(stageReceb.id, de) })
-      : 0,
+      ? prisma.contact.findMany({
+          where: whereCarteiraRecebimento(stageReceb.id, de),
+          select: { id: true, parcelas: { select: { dueDate: true, paid: true } } },
+        })
+      : [],
     // Ticket médio: liberações dos últimos 90 dias. Média mais velha que isso
     // não representa o que a operação empresta hoje.
     prisma.contact.findMany({
@@ -96,22 +102,85 @@ export async function GET(req) {
   }
   const taxaPerda = capitalTotal > 0 ? Math.min(1, perdido / capitalTotal) : 0;
 
-  // Metas de recebimento futuras: % da carteira. A carteira de hoje é a base —
-  // ela cresce com as vendas que a própria projeção supõe, então isso é
-  // conservador de propósito, e vai declarado nas premissas.
   const pct = {
     minima: cfg?.metaPctRecebimentoMinima ?? 40,
     media: cfg?.metaPctRecebimentoMedia ?? 55,
     maxima: cfg?.metaPctRecebimento ?? 70,
   };
-  const recebPorDia = {
-    minima: Math.ceil((carteira * pct.minima) / 100) * parcelaMedia,
-    media: Math.ceil((carteira * pct.media) / 100) * parcelaMedia,
-    maxima: Math.ceil((carteira * pct.maxima) / 100) * parcelaMedia,
-  };
 
-  // Só dia útil recebe (domingo é folga) — contar domingo inflaria o total.
-  const diasUteis = metasData.filter((m) => ehDiaUtil(m.data.toISOString().slice(0, 10))).length;
+  // O eixo da simulação é TODO dia de cobrança (seg a sáb) do intervalo, não
+  // só os dias que têm meta cadastrada.
+  //
+  // A curva cadastrada aqui vai de segunda a sexta, mas as parcelas vencem
+  // até sábado. Percorrendo só os dias com meta, as saídas que caíam num
+  // sábado nunca aconteciam: ninguém largava a carteira e ela inflava
+  // (a máxima terminava com 351 clientes onde o certo é ~229 — a soma das
+  // vendas dos últimos 10 dias).
+  const primeiroDia = metasData[0].data.toISOString().slice(0, 10);
+  const ultimoDia = metasData[metasData.length - 1].data.toISOString().slice(0, 10);
+  const diasDoPeriodo = [];
+  for (let d = chaveDia(primeiroDia); d.toISOString().slice(0, 10) <= ultimoDia; d = new Date(d.getTime() + 86400000)) {
+    const dia = d.toISOString().slice(0, 10);
+    if (ehDiaUtil(dia)) diasDoPeriodo.push(dia);
+  }
+  const diasUteis = diasDoPeriodo.length;
+
+  // Avança N dias de cobrança pulando domingo — mesma regra do gerarParcelas,
+  // pra o cliente sair da carteira no dia em que a 10ª parcela realmente vence.
+  function somarDiasCobranca(dia, n) {
+    let d = chaveDia(dia);
+    for (let i = 0; i < n; i++) {
+      d = new Date(d.getTime() + 86400000);
+      if (d.getUTCDay() === 0) d = new Date(d.getTime() + 86400000);
+    }
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Quando cada cliente ATUAL termina: a última parcela ainda em aberto. Quem
+  // já quitou e continua na etapa sai logo no começo — senão ficaria pagando
+  // pra sempre na simulação.
+  const saidaDosAtuais = carteira.map((c) => {
+    const abertas = c.parcelas.filter((p) => !p.paid).map((p) => p.dueDate.toISOString().slice(0, 10));
+    return abertas.length ? abertas.sort().at(-1) : null;
+  });
+
+  // Simula a carteira dia a dia. Um cliente liberado no dia D deve as 10
+  // diárias de D+1 até o 10º dia de cobrança — então ele ENTRA na conta de
+  // quem paga em D+1 e SAI depois do 10º. Somar a entrada no próprio dia D
+  // contaria alguém que ainda não tem parcela vencida.
+  function simular(vendasPorDia) {
+    const entram = new Map();
+    const saem = new Map();
+
+    // Os que já estão na carteira contam desde o primeiro dia.
+    let ativosIniciais = 0;
+    for (const saida of saidaDosAtuais) {
+      ativosIniciais += 1;
+      // Sem parcela em aberto: sai no primeiro dia. Última parcela no passado:
+      // idem — não há mais o que cobrar dele daqui pra frente.
+      const fim = saida && saida >= diasDoPeriodo[0] ? saida : diasDoPeriodo[0];
+      const depois = somarDiasCobranca(fim, 1);
+      saem.set(depois, (saem.get(depois) || 0) + 1);
+    }
+
+    for (const [dia, qtd] of vendasPorDia) {
+      if (!qtd) continue;
+      const inicio = somarDiasCobranca(dia, 1);
+      const depoisDaUltima = somarDiasCobranca(dia, 11);
+      entram.set(inicio, (entram.get(inicio) || 0) + qtd);
+      saem.set(depoisDaUltima, (saem.get(depoisDaUltima) || 0) + qtd);
+    }
+
+    let ativos = ativosIniciais;
+    const serie = [];
+    for (const dia of diasDoPeriodo) {
+      ativos += entram.get(dia) || 0;
+      ativos -= saem.get(dia) || 0;
+      if (ativos < 0) ativos = 0;
+      serie.push({ dia, ativos, pagantes: ativos });
+    }
+    return serie;
+  }
 
   // Exatamente o mesmo encadeamento que registrarMetaDoDia usa: a meta que a
   // projeção mostra tem que ser a meta ESTIPULADA, não uma derivada.
@@ -143,6 +212,21 @@ export async function GET(req) {
     const lucroBruto = retorno - capital;
     const perda = capital * taxaPerda;
 
+    // Carteira dia a dia neste cenário: entra quem é liberado, sai quem fecha
+    // as 10 diárias.
+    const vendasPorDia = new Map(
+      metasData.map((m) => [m.data.toISOString().slice(0, 10), vendasDe(m, chave)])
+    );
+    const serie = simular(vendasPorDia);
+    const ativos = serie.map((d) => d.ativos);
+    const mediaAtivos = ativos.length ? ativos.reduce((a, b) => a + b, 0) / ativos.length : 0;
+
+    // Recebimento sai da carteira SIMULADA de cada dia, não da de hoje parada:
+    // com a carteira crescendo, usar o número de hoje subestimava o caixa.
+    const recebDiario = serie.map((d) => Math.ceil((d.pagantes * pct[chave]) / 100) * parcelaMedia);
+    const recebTotal = recebDiario.reduce((a, b) => a + b, 0);
+    const recebMedio = recebDiario.length ? recebTotal / recebDiario.length : 0;
+
     return {
       chave,
       rotulo,
@@ -152,9 +236,18 @@ export async function GET(req) {
       lucroBruto: r2(lucroBruto),
       perdaEsperada: r2(perda),
       lucroLiquido: r2(lucroBruto - perda),
-      recebimentoMedioDia: r2(recebPorDia[chave]),
-      recebimentoTotalPeriodo: r2(recebPorDia[chave] * diasUteis),
-      clientesPagandoDia: Math.ceil((carteira * pct[chave]) / 100),
+      recebimentoMedioDia: r2(recebMedio),
+      recebimentoTotalPeriodo: r2(recebTotal),
+      clientesPagandoDia: Math.round(
+        serie.length ? serie.reduce((s, d) => s + Math.ceil((d.pagantes * pct[chave]) / 100), 0) / serie.length : 0
+      ),
+      // "Quantos clientes vão estar ativos" — o que foi pedido.
+      clientesAtivos: {
+        inicio: ativos[0] ?? 0,
+        fim: ativos.at(-1) ?? 0,
+        media: Math.round(mediaAtivos),
+        pico: ativos.length ? Math.max(...ativos) : 0,
+      },
     };
   });
 
@@ -175,7 +268,7 @@ export async function GET(req) {
       honorariosPct,
       parcelaMedia: r2(parcelaMedia),
       taxaPerdaPct: r2(taxaPerda * 100),
-      carteiraAtual: carteira,
+      carteiraAtual: carteira.length,
       numParcelas: NUM_PARCELAS,
     },
     niveis,

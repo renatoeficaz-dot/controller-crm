@@ -1566,8 +1566,24 @@ export default function Relatorios() {
                 <p className="text-[11px] text-slate-400">Recebimento por dia</p>
                 <p className="text-xl font-bold text-slate-800">{money(n.recebimentoMedioDia)}</p>
                 <p className="text-[11px] text-slate-400 mb-3">
-                  {n.clientesPagandoDia} clientes pagando · {money(n.recebimentoTotalPeriodo)} no período
+                  ~{n.clientesPagandoDia} pagando por dia · {money(n.recebimentoTotalPeriodo)} no período
                 </p>
+
+                {n.clientesAtivos && (
+                  <div className="mb-3 rounded-lg bg-white/70 border border-slate-200 px-2.5 py-2">
+                    <p className="text-[11px] font-semibold text-slate-500 mb-1">
+                      Clientes ativos na carteira
+                    </p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-lg font-bold text-slate-800">{n.clientesAtivos.inicio}</span>
+                      <span className="text-slate-400 text-sm">→</span>
+                      <span className="text-lg font-bold text-emerald-700">{n.clientesAtivos.fim}</span>
+                      <span className="text-[11px] text-slate-400 ml-auto">
+                        média {n.clientesAtivos.media} · pico {n.clientesAtivos.pico}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-y-1 text-xs text-slate-600 border-t border-slate-200 pt-2">
                   <span>Vendas</span>
@@ -1599,9 +1615,10 @@ export default function Relatorios() {
             planejada dia a dia; mínima e média são a mesma proporção que a configuração define entre
             os níveis.
             O lucro já desconta {projecao.premissas.taxaPerdaPct}% de perda — capital que saiu e não
-            voltou de quem deu calote. Recebimento por dia = % da carteira de hoje
-            ({projecao.premissas.carteiraAtual} clientes) × parcela média; como a carteira cresce com as
-            próprias vendas projetadas, esse número é conservador.
+            voltou de quem deu calote. A carteira é simulada dia a dia a partir dos{" "}
+            {projecao.premissas.carteiraAtual} clientes de hoje: cada liberação entra e sai 10 diárias
+            depois (a saída dos atuais sai da última parcela em aberto de cada um). O recebimento por
+            dia vem da carteira de cada dia, não do número de hoje parado.
           </p>
         </section>
       )}
