@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { NUM_PARCELAS } from "@/lib/finance";
-import { chaveDia, hojeStr, ehDiaUtil } from "@/lib/metas";
+import { chaveDia, hojeStr, ehDiaUtil, whereCarteiraRecebimento } from "@/lib/metas";
 
 const r2 = (n) => Math.round(n * 100) / 100;
 
@@ -44,8 +44,10 @@ export async function GET(req) {
   const honorariosPct = cfg?.honorariosPct ?? 30;
 
   const [carteira, vendasRecentes, historico] = await Promise.all([
+    // Mesmo recorte da meta de recebimento: quem foi liberado hoje só começa a
+    // pagar amanhã, então não é base de recebimento de hoje.
     stageReceb
-      ? prisma.contact.count({ where: { stageId: stageReceb.id, excluidoEm: null } })
+      ? prisma.contact.count({ where: whereCarteiraRecebimento(stageReceb.id, de) })
       : 0,
     // Ticket médio: liberações dos últimos 90 dias. Média mais velha que isso
     // não representa o que a operação empresta hoje.
