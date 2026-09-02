@@ -46,6 +46,9 @@ export function ComissaoConfig() {
   const [simulado, setSimulado] = useState("");
   const [todosUsuarios, setTodosUsuarios] = useState([]);
   const [colabSelecionado, setColabSelecionado] = useState("");
+  const [acerto, setAcerto] = useState(null);       // config de pagamento semanal
+  const [acertoPrevia, setAcertoPrevia] = useState(null);
+  const [salvandoAcerto, setSalvandoAcerto] = useState(false);
   const [metasColab, setMetasColab] = useState({});
   const [salvandoMetrica, setSalvandoMetrica] = useState(null);
 
@@ -110,7 +113,35 @@ export function ComissaoConfig() {
       .catch(() => {});
   }
 
-  useEffect(() => { loadMetasColab(colabSelecionado); }, [colabSelecionado]);
+  function loadAcerto(userId) {
+    if (!userId) { setAcerto(null); setAcertoPrevia(null); return; }
+    fetch(`/api/pagamento-cobrador?userId=${userId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setAcerto({
+          fixoSemanal: d.config?.fixoSemanal ?? "",
+          bonusMinima: d.config?.bonusMinima ?? "",
+          bonusMedia: d.config?.bonusMedia ?? "",
+          bonusMaxima: d.config?.bonusMaxima ?? "",
+          ativo: d.config ? d.config.ativo : true,
+        });
+        setAcertoPrevia(d.previa || null);
+      })
+      .catch(() => {});
+  }
+
+  async function salvarAcerto() {
+    setSalvandoAcerto(true);
+    await fetch("/api/pagamento-cobrador", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: colabSelecionado, ...acerto }),
+    }).catch(() => {});
+    setSalvandoAcerto(false);
+    loadAcerto(colabSelecionado);
+  }
+
+  useEffect(() => { loadMetasColab(colabSelecionado); loadAcerto(colabSelecionado); }, [colabSelecionado]);
 
   function setCampoMetrica(metrica, campo, valor) {
     setMetasColab((p) => ({ ...p, [metrica]: { ...p[metrica], [campo]: valor } }));
@@ -301,6 +332,81 @@ export function ComissaoConfig() {
             ))}
           </select>
         </label>
+
+        {colabSelecionado && acerto && (
+          <div className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-3 space-y-2 mb-3">
+            <div>
+              <p className="text-sm font-medium text-emerald-800">Acerto semanal do cobrador</p>
+              <p className="text-[11px] text-slate-500">
+                Fixo por semana + bônus por DIA em que a operação bate a meta de recebimento.
+                Conta <strong>todos os recebimentos do dia</strong>, não só os que essa pessoa deu baixa.
+                O relatório é entregue no chat interno todo sábado às 16h.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ["fixoSemanal", "Fixo por semana (R$)"],
+                ["bonusMinima", "Bônus dia — meta mínima (R$)"],
+                ["bonusMedia", "Bônus dia — meta média (R$)"],
+                ["bonusMaxima", "Bônus dia — meta máxima (R$)"],
+              ].map(([campo, rotulo]) => (
+                <label key={campo} className="block">
+                  <span className="text-[11px] text-slate-500">{rotulo}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={acerto[campo]}
+                    onChange={(e) => setAcerto((a) => ({ ...a, [campo]: e.target.value }))}
+                    className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400"
+                  />
+                </label>
+              ))}
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={!!acerto.ativo}
+                onChange={(e) => setAcerto((a) => ({ ...a, ativo: e.target.checked }))}
+                className="accent-emerald-500"
+              />
+              Ativo (desmarcado, para de gerar acerto no sábado)
+            </label>
+            {acertoPrevia && (
+              <div className="bg-white border border-slate-200 rounded p-2 text-[11px] text-slate-600">
+                <p className="font-medium text-slate-700 mb-1">
+                  Prévia desta semana ({acertoPrevia.inicio.slice(8, 10)}/{acertoPrevia.inicio.slice(5, 7)} a{" "}
+                  {acertoPrevia.fim.slice(8, 10)}/{acertoPrevia.fim.slice(5, 7)})
+                </p>
+                <ul className="divide-y divide-slate-100">
+                  {acertoPrevia.detalhe.map((d) => (
+                    <li key={d.dia} className="flex justify-between py-0.5">
+                      <span>
+                        {d.dia.slice(8, 10)}/{d.dia.slice(5, 7)} · {d.recebimentos} receb.
+                        {d.semMeta ? " (sem meta registrada)" : d.faixa ? ` · ${d.faixa}` : " · não bateu"}
+                      </span>
+                      <span className={d.bonus ? "text-emerald-600 font-medium" : "text-slate-400"}>
+                        {d.bonus ? `+R$ ${d.bonus.toFixed(2)}` : "—"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1 pt-1 border-t border-slate-200 font-semibold text-slate-800">
+                  Fixo R$ {acertoPrevia.fixo.toFixed(2)} + bônus R$ {acertoPrevia.bonusTotal.toFixed(2)} ={" "}
+                  <span className="text-emerald-700">R$ {acertoPrevia.total.toFixed(2)}</span>
+                </p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={salvarAcerto}
+              disabled={salvandoAcerto}
+              className="w-full bg-emerald-500 text-white rounded py-1.5 text-xs hover:bg-emerald-600 disabled:opacity-50"
+            >
+              {salvandoAcerto ? "Salvando…" : "Salvar acerto semanal"}
+            </button>
+          </div>
+        )}
 
         {colabSelecionado && (
           <div className="space-y-3">

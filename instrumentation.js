@@ -17,6 +17,7 @@ export async function register() {
   const { processarCampanhasMassa } = await import("@/lib/campanhaMassa");
   const { fecharSemanaAnterior } = await import("@/lib/comissaoFechamento");
   const { enviarPixAdimplentes } = await import("@/lib/pixAdimplentes");
+  const { gerarRelatoriosPagamentoSabado } = await import("@/lib/relatorioPagamentoSabado");
   const CINCO_MIN = 5 * 60 * 1000;
 
   // Rotinas de 1x por dia guardam aqui o dia da última execução — o intervalo
@@ -25,6 +26,7 @@ export async function register() {
   let ultimoDiaBackup = null;
   let ultimoDiaPurga = null;
   let ultimaSemanaComissao = null; // guarda a segunda-feira da última semana já fechada
+  let ultimoSabadoPagamento = null; // dia do último acerto de cobrador entregue
 
   // Grava o retrato do dia (metas vigentes + tamanho da carteira + resultado).
   // Roda logo ao subir e a cada 5 min, então a última gravação antes da
@@ -103,6 +105,20 @@ export async function register() {
     // getUTCDay() num servidor em UTC-3, sábado às 21h já era "domingo" em UTC
     // e o fechamento cristalizava a semana ANTES dela terminar — baixa feita
     // no fim do sábado ficava fora da comissão pra sempre.
+    // Acerto do cobrador: sábado a partir das 16h. A hora sai do relógio
+    // LOCAL (o servidor roda em UTC), senão "16h" seria 13h no Brasil.
+    // O tick é de 5 min, então a checagem é ">= 16h" + trava por dia — não
+    // dá pra exigir 16:00 exato.
+    const agora = new Date();
+    const ehSabado = new Date(hoje + "T00:00:00.000Z").getUTCDay() === 6;
+    const horaLocal = Number(String(agora.toLocaleTimeString("pt-BR", { hour: "2-digit", hour12: false, timeZone: "America/Sao_Paulo" })).replace(/\D/g, ""));
+    if (ehSabado && horaLocal >= 16 && ultimoSabadoPagamento !== hoje) {
+      ultimoSabadoPagamento = hoje;
+      gerarRelatoriosPagamentoSabado()
+        .then((n) => n && console.log(`[pagamentoCobrador] ${n} acerto(s) da semana entregue(s)`))
+        .catch((err) => console.error("[pagamentoCobrador] erro:", err.message));
+    }
+
     const ehDomingo = new Date(hoje + "T00:00:00.000Z").getUTCDay() === 0;
     if (ehDomingo && ultimaSemanaComissao !== hoje) {
       ultimaSemanaComissao = hoje;

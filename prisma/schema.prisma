@@ -750,6 +750,7 @@ model User {
   conversasInternas   ConversaInternaMembro[]
   chamadasFeitas      ChamadaInterna[]       @relation("ChamadaDe")
   chamadasRecebidas   ChamadaInterna[]       @relation("ChamadaPara")
+  pagamentoCobrador   PagamentoCobradorConfig?
   mensagensInternas   MensagemInterna[]      @relation("MensagemInternaAutor")
   mensagensAtribuidas MensagemInterna[]      @relation("MensagemInternaAtribuida")
   mencoesInternas     MensagemInterna[]      @relation("MensagemInternaMencoes")
@@ -1464,4 +1465,55 @@ model ChamadaInternaSinal {
   createdAt DateTime @default(now())
 
   @@index([chamadaId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Acerto semanal do cobrador: um fixo por semana + bonus por DIA em que a
+// operacao bate a meta de recebimento. Os tres niveis (minima/media/maxima)
+// sao os que ja existem em MetaDiaria — aqui so entram os valores em R$.
+//
+// Por que nao reaproveitei ComissaoMetaColaborador: la a meta e um numero so
+// por metrica e o valor conta apenas o que a PESSOA baixou. Aqui o bonus e
+// escalonado em tres faixas e vale pelo resultado do DIA INTEIRO da operacao,
+// nao pelo que o cobrador deu baixa — sao regras diferentes.
+// ---------------------------------------------------------------------------
+
+model PagamentoCobradorConfig {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+
+  fixoSemanal Float @default(0) // pago toda semana, independente de meta
+  bonusMinima Float @default(0) // no dia que bate a meta minima
+  bonusMedia  Float @default(0) // ... a media
+  bonusMaxima Float @default(0) // ... a maxima (a meta cheia do dia)
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Relatorio de pagamento ja fechado de uma semana. Guardar o resultado (e nao
+// so recalcular na hora) importa porque as metas do dia mudam com a carteira:
+// recalcular semanas depois daria outro numero e o acerto ja foi pago.
+model PagamentoCobradorSemana {
+  id     String @id @default(cuid())
+  userId String
+  nome   String // nome na epoca, caso o usuario seja renomeado/removido
+
+  inicio DateTime // segunda
+  fim    DateTime // sabado
+
+  fixo         Float @default(0)
+  bonusTotal   Float @default(0)
+  total        Float @default(0)
+  diasBatidos  Int   @default(0)
+  detalhe      String // JSON: por dia, o nivel batido e o bonus
+
+  pago    Boolean   @default(false)
+  pagoEm  DateTime?
+  criadoEm DateTime @default(now())
+
+  @@unique([userId, inicio])
 }
