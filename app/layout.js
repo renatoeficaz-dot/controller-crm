@@ -19,9 +19,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// O nome que aparece na aba do navegador, no histórico e embaixo do ícone na
+// tela de início — combinando com o ícone de calculadora, o sistema não se
+// anuncia como CRM pra quem olha a tela de lado.
+// appleWebApp.title é o que o iOS usa no atalho: sem ele o iPhone cairia no
+// `title` inteiro e cortaria no meio.
 export const metadata = {
-  title: "Controller CRM — Kanban + WhatsApp",
-  description: "CRM de contatos com Kanban e atendimento por WhatsApp (Evolution API)",
+  title: "Calculadora",
+  description: "Calculadora",
+  appleWebApp: { title: "Calculadora", capable: true },
 };
 
 export default function RootLayout({ children }) {

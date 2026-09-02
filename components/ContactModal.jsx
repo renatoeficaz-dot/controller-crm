@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { resumoCobranca, valorParcelaAtual, parcelaAtrasada, NUM_PARCELAS } from "@/lib/finance";
+import { resumoCobranca, valorParcelaAtual, parcelaAtrasada, gerarParcelas, NUM_PARCELAS } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
 import { validarCPF } from "@/lib/cpf";
 import { UFS_BR } from "@/lib/ddd";
@@ -794,6 +794,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // capital — antes disso (Novo, Em conversa, Documentação) é ruído no card.
   const mostraDadosPix = ["Análise", "Liberação pagamento"].includes(contact?.stage?.name);
   const emLiberacao = contact?.stage?.name === "Liberação pagamento";
+  // As 10 parcelas simuladas saem do MESMO gerarParcelas que cria as parcelas
+  // de verdade em "Recebimento" — se fossem duas contas separadas, a data que
+  // o vendedor promete ao cliente podia não bater com a cobrança real.
+  // Sem data de pagamento de capital ainda, simula a partir de hoje.
+  const parcelasSimuladas = emLiberacao
+    ? gerarParcelas(form.valorCapital, honorariosPct, form.pagamentoCapital || new Date().toLocaleDateString("en-CA"))
+    : [];
   // Conferência do lead antes de avançar — só faz sentido enquanto ele ainda
   // está sendo analisado, por isso some depois que sai de "Análise".
   const mostraChecklistAnalise = contact?.stage?.name === "Análise";
@@ -1568,9 +1575,22 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       <span className="text-slate-800 font-semibold">Parcela (10× diárias)</span>
                       <span className="text-right font-semibold text-sky-700">{money(resumo.valorParcela)}</span>
                     </div>
+                    {parcelasSimuladas.length > 0 && (
+                      <ul className="mt-2 bg-white rounded border border-slate-200 divide-y divide-slate-100">
+                        {parcelasSimuladas.map((p) => (
+                          <li key={p.number} className="flex items-center justify-between px-2 py-1 text-xs">
+                            <span className="text-slate-500">
+                              {p.number}ª · {fmtDate(p.dueDate)}
+                            </span>
+                            <span className="font-medium text-slate-700">{money(p.amount)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <p className="text-[10px] text-slate-400 mt-1">
-                      De segunda a sábado, a 1ª no dia seguinte à liberação. As parcelas só são criadas
-                      de verdade quando o lead entra em &quot;Recebimento&quot;.
+                      De segunda a sábado, a 1ª no dia seguinte à liberação
+                      {form.pagamentoCapital ? "" : " (simulado a partir de hoje — preencha \"Pagamento de capital\" pra ver as datas reais)"}.
+                      As parcelas só são criadas de verdade quando o lead entra em &quot;Recebimento&quot;.
                     </p>
                   </div>
                 ) : (
