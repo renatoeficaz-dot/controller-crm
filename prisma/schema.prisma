@@ -511,6 +511,12 @@ model Config {
   honorariosPct       Float   @default(30) // % cobrado sobre o Valor do capital
   multaPct            Float   @default(50) // % de multa aplicado à parcela vencida (juros por atraso)
   pagamentoHoraLimite String? // "HH:MM" — após esse horário, a parcela que vence hoje já conta como atrasada
+
+  // Tela de entrada disfarçada de calculadora: digitando este codigo e "=",
+  // aparece o login. null = desligado (login normal). E DISFARCE, nao
+  // seguranca — quem protege os dados continua sendo o login; isso so evita
+  // que a tela se anuncie como CRM pra quem olha o celular de lado.
+  codigoCalculadora   String?
   evolutionUrl        String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
   evolutionApiKey     String? // API Key global da Evolution
   wahaUrl             String? // URL do servidor WAHA (ex.: http://ip:3001)

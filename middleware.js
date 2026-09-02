@@ -10,7 +10,11 @@ import { SESSION_COOKIE, verifySession } from "@/lib/auth";
 // /v/ é a página pública de vídeo chamada (consentimento + captura antes da
 // sala) — o cliente abre pelo link do WhatsApp, sem login. A "senha" da URL
 // é o token longo, não uma sessão.
-const PUBLIC_PREFIXES = ["/api/auth/login", "/api/auth/logout", "/api/webhook", "/login", "/l/", "/f/", "/api/formulario", "/v/", "/api/video-chamada"];
+// "/api/auth/calculadora" é público porque é a PORTA DE ENTRADA — ninguém
+// está logado ainda quando a tela decide se mostra calculadora ou login. Ela
+// nunca devolve o código, só se o disfarce está ligado e se a tentativa
+// acertou.
+const PUBLIC_PREFIXES = ["/api/auth/login", "/api/auth/logout", "/api/auth/calculadora", "/api/webhook", "/login", "/l/", "/f/", "/api/formulario", "/v/", "/api/video-chamada"];
 
 // Rate limit genérico por IP em toda /api/*: nenhuma rota (fora o login, que já
 // tem o próprio limite) tinha teto nenhum — um script com token de sessão

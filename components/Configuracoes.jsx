@@ -350,7 +350,7 @@ function NumberField({ label, value, onChange, suffix, placeholder, width = "w-2
 
 /* ---------------- % de honorários ---------------- */
 function Honorarios() {
-  const [form, setForm] = useState({ honorariosPct: "", multaPct: "", pagamentoHoraLimite: "" });
+  const [form, setForm] = useState({ honorariosPct: "", multaPct: "", pagamentoHoraLimite: "", codigoCalculadora: "" });
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -361,6 +361,7 @@ function Honorarios() {
           honorariosPct: String(c.honorariosPct ?? ""),
           multaPct: String(c.multaPct ?? ""),
           pagamentoHoraLimite: c.pagamentoHoraLimite || "",
+          codigoCalculadora: c.codigoCalculadora || "",
         })
       );
   }, []);
@@ -374,6 +375,7 @@ function Honorarios() {
         honorariosPct: Number(form.honorariosPct),
         multaPct: Number(form.multaPct),
         pagamentoHoraLimite: form.pagamentoHoraLimite,
+        codigoCalculadora: form.codigoCalculadora,
       }),
     });
     setSaved(true);
@@ -410,6 +412,33 @@ function Honorarios() {
         <p className="text-[11px] text-slate-400 mt-3">
           Deixe o horário em branco para a parcela só vencer na virada do dia.
         </p>
+      </SectionCard>
+
+      <SectionCard
+        title="Tela de entrada disfarçada"
+        desc={<>Com um código preenchido, o sistema abre uma <strong className="text-slate-600">calculadora funcional</strong> em vez do login. Digitar o código e apertar <strong className="text-slate-600">=</strong> revela a tela de entrada.</>}
+      >
+        <label className="block">
+          <span className="text-xs font-medium text-slate-500">Código de acesso (só números)</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={form.codigoCalculadora}
+            onChange={set("codigoCalculadora")}
+            placeholder="em branco = login normal"
+            className="mt-1 block w-48 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
+          />
+        </label>
+        <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 space-y-1">
+          <p className="text-[11px] text-amber-800">
+            <strong>Isso é disfarce, não segurança.</strong> Quem protege os dados continua sendo o
+            login — a calculadora só evita que a tela se anuncie como CRM pra quem olhar de lado.
+          </p>
+          <p className="text-[11px] text-amber-800">
+            Esquecendo o código, entre por <code className="bg-amber-100 px-1 rounded">/login?direto=1</code> e
+            limpe este campo. Sem essa saída, um código errado trancaria todo mundo pra fora.
+          </p>
+        </div>
       </SectionCard>
 
       <div className="flex items-center gap-3 rounded-xl bg-sky-50/60 border border-sky-100 px-4 py-3">

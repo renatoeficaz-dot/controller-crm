@@ -27,6 +27,10 @@ const CAMPOS_SECRETOS = [
   // porta sem TLS. Entregar isso pra qualquer usuário logado é dar o endereço
   // de um serviço interno que não fica atrás do mesmo login do CRM.
   "evolutionUrl", "wahaUrl",
+  // O código da calculadora é disfarce, não senha — mas entregá-lo pra
+  // qualquer usuário logado tornaria o disfarce inútil dentro da própria
+  // equipe, que é justamente de quem ele às vezes precisa esconder a tela.
+  "codigoCalculadora",
 ];
 
 // Mudar isso aqui muda dinheiro (honorários, multa) ou credenciais de
@@ -73,6 +77,8 @@ export async function PATCH(req) {
   if ("honorariosPct" in body) data.honorariosPct = pctFinanceiro(body.honorariosPct);
   if ("multaPct" in body) data.multaPct = pctFinanceiro(body.multaPct);
   if ("pagamentoHoraLimite" in body) data.pagamentoHoraLimite = texto(body.pagamentoHoraLimite) || null;
+  // Em branco desliga o disfarce e volta o login normal.
+  if ("codigoCalculadora" in body) data.codigoCalculadora = texto(body.codigoCalculadora) || null;
   if ("evolutionUrl" in body) data.evolutionUrl = texto(body.evolutionUrl) || null;
   if ("evolutionApiKey" in body) data.evolutionApiKey = texto(body.evolutionApiKey) || null;
   if ("wahaUrl" in body) data.wahaUrl = texto(body.wahaUrl) || null;

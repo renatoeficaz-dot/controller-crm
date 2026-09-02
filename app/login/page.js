@@ -1,13 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import CalculadoraEntrada from "@/components/CalculadoraEntrada";
 
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState({ login: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // null = ainda não sei se a calculadora está ligada. Enquanto não sei, não
+  // mostro nem uma coisa nem outra: piscar o login antes de virar calculadora
+  // entregaria o disfarce logo na primeira olhada.
+  const [calculadoraAtiva, setCalculadoraAtiva] = useState(null);
+  const [liberado, setLiberado] = useState(false);
+
+  useEffect(() => {
+    // Saída de emergência: /login?direto=1 pula a calculadora. Existe porque
+    // um código esquecido trancaria todo mundo pra fora sem jeito de voltar —
+    // e o login continua sendo quem protege os dados de verdade.
+    // Lido de window em vez de useSearchParams: o hook obriga a envolver a
+    // página num Suspense, e aqui isso só serviria pra ler um parâmetro.
+    if (new URLSearchParams(window.location.search).get("direto")) {
+      setCalculadoraAtiva(false);
+      return;
+    }
+    fetch("/api/auth/calculadora")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setCalculadoraAtiva(!!d?.ativo))
+      .catch(() => setCalculadoraAtiva(false));
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -26,6 +49,12 @@ export default function LoginPage() {
     }
     router.push("/");
     router.refresh();
+  }
+
+  // Ainda checando: tela preta neutra, sem pista do que vem a seguir.
+  if (calculadoraAtiva === null) return <div className="flex-1 bg-black" />;
+  if (calculadoraAtiva && !liberado) {
+    return <CalculadoraEntrada onAbrir={() => setLiberado(true)} />;
   }
 
   return (
