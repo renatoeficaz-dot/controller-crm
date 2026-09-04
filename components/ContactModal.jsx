@@ -1774,7 +1774,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                             </span>
                             {!p.paid && p.valorPago > 0 && (
                               <span className="text-[10px] text-amber-600 bg-amber-50 rounded-full px-1.5 py-0.5" title="Já pago desta parcela — o valor acima já é só o que falta">
-                                {money(p.valorPago)} pago · falta {money(Math.max(0, valorParcelaAtual(p, undefined, multaOpts) - p.valorPago))}
+                                {money(p.valorPago)} pago
+                                {p.valorPagoEm && ` em ${new Date(p.valorPagoEm).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`}
+                                {" "}· falta {money(Math.max(0, valorParcelaAtual(p, undefined, multaOpts) - p.valorPago))}
                               </span>
                             )}
                             {p.paid && (
