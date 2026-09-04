@@ -20,6 +20,17 @@ export async function register() {
   const { gerarRelatoriosPagamentoSabado } = await import("@/lib/relatorioPagamentoSabado");
   const CINCO_MIN = 5 * 60 * 1000;
 
+  // Roda uma tarefa e só volta depois dela terminar (ou falhar) — nunca lança.
+  async function rodar(nome, fn) {
+    try {
+      const r = await fn();
+      return r;
+    } catch (err) {
+      console.error(`[${nome}] erro:`, err.message);
+      return undefined;
+    }
+  }
+
   // Rotinas de 1x por dia guardam aqui o dia da última execução — o intervalo
   // é de 5 min, então sem essa trava rodariam 288 vezes por dia.
   let ultimoDiaScores = null;
@@ -32,72 +43,75 @@ export async function register() {
   // Roda logo ao subir e a cada 5 min, então a última gravação antes da
   // meia-noite é o fechamento daquele dia. Sem isso, a meta de recebimento de
   // um dia passado teria que ser recalculada sobre a carteira de hoje.
-  registrarMetaDoDia().catch((err) => console.error("[metaDiaria] erro:", err.message));
+  rodar("metaDiaria", registrarMetaDoDia);
 
-  setInterval(() => {
-    registrarMetaDoDia().catch((err) => console.error("[metaDiaria] erro:", err.message));
-    checarLembretesCobranca().catch((err) => console.error("[lembreteCobranca] erro:", err.message));
+  // Todo o tick roda em SÉRIE, uma tarefa de cada vez — não em paralelo.
+  //
+  // Antes, as ~9 tarefas de 5 em 5 min (e mais ~6 quando o gatilho diário
+  // também disparava, chegando a 15 de uma vez) eram todas fire-and-forget em
+  // paralelo. O SQLite só aceita UM escritor por vez mesmo em modo WAL — a
+  // rajada de escritores concorrentes, somada ao tráfego real (mensagem
+  // chegando, IA respondendo, alguém movendo lead), enfileirava pedidos além
+  // do timeout do Prisma e derrubava requisições com "socket timeout" (foi o
+  // que aconteceu em 03/09 14:19: card de lead não abria, IA não respondia).
+  // Rodando em série, o tick INTEIRO demora mais alguns segundos, mas nunca
+  // multiplica sozinho a fila de escrita — o que sobra de contenção é só o
+  // tráfego real, não o próprio sistema brigando com ele mesmo.
+  setInterval(async () => {
+    await rodar("metaDiaria", registrarMetaDoDia);
+    await rodar("lembreteCobranca", checarLembretesCobranca);
     // Pix pra quem está em dia (item novo) — atrasado nunca entra aqui, isso é
     // trabalho do cobrador via fila de cobrança/régua.
-    enviarPixAdimplentes().catch((err) => console.error("[pixAdimplentes] erro:", err.message));
-    checarFollowUp30min().catch((err) => console.error("[followUp30min] erro:", err.message));
+    await rodar("pixAdimplentes", enviarPixAdimplentes);
+    await rodar("followUp30min", checarFollowUp30min);
     // Lead parado demais em "Em conversa" (24h) ou "Documentação" (48h) cai
     // sozinho pra "Venda perdida" — precisa checar a cada 5 min, não 1x/dia,
     // senão passa o dia inteiro sem ninguém notar que sumiu.
-    checarLeadsParados().catch((err) => console.error("[leadsParados] erro:", err.message));
-    checarMensagensSemResposta().catch((err) => console.error("[mensagensSemResposta] erro:", err.message));
-    checarResumoDiario().catch((err) => console.error("[resumoDiario] erro:", err.message));
-    checarAlertasCriticos().catch((err) => console.error("[alertasCriticos] erro:", err.message));
+    await rodar("leadsParados", checarLeadsParados);
+    await rodar("mensagensSemResposta", checarMensagensSemResposta);
+    await rodar("resumoDiario", checarResumoDiario);
+    await rodar("alertasCriticos", checarAlertasCriticos);
     // Mensagem agendada (item 45) e campanha em massa (item 44) — paced, então
     // cada checagem só processa um lote, nunca tudo de uma vez.
-    enviarMensagensAgendadas().catch((err) => console.error("[mensagensAgendadas] erro:", err.message));
-    processarCampanhasMassa().catch((err) => console.error("[campanhasMassa] erro:", err.message));
+    await rodar("mensagensAgendadas", enviarMensagensAgendadas);
+    await rodar("campanhasMassa", processarCampanhasMassa);
 
     const hoje = new Date().toLocaleDateString("en-CA");
     if (ultimoDiaScores !== hoje) {
       ultimoDiaScores = hoje;
-      recalcularScoresComportamentais().catch((err) =>
-        console.error("[scoresComportamentais] erro:", err.message)
-      );
+      await rodar("scoresComportamentais", recalcularScoresComportamentais);
     }
     if (ultimoDiaBackup !== hoje) {
       ultimoDiaBackup = hoje;
-      rodarBackup()
-        .then((r) => console.log(`[backup] ${r.arquivo} (${r.bytes} bytes)`))
-        .catch((err) => console.error("[backup] erro:", err.message));
+      const r = await rodar("backup", rodarBackup);
+      if (r) console.log(`[backup] ${r.arquivo} (${r.bytes} bytes)`);
       // Conta recorrente "ilimitada" não pode gerar linhas infinitas de uma
       // vez: a janela de 12 meses é empurrada pra frente aqui, todo dia.
-      estenderRecorrenciasIlimitadas()
-        .then((n) => n && console.log(`[contasPagar] ${n} ocorrência(s) criada(s)`))
-        .catch((err) => console.error("[contasPagar] erro:", err.message));
+      const n1 = await rodar("contasPagar", estenderRecorrenciasIlimitadas);
+      if (n1) console.log(`[contasPagar] ${n1} ocorrência(s) criada(s)`);
       // Cobrança velha troca de mão: passou do limite de dias, vai pro sênior.
-      escalonarAtrasos()
-        .then((n) => n && console.log(`[escalonamentoAtraso] ${n} lead(s) reatribuído(s)`))
-        .catch((err) => console.error("[escalonamentoAtraso] erro:", err.message));
+      const n2 = await rodar("escalonamentoAtraso", escalonarAtrasos);
+      if (n2) console.log(`[escalonamentoAtraso] ${n2} lead(s) reatribuído(s)`);
       // Dinheiro parado em caixa sem liberar capital não gira — avisa o dono.
-      checarCapitalOcioso().catch((err) => console.error("[capitalOcioso] erro:", err.message));
+      await rodar("capitalOcioso", checarCapitalOcioso);
       // Cravo não recebe régua automática (de propósito) — sem isso, um lead
       // podia ficar semanas parado sem ninguém notar.
-      checarCravoParado().catch((err) => console.error("[cravoParado] erro:", err.message));
+      await rodar("cravoParado", checarCravoParado);
     }
     if (ultimoDiaPurga !== hoje) {
       ultimoDiaPurga = hoje;
       // Lead "excluído" há mais de 24h vira exclusão de verdade (item 53).
-      purgarExcluidos()
-        .then((n) => n && console.log(`[purgaExcluidos] ${n} lead(s) apagado(s) definitivamente`))
-        .catch((err) => console.error("[purgaExcluidos] erro:", err.message));
+      const n3 = await rodar("purgaExcluidos", purgarExcluidos);
+      if (n3) console.log(`[purgaExcluidos] ${n3} lead(s) apagado(s) definitivamente`);
       // Tentativa de login falha só serve pra contar as falhas dos últimos 15
       // min — sem limpeza a tabela cresce pra sempre (e um ataque de força
       // bruta é justamente o que faria ela inchar mais rápido).
-      purgarTentativasLogin()
-        .then((n) => n && console.log(`[loginTentativas] ${n} registro(s) antigo(s) removido(s)`))
-        .catch((err) => console.error("[loginTentativas] erro:", err.message));
+      const n4 = await rodar("loginTentativas", purgarTentativasLogin);
+      if (n4) console.log(`[loginTentativas] ${n4} registro(s) antigo(s) removido(s)`);
       // Logo depois da purga: os arquivos dos leads que acabaram de sair não
       // são apagados pelo banco (ficam no volume ocupando disco pra sempre).
-      import("@/lib/mediaStorage")
-        .then((m) => m.limparMidiasOrfas())
-        .then((r) => r?.apagados && console.log(`[midiasOrfas] ${r.apagados} arquivo(s), ${(r.bytes / 1048576).toFixed(1)} MB liberados`))
-        .catch((err) => console.error("[midiasOrfas] erro:", err.message));
+      const r2 = await rodar("midiasOrfas", async () => (await import("@/lib/mediaStorage")).limparMidiasOrfas());
+      if (r2?.apagados) console.log(`[midiasOrfas] ${r2.apagados} arquivo(s), ${(r2.bytes / 1048576).toFixed(1)} MB liberados`);
     }
     // Fecha a semana de comissão todo domingo (dia de folga, ninguém está
     // cobrando) — uma vez por semana, não uma vez por dia.
@@ -114,17 +128,15 @@ export async function register() {
     const horaLocal = Number(String(agora.toLocaleTimeString("pt-BR", { hour: "2-digit", hour12: false, timeZone: "America/Sao_Paulo" })).replace(/\D/g, ""));
     if (ehSabado && horaLocal >= 16 && ultimoSabadoPagamento !== hoje) {
       ultimoSabadoPagamento = hoje;
-      gerarRelatoriosPagamentoSabado()
-        .then((n) => n && console.log(`[pagamentoCobrador] ${n} acerto(s) da semana entregue(s)`))
-        .catch((err) => console.error("[pagamentoCobrador] erro:", err.message));
+      const n5 = await rodar("pagamentoCobrador", gerarRelatoriosPagamentoSabado);
+      if (n5) console.log(`[pagamentoCobrador] ${n5} acerto(s) da semana entregue(s)`);
     }
 
     const ehDomingo = new Date(hoje + "T00:00:00.000Z").getUTCDay() === 0;
     if (ehDomingo && ultimaSemanaComissao !== hoje) {
       ultimaSemanaComissao = hoje;
-      fecharSemanaAnterior()
-        .then((n) => n && console.log(`[comissaoFechamento] ${n} fechamento(s) gerado(s)`))
-        .catch((err) => console.error("[comissaoFechamento] erro:", err.message));
+      const n6 = await rodar("comissaoFechamento", fecharSemanaAnterior);
+      if (n6) console.log(`[comissaoFechamento] ${n6} fechamento(s) gerado(s)`);
     }
   }, CINCO_MIN);
 }
