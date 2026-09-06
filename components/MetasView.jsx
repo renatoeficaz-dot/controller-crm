@@ -7,7 +7,7 @@ import { Grafico30Dias, CalendarioMes, PlacarEquipe, Sequencia } from "@/compone
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
 
 function fmtHora(iso) {
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 }
 
 const money = (n) =>

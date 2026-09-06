@@ -55,7 +55,7 @@ function fmtCriacao(iso) {
   const d = new Date(iso);
   const diaSemana = d.toLocaleDateString("pt-BR", { weekday: "long" });
   const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
   return `${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)}, ${data} às ${hora}`;
 }
 
@@ -64,7 +64,7 @@ function fmtAtividade(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
   return `${data} ${hora}`;
 }
 
@@ -98,7 +98,7 @@ const STATUS_LABEL = { atrasado: "Atrasado", hoje: "Vence hoje", emdia: "Em dia"
 function fmtTime(iso) {
   const d = new Date(iso);
   const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
   return `${data} ${hora}`;
 }
 
@@ -1599,7 +1599,7 @@ export default function ChatView() {
                     <li key={t.id} className="flex items-center gap-2 py-1.5">
                       <input type="checkbox" checked={t.done} onChange={() => toggleTaskDone(t)} className="accent-emerald-500 shrink-0" />
                       <span className="text-[10px] text-slate-400 shrink-0">
-                        {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
                       </span>
                       <span className={`text-xs flex-1 min-w-0 truncate ${t.done ? "text-slate-400 line-through" : "text-slate-600"}`}>{t.title}</span>
                       {t.tipo && (

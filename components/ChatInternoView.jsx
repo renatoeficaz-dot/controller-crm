@@ -14,7 +14,7 @@ const EMOJIS = [
   "😢", "😡", "😱", "🤯", "🫡", "🤞", "👀", "❤️", "🎉", "☕",
 ];
 
-const fmtHora = (d) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+const fmtHora = (d) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
 function iniciais(nome) {

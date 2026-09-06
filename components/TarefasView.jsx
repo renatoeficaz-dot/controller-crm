@@ -100,8 +100,11 @@ export default function TarefasView() {
       contactId: t.contactId || "",
       contactName: t.contact?.name || "",
       tipoId: t.tipoId || "",
-      dueDate: d.toLocaleDateString("en-CA"),
-      dueTime: d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      // timeZone fixo: sem isso, editar uma tarefa perto da meia-noite num
+      // aparelho com fuso diferente do Brasil mostrava (e ao salvar, gravava)
+      // o dia ERRADO — o mesmo defeito que fazia o horário aparecer trocado.
+      dueDate: d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
+      dueTime: d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }),
       done: t.done,
       responsavel: t.responsavel || "",
     });
@@ -190,7 +193,7 @@ export default function TarefasView() {
     const t = tasks.find((x) => x.id === taskId);
     const col = COLUNAS.find((c) => c.key === colKey);
     if (!t || !col || bucketOf(t) === colKey) return;
-    const horario = new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const horario = new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
     const novaData = `${col.targetDate}T${horario}:00`;
     setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, dueDate: novaData } : x)));
     await fetch(`/api/tasks/${taskId}`, {
@@ -206,7 +209,7 @@ export default function TarefasView() {
   async function moveTaskToDay(taskId, diaStr) {
     const t = tasks.find((x) => x.id === taskId);
     if (!t) return;
-    const horario = new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const horario = new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
     const novaData = `${diaStr}T${horario}:00`;
     setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, dueDate: novaData } : x)));
     await fetch(`/api/tasks/${taskId}`, {
@@ -544,7 +547,7 @@ export default function TarefasView() {
                             ) : (
                               "—"
                             )}
-                            {" "}· {new Date(t.dueDate).toLocaleDateString("pt-BR")} {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            {" "}· {new Date(t.dueDate).toLocaleDateString("pt-BR")} {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
                           </p>
                           {t.notes && <p className="text-xs text-slate-400 truncate">{t.notes}</p>}
                         </div>

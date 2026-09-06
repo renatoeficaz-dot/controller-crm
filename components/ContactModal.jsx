@@ -17,7 +17,7 @@ import AgendarMensagemModal from "./AgendarMensagemModal";
 function fmtTime(iso) {
   const d = new Date(iso);
   const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
   return `${data} ${hora}`;
 }
 
@@ -34,7 +34,7 @@ function fmtCriacao(iso) {
   const d = new Date(iso);
   const diaSemana = d.toLocaleDateString("pt-BR", { weekday: "long" });
   const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
   return `${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)}, ${data} às ${hora}`;
 }
 
@@ -74,6 +74,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     return [...msgs, ...ativ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   }, [messages, atividade]);
   const [editandoBaixa, setEditandoBaixa] = useState(null); // { parcela, modo: "valor"|"desfazer", novoValor, motivo }
+  // Confirmação de baixa (item que era window.confirm nativo): { parcela, passo: "juros"|"forma", comJuros }.
+  // window.confirm/alert não abre em PWA instalado em modo standalone no iOS —
+  // quem tinha o sistema adicionado à tela de início (o disfarce de calculadora
+  // é justamente pensado pra isso) simplesmente não conseguia dar baixa: o
+  // confirm() ficava mudo e a função nunca seguia adiante. Um modal próprio
+  // não depende do navegador pra funcionar.
+  const [confirmarPagamento, setConfirmarPagamento] = useState(null);
   const [pixAberto, setPixAberto] = useState(null); // parcela | null
   const [baixaParcialAberta, setBaixaParcialAberta] = useState(null); // parcela | null
   const [parcelaAvulsaAberta, setParcelaAvulsaAberta] = useState(null); // { valor, vencimento, descricao } | null
@@ -499,7 +506,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     setParcelas(data);
   }
 
-  async function togglePaid(p) {
+  function togglePaid(p) {
     const vaiPagar = !p.paid;
     // Desmarcar uma baixa já registrada é uma ALTERAÇÃO — pede motivo antes
     // (fica logado em Configurações > Alterações).
@@ -507,17 +514,19 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       setEditandoBaixa({ parcela: p, modo: "desfazer", novoValor: "", motivo: "" });
       return;
     }
-    let amountPago;
-    if (parcelaAtrasada(p, undefined, { multaPct, horaLimite })) {
-      const comMulta = p.amount * (1 + Number(multaPct) / 100);
-      const cobrarComJuros = confirm(
-        `Essa parcela está atrasada.\n\nOK = cobrar COM juros (${money(comMulta)})\nCancelar = cobrar SEM juros (${money(p.amount)})`
-      );
-      amountPago = cobrarComJuros ? comMulta : p.amount;
-    }
-    // Controle de espécie (item 32): dinheiro em mãos do cobrador precisa ser
-    // rastreado até o depósito; Pix não passa pela mão de ninguém.
-    const formaPagamento = confirm("Como foi pago?\n\nOK = Pix/transferência\nCancelar = Dinheiro em espécie") ? "pix" : "dinheiro";
+    // Abre o modal de confirmação em vez de window.confirm() — ver o
+    // comentário no estado confirmarPagamento sobre por que isso quebrava no
+    // mobile. Só pergunta juros se a parcela estiver atrasada; senão pula
+    // direto pra forma de pagamento.
+    const atrasada = parcelaAtrasada(p, undefined, { multaPct, horaLimite });
+    setConfirmarPagamento({ parcela: p, passo: atrasada ? "juros" : "forma", comJuros: null });
+  }
+
+  // Roda depois que a pessoa escolhe (no modal) juros e forma de pagamento —
+  // antes disso vinha de dois window.confirm() em sequência.
+  async function confirmarBaixaComPagamento(p, comJuros, formaPagamento) {
+    const amountPago = comJuros == null ? undefined : comJuros ? p.amount * (1 + Number(multaPct) / 100) : p.amount;
+    setConfirmarPagamento(null);
     setParcelas((prev) => prev.map((x) => (x.id === p.id ? { ...x, paid: true, amountPago: amountPago ?? p.amount } : x)));
     const res = await fetch(`/api/parcelas/${p.id}`, {
       method: "PATCH",
@@ -1448,7 +1457,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     <li key={t.id} className="flex items-center gap-2 py-1.5">
                       <input type="checkbox" checked={t.done} onChange={() => toggleTaskDone(t)} className="accent-emerald-500 shrink-0" />
                       <span className="text-[10px] text-slate-400 shrink-0">
-                        {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
                       </span>
                       <span className={`text-xs flex-1 min-w-0 truncate ${t.done ? "text-slate-400 line-through" : "text-slate-600"}`}>{t.title}</span>
                       {t.tipo && (
@@ -2309,6 +2318,74 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {confirmarPagamento && (
+        <div
+          className="fixed inset-0 z-[70] bg-slate-900/40 flex items-center justify-center p-4"
+          onClick={() => setConfirmarPagamento(null)}
+        >
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            {confirmarPagamento.passo === "juros" ? (
+              <>
+                <h3 className="font-semibold text-slate-800 mb-1">Parcela atrasada</h3>
+                <p className="text-sm text-slate-500 mb-4">Cobrar com ou sem juros por atraso?</p>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmarPagamento((c) => ({ ...c, passo: "forma", comJuros: true }))}
+                    className="w-full bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600"
+                  >
+                    Com juros ({money(confirmarPagamento.parcela.amount * (1 + Number(multaPct) / 100))})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmarPagamento((c) => ({ ...c, passo: "forma", comJuros: false }))}
+                    className="w-full border border-slate-200 text-slate-600 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50"
+                  >
+                    Sem juros ({money(confirmarPagamento.parcela.amount)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmarPagamento(null)}
+                    className="w-full text-slate-400 text-xs py-1 hover:text-slate-600"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-semibold text-slate-800 mb-1">Como foi pago?</h3>
+                <p className="text-sm text-slate-500 mb-4">
+                  Item 32: dinheiro em espécie precisa ser rastreado até o depósito.
+                </p>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => confirmarBaixaComPagamento(confirmarPagamento.parcela, confirmarPagamento.comJuros, "pix")}
+                    className="w-full bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600"
+                  >
+                    Pix / transferência
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => confirmarBaixaComPagamento(confirmarPagamento.parcela, confirmarPagamento.comJuros, "dinheiro")}
+                    className="w-full border border-slate-200 text-slate-600 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50"
+                  >
+                    Dinheiro em espécie
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmarPagamento(null)}
+                    className="w-full text-slate-400 text-xs py-1 hover:text-slate-600"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

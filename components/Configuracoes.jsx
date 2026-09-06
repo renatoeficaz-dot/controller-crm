@@ -1750,7 +1750,7 @@ function Campanhas() {
     const d = new Date(iso);
     const diaSemana = d.toLocaleDateString("pt-BR", { weekday: "short" });
     const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-    const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
     return `${diaSemana} ${data} ${hora}`;
   }
 
