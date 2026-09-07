@@ -129,8 +129,14 @@ export async function PATCH(req, { params }) {
     // horário comercial configurado — fora dele, fica sem responsável até
     // alguém pegar manualmente). Sem responsável fixo mas com um POOL definido,
     // distribui por carga: quem tem menos leads ativos agora fica com esse.
+    //
+    // SÓ atribui se o lead ainda não tem responsável — sem essa checagem, uma
+    // pessoa que move o PRÓPRIO card na mão pra uma etapa de outro dono perdia
+    // a visão do lead na hora (o card "sumia" pra ela), mesmo tendo sido ela
+    // quem acabou de mexer nele. autoResponsavel é o dono PADRÃO de quem chega
+    // sem ninguém cuidando, não uma ordem pra tomar o lead de quem já cuida.
     let autoAtribuiu = false;
-    if (trocandoDeEtapa && (await dentroDoHorarioComercial())) {
+    if (trocandoDeEtapa && !contact.responsavel && (await dentroDoHorarioComercial())) {
       if (stage.autoResponsavel) {
         data.responsavel = stage.autoResponsavel;
         autoAtribuiu = true;
