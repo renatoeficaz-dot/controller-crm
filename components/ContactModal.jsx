@@ -2019,7 +2019,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 >
                   {fmtTime(item.msg.createdAt)}
                   {item.msg.fromMe && item.msg.status === "simulado" ? " • simulado" : ""}
-                  {item.msg.fromMe && item.msg.status === "falhou" ? " • falhou ao enviar" : ""}
+                  {item.msg.fromMe && (item.msg.status === "falhou" || item.msg.status === "erro") ? " • falhou ao enviar" : ""}
                 </span>
               </div>
             ))}

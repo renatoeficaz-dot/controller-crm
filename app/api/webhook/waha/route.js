@@ -16,7 +16,7 @@ export async function POST(req) {
   if (!payload || payload.event !== "message") return NextResponse.json({ ok: true });
 
   const instance = payload.session || "";
-  const { fromMe, isGroup, number, pushName, text, media, location, contacts, mediaKey } = extractIncomingFromWaha(payload);
+  const { fromMe, isGroup, number, numeroEhLid, pushName, text, media, location, contacts, mediaKey } = extractIncomingFromWaha(payload);
 
   let mediaUrl = payload?.payload?.media?.url || null;
   const cfg = media && mediaUrl ? await prisma.config.findUnique({ where: { id: "singleton" } }) : null;
@@ -26,6 +26,7 @@ export async function POST(req) {
     fromMe,
     isGroup,
     number,
+    numeroEhLid,
     pushName,
     text,
     media,

@@ -1160,18 +1160,36 @@ export default function Relatorios() {
 
               <div>
                 <span className="text-xs text-slate-400">Data de criação da lead</span>
-                <div className="flex items-center gap-2 mt-1">
+                {/* Mesmos atalhos do período de baixo — os dois campos andam juntos
+                    (aplicarPreset seta os dois), então usar os mesmos botões aqui
+                    evita a pessoa ter que digitar a mesma data duas vezes. */}
+                <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                  {PRESETS.map((p) => (
+                    <button
+                      key={p.key}
+                      onClick={() => aplicarPreset(p)}
+                      className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                        preset === p.key
+                          ? "bg-slate-800 text-white border-slate-800"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-1.5">
                   <input
                     type="date"
                     value={criacaoIni}
-                    onChange={(e) => setCriacaoIni(e.target.value)}
+                    onChange={(e) => { setPreset("custom"); setCriacaoIni(e.target.value); }}
                     className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400"
                   />
                   <span className="text-xs text-slate-400 shrink-0">até</span>
                   <input
                     type="date"
                     value={criacaoFim}
-                    onChange={(e) => setCriacaoFim(e.target.value)}
+                    onChange={(e) => { setPreset("custom"); setCriacaoFim(e.target.value); }}
                     className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400"
                   />
                 </div>

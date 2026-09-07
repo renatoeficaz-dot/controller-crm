@@ -1220,7 +1220,12 @@ export default function ChatView() {
                     )}
                     <p className={`text-[10px] mt-1 flex items-center gap-1 ${item.msg.fromMe ? "text-emerald-200" : "text-slate-400"}`}>
                       {fmtTime(item.msg.createdAt)}
-                      {item.msg.fromMe && item.msg.status === "falhou" && (
+                      {/* "falhou" = falha no envio manual (contacts/[id]/messages); "erro" = falha nos
+                          envios automáticos (IA, follow-up, lembrete, campanha, formulário guiado...).
+                          Sem checar os dois, uma queda de WhatsApp durante um atendimento automático
+                          (79 mensagens perdidas numa janela de 42min em 01/09) ficava sem nenhum aviso
+                          visual pro atendente — a mensagem aparecia como se tivesse ido normalmente. */}
+                      {item.msg.fromMe && (item.msg.status === "falhou" || item.msg.status === "erro") && (
                         <span className="text-red-100 bg-red-500/80 rounded-full px-1.5 font-medium">falhou</span>
                       )}
                     </p>

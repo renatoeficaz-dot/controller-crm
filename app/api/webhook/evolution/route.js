@@ -7,6 +7,7 @@ import {
   fetchIncomingMediaBase64,
   onlyDigits,
   telefoneDeJid,
+  apenasLid,
 } from "@/lib/evolution";
 import { processIncomingMessage } from "@/lib/webhookCommon";
 import { webhookAutorizado } from "@/lib/webhookAuth";
@@ -29,12 +30,18 @@ export async function POST(req) {
   const data = payload.data || {};
   const fromMe = Boolean(data.key?.fromMe);
   const remoteJid = data.key?.remoteJid || "";
-  // null quando o evento so traz @lid (sem telefone real) — processIncomingMessage
-  // ignora sozinho, e a mesma mensagem chega de novo com o JID verdadeiro.
-  const number = telefoneDeJid(remoteJid, [
+  // Quando NENHUM candidato tem telefone real (só @lid — recurso de
+  // privacidade do WhatsApp que esconde o número de quem manda), telefoneDeJid
+  // não devolve null: usa os dígitos do próprio @lid como "número", porque
+  // descartar a mensagem faria perder o lead de vez. Só que esse "número" não
+  // é discável — nunca vai ser possível responder por ele. numeroEhLid avisa
+  // processIncomingMessage disso pra tratar o lead de forma diferente (ver lá).
+  const lidCandidatos = [
     data.key?.remoteJidAlt, data.key?.senderPn, data.key?.participantPn,
     data.key?.participantAlt, data.key?.participant,
-  ]);
+  ];
+  const number = telefoneDeJid(remoteJid, lidCandidatos);
+  const numeroEhLid = apenasLid(remoteJid, lidCandidatos);
 
   const media = detectIncomingMedia(data.message);
 
@@ -43,6 +50,7 @@ export async function POST(req) {
     fromMe,
     isGroup: remoteJid.endsWith("@g.us"),
     number,
+    numeroEhLid,
     pushName: data.pushName,
     text: extractIncomingText(data.message),
     media,
