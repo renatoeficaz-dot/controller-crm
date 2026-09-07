@@ -75,15 +75,26 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
     (async () => {
       // Áudio é obrigatório; vídeo é opcional. Sem esse fallback, quem não
       // tem webcam (ou negou a câmera) não conseguia nem falar.
+      //
+      // Numa chamada de VOZ (chamada.video já false), a 1ª tentativa já é só
+      // áudio — repetir a mesma chamada com os mesmos parâmetros no catch não
+      // tem nenhuma chance de dar certo na 2ª vez (é o mesmo pedido, a mesma
+      // negação). Só tenta de novo quando a 1ª tentativa pediu vídeo junto —
+      // aí sim cair pra "só áudio" é uma tentativa DIFERENTE que pode
+      // funcionar (câmera negada/ocupada, mas o microfone tá liberado).
       let stream = null;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: chamada.video });
       } catch {
+        if (!chamada.video) {
+          setErro("Não foi possível acessar o microfone. Confirme a permissão de microfone desse site nas configurações do navegador/celular.");
+          return;
+        }
         try {
           stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           setSemCamera(true);
         } catch {
-          setErro("Não foi possível acessar o microfone.");
+          setErro("Não foi possível acessar o microfone. Confirme a permissão de microfone desse site nas configurações do navegador/celular.");
           return;
         }
       }
