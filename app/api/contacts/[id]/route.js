@@ -87,6 +87,20 @@ export async function PATCH(req, { params }) {
       // vira null, que é como o campo "em branco" é guardado.
       if (f in body) data[f] = texto(body[f]) || null;
     }
+    // Preencher o nome completo na chave Pix também atualiza o nome do lead —
+    // é comum o WhatsApp só ter o número ou um apelido, e o nome real (que
+    // vale de verdade pra conferência de identidade/pagamento) só aparece
+    // quando alguém digita a chave Pix. Só sincroniza quando o valor da chave
+    // Pix MUDOU nesta requisição (não em todo save) — a tela manda o
+    // formulário inteiro a cada salvamento, então "pixNomeCompleto in body"
+    // sozinho seria true o tempo todo e reescreveria o nome mesmo quando só
+    // outro campo (ex.: estado) estivesse sendo editado.
+    if (data.pixNomeCompleto) {
+      const antes = await prisma.contact.findUnique({ where: { id }, select: { pixNomeCompleto: true } });
+      if (antes && antes.pixNomeCompleto !== data.pixNomeCompleto) {
+        data.name = data.pixNomeCompleto;
+      }
+    }
     if ("chatFixado" in body) data.chatFixado = !!body.chatFixado;
     if ("chatArquivado" in body) data.chatArquivado = !!body.chatArquivado;
     if ("naoPerturbarAte" in body) data.naoPerturbarAte = body.naoPerturbarAte ? new Date(body.naoPerturbarAte) : null;

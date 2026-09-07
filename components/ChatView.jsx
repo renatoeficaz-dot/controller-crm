@@ -122,6 +122,7 @@ export default function ChatView() {
   const [conversations, setConversations] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [encaminharMsg, setEncaminharMsg] = useState(null); // mensagem sendo encaminhada | null
+  const [enviarCampoMsg, setEnviarCampoMsg] = useState(null); // mensagem sendo mandada pra um campo do lead | null
   const [contact, setContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -485,6 +486,31 @@ export default function ChatView() {
         ? JSON.stringify({ body: m.body || "" })
         : JSON.stringify({ mediaType: m.kind, mediaUrl: m.mediaUrl, mediaMimetype: m.mimeType, mediaFileName: m.fileName, body: m.body || "" }),
     });
+  }
+
+  // Campos do lead que fazem sentido receber o texto de uma mensagem —
+  // aparecem no menu de "..." de cada mensagem do chat.
+  const CAMPOS_ENVIAR = [
+    { chave: "notes", label: "Observações" },
+    { chave: "endereco", label: "Endereço" },
+    { chave: "cpf", label: "CPF" },
+    { chave: "pixChave", label: "Chave Pix" },
+    { chave: "pixNomeCompleto", label: "Nome completo (Pix)" },
+    { chave: "horarioRecebimento", label: "Horário de recebimento" },
+    { chave: "name", label: "Nome do lead" },
+  ];
+
+  async function enviarParaCampo(campo) {
+    const m = enviarCampoMsg;
+    setEnviarCampoMsg(null);
+    if (!m || !selectedId || !(m.body || "").trim()) return;
+    await fetch(`/api/contacts/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [campo]: m.body.trim() }),
+    });
+    loadContact();
+    loadAtividade();
   }
 
   async function send(e) {
@@ -1191,6 +1217,11 @@ export default function ChatView() {
                       <button type="button" title="Encaminhar" onClick={() => setEncaminharMsg(item.msg)} className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-emerald-600 hover:bg-slate-100">
                         <Icone nome="seta" className="w-3 h-3 -rotate-90" />
                       </button>
+                      {(item.msg.body || "").trim() && (
+                        <button type="button" title="Mandar pra um campo do lead" onClick={() => setEnviarCampoMsg(item.msg)} className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-emerald-600 hover:bg-slate-100 text-base leading-none">
+                          ⋮
+                        </button>
+                      )}
                       {item.msg.fromMe && (
                         <button type="button" title="Apagar da minha lista" onClick={() => apagarMensagem(item.msg.id)} className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-slate-100">
                           <Icone nome="x" className="w-3 h-3" />
@@ -1834,6 +1865,28 @@ export default function ChatView() {
               {conversations.length <= 1 && <p className="text-xs text-slate-400 py-2">Nenhuma outra conversa pra encaminhar.</p>}
             </div>
             <button onClick={() => setEncaminharMsg(null)} className="mt-3 text-xs text-slate-400 hover:text-slate-600">Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {enviarCampoMsg && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEnviarCampoMsg(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800 mb-1">Mandar pra qual campo?</h3>
+            <p className="text-xs text-slate-400 mb-3 line-clamp-2">"{enviarCampoMsg.body}"</p>
+            <div className="space-y-0.5">
+              {CAMPOS_ENVIAR.map((c) => (
+                <button
+                  key={c.chave}
+                  type="button"
+                  onClick={() => enviarParaCampo(c.chave)}
+                  className="w-full text-left text-sm text-slate-700 hover:bg-slate-50 rounded-lg px-2.5 py-2"
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setEnviarCampoMsg(null)} className="mt-3 text-xs text-slate-400 hover:text-slate-600">Cancelar</button>
           </div>
         </div>
       )}

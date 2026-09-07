@@ -5,6 +5,7 @@ import { limiteEscalonado } from "@/lib/escalonamento";
 import { getSession } from "@/lib/session";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo } from "@/lib/corpo";
+import { criarTarefaLiberarPagamento } from "@/lib/tarefaLiberarPagamento";
 
 // Renova o empréstimo: incrementa o ciclo, gera novas parcelas com os dados fornecidos.
 // Exige que TODAS as parcelas do ciclo atual estejam pagas.
@@ -57,6 +58,16 @@ export async function POST(req, { params }) {
   }
   const novasParcelas = gerarParcelas(valorCapital, pct, pagamentoCapital);
 
+  // Renovação nunca movia o lead de etapa — ele ficava parado onde já estava
+  // (normalmente "Recebimento" ou "Pago", já que renovar exige o ciclo atual
+  // quitado). Isso fazia o Pix do novo capital passar batido: a tarefa
+  // automática "Liberar pagamento do cliente" só é criada quando o lead ENTRA
+  // em "Liberação pagamento" (ver app/api/contacts/[id]/move), e uma
+  // renovação nunca entrava lá — quem renovava não gerava nenhum aviso pro
+  // Kabrito liberar o novo valor. Agora a renovação manda o lead de volta pra
+  // "Liberação pagamento" e recria a tarefa, igual a um empréstimo novo.
+  const stageLiberacao = await prisma.stage.findFirst({ where: { name: "Liberação pagamento" } });
+
   // Atualiza o contato (novo ciclo + novos valores de capital)
   await prisma.contact.update({
     where: { id },
@@ -64,8 +75,10 @@ export async function POST(req, { params }) {
       cicloAtual: novoCiclo,
       valorCapital,
       pagamentoCapital: new Date(pagamentoCapital),
+      ...(stageLiberacao ? { stageId: stageLiberacao.id } : {}),
     },
   });
+  if (stageLiberacao) await criarTarefaLiberarPagamento(id).catch(() => {});
 
   // Limpa tarefas do ciclo anterior (mantém as parcelas como histórico)
   await prisma.task.deleteMany({ where: { contactId: id, parcela: { ciclo: { lt: novoCiclo } } } });
