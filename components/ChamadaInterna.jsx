@@ -110,7 +110,11 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
     // Poll da sinalização. Candidatos que chegam antes da descrição remota
     // ficam na fila — aplicar antes disso o WebRTC recusa.
     const timer = setInterval(async () => {
-      const d = await fetch(`/api/chamadas/${chamada.id}/sinal?apos=${lidosRef.current}`)
+      // cache: "no-store" — sem isso, navegadores mobile (mais agressivos que
+      // Chrome desktop nisso) podem reaproveitar uma resposta antiga desse
+      // mesmo GET repetido em vez de buscar de novo, atrasando ou perdendo
+      // sinais de conexão da chamada.
+      const d = await fetch(`/api/chamadas/${chamada.id}/sinal?apos=${lidosRef.current}`, { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
       if (!d || !vivo) return;

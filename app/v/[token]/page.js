@@ -179,7 +179,9 @@ export default function VideoChamadaPublica({ params }) {
 
   function iniciarPoll() {
     pollRef.current = setInterval(async () => {
-      const d = await fetch(`/api/video-chamada/${token}/sinal?apos=${sinaisVistosRef.current}`)
+      // cache: "no-store" — evita resposta cacheada em navegadores mobile
+      // (ver mesmo ajuste em ChamadaWatcher.jsx/ChamadaInterna.jsx).
+      const d = await fetch(`/api/video-chamada/${token}/sinal?apos=${sinaisVistosRef.current}`, { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
       if (!d?.sinais?.length) return;

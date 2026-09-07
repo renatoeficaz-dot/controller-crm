@@ -2,6 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { lerCorpo } from "@/lib/corpo";
 
+// GET é consultado por polling durante a chamada — nunca pode reaproveitar
+// uma resposta antiga (ver mesmo ajuste em app/api/chamadas/[id]/sinal).
+export const dynamic = "force-dynamic";
+
 const TIPOS_VALIDOS = new Set(["pronto", "oferta", "resposta", "candidato", "encerrar"]);
 
 // Rota PÚBLICA — lado do CLIENTE do retransmissor de sinalização WebRTC.

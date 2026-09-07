@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { lerCorpo, texto } from "@/lib/corpo";
 
+// GET é consultado por polling a cada 4s (ChamadaWatcher) — precisa sempre
+// bater no servidor de novo, nunca reaproveitar uma resposta antiga.
+export const dynamic = "force-dynamic";
+
 // Chamada some sozinha se ninguém atender — sem isso um "chamando" esquecido
 // ficaria tocando pra sempre pro outro lado.
 const EXPIRA_MS = 60 * 1000;

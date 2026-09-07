@@ -4,6 +4,10 @@ import { lerCorpo } from "@/lib/corpo";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { getCurrentUser } from "@/lib/session";
 
+// GET é consultado por polling durante a chamada — nunca pode reaproveitar
+// uma resposta antiga (ver mesmo ajuste em app/api/chamadas/[id]/sinal).
+export const dynamic = "force-dynamic";
+
 const TIPOS_VALIDOS = new Set(["pronto", "oferta", "resposta", "candidato", "encerrar"]);
 
 // Lado do ATENDENTE (autenticado) do retransmissor de sinalização — espelho

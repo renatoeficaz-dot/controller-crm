@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { lerCorpo } from "@/lib/corpo";
 
+// GET é consultado por polling durante a chamada — nunca pode reaproveitar
+// uma resposta antiga.
+export const dynamic = "force-dynamic";
+
 const TIPOS_VALIDOS = new Set(["pronto", "oferta", "resposta", "candidato", "encerrar"]);
 
 async function minhaChamada(id, userId) {

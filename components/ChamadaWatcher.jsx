@@ -20,7 +20,7 @@ export default function ChamadaWatcher() {
   const jaTocou = useRef(new Set());
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch("/api/auth/me", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((u) => setEuId(u?.id || null))
       .catch(() => {});
@@ -31,7 +31,13 @@ export default function ChamadaWatcher() {
     let vivo = true;
 
     async function checar() {
-      const c = await fetch("/api/chamadas").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      // cache: "no-store" — sem isso, o Safari/Chrome mobile às vezes
+      // reaproveita uma resposta antiga desse mesmo GET em vez de bater no
+      // servidor de novo (mais agressivo nisso que Chrome desktop), e o
+      // polling fica "preso" numa chamada que já mudou de status — quem
+      // ligava via celular via a chamada tocar só no PC do outro lado, nunca
+      // no celular dele mesmo já destravado e com o app aberto.
+      const c = await fetch("/api/chamadas", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
       if (!vivo) return;
 
       if (!c) {
