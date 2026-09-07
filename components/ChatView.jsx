@@ -1301,7 +1301,12 @@ export default function ChatView() {
                 </div>
               )}
               {attachError && <p className="text-xs text-red-500 pb-1">{attachError}</p>}
-              <form onSubmit={send} className="flex gap-2 pb-3">
+              {/* flex-wrap: em tela estreita, clipe+input+mic+agendar+vídeo+Enviar não
+                  cabiam numa linha só — sem quebra, o botão "Enviar" saía da área
+                  visível (sem barra de rolagem pra avisar) e sumia no mobile. Com
+                  wrap, se não couber tudo numa linha, o que sobra desce pra próxima
+                  em vez de ficar escondido. */}
+              <form onSubmit={send} className="flex flex-wrap gap-2 pb-3">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1318,7 +1323,7 @@ export default function ChatView() {
                 >
                   <Icone nome="clipe" className="w-4 h-4" />
                 </button>
-                <div className="flex-1 relative min-w-0">
+                <div className="flex-1 relative min-w-[160px]">
                   <input
                     value={text}
                     onChange={(e) => setText(e.target.value)}
