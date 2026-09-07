@@ -757,6 +757,7 @@ model User {
   chamadasFeitas      ChamadaInterna[]       @relation("ChamadaDe")
   chamadasRecebidas   ChamadaInterna[]       @relation("ChamadaPara")
   pagamentoCobrador   PagamentoCobradorConfig?
+  comissaoPercentual  ComissaoPercentualConfig?
   mensagensInternas   MensagemInterna[]      @relation("MensagemInternaAutor")
   mensagensAtribuidas MensagemInterna[]      @relation("MensagemInternaAtribuida")
   mencoesInternas     MensagemInterna[]      @relation("MensagemInternaMencoes")
@@ -1519,6 +1520,49 @@ model PagamentoCobradorSemana {
 
   pago    Boolean   @default(false)
   pagoEm  DateTime?
+  criadoEm DateTime @default(now())
+
+  @@unique([userId, inicio])
+}
+
+// Comissão percentual sobre o recebimento da operação INTEIRA (não só o que
+// essa pessoa deu baixa) — combinado caso a caso: ex. "2% de tudo, exceto
+// juros" ou "1% de tudo + 50% extra em cima só dos juros". Os dois percentuais
+// cobrem qualquer combinação desse tipo: pctCapital incide sobre o valor
+// normal da parcela, pctJuros incide só sobre a multa por atraso realmente
+// recebida (ver lib/comissaoPercentual.js pra como as duas partes já são
+// calculadas em lib/comissao.js).
+model ComissaoPercentualConfig {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+
+  pctCapital Float @default(0) // % sobre o recebimento SEM a multa por atraso
+  pctJuros   Float @default(0) // % sobre a parte que É multa por atraso
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Fechamento semanal já entregue — guarda o resultado calculado (mesmo motivo
+// de PagamentoCobradorSemana: a carteira muda, recalcular depois daria outro
+// número e a comissão já foi fechada/avisada com o número de sábado).
+model ComissaoPercentualSemana {
+  id     String @id @default(cuid())
+  userId String
+  nome   String
+
+  inicio DateTime // segunda
+  fim    DateTime // sábado
+
+  valorCapital    Float @default(0) // recebido na semana, sem a multa
+  valorJuros      Float @default(0) // só a multa por atraso recebida na semana
+  comissaoCapital Float @default(0)
+  comissaoJuros   Float @default(0)
+  total           Float @default(0)
+
   criadoEm DateTime @default(now())
 
   @@unique([userId, inicio])

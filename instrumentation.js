@@ -18,6 +18,7 @@ export async function register() {
   const { fecharSemanaAnterior } = await import("@/lib/comissaoFechamento");
   const { enviarPixAdimplentes } = await import("@/lib/pixAdimplentes");
   const { gerarRelatoriosPagamentoSabado } = await import("@/lib/relatorioPagamentoSabado");
+  const { gerarRelatoriosComissaoPercentualSabado } = await import("@/lib/relatorioComissaoPercentualSabado");
   const CINCO_MIN = 5 * 60 * 1000;
 
   // Roda uma tarefa e só volta depois dela terminar (ou falhar) — nunca lança.
@@ -38,6 +39,7 @@ export async function register() {
   let ultimoDiaPurga = null;
   let ultimaSemanaComissao = null; // guarda a segunda-feira da última semana já fechada
   let ultimoSabadoPagamento = null; // dia do último acerto de cobrador entregue
+  let ultimoSabadoComissaoPct = null; // dia da última comissão percentual entregue (17h)
 
   // Grava o retrato do dia (metas vigentes + tamanho da carteira + resultado).
   // Roda logo ao subir e a cada 5 min, então a última gravação antes da
@@ -130,6 +132,16 @@ export async function register() {
       ultimoSabadoPagamento = hoje;
       const n5 = await rodar("pagamentoCobrador", gerarRelatoriosPagamentoSabado);
       if (n5) console.log(`[pagamentoCobrador] ${n5} acerto(s) da semana entregue(s)`);
+    }
+
+    // Comissão percentual (ex.: Arthur 2% do recebimento, Hulk 1% + 50% extra
+    // sobre os juros): fecha às 17h, uma hora depois do acerto de cobrador,
+    // pra dar tempo da última baixa do sábado (até 16h) já estar contabilizada
+    // nos dois relatórios sem depender de rodarem no mesmo instante.
+    if (ehSabado && horaLocal >= 17 && ultimoSabadoComissaoPct !== hoje) {
+      ultimoSabadoComissaoPct = hoje;
+      const n7 = await rodar("comissaoPercentual", gerarRelatoriosComissaoPercentualSabado);
+      if (n7) console.log(`[comissaoPercentual] ${n7} comissão(ões) da semana entregue(s)`);
     }
 
     const ehDomingo = new Date(hoje + "T00:00:00.000Z").getUTCDay() === 0;

@@ -49,6 +49,9 @@ export function ComissaoConfig() {
   const [acerto, setAcerto] = useState(null);       // config de pagamento semanal
   const [acertoPrevia, setAcertoPrevia] = useState(null);
   const [salvandoAcerto, setSalvandoAcerto] = useState(false);
+  const [comissaoPct, setComissaoPct] = useState(null);       // config de comissão percentual
+  const [comissaoPctPrevia, setComissaoPctPrevia] = useState(null);
+  const [salvandoComissaoPct, setSalvandoComissaoPct] = useState(false);
   const [metasColab, setMetasColab] = useState({});
   const [salvandoMetrica, setSalvandoMetrica] = useState(null);
 
@@ -141,7 +144,33 @@ export function ComissaoConfig() {
     loadAcerto(colabSelecionado);
   }
 
-  useEffect(() => { loadMetasColab(colabSelecionado); loadAcerto(colabSelecionado); }, [colabSelecionado]);
+  function loadComissaoPct(userId) {
+    if (!userId) { setComissaoPct(null); setComissaoPctPrevia(null); return; }
+    fetch(`/api/comissao-percentual?userId=${userId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setComissaoPct({
+          pctCapital: d.config?.pctCapital ?? "",
+          pctJuros: d.config?.pctJuros ?? "",
+          ativo: d.config ? d.config.ativo : true,
+        });
+        setComissaoPctPrevia(d.previa || null);
+      })
+      .catch(() => {});
+  }
+
+  async function salvarComissaoPct() {
+    setSalvandoComissaoPct(true);
+    await fetch("/api/comissao-percentual", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: colabSelecionado, ...comissaoPct }),
+    }).catch(() => {});
+    setSalvandoComissaoPct(false);
+    loadComissaoPct(colabSelecionado);
+  }
+
+  useEffect(() => { loadMetasColab(colabSelecionado); loadAcerto(colabSelecionado); loadComissaoPct(colabSelecionado); }, [colabSelecionado]);
 
   function setCampoMetrica(metrica, campo, valor) {
     setMetasColab((p) => ({ ...p, [metrica]: { ...p[metrica], [campo]: valor } }));
@@ -404,6 +433,75 @@ export function ComissaoConfig() {
               className="w-full bg-emerald-500 text-white rounded py-1.5 text-xs hover:bg-emerald-600 disabled:opacity-50"
             >
               {salvandoAcerto ? "Salvando…" : "Salvar acerto semanal"}
+            </button>
+          </div>
+        )}
+
+        {colabSelecionado && comissaoPct && (
+          <div className="border border-sky-200 bg-sky-50/40 rounded-lg p-3 space-y-2 mb-3">
+            <div>
+              <p className="text-sm font-medium text-sky-800">Comissão percentual</p>
+              <p className="text-[11px] text-slate-500">
+                % sobre o recebimento da <strong>operação inteira</strong> (não só o que essa pessoa deu baixa),
+                separado em dois percentuais: um sobre o valor normal da parcela, outro só sobre a multa por
+                atraso — dá pra montar qualquer combinação (ex.: "2% de tudo, exceto multa" = capital 2%, multa
+                0%; "1% de tudo + 50% extra na multa" = capital 1%, multa 51%). Entregue no chat interno todo
+                sábado às 17h.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="text-[11px] text-slate-500">% sobre recebido (sem multa)</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={comissaoPct.pctCapital}
+                  onChange={(e) => setComissaoPct((a) => ({ ...a, pctCapital: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-sky-400"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[11px] text-slate-500">% sobre a multa por atraso</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={comissaoPct.pctJuros}
+                  onChange={(e) => setComissaoPct((a) => ({ ...a, pctJuros: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-sky-400"
+                />
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={!!comissaoPct.ativo}
+                onChange={(e) => setComissaoPct((a) => ({ ...a, ativo: e.target.checked }))}
+                className="accent-sky-500"
+              />
+              Ativo (desmarcado, para de gerar comissão no sábado)
+            </label>
+            {comissaoPctPrevia && (
+              <div className="bg-white border border-slate-200 rounded p-2 text-[11px] text-slate-600">
+                <p className="font-medium text-slate-700 mb-1">
+                  Prévia desta semana ({comissaoPctPrevia.inicio.slice(8, 10)}/{comissaoPctPrevia.inicio.slice(5, 7)} a{" "}
+                  {comissaoPctPrevia.fim.slice(8, 10)}/{comissaoPctPrevia.fim.slice(5, 7)})
+                </p>
+                <p>Sem multa: R$ {comissaoPctPrevia.valorCapital.toFixed(2)} × {comissaoPctPrevia.pctCapital}% = R$ {comissaoPctPrevia.comissaoCapital.toFixed(2)}</p>
+                <p>Multa por atraso: R$ {comissaoPctPrevia.valorJuros.toFixed(2)} × {comissaoPctPrevia.pctJuros}% = R$ {comissaoPctPrevia.comissaoJuros.toFixed(2)}</p>
+                <p className="mt-1 pt-1 border-t border-slate-200 font-semibold text-slate-800">
+                  Total: <span className="text-sky-700">R$ {comissaoPctPrevia.total.toFixed(2)}</span>
+                </p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={salvarComissaoPct}
+              disabled={salvandoComissaoPct}
+              className="w-full bg-sky-500 text-white rounded py-1.5 text-xs hover:bg-sky-600 disabled:opacity-50"
+            >
+              {salvandoComissaoPct ? "Salvando…" : "Salvar comissão percentual"}
             </button>
           </div>
         )}
