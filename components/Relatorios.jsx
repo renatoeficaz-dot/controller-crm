@@ -736,6 +736,17 @@ export default function Relatorios() {
     const [a, b] = p.range();
     setIni(a);
     setFim(b);
+    // Os botões de preset (Hoje/Esta semana/Este mês) só mexiam em ini/fim,
+    // que alimentam "Total recebido"/"A receber" (filtro por data de
+    // PAGAMENTO). Os donuts de adimplência e a tabela "por estado" usam um
+    // campo separado, "Data de criação da lead" (criacaoIni/criacaoFim) —
+    // clicar num preset não tocava nele, então esses gráficos continuavam
+    // mostrando todo o período por baixo dos panos. Espelhar aqui os dois
+    // filtros por padrão resolve isso; quem quiser um período de criação
+    // diferente do de recebimento ainda pode ajustar os campos de "Data de
+    // criação da lead" manualmente depois.
+    setCriacaoIni(a);
+    setCriacaoFim(b);
   }
 
   const receber = useMemo(() => aReceber(stagesFiltrados, multaOpts), [stagesFiltrados, multaOpts]);
