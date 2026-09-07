@@ -48,8 +48,12 @@ export default function Relatorios() {
   const [etapaFiltro, setEtapaFiltro] = useState("");
   const [generoFiltroRel, setGeneroFiltroRel] = useState("");
   const [tipoClienteFiltroRel, setTipoClienteFiltroRel] = useState("");
-  const [criacaoIni, setCriacaoIni] = useState("");
-  const [criacaoFim, setCriacaoFim] = useState("");
+  // Espelha o preset inicial ("Este mês"): sem isso, a tela abria já mostrando
+  // "Este mês" no total recebido mas os donuts/tabela por estado (que só
+  // olham criacaoIni/criacaoFim) continuavam em todo o histórico até o
+  // usuário clicar de novo num preset — mesmo com "Este mês" já selecionado.
+  const [criacaoIni, setCriacaoIni] = useState(inicioMesStr());
+  const [criacaoFim, setCriacaoFim] = useState(hojeStr());
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [openContactId, setOpenContactId] = useState(null);
@@ -576,7 +580,7 @@ export default function Relatorios() {
   // (mensagem direta, indicação, etc.).
   const leadsPorCampanha = useMemo(() => {
     const map = new Map();
-    for (const s of stages) {
+    for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
         const chave = c.campanha?.id || "__sem__";
         if (!map.has(chave)) {
@@ -596,7 +600,7 @@ export default function Relatorios() {
       }
     }
     return Array.from(map.values()).sort((a, b) => b.leads - a.leads);
-  }, [stages]);
+  }, [stagesFiltrados]);
 
   // Cruza QUANDO o lead foi CRIADO (Contact.createdAt) com adimplência/
   // recebimento — em 3 granularidades escolhíveis (dia da semana, hora do dia,
