@@ -801,7 +801,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const isRecebimento = contact?.stage?.name === "Recebimento";
   // Chave Pix e nome do titular só fazem sentido perto da hora de liberar o
   // capital — antes disso (Novo, Em conversa, Documentação) é ruído no card.
-  const mostraDadosPix = ["Análise", "Liberação pagamento"].includes(contact?.stage?.name);
+  // Inclui Recebimento e Pago (não só Análise/Liberação pagamento): mover PRA
+  // "Liberação pagamento" exige a chave Pix já preenchida (ver
+  // app/api/contacts/[id]/move), mas ela só ficava visível DEPOIS de já estar
+  // nessa etapa — beco sem saída pra quem renova (o lead renovado passa por
+  // Recebimento/Pago antes de voltar pra Liberação pagamento) e nunca tinha
+  // preenchido a chave Pix antes: dava pra ver o erro pedindo a chave, mas
+  // não tinha onde digitar ela.
+  const mostraDadosPix = ["Análise", "Liberação pagamento", "Recebimento", "Pago"].includes(contact?.stage?.name);
   const emLiberacao = contact?.stage?.name === "Liberação pagamento";
   // As 10 parcelas simuladas saem do MESMO gerarParcelas que cria as parcelas
   // de verdade em "Recebimento" — se fossem duas contas separadas, a data que
