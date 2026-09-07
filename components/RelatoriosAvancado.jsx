@@ -119,7 +119,7 @@ export default function RelatoriosAvancado() {
           )}
         </Cartao>
 
-        <Cartao icone="grafico" titulo="Evolução do valor a cada renovação" subtitulo="Valor médio de capital emprestado, por número do ciclo (1º empréstimo, 1ª renovação...).">
+        <Cartao icone="grafico" titulo="Evolução do valor a cada renovação" subtitulo="Valor médio do plano (capital + honorários), por número do ciclo (1º empréstimo, 1ª renovação...) — vem do histórico de parcelas, não só do estado atual do contato.">
           {evolucaoCiclo.length === 0 ? (
             <p className="text-xs text-slate-400">Sem dados ainda.</p>
           ) : (

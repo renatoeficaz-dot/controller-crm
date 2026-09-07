@@ -120,7 +120,13 @@ export default function Relatorios() {
         if (tipoClienteFiltroRel && c.tipoCliente !== tipoClienteFiltroRel) return false;
         if (criacaoIni || criacaoFim) {
           if (!c.createdAt) return false;
-          const d = new Date(c.createdAt).toLocaleDateString("en-CA");
+          // timeZone fixo: sem isso, a data de criação vira a do fuso do
+          // aparelho de quem está com a tela aberta — um lead criado às
+          // 23h30 em Brasília podia cair no dia seguinte (ou anterior) só
+          // por causa do relógio/fuso de quem estava filtrando, deslocando
+          // a contagem "por estado" e os donuts quando o filtro de período
+          // está ativo.
+          const d = new Date(c.createdAt).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
           if (criacaoIni && d < criacaoIni) return false;
           if (criacaoFim && d > criacaoFim) return false;
         }
@@ -148,9 +154,9 @@ export default function Relatorios() {
 
   // Adimplência agrupada por um campo do contato (gênero ou tipo de cliente) —
   // reaproveitado pros dois gráficos abaixo, um donut por valor do grupo.
-  function agruparAdimplencia(campo, rotulos) {
+  function agruparAdimplencia(lista, campo, rotulos) {
     const map = new Map();
-    for (const s of stages) {
+    for (const s of lista) {
       for (const c of s.contacts || []) {
         if (!c.parcelas || c.parcelas.length === 0) continue; // só quem tem empréstimo ativo
         const chave = c[campo] || "outros";
@@ -167,8 +173,11 @@ export default function Relatorios() {
   const GENERO_LABEL = { masculino: "Masculino", feminino: "Feminino", outros: "Não identificado" };
   const TIPO_CLIENTE_LABEL = { motoboy: "Motoboy", uber: "Uber", comerciante: "Comerciante", outros: "Não identificado" };
 
-  const adimplenciaPorGenero = useMemo(() => agruparAdimplencia("genero", GENERO_LABEL), [stages]);
-  const adimplenciaPorTipoCliente = useMemo(() => agruparAdimplencia("tipoCliente", TIPO_CLIENTE_LABEL), [stages]);
+  // stagesFiltrados (não stages): esses dois donuts ignoravam o filtro de
+  // período/estado/gênero da tela inteira — filtrar "Data de criação" não
+  // mudava nada aqui, só na tabela por estado e no donut geral de Adimplência.
+  const adimplenciaPorGenero = useMemo(() => agruparAdimplencia(stagesFiltrados, "genero", GENERO_LABEL), [stagesFiltrados]);
+  const adimplenciaPorTipoCliente = useMemo(() => agruparAdimplencia(stagesFiltrados, "tipoCliente", TIPO_CLIENTE_LABEL), [stagesFiltrados]);
 
   // Lucro real por perfil: recebido - emprestado, não só % de inadimplência —
   // um perfil que atrasa mas recupera o capital é mais lucrativo que um que
@@ -212,7 +221,7 @@ export default function Relatorios() {
         const valorPeriodo = (c.parcelas || [])
           .filter((p) => {
             if (!p.paid || !p.paidAt) return false;
-            const d = new Date(p.paidAt).toLocaleDateString("en-CA");
+            const d = new Date(p.paidAt).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
             return d >= ini && d <= fim;
           })
           .reduce((acc, p) => acc + (p.amountPago ?? p.amount), 0);
@@ -645,7 +654,7 @@ export default function Relatorios() {
         const valor = (c.parcelas || [])
           .filter((p) => {
             if (!p.paid || !p.paidAt) return false;
-            const d = new Date(p.paidAt).toLocaleDateString("en-CA");
+            const d = new Date(p.paidAt).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
             return d >= ini && d <= fim;
           })
           .reduce((acc, p) => acc + Math.max(0, p.amount - (p.valorPago || 0)), 0);
@@ -953,7 +962,7 @@ export default function Relatorios() {
       ? all.length
       : all.filter((c) => {
           if (!c.createdAt) return false;
-          const d = new Date(c.createdAt).toLocaleDateString("en-CA");
+          const d = new Date(c.createdAt).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
           return d >= ini && d <= fim;
         }).length;
     const ren = all.filter((c) => (c.cicloAtual || 1) > 1).length;
@@ -1246,7 +1255,11 @@ export default function Relatorios() {
         </div>
       </section>
 
-      {/* Resumo por estado — comparação lado a lado, independente do filtro acima */}
+      {/* Resumo por estado (comentário antigo removido: ESTE título dizia
+          "independente do filtro acima", mas o cálculo logo abaixo — a
+          useMemo porEstado — já usa stagesFiltrados desde uma correção
+          anterior. O comentário ficou desatualizado e passava a informação
+          errada pra quem lesse o código depois. */}
       <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Resumo por estado</h2>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
