@@ -149,7 +149,7 @@ export default function MediaBubble({ message }) {
           {ehImagem ? (
             <img src={url} alt={message.fileName || "imagem"} className="rounded-md max-w-[220px] max-h-[220px] object-cover" />
           ) : (
-            <span className="underline text-xs text-left">{message.fileName || "documento"}</span>
+            <span className="underline text-xs text-left break-all">{message.fileName || "documento"}</span>
           )}
         </button>
         {open && (

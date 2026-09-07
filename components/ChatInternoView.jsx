@@ -581,7 +581,7 @@ export default function ChatInternoView() {
       </div>
 
       {/* Conversa aberta */}
-      <div className={`${selecionada ? "flex" : "hidden md:flex"} flex-1 flex-col bg-slate-50 min-h-0`}>
+      <div className={`${selecionada ? "flex" : "hidden md:flex"} flex-1 flex-col bg-slate-50 min-h-0 min-w-0`}>
         {!selecionada ? (
           <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Selecione uma conversa</div>
         ) : (
@@ -647,7 +647,7 @@ export default function ChatInternoView() {
                     }`}
                   >
                     <div
-                      className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
+                      className={`max-w-[75%] min-w-0 rounded-xl px-3 py-2 text-sm ${
                         pedido
                           ? m.resolvido
                             ? "bg-emerald-50 border border-emerald-200 text-slate-700"
