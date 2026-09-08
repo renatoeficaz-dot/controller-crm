@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { extractIncomingFromWaha, fetchIncomingMediaBase64Waha, extractAckWaha } from "@/lib/waha";
+import { extractIncomingFromWaha, fetchIncomingMediaBase64Waha, extractAckWaha, resolveLidPhoneWaha } from "@/lib/waha";
 import { processIncomingMessage, processMessageAck } from "@/lib/webhookCommon";
 import { webhookAutorizado } from "@/lib/webhookAuth";
 
@@ -24,7 +24,20 @@ export async function POST(req) {
   if (payload.event !== "message") return NextResponse.json({ ok: true });
 
   const instance = payload.session || "";
-  const { fromMe, isGroup, number, numeroEhLid, pushName, text, media, location, contacts, mediaKey } = extractIncomingFromWaha(payload);
+  let { fromMe, isGroup, number, numeroEhLid, lidJid, pushName, text, media, location, contacts, mediaKey } = extractIncomingFromWaha(payload);
+
+  // Número oculto (@lid) — a maioria dos clientes hoje em dia: antes de cair
+  // no fallback de usar os dígitos do @lid como "número" (não discável, IA
+  // nunca responde, e sem isso mensagens de gente diferente colidiam entre
+  // si), tenta resolver o telefone de verdade consultando o WAHA — ver
+  // resolveLidPhoneWaha em lib/waha.js.
+  if (numeroEhLid && lidJid) {
+    const real = await resolveLidPhoneWaha(instance, lidJid);
+    if (real) {
+      number = real;
+      numeroEhLid = false;
+    }
+  }
 
   let mediaUrl = payload?.payload?.media?.url || null;
   const cfg = media && mediaUrl ? await prisma.config.findUnique({ where: { id: "singleton" } }) : null;
