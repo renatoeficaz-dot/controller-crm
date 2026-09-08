@@ -818,6 +818,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   }
 
   const isRecebimento = contact?.stage?.name === "Recebimento";
+  // Painel de Cobrança (parcelas + renovação) também precisa aparecer em
+  // "Pago": é exatamente aí que o ciclo já está quitado e o botão "Renovar
+  // empréstimo" (com o limite de escalonamento do PRÓXIMO ciclo) deveria
+  // aparecer — escondido só em "Recebimento", ninguém conseguia renovar sem
+  // sair da ficha e voltar depois, e acabava editando "Valor do capital" no
+  // topo por engano (que usa o limite do ciclo ATUAL, não do próximo, e
+  // barra um valor que a renovação de verdade deixaria passar).
+  const mostraCobranca = isRecebimento || contact?.stage?.name === "Pago";
   // Chave Pix e nome do titular só fazem sentido perto da hora de liberar o
   // capital — antes disso (Novo, Em conversa, Documentação) é ruído no card.
   // Inclui Recebimento e Pago (não só Análise/Liberação pagamento): mover PRA
@@ -1685,8 +1693,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               </div>
             )}
 
-            {/* Seção de cobrança — aparece quando o contato está em "Recebimento" */}
-            {isRecebimento && (
+            {/* Seção de cobrança — aparece em "Recebimento" e "Pago" (pra dar pra renovar) */}
+            {mostraCobranca && (
               <div className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-3 mt-1">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-emerald-700">Cobrança</h3>
