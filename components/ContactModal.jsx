@@ -21,6 +21,15 @@ function fmtTime(iso) {
   return `${data} ${hora}`;
 }
 
+// ✓ enviado, ✓✓ cinza entregue, ✓✓ azul lido — igual ao WhatsApp e ao mesmo
+// componente do components/ChatView.jsx (esse painel de dentro da ficha do
+// lead tem a própria renderização de mensagem, separada do /chat).
+function TicksEnvio({ status }) {
+  if (status === "lido") return <span className="text-sky-300" title="Lido">✓✓</span>;
+  if (status === "entregue") return <span title="Entregue">✓✓</span>;
+  return <span title="Enviado">✓</span>;
+}
+
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -2039,6 +2048,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   {fmtTime(item.msg.createdAt)}
                   {item.msg.fromMe && item.msg.status === "simulado" ? " • simulado" : ""}
                   {item.msg.fromMe && (item.msg.status === "falhou" || item.msg.status === "erro") ? " • falhou ao enviar" : ""}
+                  {item.msg.fromMe && !["simulado", "falhou", "erro"].includes(item.msg.status) && (
+                    <>
+                      {" "}
+                      <TicksEnvio status={item.msg.status} />
+                    </>
+                  )}
                 </span>
               </div>
             ))}
