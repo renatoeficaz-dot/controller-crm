@@ -20,15 +20,17 @@ const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", 
 // Não tem "entrega" separada aqui (não é WhatsApp — a mensagem já cai direto
 // no banco de todo mundo): só ✓ enviado e ✓✓ azul quando TODOS os outros
 // participantes já leram (lidoAte de cada um >= quando a mensagem foi criada).
-function mensagemLidaPorTodos(m, membros, euId) {
+// Devolve quem já leu (pro hover mostrar os nomes) e se são todos.
+function leitoresDaMensagem(m, membros, euId) {
   const criadaEm = new Date(m.createdAt).getTime();
   const outros = (membros || []).filter((x) => x.id !== euId);
-  if (!outros.length) return false;
-  return outros.every((x) => x.lidoAte && new Date(x.lidoAte).getTime() >= criadaEm);
+  const leram = outros.filter((x) => x.lidoAte && new Date(x.lidoAte).getTime() >= criadaEm);
+  return { nomes: leram.map((x) => x.name), todos: outros.length > 0 && leram.length === outros.length };
 }
 
-function TicksChatInterno({ lido }) {
-  return <span className={lido ? "text-sky-300" : ""} title={lido ? "Lido" : "Enviado"}>{lido ? "✓✓" : "✓"}</span>;
+function TicksChatInterno({ nomes, todos }) {
+  const titulo = todos ? `Lido por ${nomes.join(", ")}` : "Enviado";
+  return <span className={todos ? "text-sky-300" : ""} title={titulo}>{todos ? "✓✓" : "✓"}</span>;
 }
 
 function iniciais(nome) {
@@ -734,7 +736,7 @@ export default function ChatInternoView() {
                           {fmtDia(m.createdAt)} {fmtHora(m.createdAt)}
                         </span>
                         {minha && !m.apagada && (
-                          <TicksChatInterno lido={mensagemLidaPorTodos(m, detalhe?.membros, eu?.id)} />
+                          <TicksChatInterno {...leitoresDaMensagem(m, detalhe?.membros, eu?.id)} />
                         )}
                         {m.resolvido && m.resolvidoPor && <span className="text-emerald-600">✓ {m.resolvidoPor}</span>}
                         {!m.apagada && (
