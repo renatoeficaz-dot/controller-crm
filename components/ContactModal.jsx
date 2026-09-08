@@ -490,7 +490,17 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   }
 
   // (Re)gera as parcelas — salva o contato antes para garantir capital/data atualizados
-  async function gerarParcelas() {
+  //
+  // Nome DIFERENTE do `gerarParcelas` importado de @/lib/finance (a simulação
+  // pura, sem rede, usada em parcelasSimuladas abaixo) DE PROPÓSITO: uma
+  // function declaration com o MESMO nome dentro do componente blinda
+  // (hoisting) o import inteiro pro corpo do componente inteiro. Foi
+  // exatamente isso que causava o card de "Liberação pagamento" (ex.: Marllon)
+  // gerar um loop infinito de PATCH+POST a cada render — `parcelasSimuladas`
+  // chamava sem querer ESTA função (que ignora os argumentos e salva de
+  // verdade) em vez da simulação, e o setParcelas(data) do fim disparava outro
+  // render, que chamava de novo. Ver comentário em parcelasSimuladas.
+  async function regerarParcelasNoServidor() {
     setCobrancaMsg("");
     await fetch(`/api/contacts/${contactId}`, {
       method: "PATCH",
@@ -810,10 +820,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // não tinha onde digitar ela.
   const mostraDadosPix = ["Análise", "Liberação pagamento", "Recebimento", "Pago"].includes(contact?.stage?.name);
   const emLiberacao = contact?.stage?.name === "Liberação pagamento";
-  // As 10 parcelas simuladas saem do MESMO gerarParcelas que cria as parcelas
-  // de verdade em "Recebimento" — se fossem duas contas separadas, a data que
-  // o vendedor promete ao cliente podia não bater com a cobrança real.
-  // Sem data de pagamento de capital ainda, simula a partir de hoje.
+  // As 10 parcelas simuladas usam a MESMA fórmula (lib/finance) que gera as
+  // parcelas de verdade em "Recebimento" — se fossem duas contas separadas, a
+  // data que o vendedor promete ao cliente podia não bater com a cobrança
+  // real. Sem data de pagamento de capital ainda, simula a partir de hoje.
+  // (É a função importada, pura e sem rede — não confundir com
+  // regerarParcelasNoServidor acima, que salva de verdade.)
   const parcelasSimuladas = emLiberacao
     ? gerarParcelas(form.valorCapital, honorariosPct, form.pagamentoCapital || new Date().toLocaleDateString("en-CA"))
     : [];
@@ -1690,7 +1702,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 </div>
 
                 <button
-                  onClick={gerarParcelas}
+                  onClick={regerarParcelasNoServidor}
                   className="w-full text-xs bg-emerald-500 text-white rounded py-1.5 hover:bg-emerald-600 mb-1"
                 >
                   {parcelas.length ? "Atualizar parcelas" : "Gerar 10 parcelas"}
