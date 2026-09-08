@@ -162,6 +162,7 @@ export default function ChatInternoView() {
   const [cobrarDe, setCobrarDe] = useState("");
   const [prioridade, setPrioridade] = useState("media");
   const [respondendo, setRespondendo] = useState(null);
+  const [encaminharMsg, setEncaminharMsg] = useState(null); // mensagem com mídia sendo encaminhada | null
   const [novaAberta, setNovaAberta] = useState(false);
   const [novoGrupo, setNovoGrupo] = useState(false);
   const [novoNome, setNovoNome] = useState("");
@@ -310,6 +311,26 @@ export default function ChatInternoView() {
     e?.preventDefault();
     if (!texto.trim()) return;
     enviarMensagem({ corpo: texto });
+  }
+
+  // Encaminha um áudio/imagem/arquivo já enviado pra outra conversa —
+  // reaproveita o mesmo arquivo em /uploads, sem regravar (ver rota).
+  async function encaminharParaConversa(destinoId) {
+    const m = encaminharMsg;
+    setEncaminharMsg(null);
+    if (!m || !destinoId) return;
+    await fetch(`/api/chat-interno/${destinoId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mediaUrl: m.mediaUrl,
+        mediaKind: m.mediaKind,
+        mediaMime: m.mediaMime,
+        mediaNome: m.mediaNome,
+      }),
+    });
+    if (destinoId === selecionada) carregarDetalhe(selecionada);
+    carregarConversas();
   }
 
   function escolherArquivo(e) {
@@ -707,6 +728,14 @@ export default function ChatInternoView() {
                             >
                               responder
                             </button>
+                            {m.mediaUrl && (
+                              <button
+                                onClick={() => setEncaminharMsg(m)}
+                                className={`opacity-0 group-hover:opacity-100 transition-opacity underline ${claro ? "text-slate-500" : "text-emerald-100"}`}
+                              >
+                                encaminhar
+                              </button>
+                            )}
                             {(minha || eu?.role === "admin") && (
                               <button
                                 onClick={() => apagarMensagem(m)}
@@ -891,6 +920,32 @@ export default function ChatInternoView() {
           onClose={() => setLeadAberta(null)}
           onChanged={() => carregarDetalhe(selecionada)}
         />
+      )}
+
+      {encaminharMsg && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEncaminharMsg(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800 mb-3">Encaminhar pra…</h3>
+            <ul className="divide-y divide-slate-50 max-h-64 overflow-y-auto thin-scroll">
+              {conversas
+                .filter((c) => c.id !== selecionada)
+                .map((c) => (
+                  <li key={c.id}>
+                    <button
+                      onClick={() => encaminharParaConversa(c.id)}
+                      className="w-full text-left py-2 text-sm text-slate-700 hover:text-emerald-600"
+                    >
+                      {c.titulo}
+                    </button>
+                  </li>
+                ))}
+              {conversas.length <= 1 && <p className="text-xs text-slate-400 py-2">Nenhuma outra conversa pra encaminhar.</p>}
+            </ul>
+            <button onClick={() => setEncaminharMsg(null)} className="mt-3 text-xs text-slate-400 hover:text-slate-600">
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -137,6 +137,22 @@ export async function POST(req, { params }) {
     respondeAId = texto(body.respondeAId) || null;
     contactId = texto(body.contactId) || null;
     prioridade = texto(body.prioridade) || null;
+
+    // Encaminhar mensagem já existente (áudio, imagem, arquivo): reaproveita
+    // o mesmo arquivo em /uploads em vez de reenviar o binário — o front só
+    // manda o caminho de uma mensagem que ele já pode ver. Só aceita caminho
+    // dentro de /uploads/ (nunca um path arbitrário do disco) e kind da lista
+    // fechada, pra não abrir brecha de path traversal nem de dado inventado.
+    const mediaUrlIn = texto(body.mediaUrl);
+    const mediaKindIn = texto(body.mediaKind);
+    if (mediaUrlIn && mediaUrlIn.startsWith("/uploads/") && ["image", "audio", "document"].includes(mediaKindIn)) {
+      midia = {
+        mediaUrl: mediaUrlIn,
+        mediaKind: mediaKindIn,
+        mediaMime: texto(body.mediaMime) || null,
+        mediaNome: texto(body.mediaNome) || null,
+      };
+    }
   }
 
   // Mensagem sem texto é válida quando tem anexo (um print, um áudio) ou
