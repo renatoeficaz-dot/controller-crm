@@ -17,6 +17,20 @@ const EMOJIS = [
 const fmtHora = (d) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
+// Não tem "entrega" separada aqui (não é WhatsApp — a mensagem já cai direto
+// no banco de todo mundo): só ✓ enviado e ✓✓ azul quando TODOS os outros
+// participantes já leram (lidoAte de cada um >= quando a mensagem foi criada).
+function mensagemLidaPorTodos(m, membros, euId) {
+  const criadaEm = new Date(m.createdAt).getTime();
+  const outros = (membros || []).filter((x) => x.id !== euId);
+  if (!outros.length) return false;
+  return outros.every((x) => x.lidoAte && new Date(x.lidoAte).getTime() >= criadaEm);
+}
+
+function TicksChatInterno({ lido }) {
+  return <span className={lido ? "text-sky-300" : ""} title={lido ? "Lido" : "Enviado"}>{lido ? "✓✓" : "✓"}</span>;
+}
+
 function iniciais(nome) {
   return (nome || "?")
     .split(" ")
@@ -719,6 +733,9 @@ export default function ChatInternoView() {
                         <span>
                           {fmtDia(m.createdAt)} {fmtHora(m.createdAt)}
                         </span>
+                        {minha && !m.apagada && (
+                          <TicksChatInterno lido={mensagemLidaPorTodos(m, detalhe?.membros, eu?.id)} />
+                        )}
                         {m.resolvido && m.resolvidoPor && <span className="text-emerald-600">✓ {m.resolvidoPor}</span>}
                         {!m.apagada && (
                           <>

@@ -88,7 +88,9 @@ export async function GET(_req, { params }) {
     id: conversa.id,
     nome: conversa.nome,
     grupo: conversa.grupo,
-    membros: conversa.membros.map((m) => ({ id: m.user.id, name: m.user.name })),
+    // lidoAte de cada membro (inclui o próprio usuário) — o front usa pra
+    // saber, mensagem a mensagem, se os OUTROS participantes já leram (✓✓).
+    membros: conversa.membros.map((m) => ({ id: m.user.id, name: m.user.name, lidoAte: m.lidoAte })),
     mensagens,
   });
 }

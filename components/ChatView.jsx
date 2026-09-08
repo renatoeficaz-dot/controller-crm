@@ -102,6 +102,15 @@ function fmtTime(iso) {
   return `${data} ${hora}`;
 }
 
+// ✓ enviado, ✓✓ cinza entregue (chegou no aparelho do cliente), ✓✓ azul lido
+// — igual ao WhatsApp. status vem do webhook do provedor (ver lib/webhookCommon.js
+// processMessageAck); enquanto o provedor não confirma nada, fica só o ✓.
+function TicksEnvio({ status }) {
+  if (status === "lido") return <span className="text-sky-300" title="Lido">✓✓</span>;
+  if (status === "entregue") return <span title="Entregue">✓✓</span>;
+  return <span title="Enviado">✓</span>;
+}
+
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -1258,6 +1267,9 @@ export default function ChatView() {
                           visual pro atendente — a mensagem aparecia como se tivesse ido normalmente. */}
                       {item.msg.fromMe && (item.msg.status === "falhou" || item.msg.status === "erro") && (
                         <span className="text-red-100 bg-red-500/80 rounded-full px-1.5 font-medium">falhou</span>
+                      )}
+                      {item.msg.fromMe && !["falhou", "erro"].includes(item.msg.status) && (
+                        <TicksEnvio status={item.msg.status} />
                       )}
                     </p>
                   </div>

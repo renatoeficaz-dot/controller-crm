@@ -5,14 +5,16 @@ import {
   extractIncomingLocation,
   extractIncomingContacts,
   fetchIncomingMediaBase64,
+  extractAcksEvolution,
   onlyDigits,
   telefoneDeJid,
   apenasLid,
 } from "@/lib/evolution";
-import { processIncomingMessage } from "@/lib/webhookCommon";
+import { processIncomingMessage, processMessageAck } from "@/lib/webhookCommon";
 import { webhookAutorizado } from "@/lib/webhookAuth";
 
-// Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp.
+// Webhook da Evolution API: recebe mensagens que o cliente manda no WhatsApp,
+// e as confirmações de entrega/leitura (✓✓) das que a gente manda.
 // Configure na Evolution para apontar para:  <seu-dominio>/api/webhook/evolution
 export async function POST(req) {
   // Só barra se um token estiver configurado — ver lib/webhookAuth.js.
@@ -24,6 +26,13 @@ export async function POST(req) {
 
   // Evolution v2 manda { event, instance, data: { key, message, pushName } }
   const event = payload.event || "";
+
+  if (event.toLowerCase() === "messages.update") {
+    for (const { waMessageId, status } of extractAcksEvolution(payload)) {
+      await processMessageAck(waMessageId, status);
+    }
+    return NextResponse.json({ ok: true });
+  }
   if (!event.includes("messages")) return NextResponse.json({ ok: true });
 
   const instance = payload.instance || "";

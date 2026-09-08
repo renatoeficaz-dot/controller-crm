@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { sendWhatsappText, sendWhatsappMedia, sendWhatsappAudio, sendWhatsappContact, resolveInstanceForContact } from "@/lib/evolution";
+import { sendWhatsappText, sendWhatsappMedia, sendWhatsappAudio, sendWhatsappContact, resolveInstanceForContact, extractSentMessageId } from "@/lib/evolution";
 import { getCurrentUser, mensagensWhere } from "@/lib/session";
 import { readMediaAsBase64 } from "@/lib/mediaStorage";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
@@ -138,6 +138,11 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: result.error, message: falhada }, { status: 502 });
   }
 
+  // Guarda o id que o provedor devolveu (quando dá pra achar) pra depois casar
+  // com os webhooks de "entregue"/"lido" (ver lib/webhookCommon.js) — sem
+  // isso o ✓✓ nunca teria como saber a qual mensagem nossa cada ack se refere.
+  const waMessageId = result.simulated ? null : extractSentMessageId(result.data);
+
   const message = await prisma.message.create({
     data: {
       contactId: id,
@@ -149,6 +154,7 @@ export async function POST(req, { params }) {
       fromMe: true,
       status: result.simulated ? "simulado" : "enviado",
       instance: instanceHint || null,
+      waMessageId,
     },
   });
 
