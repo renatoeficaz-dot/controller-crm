@@ -218,7 +218,18 @@ export async function PATCH(req, { params }) {
     }
   
     if (entrandoRecebimento) {
-      await sendRecebimentoNotice(updated).catch(() => {});
+      // "Passamos o empréstimo pro cobrador da sua região, o valor foi
+      // enviado" só faz sentido no PRIMEIRO empréstimo — apresenta o
+      // cobrador e afirma que o dinheiro acabou de sair. Numa renovação
+      // (cicloAtual > 1) o cliente já conhece o cobrador, e mandar de novo
+      // essa mensagem fixa arrisca avisar "o valor foi enviado" pro cliente
+      // antes da hora — reportado por kbrito: "nois ja enviou a msg como ja
+      // tivesse na conta mais nem mandei" (mesma causa da mensagem de vídeo
+      // chamada disparando em renovação, corrigida ontem em
+      // lib/videoChamadaCobrador.js).
+      if ((updated.cicloAtual || 1) <= 1) {
+        await sendRecebimentoNotice(updated).catch(() => {});
+      }
       await lancarLiberacaoCapital(updated).catch(() => {});
     }
 
