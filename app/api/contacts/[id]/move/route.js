@@ -8,7 +8,7 @@ import { limiteEscalonado } from "@/lib/escalonamento";
 import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { criarTarefaLiberarPagamento } from "@/lib/tarefaLiberarPagamento";
-import { getSession } from "@/lib/session";
+import { getSession, getCurrentUser } from "@/lib/session";
 import { escolherPorCarga } from "@/lib/distribuicao";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
@@ -27,8 +27,14 @@ export async function PATCH(req, { params }) {
     if (negado) return negado;
     const { stageId, forcar: forcarPedido, motivoPerda } = await lerCorpo(req);
     const session = await getSession();
+    // Cargo direto no banco, não no cookie de sessão: o cookie grava o
+    // cargo de quando a pessoa LOGOU (dura até 30 dias) — promovido a
+    // admin depois de logado continuava sem poder forçar até deslogar e
+    // logar de novo (mesma causa do bug "R$ 400 não vira" na renovação,
+    // ver app/api/contacts/[id]/renovar/route.js).
+    const usuarioAtual = await getCurrentUser();
     // Só admin pode forçar (ignorar bloqueio de CPF / limite de escalonamento).
-    const forcar = !!forcarPedido && session?.role === "admin";
+    const forcar = !!forcarPedido && usuarioAtual?.role === "admin";
 
     // Sem isso, um corpo sem stageId virava findUnique({ where: { id: undefined } }),
     // que o Prisma recusa lançando erro — a rota estourava 500 antes de chegar

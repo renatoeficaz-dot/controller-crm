@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { gerarParcelas } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
-import { getSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo } from "@/lib/corpo";
 import { criarTarefaLiberarPagamento } from "@/lib/tarefaLiberarPagamento";
@@ -47,9 +47,15 @@ export async function POST(req, { params }) {
   const pct = config?.honorariosPct ?? 30;
 
   if (config?.escalonamentoAtivo && !body.forcar) {
-    const session = await getSession();
+    // Busca o cargo direto no banco, não do cookie de sessão: o cookie
+    // grava o cargo de quando a pessoa LOGOU (dura até 30 dias) — alguém
+    // promovido a admin depois de logado continuava barrado aqui até
+    // deslogar e logar de novo. Foi exatamente o que aconteceu com o
+    // kbrito: já era admin no banco, mas a sessão antiga ainda dizia que
+    // não era, e "R$ 400 não vira" numa renovação continuava bloqueando.
+    const usuario = await getCurrentUser();
     const limite = limiteEscalonado(novoCiclo, config);
-    if (valorCapital > limite && session?.role !== "admin") {
+    if (valorCapital > limite && usuario?.role !== "admin") {
       return NextResponse.json(
         { error: `Valor acima do limite do ciclo ${novoCiclo} (R$ ${limite}). Só um administrador pode liberar acima do limite.`, escalonamentoExcedido: true, limite },
         { status: 422 }
