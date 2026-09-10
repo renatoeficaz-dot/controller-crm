@@ -63,9 +63,9 @@ export async function DELETE(_req, { params }) {
     where: { conversaId_userId: { conversaId: msg.conversaId, userId: user.id } },
   });
   if (!membro) return NextResponse.json({ error: "Sem acesso a essa conversa." }, { status: 403 });
-  if (msg.autorId !== user.id && !isAdmin(user)) {
-    return NextResponse.json({ error: "Só quem escreveu (ou um admin) pode apagar." }, { status: 403 });
-  }
+  // Qualquer participante da conversa pode apagar qualquer mensagem — não só
+  // quem escreveu ou um admin. Pedido explícito: equipe pequena, uso interno,
+  // sem necessidade de restringir quem limpa uma mensagem enviada errada.
 
   // Zera o conteúdo junto: sem isso o texto/anexo continuava no banco e
   // voltaria pra tela em qualquer consulta que não filtrasse `apagada`.

@@ -755,14 +755,14 @@ export default function ChatInternoView() {
                                 encaminhar
                               </button>
                             )}
-                            {(minha || eu?.role === "admin") && (
-                              <button
-                                onClick={() => apagarMensagem(m)}
-                                className={`opacity-0 group-hover:opacity-100 transition-opacity underline ${claro ? "text-red-400 hover:text-red-600" : "text-emerald-100"}`}
-                              >
-                                apagar
-                              </button>
-                            )}
+                            {/* Qualquer participante pode apagar qualquer mensagem, não só
+                                quem escreveu ou um admin — pedido explícito. */}
+                            <button
+                              onClick={() => apagarMensagem(m)}
+                              className={`opacity-0 group-hover:opacity-100 transition-opacity underline ${claro ? "text-red-400 hover:text-red-600" : "text-emerald-100"}`}
+                            >
+                              apagar
+                            </button>
                           </>
                         )}
                       </div>
