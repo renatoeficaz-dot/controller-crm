@@ -1289,8 +1289,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
             {/* Horário de recebimento — só faz sentido pra quem não é uber (o
                 uber usa o horário limite geral de Configurações). O lembrete
-                diário desse cliente dispara 1h antes desse horário. */}
-            {form.tipoCliente && form.tipoCliente !== "uber" && (
+                diário desse cliente dispara 1h antes desse horário.
+                Antes exigia "Tipo de cliente" JÁ preenchido pra aparecer —
+                sem isso, dava pra ajustar o horário de um lead ainda sem
+                tipo definido, e o campo simplesmente sumia da tela sem
+                nenhum aviso do motivo (reportado pelo kbrito). Continua
+                escondido só pra quem já é uber de verdade. */}
+            {form.tipoCliente !== "uber" && (
               <label className="block">
                 <span className="text-xs text-slate-400">Horário de recebimento</span>
                 <input
