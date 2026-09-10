@@ -99,6 +99,31 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [descontoAberto, setDescontoAberto] = useState(null); // { parcela, valorPedido, motivo } | null
   const [enviandoDesconto, setEnviandoDesconto] = useState(false);
   const [descontoMsg, setDescontoMsg] = useState("");
+  const [enviarCampoMsg, setEnviarCampoMsg] = useState(null); // mensagem sendo mandada pra um campo do lead | null
+
+  // Campos do lead que fazem sentido receber o texto de uma mensagem — igual
+  // ao menu de "..." de cada mensagem no chat da aba de conversas.
+  const CAMPOS_ENVIAR = [
+    { chave: "notes", label: "Observações" },
+    { chave: "endereco", label: "Endereço" },
+    { chave: "cpf", label: "CPF" },
+    { chave: "pixChave", label: "Chave Pix" },
+    { chave: "pixNomeCompleto", label: "Nome completo (Pix)" },
+    { chave: "horarioRecebimento", label: "Horário de recebimento" },
+    { chave: "name", label: "Nome do lead" },
+  ];
+
+  async function enviarParaCampo(campo) {
+    const m = enviarCampoMsg;
+    setEnviarCampoMsg(null);
+    if (!m || !(m.body || "").trim()) return;
+    await fetch(`/api/contacts/${contactId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [campo]: m.body.trim() }),
+    });
+    loadContact();
+  }
 
   async function pedirDesconto() {
     if (!descontoAberto?.valorPedido || !descontoAberto?.motivo?.trim()) return;
@@ -2036,12 +2061,27 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             ) : (
               <div
                 key={item.msg.id}
-                className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                  item.msg.fromMe
-                    ? "self-end bg-emerald-500 text-white"
-                    : "self-start bg-white border border-slate-200 text-slate-700"
-                }`}
+                className={`group flex items-center gap-1 ${item.msg.fromMe ? "self-end justify-end" : "self-start justify-start"}`}
               >
+                {(item.msg.body || "").trim() && (
+                  <span className={`shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${item.msg.fromMe ? "order-first" : ""}`}>
+                    <button
+                      type="button"
+                      title="Mandar pra um campo do lead"
+                      onClick={() => setEnviarCampoMsg(item.msg)}
+                      className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-emerald-600 hover:bg-slate-100 text-base leading-none"
+                    >
+                      ⋮
+                    </button>
+                  </span>
+                )}
+                <div
+                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                    item.msg.fromMe
+                      ? "bg-emerald-500 text-white"
+                      : "bg-white border border-slate-200 text-slate-700"
+                  }`}
+                >
                 {item.msg.instance && numbers.length > 1 && (
                   <p className={`flex items-center gap-1 text-[10px] mb-0.5 ${item.msg.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
                     <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(item.msg.instance, numbers)}
@@ -2068,6 +2108,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     </>
                   )}
                 </span>
+                </div>
               </div>
             ))}
             <div ref={chatEnd} />
@@ -2309,6 +2350,28 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
       {pixAberto && <PixModal parcela={pixAberto} onClose={() => setPixAberto(null)} />}
       {documentosAberto && <DocumentosPopup contactId={contactId} messages={messages} onClose={() => setDocumentosAberto(false)} />}
+
+      {enviarCampoMsg && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEnviarCampoMsg(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800 mb-1">Mandar pra qual campo?</h3>
+            <p className="text-xs text-slate-400 mb-3 line-clamp-2">"{enviarCampoMsg.body}"</p>
+            <div className="space-y-0.5">
+              {CAMPOS_ENVIAR.map((c) => (
+                <button
+                  key={c.chave}
+                  type="button"
+                  onClick={() => enviarParaCampo(c.chave)}
+                  className="w-full text-left text-sm text-slate-700 hover:bg-slate-50 rounded-lg px-2.5 py-2"
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setEnviarCampoMsg(null)} className="mt-3 text-xs text-slate-400 hover:text-slate-600">Cancelar</button>
+          </div>
+        </div>
+      )}
       {agendarAberto && (
         <AgendarMensagemModal
           contactId={contactId}
