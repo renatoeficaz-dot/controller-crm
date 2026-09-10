@@ -117,10 +117,60 @@ export async function PATCH(req, { params }) {
   // Baixar a parcela conclui a tarefa de cobrança vinculada
   await prisma.task.updateMany({ where: { parcelaId: id }, data: { done: paid } });
 
-  // Gera/remove/atualiza o lançamento financeiro automático
+  // Gera/remove/atualiza o lançamento financeiro automático.
+  //
+  // BUG REAL (achado em 10/09, reportado pelo kbrito — caso do Reinan):
+  // uma parcela pode já ter lançamento(s) de "baixa parcial" (cada baixa
+  // parcial gera o SEU PRÓPRIO lançamento, em lib/parcelas/[id]/baixa-
+  // parcial/route.js). Dar baixa AQUI direto (botão normal, não parcial)
+  // numa parcela que já tinha parcial:
+  //   - achava (findFirst, sem filtro nenhum) UM lançamento qualquer —
+  //     podia ser um dos parciais — e SOBRESCREVIA o valor dele pro total
+  //     cheio, inflando um lançamento pequeno e legítimo;
+  //   - ao estornar essa baixa, apagava TODOS os lançamentos da parcela
+  //     (deleteMany sem filtro de descrição) — inclusive os parciais que
+  //     não tinham nada a ver com a baixa estornada.
+  // Resultado: R$ 15,50 de baixas parciais reais do Reinan (3 lançamentos
+  // de dias diferentes) sumiram do caixa quando uma baixa cheia feita por
+  // engano foi estornada 10s depois — a parcela continuou "lembrando" do
+  // valor (valorPago), mas o caixa perdeu o rastro de onde veio.
+  //
+  // Fix: essa rota só mexe nos lançamentos QUE ELA MESMA cria (descrição
+  // "Parcela Nª — nome", sem o prefixo "Baixa parcial —"/"Pagamento
+  // adiantado —" que só a rota de baixa parcial usa) — nunca toca nem
+  // apaga lançamento de baixa parcial alheio. Completando uma parcela que
+  // já tinha parcial, lança só a DIFERENÇA que falta pro total, em vez de
+  // reescrever um lançamento existente.
+  const novaCompletagem = paid && !parcelaAtual.paid;
+  const descricaoPropria = `Parcela ${parcela.number}ª — ${parcela.contact?.name || ""}`.trim();
   if (paid) {
-    const existente = await prisma.lancamento.findFirst({ where: { parcelaId: parcela.id } });
-    if (existente) {
+    const existente = await prisma.lancamento.findFirst({
+      where: { parcelaId: parcela.id, description: { startsWith: `Parcela ${parcela.number}ª` } },
+    });
+    if (novaCompletagem) {
+      // Nova conclusão: nunca reescreve lançamento alheio (parcial). Só
+      // lança a diferença entre o total e o que outros lançamentos dessa
+      // parcela (parciais inclusive) já somam — evita cobrar/registrar o
+      // mesmo dinheiro duas vezes.
+      const todos = await prisma.lancamento.findMany({ where: { parcelaId: parcela.id }, select: { amount: true } });
+      const jaLancado = todos.reduce((s, l) => s + l.amount, 0);
+      const diferenca = Math.round((amountPago - jaLancado) * 100) / 100;
+      if (diferenca > 0.01) {
+        const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
+        await prisma.lancamento.create({
+          data: {
+            type: "entrada",
+            amount: diferenca,
+            description: descricaoPropria,
+            contactId: parcela.contactId,
+            parcelaId: parcela.id,
+            bancoId: cfg?.contaRecebimentoId || null,
+          },
+        });
+      }
+    } else if (existente) {
+      // Correção de valor de uma baixa já feita (editar_valor_baixa) — só
+      // ajusta o lançamento que essa rota mesma criou antes.
       await prisma.lancamento.update({ where: { id: existente.id }, data: { amount: amountPago } });
     } else {
       const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
@@ -128,7 +178,7 @@ export async function PATCH(req, { params }) {
         data: {
           type: "entrada",
           amount: amountPago,
-          description: `Parcela ${parcela.number}ª — ${parcela.contact?.name || ""}`.trim(),
+          description: descricaoPropria,
           contactId: parcela.contactId,
           parcelaId: parcela.id,
           bancoId: cfg?.contaRecebimentoId || null,
@@ -136,7 +186,9 @@ export async function PATCH(req, { params }) {
       });
     }
   } else {
-    await prisma.lancamento.deleteMany({ where: { parcelaId: parcela.id } });
+    await prisma.lancamento.deleteMany({
+      where: { parcelaId: parcela.id, description: { startsWith: `Parcela ${parcela.number}ª` } },
+    });
   }
 
   // O score comportamental depende do histórico de pagamento — recalcula aqui
