@@ -877,30 +877,65 @@ function fmtDuracao(segundos) {
   return `${h}h${m > 0 ? ` ${m}min` : ""}`;
 }
 
+const hojeISO = () => new Date().toLocaleDateString("en-CA");
+const diasAtrasISO = (n) => new Date(Date.now() - n * 86400000).toLocaleDateString("en-CA");
+
 export function UsoSistemaConfig() {
   const [lista, setLista] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [de, setDe] = useState(diasAtrasISO(6));
+  const [ate, setAte] = useState(hojeISO());
 
-  useEffect(() => {
-    fetch("/api/uso").then((r) => (r.ok ? r.json() : [])).then((d) => { setLista(Array.isArray(d) ? d : []); setLoading(false); }).catch(() => setLoading(false));
-  }, []);
+  function carregar(deVal, ateVal) {
+    setLoading(true);
+    const qs = new URLSearchParams({ de: deVal, ate: ateVal });
+    fetch(`/api/uso?${qs}`).then((r) => (r.ok ? r.json() : [])).then((d) => { setLista(Array.isArray(d) ? d : []); setLoading(false); }).catch(() => setLoading(false));
+  }
 
-  if (loading) return null;
+  useEffect(() => { carregar(de, ate); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function aplicarPreset(dias) {
+    const novoDe = dias === 0 ? hojeISO() : diasAtrasISO(dias - 1);
+    const novoAte = hojeISO();
+    setDe(novoDe);
+    setAte(novoAte);
+    carregar(novoDe, novoAte);
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
       <div className="p-5 border-b border-slate-100">
         <Cabecalho icone="relogio" titulo="Tempo de uso do sistema" subtitulo="Só conta enquanto a pessoa está de fato mexendo (mouse/teclado) — aba aberta parada não soma." />
+        <div className="flex flex-wrap items-end gap-2 mt-3">
+          <label className="block">
+            <span className="text-xs text-slate-500">De</span>
+            <input type="date" value={de} max={ate} onChange={(e) => setDe(e.target.value)} className="block mt-0.5 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400" />
+          </label>
+          <label className="block">
+            <span className="text-xs text-slate-500">Até</span>
+            <input type="date" value={ate} min={de} max={hojeISO()} onChange={(e) => setAte(e.target.value)} className="block mt-0.5 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400" />
+          </label>
+          <button onClick={() => carregar(de, ate)} className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 hover:bg-emerald-600">
+            Consultar
+          </button>
+          <div className="flex gap-1 ml-auto">
+            <button onClick={() => aplicarPreset(0)} className="text-xs text-slate-500 hover:text-emerald-600 border border-slate-200 rounded-lg px-2.5 py-1.5">Hoje</button>
+            <button onClick={() => aplicarPreset(7)} className="text-xs text-slate-500 hover:text-emerald-600 border border-slate-200 rounded-lg px-2.5 py-1.5">7 dias</button>
+            <button onClick={() => aplicarPreset(30)} className="text-xs text-slate-500 hover:text-emerald-600 border border-slate-200 rounded-lg px-2.5 py-1.5">30 dias</button>
+          </div>
+        </div>
       </div>
-      {lista.length === 0 ? (
-        <p className="text-sm text-slate-400 p-6 text-center">Sem uso registrado ainda.</p>
+      {loading ? (
+        <p className="text-sm text-slate-400 p-6 text-center">Carregando…</p>
+      ) : lista.length === 0 ? (
+        <p className="text-sm text-slate-400 p-6 text-center">Sem uso registrado nesse período.</p>
       ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs text-slate-400 border-b border-slate-100">
               <th className="text-left font-medium py-2 px-5">Pessoa</th>
               <th className="text-right font-medium py-2 px-5">Hoje</th>
-              <th className="text-right font-medium py-2 px-5">Últimos 7 dias</th>
+              <th className="text-right font-medium py-2 px-5">Total no período</th>
               <th className="text-right font-medium py-2 px-5">Média/dia (com uso)</th>
             </tr>
           </thead>
@@ -909,8 +944,8 @@ export function UsoSistemaConfig() {
               <tr key={u.usuario} className="border-b border-slate-50 last:border-0">
                 <td className="py-2 px-5 text-slate-700">{u.usuario}</td>
                 <td className="py-2 px-5 text-right text-slate-600">{fmtDuracao(u.hojeSegundos)}</td>
-                <td className="py-2 px-5 text-right text-slate-600">{fmtDuracao(u.semanaSegundos)}</td>
-                <td className="py-2 px-5 text-right text-slate-400">{fmtDuracao(Math.round(u.semanaSegundos / (u.diasComUso || 1)))}</td>
+                <td className="py-2 px-5 text-right text-slate-600">{fmtDuracao(u.periodoSegundos)}</td>
+                <td className="py-2 px-5 text-right text-slate-400">{fmtDuracao(Math.round(u.periodoSegundos / (u.diasComUso || 1)))}</td>
               </tr>
             ))}
           </tbody>
