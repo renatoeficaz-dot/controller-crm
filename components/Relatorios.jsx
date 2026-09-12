@@ -17,6 +17,14 @@ const money = (n) =>
 // data pura o JS assume UTC e, em UTC-3, o dia voltava um.
 const fmtDia = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "");
 
+// "YYYY-MM-DD" de ontem, no fuso de Brasília (mesmo motivo de hojeStr: sem
+// fixar o fuso, perto da meia-noite o cálculo cai no dia errado).
+function ontemStr() {
+  const d = new Date(hojeStr() + "T12:00:00");
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString("en-CA");
+}
+
 // "YYYY-MM-DD" do 1º dia do mês corrente
 function inicioMesStr() {
   const d = new Date();
@@ -32,6 +40,7 @@ function inicioSemanaStr() {
 
 const PRESETS = [
   { key: "hoje", label: "Hoje", range: () => [hojeStr(), hojeStr()] },
+  { key: "ontem", label: "Ontem", range: () => [ontemStr(), ontemStr()] },
   { key: "semana", label: "Esta semana", range: () => [inicioSemanaStr(), fimSemanaStr()] },
   { key: "mes", label: "Este mês", range: () => [inicioMesStr(), fimMesStr()] },
   { key: "tudo", label: "Todo período", range: () => ["2000-01-01", hojeStr()] },
@@ -841,31 +850,19 @@ export default function Relatorios() {
   // (ex.: semana anterior), esse cálculo usava a carteira de HOJE em
   // Recebimento — não a carteira que existia NAQUELE período. Uma semana
   // passada com carteira bem diferente da atual saía com o "custo médio"
-  // errado (fixo no valor de hoje). Corrigido: busca no servidor, via
-  // EtapaLog, o capital que estava em "Recebimento" na DATA FINAL do
-  // período filtrado (fim) — reconstrói a carteira histórica de verdade em
-  // vez de usar sempre o estado atual. Quando fim = hoje, dá o mesmo valor
-  // de antes (a carteira atual).
-  const [capitalEmRecebimento, setCapitalEmRecebimento] = useState(0);
-  useEffect(() => {
-    fetch(`/api/relatorios/capital-historico?data=${fim}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setCapitalEmRecebimento(d?.capitalEmRecebimento || 0))
-      .catch(() => setCapitalEmRecebimento(0));
-  }, [fim]);
   const balancoPeriodo = useMemo(() => {
     const planejado = planejadoNoPeriodo(stagesFiltrados, ini, fim);
     const liberado = liberadoNoPeriodo(stagesFiltrados, ini, fim);
     const dias = Math.max(1, Math.round((new Date(fim) - new Date(ini)) / 86400000) + 1);
-    // custoMedioDiario é o capital em Recebimento dividido pelo nº de
-    // parcelas — representa o custo de UM dia de operação, não do período
-    // inteiro. Multiplicá-lo pelos dias do período ("custoMedioPeriodo")
-    // era o bug antigo: pra uma semana/mês o valor explodia sem limite (um
-    // mês de 30 dias virava 3x o capital da carteira). Aqui usamos ele
-    // direto (sem multiplicar pelos dias) — pedido explícito de Renato pra
-    // bater com o que o simulador já fazia: lucro bruto = recebido - custo
-    // médio, não recebido - planejado.
-    const custoMedioDiario = capitalEmRecebimento / NUM_PARCELAS;
+    // custoMedioDiario é o capital que os clientes PEGARAM (liberado, pela
+    // data de pagamentoCapital) DENTRO DO PERÍODO FILTRADO, dividido pelo nº
+    // de parcelas — não é mais um snapshot do capital em Recebimento numa
+    // única data. Isso já soma corretamente pra períodos de vários dias (uma
+    // semana com 5 clientes que pegaram capital em dias diferentes soma os 5
+    // automaticamente, sem precisar multiplicar nada por "dias do período" —
+    // multiplicar um snapshot de 1 dia pelos dias do período foi o bug antigo
+    // que explodia em períodos longos).
+    const custoMedioDiario = liberado / NUM_PARCELAS;
     const lucroBruto = recebido - custoMedioDiario;
     // Lucro líquido: desconta do bruto a comissão que bateu meta no período
     // (estimativa — ver custoComissaoEstimado) e a fatia das contas a pagar
@@ -888,7 +885,7 @@ export default function Relatorios() {
       lucroLiquido,
       dias,
     };
-  }, [stagesFiltrados, ini, fim, recebido, capitalEmRecebimento, comissaoCfg, totalContasPagar, totalOutrasSaidas]);
+  }, [stagesFiltrados, ini, fim, recebido, comissaoCfg, totalContasPagar, totalOutrasSaidas]);
 
   // Simulador "e se eu tivesse X clientes em Recebimento" — pega a MÉDIA por
   // cliente de hoje (ticket, planejado por dia, taxa de recebimento) e projeta
@@ -1504,9 +1501,10 @@ export default function Relatorios() {
               </p>
             </div>
             <p className="col-span-2 sm:col-span-3 text-[10px] text-slate-400 leading-relaxed">
-              "Planejado" é pelo vencimento (não pelo pagamento). "Custo médio/dia" é só informativo — capital em Recebimento no fim do período
-              ({money(capitalEmRecebimento)}) ÷ {NUM_PARCELAS} parcelas, não entra no lucro. "Comissão" usa só a meta padrão de recuperação. "Contas
-              a pagar"/"Outras saídas" são rateadas pelos dias úteis do mês, só a fatia do período filtrado entra na conta.
+              "Planejado" é pelo vencimento (não pelo pagamento). "Custo médio/dia" é o capital liberado aos clientes dentro do período filtrado
+              ({money(balancoPeriodo.liberado)}) ÷ {NUM_PARCELAS} parcelas — entra no lucro bruto (recebido − custo médio). "Comissão" usa só a
+              meta padrão de recuperação. "Contas a pagar"/"Outras saídas" são rateadas pelos dias úteis do mês, só a fatia do período filtrado
+              entra na conta.
             </p>
           </div>
 
