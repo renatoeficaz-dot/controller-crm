@@ -1249,48 +1249,26 @@ export default function Relatorios() {
         </div>
       )}
 
-      {/* Indicadores gerais */}
-      <section>
-        <h2 className="text-sm font-semibold text-slate-700 mb-2">Visão geral</h2>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <p className="text-xs text-slate-400">Novas vendas (período)</p>
-            <p className="text-2xl font-semibold mt-1 text-violet-600">{novasVendas}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <p className="text-xs text-slate-400">Renovações (leads com ciclo &gt; 1)</p>
-            <p className="text-2xl font-semibold mt-1 text-amber-600">{renovacoes}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* A receber */}
-      <section>
-        <h2 className="text-sm font-semibold text-slate-700 mb-2">A receber</h2>
-        <div className="grid sm:grid-cols-3 gap-4">
-          <Card titulo="Hoje" valor={receber.dia} cor="emerald" />
-          <Card titulo="Esta semana" valor={receber.semana} cor="sky" />
-          <Card titulo="Este mês" valor={receber.mes} cor="violet" />
-        </div>
-        <p className="text-xs text-slate-400 mt-1">
-          Parcelas em aberto que vencem de hoje até o fim de cada período (já com multa de {multaPct}% nas vencidas).
-        </p>
-      </section>
-
-      {/* Total recebido por período — período agora é escolhido no botão "Filtros" no topo */}
+      {/* Indicadores gerais + A receber + Total recebido — tudo numa linha só */}
       <section>
         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-          <h2 className="text-sm font-semibold text-slate-700">Total recebido</h2>
+          <h2 className="text-sm font-semibold text-slate-700">Resumo</h2>
           <button onClick={() => setFiltrosAbertos(true)} className="text-xs text-sky-600 hover:text-sky-700">
             {PRESETS.find((p) => p.key === preset)?.label || "Período personalizado"} — trocar
           </button>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-3xl font-semibold text-emerald-600">{money(recebido)}</p>
-          <p className="text-xs text-slate-400 mt-1">
-            Recebido entre {ini} e {fim} (parcelas baixadas no período).
-          </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <CardCompacto titulo="Novas vendas" valor={novasVendas} cor="text-violet-600" numero />
+          <CardCompacto titulo="Renovações" valor={renovacoes} cor="text-amber-600" numero />
+          <CardCompacto titulo="A receber hoje" valor={receber.dia} cor="text-emerald-600" />
+          <CardCompacto titulo="A receber semana" valor={receber.semana} cor="text-sky-600" />
+          <CardCompacto titulo="A receber mês" valor={receber.mes} cor="text-violet-600" />
+          <CardCompacto titulo="Total recebido" valor={recebido} cor="text-emerald-600" />
         </div>
+        <p className="text-xs text-slate-400 mt-1">
+          "A receber" = parcelas em aberto que vencem até o fim de cada período (já com multa de {multaPct}% nas vencidas).
+          "Total recebido" = baixado entre {ini} e {fim}.
+        </p>
       </section>
 
       {/* Balanço do período: compensou? deu lucro? */}
@@ -2561,6 +2539,17 @@ function Card({ titulo, valor, cor }) {
     <div className="bg-white rounded-xl border border-slate-200 p-5">
       <p className="text-xs text-slate-400">{titulo}</p>
       <p className={`text-2xl font-semibold mt-1 ${CORES[cor] || "text-slate-700"}`}>{money(valor)}</p>
+    </div>
+  );
+}
+
+// Versão compacta do Card (padding e fonte menores) — pra caber vários lado a
+// lado numa linha só em telas grandes, em vez de espalhar em várias seções.
+function CardCompacto({ titulo, valor, cor, numero }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-3">
+      <p className="text-[11px] text-slate-400 truncate">{titulo}</p>
+      <p className={`text-lg font-semibold mt-0.5 ${cor || "text-slate-700"}`}>{numero ? valor : money(valor)}</p>
     </div>
   );
 }
