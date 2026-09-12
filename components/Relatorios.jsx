@@ -892,6 +892,40 @@ export default function Relatorios() {
     };
   }, [stagesFiltrados, ini, fim, recebido, capitalEmRecebimento, comissaoCfg, totalContasPagar, totalOutrasSaidas]);
 
+  // Simulador "e se eu tivesse X clientes em Recebimento" — pega a MÉDIA por
+  // cliente de hoje (ticket, planejado por dia, taxa de recebimento) e projeta
+  // pra um número hipotético de clientes. Contas a pagar/outras saídas são
+  // custo fixo da operação (gasolina, contas do mês) — não escalam com a
+  // quantidade de cliente, então ficam como estão hoje na simulação.
+  const clientesAtualEmRecebimento = useMemo(
+    () => contatosFiltrados.filter((c) => c._stage === "Recebimento").length,
+    [contatosFiltrados]
+  );
+  const [simClientes, setSimClientes] = useState("");
+  const simulacao = useMemo(() => {
+    const base = clientesAtualEmRecebimento || 0;
+    const x = Number(simClientes);
+    if (!x || x <= 0 || base <= 0) return null;
+    const fator = x / base;
+    const planejado = balancoPeriodo.planejado * fator;
+    const taxaRecebimento = balancoPeriodo.planejado > 0 ? recebido / balancoPeriodo.planejado : 0;
+    const recebidoSim = planejado * taxaRecebimento;
+    const custoMedioDiario = balancoPeriodo.custoMedioDiario * fator;
+    const lucroBruto = recebidoSim - planejado;
+    const comissaoEstimada = balancoPeriodo.comissaoEstimada * fator;
+    const lucroLiquido = lucroBruto - comissaoEstimada - balancoPeriodo.custoContasPagarPeriodo - balancoPeriodo.outrasSaidas;
+    return {
+      x,
+      planejado,
+      recebido: recebidoSim,
+      pctMeta: balancoPeriodo.pctMeta,
+      custoMedioDiario,
+      lucroBruto,
+      comissaoEstimada,
+      lucroLiquido,
+    };
+  }, [clientesAtualEmRecebimento, simClientes, balancoPeriodo, recebido]);
+
   // Funil: quantos leads em cada etapa do Kanban (usa a cor já configurada na coluna).
   const funilData = useMemo(
     () => stagesFiltrados.map((s) => ({ label: s.name, value: (s.contacts || []).length, color: s.color || "#64748b" })),
@@ -1398,76 +1432,95 @@ export default function Relatorios() {
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           O período compensou? <span className="text-slate-400 font-normal">— recebido x planejado x liberado, no mesmo filtro de datas</span>
         </h2>
-        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-          <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid lg:grid-cols-[1fr_260px] gap-3 items-start">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div>
-              <p className="text-xs text-slate-400">Planejado pra vencer no período</p>
-              <p className="text-xl font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.planejado)}</p>
+              <p className="text-[11px] text-slate-400">Planejado no período</p>
+              <p className="text-base font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.planejado)}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-400">Recebido no período</p>
-              <p className="text-xl font-semibold mt-0.5 text-emerald-600">{money(recebido)}</p>
+              <p className="text-[11px] text-slate-400">Recebido no período</p>
+              <p className="text-base font-semibold mt-0.5 text-emerald-600">{money(recebido)}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-400">Bateu a meta do período?</p>
-              <p className={`text-xl font-semibold mt-0.5 ${balancoPeriodo.diferencaRecebido >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                {balancoPeriodo.pctMeta}% {balancoPeriodo.diferencaRecebido >= 0 ? "" : `(faltou ${money(-balancoPeriodo.diferencaRecebido)})`}
-                {balancoPeriodo.diferencaRecebido > 0 && ` (sobrou ${money(balancoPeriodo.diferencaRecebido)})`}
+              <p className="text-[11px] text-slate-400">Bateu a meta?</p>
+              <p className={`text-base font-semibold mt-0.5 ${balancoPeriodo.diferencaRecebido >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                {balancoPeriodo.pctMeta}%
               </p>
             </div>
-          </div>
-          <div className="border-t border-slate-100 pt-4 grid sm:grid-cols-3 gap-4">
             <div>
-              <p className="text-xs text-slate-400">Custo médio diário do capital em Recebimento (informativo)</p>
-              <p className="text-xl font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.custoMedioDiario)}</p>
+              <p className="text-[11px] text-slate-400">Custo médio/dia (informativo)</p>
+              <p className="text-base font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.custoMedioDiario)}</p>
             </div>
-            <div className="sm:col-span-2">
-              <p className="text-xs text-slate-400">Lucro bruto (recebido − planejado pra vencer no período)</p>
-              <p className={`text-2xl font-semibold mt-0.5 ${balancoPeriodo.lucroBruto >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                {balancoPeriodo.lucroBruto >= 0 ? "Lucro bruto de " : "Prejuízo bruto de "}{money(Math.abs(balancoPeriodo.lucroBruto))}
+            <div className="col-span-2 sm:col-span-1">
+              <p className="text-[11px] text-slate-400">Lucro bruto (recebido − planejado)</p>
+              <p className={`text-lg font-bold mt-0.5 ${balancoPeriodo.lucroBruto >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                {money(balancoPeriodo.lucroBruto)}
               </p>
             </div>
-          </div>
-          <div className="border-t border-slate-100 pt-4 grid sm:grid-cols-4 gap-4">
             <div>
-              <p className="text-xs text-slate-400">Comissão estimada no período</p>
-              <p className="text-lg font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.comissaoEstimada)}</p>
+              <p className="text-[11px] text-slate-400">Comissão estimada</p>
+              <p className="text-base font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.comissaoEstimada)}</p>
             </div>
             <button
               type="button"
               onClick={() => listaContasPagar.length > 0 && setDetalheCustoAberto("contas")}
               className={`text-left ${listaContasPagar.length > 0 ? "cursor-pointer hover:opacity-70" : "cursor-default"}`}
             >
-              <p className="text-xs text-slate-400">Contas a pagar no período{listaContasPagar.length > 0 ? " — clique pra ver" : ""}</p>
-              <p className="text-lg font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.custoContasPagarPeriodo)}</p>
+              <p className="text-[11px] text-slate-400">Contas a pagar{listaContasPagar.length > 0 ? " — ver" : ""}</p>
+              <p className="text-base font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.custoContasPagarPeriodo)}</p>
             </button>
             <button
               type="button"
               onClick={() => listaOutrasSaidas.length > 0 && setDetalheCustoAberto("saidas")}
               className={`text-left ${listaOutrasSaidas.length > 0 ? "cursor-pointer hover:opacity-70" : "cursor-default"}`}
             >
-              <p className="text-xs text-slate-400">Outras saídas (gasolina, almoço etc.){listaOutrasSaidas.length > 0 ? " — clique pra ver" : ""}</p>
-              <p className="text-lg font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.outrasSaidas)}</p>
+              <p className="text-[11px] text-slate-400">Outras saídas{listaOutrasSaidas.length > 0 ? " — ver" : ""}</p>
+              <p className="text-base font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.outrasSaidas)}</p>
             </button>
-            <div>
-              <p className="text-xs text-slate-400">Lucro líquido</p>
+            <div className="col-span-2 sm:col-span-3 border-t border-slate-100 pt-3">
+              <p className="text-[11px] text-slate-400">Lucro líquido</p>
               <p className={`text-xl font-bold mt-0.5 ${balancoPeriodo.lucroLiquido >= 0 ? "text-emerald-700" : "text-red-600"}`}>
                 {money(balancoPeriodo.lucroLiquido)}
               </p>
             </div>
+            <p className="col-span-2 sm:col-span-3 text-[10px] text-slate-400 leading-relaxed">
+              "Planejado" é pelo vencimento (não pelo pagamento). "Custo médio/dia" é só informativo — capital em Recebimento no fim do período
+              ({money(capitalEmRecebimento)}) ÷ {NUM_PARCELAS} parcelas, não entra no lucro. "Comissão" usa só a meta padrão de recuperação. "Contas
+              a pagar"/"Outras saídas" são rateadas pelos dias úteis do mês, só a fatia do período filtrado entra na conta.
+            </p>
           </div>
-          <p className="text-[11px] text-slate-400">
-            "Planejado" é pelo vencimento da parcela (não pelo pagamento) — pagar antes ou depois do prazo ainda conta aqui pelo dia que deveria vencer.
-            "Lucro bruto" = recebido − planejado (a mesma comparação de "Bateu a meta do período?" acima, só que em R$ de sobra/falta).
-            "Custo médio diário" ao lado é só INFORMATIVO — capital que estava parado nos clientes em Recebimento no FIM do período filtrado
-            ({money(capitalEmRecebimento)}, reconstruído pelo histórico de mudança de etapa) ÷ {NUM_PARCELAS} parcelas do ciclo — NÃO entra na conta do
-            lucro (multiplicar esse valor pelos dias de períodos longos como um mês inteiro gerava número sem sentido, já que o mesmo capital
-            recicla várias vezes).
-            "Comissão estimada" usa só a meta/bônus padrão de recuperação (Configurações &gt; Comissão) — não inclui metas por colaborador, bônus
-            progressivo nem as outras métricas (análise, juros, cravo). "Contas a pagar" e "Outras saídas" (todo Lançamento de saída que não é
-            liberação de capital — gasolina, almoço, manutenção etc.) não pesam tudo de uma vez no dia do vencimento/lançamento: cada uma é rateada
-            pelos dias úteis (seg-sáb) do mês inteiro, e só a fatia dos dias dentro do período filtrado entra na conta.
-          </p>
+
+          {/* Simulador: "e se eu tivesse X clientes em Recebimento" */}
+          <div className="bg-slate-800 text-white rounded-xl p-4 space-y-2.5">
+            <p className="text-xs font-semibold text-slate-200">Simulador — e se tivesse X clientes?</p>
+            <p className="text-[10px] text-slate-400">
+              Hoje: {clientesAtualEmRecebimento} cliente{clientesAtualEmRecebimento === 1 ? "" : "s"} em Recebimento. Projeta pela média de hoje.
+            </p>
+            <input
+              type="number"
+              min="1"
+              value={simClientes}
+              onChange={(e) => setSimClientes(e.target.value)}
+              placeholder={`ex.: ${clientesAtualEmRecebimento || 50}`}
+              className="w-full text-sm bg-slate-900 border border-slate-600 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400 text-white placeholder:text-slate-500"
+            />
+            {!simulacao ? (
+              <p className="text-[11px] text-slate-500 pt-1">Digite um número de clientes pra simular.</p>
+            ) : (
+              <div className="space-y-2 pt-1 text-xs">
+                <div className="flex justify-between"><span className="text-slate-400">Planejado</span><span className="font-medium">{money(simulacao.planejado)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Recebido</span><span className="font-medium text-emerald-400">{money(simulacao.recebido)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Bateu a meta?</span><span className="font-medium">{simulacao.pctMeta}%</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Custo médio/dia</span><span className="font-medium">{money(simulacao.custoMedioDiario)}</span></div>
+                <div className="flex justify-between border-t border-slate-700 pt-1.5"><span className="text-slate-300">Lucro bruto</span><span className={`font-semibold ${simulacao.lucroBruto >= 0 ? "text-emerald-400" : "text-red-400"}`}>{money(simulacao.lucroBruto)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Comissão est.</span><span className="font-medium text-amber-400">− {money(simulacao.comissaoEstimada)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Contas + saídas</span><span className="font-medium text-amber-400">− {money(balancoPeriodo.custoContasPagarPeriodo + balancoPeriodo.outrasSaidas)}</span></div>
+                <div className="flex justify-between border-t border-slate-700 pt-1.5"><span className="text-slate-200 font-medium">Lucro líquido</span><span className={`font-bold ${simulacao.lucroLiquido >= 0 ? "text-emerald-400" : "text-red-400"}`}>{money(simulacao.lucroLiquido)}</span></div>
+                <p className="text-[10px] text-slate-500 pt-1">Contas a pagar/outras saídas ficam fixas (custo da operação não escala com cliente).</p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
