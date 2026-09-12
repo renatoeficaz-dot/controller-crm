@@ -57,7 +57,13 @@ export default function RelatoriosAvancado() {
                   <div key={h.hora} title={`${h.hora}h — ${h.qtd} resposta(s)`} className="flex-1 bg-emerald-400 rounded-t" style={{ height: `${Math.max(4, (h.qtd / maxHora) * 100)}%` }} />
                 ))}
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">0h — 23h</p>
+              <div className="flex gap-0.5 mt-0.5">
+                {melhorHorario.horas.map((h) => (
+                  <span key={h.hora} className="flex-1 text-center text-[8px] text-slate-400 leading-none">
+                    {h.hora % 2 === 0 ? h.hora : ""}
+                  </span>
+                ))}
+              </div>
               <p className="text-xs text-emerald-700 font-medium mt-2">
                 Picos: {melhorHorario.melhores.map((h) => `${h.hora}h`).join(", ") || "—"}
               </p>
@@ -104,7 +110,13 @@ export default function RelatoriosAvancado() {
               <div key={d.dia} title={`Dia ${d.dia} — ${d.qtd} pagamento(s), ${money(d.valor)}`} className="flex-1 bg-sky-400 rounded-t" style={{ height: `${Math.max(4, (d.qtd / maxDiaMes) * 100)}%` }} />
             ))}
           </div>
-          <p className="text-[10px] text-slate-400 mt-1">Dia 1 — 31</p>
+          <div className="flex gap-px mt-0.5">
+            {diaDoMes.map((d) => (
+              <span key={d.dia} className="flex-1 text-center text-[8px] text-slate-400 leading-none">
+                {d.dia % 2 === 1 ? d.dia : ""}
+              </span>
+            ))}
+          </div>
         </Cartao>
 
         <Cartao icone="dinheiro" titulo="Efeito do desconto na quitação à vista" subtitulo="Quanto o desconto custou, e se as pessoas costumam aceitar quando oferecido.">
@@ -189,18 +201,6 @@ export default function RelatoriosAvancado() {
       </Cartao>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <Cartao icone="grafico" titulo="Resumo semanal da carteira" subtitulo="Últimos 7 dias vs os 7 anteriores.">
-          <ul className="space-y-1.5 text-xs text-slate-600">
-            <li>Vendas: <strong>{resumoSemanal.atual.vendas}</strong> {resumoSemanal.variacaoVendas != null && (
-              <span className={resumoSemanal.variacaoVendas >= 0 ? "text-emerald-600" : "text-red-600"}>({resumoSemanal.variacaoVendas >= 0 ? "+" : ""}{resumoSemanal.variacaoVendas}%)</span>
-            )}</li>
-            <li>Valor recebido: <strong>{money(resumoSemanal.atual.valorRecebido)}</strong> {resumoSemanal.variacaoValorRecebido != null && (
-              <span className={resumoSemanal.variacaoValorRecebido >= 0 ? "text-emerald-600" : "text-red-600"}>({resumoSemanal.variacaoValorRecebido >= 0 ? "+" : ""}{resumoSemanal.variacaoValorRecebido}%)</span>
-            )}</li>
-            <li>Valor vendido: <strong>{money(resumoSemanal.atual.valorVendido)}</strong></li>
-          </ul>
-        </Cartao>
-
         <Cartao icone="check" titulo="Quitados no mês" subtitulo="Clientes que terminaram de pagar o ciclo atual este mês.">
           {quitados.length === 0 ? (
             <p className="text-xs text-slate-400">Ninguém quitou este mês ainda.</p>

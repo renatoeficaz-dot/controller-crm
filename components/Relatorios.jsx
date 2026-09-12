@@ -1734,6 +1734,7 @@ export default function Relatorios() {
                   data={recebidoPorCriacao}
                   color="#059669"
                   tooltip={(d) => `${d.label}: ${money(d.value)}`}
+                  valueFmt={money}
                 />
               </div>
             )}
@@ -1897,7 +1898,7 @@ export default function Relatorios() {
             <p className="text-sm text-slate-400 py-4">Nenhum recebimento registrado ainda.</p>
           ) : (
             <>
-              <p className="text-xs text-slate-400 mb-2">Top 10 clientes por LTV — clique numa barra pra abrir o lead</p>
+              <p className="text-xs text-slate-400 mb-2">Top 10 clientes por LTV — soma de TODOS os ciclos/renovações já pagos, não é um empréstimo só. Clique numa barra pra abrir o lead.</p>
               <HBarChart data={ltvTop10} valueFmt={money} onBarClick={(d) => setOpenContactId(d.id)} />
             </>
           )}
@@ -1917,6 +1918,7 @@ export default function Relatorios() {
               <VBarChart
                 data={agingData}
                 tooltip={(d) => `${d.label}: ${money(d.value)} — ${d.parcelas} parcela(s) de ${d.clientes} cliente(s)`}
+                valueFmt={money}
               />
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
                 {agingData.map((f) => (
@@ -2162,6 +2164,7 @@ export default function Relatorios() {
                 data={recebimentoPorDiaMes}
                 color="#059669"
                 tooltip={(d) => `Dia ${d.label}: ${money(d.value)}`}
+                valueFmt={money}
               />
             </div>
           )}
@@ -2610,10 +2613,11 @@ function HBarChart({ data, valueFmt, onBarClick }) {
 }
 
 // Colunas verticais — pra sequência ordinal (1ª, 2ª, 3ª parcela...).
-function VBarChart({ data, color = "#7c3aed", height = 160, tooltip }) {
+function VBarChart({ data, color = "#7c3aed", height = 160, tooltip, valueFmt }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   const [hover, setHover] = useState(null);
   const tooltipFor = tooltip || ((d) => `${d.label} parcela: ${d.value} cliente${d.value === 1 ? "" : "s"}`);
+  const fmt = valueFmt || ((v) => v);
   return (
     <div className="flex items-end gap-1.5 sm:gap-2.5" style={{ height: height + 34 }}>
       {data.map((d, i) => {
@@ -2630,7 +2634,7 @@ function VBarChart({ data, color = "#7c3aed", height = 160, tooltip }) {
                 {tooltipFor(d)}
               </div>
             )}
-            <span className="text-[11px] text-slate-500 tabular-nums mb-1 h-4">{d.value > 0 ? d.value : ""}</span>
+            <span className="text-[11px] text-slate-500 tabular-nums mb-1 h-4">{d.value > 0 ? fmt(d.value) : ""}</span>
             <div
               className="w-full rounded-t-[4px]"
               style={{ height: h, background: d.color || color, maxWidth: 28, opacity: hover === null || hover === i ? 1 : 0.55, transition: "opacity .15s" }}
