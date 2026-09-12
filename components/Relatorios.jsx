@@ -64,6 +64,11 @@ export default function Relatorios() {
   const [openContactId, setOpenContactId] = useState(null);
   const [adimplenciaDetalheAberto, setAdimplenciaDetalheAberto] = useState(null); // "Adimplentes" | "Inadimplentes" | null
   const [agingDrill, setAgingDrill] = useState(null); // faixa de aging clicada (item 123) | null
+  // Seções longas (Resumo por estado, Funil) começam recolhidas mostrando só
+  // as 3 primeiras linhas — expandir só quando alguém pedir, pra tela não
+  // nascer gigante quando tem muito estado/etapa cadastrado.
+  const [estadoExpandido, setEstadoExpandido] = useState(false);
+  const [funilExpandido, setFunilExpandido] = useState(false);
 
   const load = useCallback(async () => {
     const data = await fetch("/api/stages").then((r) => r.json()).catch(() => []);
@@ -761,20 +766,39 @@ export default function Relatorios() {
   const inad = useMemo(() => inadimplenciaCravo(stagesFiltrados), [stagesFiltrados]);
 
   // Balanço do período: o que estava planejado vencer (pelo vencimento, não
-  // pelo pagamento) contra o que realmente entrou, e quanto sobrou/faltou
-  // depois de descontar o capital liberado no mesmo período — responde "o
-  // período compensou?" e "quanto deu de lucro", direto no filtro da tela.
+  // pelo pagamento) contra o que realmente entrou, e se isso cobre o custo
+  // médio diário do capital que está parado nos clientes em Recebimento —
+  // responde "o período compensou?" e "quanto deu de lucro", direto no
+  // filtro da tela.
+  //
+  // O "lucro" NÃO usa o capital liberado NO PRÓPRIO período — isso é lumpy
+  // (um dia sem nenhuma liberação nova mostraria R$0 e infla o lucro
+  // artificialmente; um dia com uma liberação grande mostraria "prejuízo"
+  // mesmo num dia de cobrança boa). Em vez disso, divide o capital hoje
+  // parado nos clientes em Recebimento pelo número de parcelas do ciclo —
+  // isso dá quanto, em média, precisa voltar por dia só pra acompanhar o
+  // ritmo do dinheiro já emprestado a essa carteira ativa — e compara com o
+  // que realmente entrou no período.
+  const capitalEmRecebimento = useMemo(
+    () => contatosFiltrados.filter((c) => c._stage === "Recebimento").reduce((s, c) => s + (c.valorCapital || 0), 0),
+    [contatosFiltrados]
+  );
   const balancoPeriodo = useMemo(() => {
     const planejado = planejadoNoPeriodo(stagesFiltrados, ini, fim);
     const liberado = liberadoNoPeriodo(stagesFiltrados, ini, fim);
+    const dias = Math.max(1, Math.round((new Date(fim) - new Date(ini)) / 86400000) + 1);
+    const custoMedioDiario = capitalEmRecebimento / NUM_PARCELAS;
+    const custoMedioPeriodo = custoMedioDiario * dias;
     return {
       planejado,
       liberado,
       diferencaRecebido: recebido - planejado,
       pctMeta: planejado > 0 ? Math.round((recebido / planejado) * 100) : recebido > 0 ? 100 : 0,
-      lucro: recebido - liberado,
+      custoMedioDiario,
+      custoMedioPeriodo,
+      lucro: recebido - custoMedioPeriodo,
     };
-  }, [stagesFiltrados, ini, fim, recebido]);
+  }, [stagesFiltrados, ini, fim, recebido, capitalEmRecebimento]);
 
   // Funil: quantos leads em cada etapa do Kanban (usa a cor já configurada na coluna).
   const funilData = useMemo(
@@ -836,10 +860,14 @@ export default function Relatorios() {
 
   // A receber por parcela: quantas parcelas em aberto (não pagas, de qualquer
   // vencimento) existem de cada número — 1ª, 2ª, 3ª... — e a soma de cada uma.
+  // Só considera leads em "Recebimento" — quem já foi pra Cravo tem parcela em
+  // aberto por outro motivo (calote), misturar os dois infla o gráfico e não
+  // representa o que realmente está em cobrança normal esperando pagar.
   const receberPorParcelaData = useMemo(() => {
     const counts = Array.from({ length: NUM_PARCELAS }, () => 0);
     const valores = Array.from({ length: NUM_PARCELAS }, () => 0);
     for (const s of stagesFiltrados) {
+      if (s.name !== "Recebimento") continue;
       for (const c of s.contacts || []) {
         for (const p of c.parcelas || []) {
           if (p.paid) continue;
@@ -1257,17 +1285,19 @@ export default function Relatorios() {
             {PRESETS.find((p) => p.key === preset)?.label || "Período personalizado"} — trocar
           </button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           <CardCompacto titulo="Novas vendas" valor={novasVendas} cor="text-violet-600" numero />
           <CardCompacto titulo="Renovações" valor={renovacoes} cor="text-amber-600" numero />
           <CardCompacto titulo="A receber hoje" valor={receber.dia} cor="text-emerald-600" />
           <CardCompacto titulo="A receber semana" valor={receber.semana} cor="text-sky-600" />
           <CardCompacto titulo="A receber mês" valor={receber.mes} cor="text-violet-600" />
           <CardCompacto titulo="Total recebido" valor={recebido} cor="text-emerald-600" />
+          <CardCompacto titulo="Pendente em capital" valor={inad.pendenteCapital} cor="text-red-500" />
+          <CardCompacto titulo="Pendente total (c/ honorários)" valor={inad.pendenteTotal} cor="text-red-500" />
         </div>
         <p className="text-xs text-slate-400 mt-1">
           "A receber" = parcelas em aberto que vencem até o fim de cada período (já com multa de {multaPct}% nas vencidas).
-          "Total recebido" = baixado entre {ini} e {fim}.
+          "Total recebido" = baixado entre {ini} e {fim}. "Pendente" = leads em Cravo ({inad.clientes}).
         </p>
       </section>
 
@@ -1296,11 +1326,11 @@ export default function Relatorios() {
           </div>
           <div className="border-t border-slate-100 pt-4 grid sm:grid-cols-3 gap-4">
             <div>
-              <p className="text-xs text-slate-400">Capital liberado no período</p>
-              <p className="text-xl font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.liberado)}</p>
+              <p className="text-xs text-slate-400">Custo médio diário do capital em Recebimento</p>
+              <p className="text-xl font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.custoMedioDiario)}</p>
             </div>
             <div className="sm:col-span-2">
-              <p className="text-xs text-slate-400">Resultado do período (recebido − liberado)</p>
+              <p className="text-xs text-slate-400">Resultado do período (recebido − custo médio do capital parado no período)</p>
               <p className={`text-2xl font-semibold mt-0.5 ${balancoPeriodo.lucro >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                 {balancoPeriodo.lucro >= 0 ? "Lucro de " : "Prejuízo de "}{money(Math.abs(balancoPeriodo.lucro))}
               </p>
@@ -1308,19 +1338,10 @@ export default function Relatorios() {
           </div>
           <p className="text-[11px] text-slate-400">
             "Planejado" é pelo vencimento da parcela (não pelo pagamento) — pagar antes ou depois do prazo ainda conta aqui pelo dia que deveria vencer.
-            "Liberado" é o capital emprestado no mesmo período (novos empréstimos e renovações).
+            "Custo médio diário" = capital hoje parado nos clientes em Recebimento ({money(capitalEmRecebimento)}) ÷ {NUM_PARCELAS} parcelas do ciclo —
+            quanto precisaria voltar por dia, em média, só pra acompanhar o ritmo do dinheiro já emprestado a essa carteira (não usa o capital liberado
+            NO período, que é lumpy e distorceria dias sem nenhuma liberação nova).
           </p>
-        </div>
-      </section>
-
-      {/* Inadimplência (Cravo) */}
-      <section>
-        <h2 className="text-sm font-semibold text-slate-700 mb-2">
-          Inadimplência <span className="text-slate-400 font-normal">— leads em Cravo ({inad.clientes})</span>
-        </h2>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Card titulo="Pendente em capital" valor={inad.pendenteCapital} cor="red" />
-          <Card titulo="Pendente total (com honorários)" valor={inad.pendenteTotal} cor="red" />
         </div>
       </section>
 
@@ -1351,7 +1372,7 @@ export default function Relatorios() {
                     </tr>
                   </thead>
                   <tbody>
-                    {porEstado.map((r) => {
+                    {(estadoExpandido ? porEstado : porEstado.slice(0, 3)).map((r) => {
                       const base = r.adimplentes + r.inadimplentes;
                       const pctInad = base > 0 ? Math.round((r.inadimplentes / base) * 100) : 0;
                       const pctConversao = r.leads > 0 ? Math.round((r.emRecebimento / r.leads) * 100) : 0;
@@ -1381,7 +1402,7 @@ export default function Relatorios() {
 
               {/* Mobile: cards empilhados (a tabela de 7 colunas não cabe numa tela estreita) */}
               <div className="sm:hidden divide-y divide-slate-50">
-                {porEstado.map((r) => {
+                {(estadoExpandido ? porEstado : porEstado.slice(0, 3)).map((r) => {
                   const base = r.adimplentes + r.inadimplentes;
                   const pctInad = base > 0 ? Math.round((r.inadimplentes / base) * 100) : 0;
                   const pctConversao = r.leads > 0 ? Math.round((r.emRecebimento / r.leads) * 100) : 0;
@@ -1462,11 +1483,20 @@ export default function Relatorios() {
       {/* Funil: leads por etapa */}
       <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Funil — leads por etapa</h2>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          {funilData.length === 0 || funilData.every((d) => d.value === 0) ? (
-            <p className="text-sm text-slate-400 py-4">Nenhum lead cadastrado.</p>
-          ) : (
-            <HBarChart data={funilData} />
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="p-5">
+            {funilData.length === 0 || funilData.every((d) => d.value === 0) ? (
+              <p className="text-sm text-slate-400 py-4">Nenhum lead cadastrado.</p>
+            ) : (
+              <HBarChart data={funilExpandido ? funilData : funilData.slice(0, 3)} />
+            )}
+          </div>
+          {funilData.length > 3 && (
+            <BotaoExpandir
+              expandido={funilExpandido}
+              onClick={() => setFunilExpandido((v) => !v)}
+              ocultos={funilData.length - 3}
+            />
           )}
         </div>
       </section>
@@ -1492,44 +1522,17 @@ export default function Relatorios() {
         </div>
       </section>
 
-      {/* Leads por link de rastreamento (UTM/campanha) */}
-      <section>
-        <h2 className="text-sm font-semibold text-slate-700 mb-2">
-          Leads por link de rastreamento <span className="text-slate-400 font-normal">— origem via /l/… configurado em Configurações</span>
-        </h2>
-        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
-          {leadsPorCampanha.length === 0 ? (
-            <p className="text-sm text-slate-400 p-5">Nenhum lead ainda.</p>
-          ) : (
-            leadsPorCampanha.map((r) => {
-              const comEmprestimo = r.adimplentes + r.inadimplentes;
-              return (
-                <div key={r.chave} className="flex items-center justify-between gap-3 px-5 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-700 truncate">{r.label}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {r.leads} lead{r.leads === 1 ? "" : "s"}
-                      {comEmprestimo > 0 && ` · ${r.inadimplentes} inadimplente${r.inadimplentes === 1 ? "" : "s"} de ${comEmprestimo}`}
-                    </p>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-
       {/* Adimplência por gênero */}
-      <section>
+      <section className="flex flex-col">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência por gênero</h2>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-5 flex-1 flex items-center justify-center">
           {adimplenciaPorGenero.length === 0 ? (
             <p className="text-sm text-slate-400 py-4">Nenhum cliente com empréstimo ativo.</p>
           ) : (
-            <div className="flex flex-wrap gap-6">
+            <div className="flex flex-wrap gap-6 justify-center">
               {adimplenciaPorGenero.map((g) => (
                 <div key={g.chave}>
-                  <p className="text-xs font-medium text-slate-500 mb-2">{g.label}</p>
+                  <p className="text-xs font-medium text-slate-500 mb-2 text-center">{g.label}</p>
                   <DonutChart
                     size={110}
                     strokeWidth={18}
@@ -1546,16 +1549,16 @@ export default function Relatorios() {
       </section>
 
       {/* Adimplência por tipo de cliente */}
-      <section>
+      <section className="flex flex-col">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência por tipo de cliente</h2>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-5 flex-1 flex items-center justify-center">
           {adimplenciaPorTipoCliente.length === 0 ? (
             <p className="text-sm text-slate-400 py-4">Nenhum cliente com empréstimo ativo.</p>
           ) : (
-            <div className="flex flex-wrap gap-6">
+            <div className="flex flex-wrap gap-6 justify-center">
               {adimplenciaPorTipoCliente.map((g) => (
                 <div key={g.chave}>
-                  <p className="text-xs font-medium text-slate-500 mb-2">{g.label}</p>
+                  <p className="text-xs font-medium text-slate-500 mb-2 text-center">{g.label}</p>
                   <DonutChart
                     size={110}
                     strokeWidth={18}
@@ -1571,139 +1574,6 @@ export default function Relatorios() {
         </div>
       </section>
       </div>
-
-      {/* Projeção: o que entra e o que sobra SE as metas forem batidas. */}
-      {projecao && (
-        <section>
-          <div className="flex flex-wrap items-end justify-between gap-3 mb-2">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Projeção — se bater as metas{" "}
-              <span className="text-slate-400 font-normal">
-                — {projecao.premissas?.diasComMeta || 0} dia(s) com meta cadastrada
-                {projecao.premissas?.de ? `, de ${fmtDia(projecao.premissas.de)} a ${fmtDia(projecao.premissas.ate)}` : ""}
-              </span>
-            </h2>
-            <div className="flex items-end gap-2">
-              <label className="block">
-                <span className="text-[11px] text-slate-400">De</span>
-                <input
-                  type="date"
-                  value={projDe}
-                  onChange={(e) => setProjDe(e.target.value)}
-                  className="mt-0.5 block text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
-                />
-              </label>
-              <label className="block">
-                <span className="text-[11px] text-slate-400">Até</span>
-                <input
-                  type="date"
-                  value={projAte}
-                  onChange={(e) => setProjAte(e.target.value)}
-                  className="mt-0.5 block text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
-                />
-              </label>
-              {(projDe || projAte) && (
-                <button
-                  type="button"
-                  onClick={() => { setProjDe(""); setProjAte(""); }}
-                  className="text-xs text-slate-400 hover:text-slate-600 underline pb-2"
-                >
-                  limpar
-                </button>
-              )}
-            </div>
-          </div>
-
-          {projecao.premissas?.diasComMeta === 0 && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-              Nenhuma meta de vendas cadastrada nesse período. Cadastre em Metas, ou amplie as datas.
-            </p>
-          )}
-
-          {projecao.premissas?.niveisIncomparaveis && (
-            <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
-              A meta <strong>máxima</strong> segue a curva que você cadastrou dia a dia, mas a{" "}
-              <strong>mínima e a média</strong> são um número fixo por dia (
-              {projecao.premissas.minimaPorDia} e {projecao.premissas.mediaPorDia}), vindo das
-              Configurações. Por isso os três totais ficam tão distantes — os números abaixo são
-              exatamente os que estão estipulados hoje. Pra mínima e média acompanharem a curva, elas
-              precisam ser cadastradas por data também.
-            </p>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {projecao.niveis.map((n) => (
-              <div
-                key={n.chave}
-                className={`rounded-xl border p-4 ${
-                  n.chave === "maxima"
-                    ? "border-emerald-300 bg-emerald-50/50"
-                    : n.chave === "media"
-                      ? "border-sky-200 bg-sky-50/40"
-                      : "border-slate-200 bg-white"
-                }`}
-              >
-                <p className="text-sm font-semibold text-slate-700 mb-2">Meta {n.rotulo}</p>
-
-                <p className="text-[11px] text-slate-400">Recebimento por dia</p>
-                <p className="text-xl font-bold text-slate-800">{money(n.recebimentoMedioDia)}</p>
-                <p className="text-[11px] text-slate-400 mb-3">
-                  ~{n.clientesPagandoDia} pagando por dia · {money(n.recebimentoTotalPeriodo)} no período
-                </p>
-
-                {n.clientesAtivos && (
-                  <div className="mb-3 rounded-lg bg-white/70 border border-slate-200 px-2.5 py-2">
-                    <p className="text-[11px] font-semibold text-slate-500 mb-1">
-                      Clientes ativos na carteira
-                    </p>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-lg font-bold text-slate-800">{n.clientesAtivos.inicio}</span>
-                      <span className="text-slate-400 text-sm">→</span>
-                      <span className="text-lg font-bold text-emerald-700">{n.clientesAtivos.fim}</span>
-                      <span className="text-[11px] text-slate-400 ml-auto">
-                        média {n.clientesAtivos.media} · pico {n.clientesAtivos.pico}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-y-1 text-xs text-slate-600 border-t border-slate-200 pt-2">
-                  <span>Vendas</span>
-                  <span className="text-right font-medium">{n.vendas}</span>
-                  <span>Capital a liberar</span>
-                  <span className="text-right font-medium">{money(n.capitalALiberar)}</span>
-                  <span>Retorno esperado</span>
-                  <span className="text-right font-medium">{money(n.retornoEsperado)}</span>
-                  <span>Lucro bruto</span>
-                  <span className="text-right font-medium">{money(n.lucroBruto)}</span>
-                  <span className="text-red-600">Perda esperada</span>
-                  <span className="text-right font-medium text-red-600">− {money(n.perdaEsperada)}</span>
-                  <span className="font-semibold text-slate-800 pt-1 border-t border-slate-200">Lucro projetado</span>
-                  <span className="text-right font-bold text-emerald-700 pt-1 border-t border-slate-200">
-                    {money(n.lucroLiquido)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Premissas à vista: projeção sem premissa é número que ninguém
-              consegue conferir — e que envelhece sem avisar. */}
-          <p className="mt-2 text-[11px] text-slate-400">
-            Sobre médias históricas: ticket médio {money(projecao.premissas.ticketMedio)} (
-            {projecao.premissas.baseTicket} liberações dos últimos 90 dias), honorários{" "}
-            {projecao.premissas.honorariosPct}%, parcela média {money(projecao.premissas.parcelaMedia)} (
-            {projecao.premissas.numParcelas}× diárias), {projecao.premissas.diasUteis} dias úteis no período. As metas de vendas seguem a curva
-            planejada dia a dia; mínima e média são a mesma proporção que a configuração define entre
-            os níveis.
-            O lucro já desconta {projecao.premissas.taxaPerdaPct}% de perda — capital que saiu e não
-            voltou de quem deu calote. A carteira é simulada dia a dia a partir dos{" "}
-            {projecao.premissas.carteiraAtual} clientes de hoje: cada liberação entra e sai 10 diárias
-            depois (a saída dos atuais sai da última parcela em aberto de cada um). O recebimento por
-            dia vem da carteira de cada dia, não do número de hoje parado.
-          </p>
-        </section>
-      )}
 
       {/* Lucro real por perfil: recebido - emprestado, não só % de inadimplência */}
       <section>
@@ -1922,7 +1792,7 @@ export default function Relatorios() {
       {/* A receber por número de parcela */}
       <section>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
-          A receber por parcela <span className="text-slate-400 font-normal">— quantas parcelas em aberto de cada número</span>
+          A receber por parcela <span className="text-slate-400 font-normal">— quantas parcelas em aberto de cada número, só leads em Recebimento</span>
         </h2>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           {receberPorParcelaData.every((d) => d.value === 0) ? (
@@ -2403,6 +2273,140 @@ export default function Relatorios() {
       <RelatoriosOperacao />
       <RelatoriosAvancado />
 
+      {/* Projeção: o que entra e o que sobra SE as metas forem batidas. Fica
+          no rodapé — é o indicador mais "e se" da tela, os outros são fato. */}
+      {projecao && (
+        <section>
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-2">
+            <h2 className="text-sm font-semibold text-slate-700">
+              Projeção — se bater as metas{" "}
+              <span className="text-slate-400 font-normal">
+                — {projecao.premissas?.diasComMeta || 0} dia(s) com meta cadastrada
+                {projecao.premissas?.de ? `, de ${fmtDia(projecao.premissas.de)} a ${fmtDia(projecao.premissas.ate)}` : ""}
+              </span>
+            </h2>
+            <div className="flex items-end gap-2">
+              <label className="block">
+                <span className="text-[11px] text-slate-400">De</span>
+                <input
+                  type="date"
+                  value={projDe}
+                  onChange={(e) => setProjDe(e.target.value)}
+                  className="mt-0.5 block text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[11px] text-slate-400">Até</span>
+                <input
+                  type="date"
+                  value={projAte}
+                  onChange={(e) => setProjAte(e.target.value)}
+                  className="mt-0.5 block text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
+                />
+              </label>
+              {(projDe || projAte) && (
+                <button
+                  type="button"
+                  onClick={() => { setProjDe(""); setProjAte(""); }}
+                  className="text-xs text-slate-400 hover:text-slate-600 underline pb-2"
+                >
+                  limpar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {projecao.premissas?.diasComMeta === 0 && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              Nenhuma meta de vendas cadastrada nesse período. Cadastre em Metas, ou amplie as datas.
+            </p>
+          )}
+
+          {projecao.premissas?.niveisIncomparaveis && (
+            <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+              A meta <strong>máxima</strong> segue a curva que você cadastrou dia a dia, mas a{" "}
+              <strong>mínima e a média</strong> são um número fixo por dia (
+              {projecao.premissas.minimaPorDia} e {projecao.premissas.mediaPorDia}), vindo das
+              Configurações. Por isso os três totais ficam tão distantes — os números abaixo são
+              exatamente os que estão estipulados hoje. Pra mínima e média acompanharem a curva, elas
+              precisam ser cadastradas por data também.
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {projecao.niveis.map((n) => (
+              <div
+                key={n.chave}
+                className={`rounded-xl border p-4 ${
+                  n.chave === "maxima"
+                    ? "border-emerald-300 bg-emerald-50/50"
+                    : n.chave === "media"
+                      ? "border-sky-200 bg-sky-50/40"
+                      : "border-slate-200 bg-white"
+                }`}
+              >
+                <p className="text-sm font-semibold text-slate-700 mb-2">Meta {n.rotulo}</p>
+
+                <p className="text-[11px] text-slate-400">Recebimento por dia</p>
+                <p className="text-xl font-bold text-slate-800">{money(n.recebimentoMedioDia)}</p>
+                <p className="text-[11px] text-slate-400 mb-3">
+                  ~{n.clientesPagandoDia} pagando por dia · {money(n.recebimentoTotalPeriodo)} no período
+                </p>
+
+                {n.clientesAtivos && (
+                  <div className="mb-3 rounded-lg bg-white/70 border border-slate-200 px-2.5 py-2">
+                    <p className="text-[11px] font-semibold text-slate-500 mb-1">
+                      Clientes ativos na carteira
+                    </p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-lg font-bold text-slate-800">{n.clientesAtivos.inicio}</span>
+                      <span className="text-slate-400 text-sm">→</span>
+                      <span className="text-lg font-bold text-emerald-700">{n.clientesAtivos.fim}</span>
+                      <span className="text-[11px] text-slate-400 ml-auto">
+                        média {n.clientesAtivos.media} · pico {n.clientesAtivos.pico}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-y-1 text-xs text-slate-600 border-t border-slate-200 pt-2">
+                  <span>Vendas</span>
+                  <span className="text-right font-medium">{n.vendas}</span>
+                  <span>Capital a liberar</span>
+                  <span className="text-right font-medium">{money(n.capitalALiberar)}</span>
+                  <span>Retorno esperado</span>
+                  <span className="text-right font-medium">{money(n.retornoEsperado)}</span>
+                  <span>Lucro bruto</span>
+                  <span className="text-right font-medium">{money(n.lucroBruto)}</span>
+                  <span className="text-red-600">Perda esperada</span>
+                  <span className="text-right font-medium text-red-600">− {money(n.perdaEsperada)}</span>
+                  <span className="font-semibold text-slate-800 pt-1 border-t border-slate-200">Lucro projetado</span>
+                  <span className="text-right font-bold text-emerald-700 pt-1 border-t border-slate-200">
+                    {money(n.lucroLiquido)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Premissas à vista: projeção sem premissa é número que ninguém
+              consegue conferir — e que envelhece sem avisar. */}
+          <p className="mt-2 text-[11px] text-slate-400">
+            Sobre médias históricas: ticket médio {money(projecao.premissas.ticketMedio)} (
+            {projecao.premissas.baseTicket} liberações dos últimos 90 dias), honorários{" "}
+            {projecao.premissas.honorariosPct}%, parcela média {money(projecao.premissas.parcelaMedia)} (
+            {projecao.premissas.numParcelas}× diárias), {projecao.premissas.diasUteis} dias úteis no período. As metas de vendas seguem a curva
+            planejada dia a dia; mínima e média são a mesma proporção que a configuração define entre
+            os níveis.
+            O lucro já desconta {projecao.premissas.taxaPerdaPct}% de perda — capital que saiu e não
+            voltou de quem deu calote. A carteira é simulada dia a dia a partir dos{" "}
+            {projecao.premissas.carteiraAtual} clientes de hoje: cada liberação entra e sai 10 diárias
+            depois (a saída dos atuais sai da última parcela em aberto de cada um). O recebimento por
+            dia vem da carteira de cada dia, não do número de hoje parado.
+          </p>
+        </section>
+      )}
+
       {agingDrill && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setAgingDrill(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto thin-scroll" onClick={(e) => e.stopPropagation()}>
@@ -2540,6 +2544,22 @@ function Card({ titulo, valor, cor }) {
       <p className="text-xs text-slate-400">{titulo}</p>
       <p className={`text-2xl font-semibold mt-1 ${CORES[cor] || "text-slate-700"}`}>{money(valor)}</p>
     </div>
+  );
+}
+
+// Botão "mostrar mais N / mostrar menos" pras seções que começam recolhidas.
+function BotaoExpandir({ expandido, onClick, ocultos }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center justify-center gap-1 text-xs text-sky-600 hover:text-sky-700 py-2 border-t border-slate-100"
+    >
+      {expandido ? "Mostrar menos" : `Mostrar mais (${ocultos})`}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`w-3 h-3 transition-transform ${expandido ? "rotate-180" : ""}`}>
+        <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
   );
 }
 
