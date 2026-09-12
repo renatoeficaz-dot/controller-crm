@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { aReceber, totalRecebido, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
+import { aReceber, totalRecebido, planejadoNoPeriodo, liberadoNoPeriodo, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
 import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS, valorEmAberto } from "@/lib/finance";
 import ContactModal from "@/components/ContactModal";
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
@@ -757,6 +757,22 @@ export default function Relatorios() {
   const recebido = useMemo(() => totalRecebido(stagesFiltrados, ini, fim), [stagesFiltrados, ini, fim]);
   const inad = useMemo(() => inadimplenciaCravo(stagesFiltrados), [stagesFiltrados]);
 
+  // Balanço do período: o que estava planejado vencer (pelo vencimento, não
+  // pelo pagamento) contra o que realmente entrou, e quanto sobrou/faltou
+  // depois de descontar o capital liberado no mesmo período — responde "o
+  // período compensou?" e "quanto deu de lucro", direto no filtro da tela.
+  const balancoPeriodo = useMemo(() => {
+    const planejado = planejadoNoPeriodo(stagesFiltrados, ini, fim);
+    const liberado = liberadoNoPeriodo(stagesFiltrados, ini, fim);
+    return {
+      planejado,
+      liberado,
+      diferencaRecebido: recebido - planejado,
+      pctMeta: planejado > 0 ? Math.round((recebido / planejado) * 100) : recebido > 0 ? 100 : 0,
+      lucro: recebido - liberado,
+    };
+  }, [stagesFiltrados, ini, fim, recebido]);
+
   // Funil: quantos leads em cada etapa do Kanban (usa a cor já configurada na coluna).
   const funilData = useMemo(
     () => stagesFiltrados.map((s) => ({ label: s.name, value: (s.contacts || []).length, color: s.color || "#64748b" })),
@@ -1273,6 +1289,48 @@ export default function Relatorios() {
           <p className="text-3xl font-semibold text-emerald-600">{money(recebido)}</p>
           <p className="text-xs text-slate-400 mt-1">
             Recebido entre {ini} e {fim} (parcelas baixadas no período).
+          </p>
+        </div>
+      </section>
+
+      {/* Balanço do período: compensou? deu lucro? */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          O período compensou? <span className="text-slate-400 font-normal">— recebido x planejado x liberado, no mesmo filtro de datas</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-slate-400">Planejado pra vencer no período</p>
+              <p className="text-xl font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.planejado)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Recebido no período</p>
+              <p className="text-xl font-semibold mt-0.5 text-emerald-600">{money(recebido)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Bateu a meta do período?</p>
+              <p className={`text-xl font-semibold mt-0.5 ${balancoPeriodo.diferencaRecebido >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                {balancoPeriodo.pctMeta}% {balancoPeriodo.diferencaRecebido >= 0 ? "" : `(faltou ${money(-balancoPeriodo.diferencaRecebido)})`}
+                {balancoPeriodo.diferencaRecebido > 0 && ` (sobrou ${money(balancoPeriodo.diferencaRecebido)})`}
+              </p>
+            </div>
+          </div>
+          <div className="border-t border-slate-100 pt-4 grid sm:grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-slate-400">Capital liberado no período</p>
+              <p className="text-xl font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.liberado)}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs text-slate-400">Resultado do período (recebido − liberado)</p>
+              <p className={`text-2xl font-semibold mt-0.5 ${balancoPeriodo.lucro >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                {balancoPeriodo.lucro >= 0 ? "Lucro de " : "Prejuízo de "}{money(Math.abs(balancoPeriodo.lucro))}
+              </p>
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            "Planejado" é pelo vencimento da parcela (não pelo pagamento) — pagar antes ou depois do prazo ainda conta aqui pelo dia que deveria vencer.
+            "Liberado" é o capital emprestado no mesmo período (novos empréstimos e renovações).
           </p>
         </div>
       </section>
