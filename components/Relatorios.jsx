@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { aReceber, totalRecebido, planejadoNoPeriodo, liberadoNoPeriodo, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
+import { aReceber, totalRecebido, planejadoNoPeriodo, liberadoNoPeriodo, custoComissaoEstimado, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
 import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS, valorEmAberto } from "@/lib/finance";
 import ContactModal from "@/components/ContactModal";
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
@@ -89,6 +89,43 @@ export default function Relatorios() {
   useEffect(() => {
     fetch("/api/relatorios/tempo-etapas").then((r) => r.json()).then((d) => setTempoEtapas(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
+
+  // Config de comissão (metas/bônus) — pra estimar o custo de comissão do
+  // "Lucro líquido" abaixo. Não muda com o filtro de período, só busca 1x.
+  const [comissaoCfg, setComissaoCfg] = useState(null);
+  useEffect(() => {
+    fetch("/api/comissao").then((r) => (r.ok ? r.json() : null)).then((d) => setComissaoCfg(d?.config || null)).catch(() => {});
+  }, []);
+
+  // Contas a pagar com vencimento dentro do período filtrado — refaz a busca
+  // toda vez que ini/fim mudam.
+  const [totalContasPagar, setTotalContasPagar] = useState(0);
+  useEffect(() => {
+    const qs = new URLSearchParams({ de: ini, ate: fim });
+    fetch(`/api/contas-pagar?${qs}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((lista) => setTotalContasPagar(Array.isArray(lista) ? lista.reduce((s, c) => s + (c.valor || 0), 0) : 0))
+      .catch(() => setTotalContasPagar(0));
+  }, [ini, fim]);
+
+  // Outras saídas de caixa no período (gasolina, almoço, manutenção etc.) —
+  // qualquer Lançamento tipo "saída" que NÃO seja a liberação de capital pro
+  // cliente (essa já entra na conta via capital em Recebimento/planejado, e
+  // contá-la de novo aqui duplicaria o custo).
+  const [totalOutrasSaidas, setTotalOutrasSaidas] = useState(0);
+  useEffect(() => {
+    const qs = new URLSearchParams({ type: "saida", ini, fim });
+    fetch(`/api/lancamentos?${qs}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((lista) => {
+        const arr = Array.isArray(lista) ? lista : lista?.lancamentos || [];
+        const total = arr
+          .filter((l) => !(l.description || "").startsWith("Liberação de capital"))
+          .reduce((s, l) => s + (l.amount || 0), 0);
+        setTotalOutrasSaidas(total);
+      })
+      .catch(() => setTotalOutrasSaidas(0));
+  }, [ini, fim]);
 
   // Projeção: precisa das metas FUTURAS, que não vêm no /api/stages.
   // O período é escolhido na tela; vazio = de hoje até a última meta cadastrada.
@@ -789,6 +826,14 @@ export default function Relatorios() {
     const dias = Math.max(1, Math.round((new Date(fim) - new Date(ini)) / 86400000) + 1);
     const custoMedioDiario = capitalEmRecebimento / NUM_PARCELAS;
     const custoMedioPeriodo = custoMedioDiario * dias;
+    const lucroBruto = recebido - custoMedioPeriodo;
+    // Lucro líquido: desconta do bruto a comissão que bateu meta no período
+    // (estimativa — ver custoComissaoEstimado) e a fatia das contas a pagar
+    // do período, amortizada pelos dias do próprio período.
+    const comissao = custoComissaoEstimado(stagesFiltrados, ini, fim, comissaoCfg);
+    const custoContasPagarPeriodo = totalContasPagar; // já vem filtrado por vencimento no período
+    const custoContasPagarDiario = custoContasPagarPeriodo / dias;
+    const lucroLiquido = lucroBruto - comissao.total - custoContasPagarPeriodo - totalOutrasSaidas;
     return {
       planejado,
       liberado,
@@ -796,9 +841,15 @@ export default function Relatorios() {
       pctMeta: planejado > 0 ? Math.round((recebido / planejado) * 100) : recebido > 0 ? 100 : 0,
       custoMedioDiario,
       custoMedioPeriodo,
-      lucro: recebido - custoMedioPeriodo,
+      lucroBruto,
+      comissaoEstimada: comissao.total,
+      custoContasPagarPeriodo,
+      custoContasPagarDiario,
+      outrasSaidas: totalOutrasSaidas,
+      lucroLiquido,
+      dias,
     };
-  }, [stagesFiltrados, ini, fim, recebido, capitalEmRecebimento]);
+  }, [stagesFiltrados, ini, fim, recebido, capitalEmRecebimento, comissaoCfg, totalContasPagar, totalOutrasSaidas]);
 
   // Funil: quantos leads em cada etapa do Kanban (usa a cor já configurada na coluna).
   const funilData = useMemo(
@@ -1330,9 +1381,29 @@ export default function Relatorios() {
               <p className="text-xl font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.custoMedioDiario)}</p>
             </div>
             <div className="sm:col-span-2">
-              <p className="text-xs text-slate-400">Resultado do período (recebido − custo médio do capital parado no período)</p>
-              <p className={`text-2xl font-semibold mt-0.5 ${balancoPeriodo.lucro >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                {balancoPeriodo.lucro >= 0 ? "Lucro de " : "Prejuízo de "}{money(Math.abs(balancoPeriodo.lucro))}
+              <p className="text-xs text-slate-400">Lucro bruto (recebido − custo médio do capital parado no período)</p>
+              <p className={`text-2xl font-semibold mt-0.5 ${balancoPeriodo.lucroBruto >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                {balancoPeriodo.lucroBruto >= 0 ? "Lucro bruto de " : "Prejuízo bruto de "}{money(Math.abs(balancoPeriodo.lucroBruto))}
+              </p>
+            </div>
+          </div>
+          <div className="border-t border-slate-100 pt-4 grid sm:grid-cols-4 gap-4">
+            <div>
+              <p className="text-xs text-slate-400">Comissão estimada no período</p>
+              <p className="text-lg font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.comissaoEstimada)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Contas a pagar no período</p>
+              <p className="text-lg font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.custoContasPagarPeriodo)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Outras saídas (gasolina, almoço etc.)</p>
+              <p className="text-lg font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.outrasSaidas)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Lucro líquido</p>
+              <p className={`text-xl font-bold mt-0.5 ${balancoPeriodo.lucroLiquido >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                {money(balancoPeriodo.lucroLiquido)}
               </p>
             </div>
           </div>
@@ -1341,6 +1412,9 @@ export default function Relatorios() {
             "Custo médio diário" = capital hoje parado nos clientes em Recebimento ({money(capitalEmRecebimento)}) ÷ {NUM_PARCELAS} parcelas do ciclo —
             quanto precisaria voltar por dia, em média, só pra acompanhar o ritmo do dinheiro já emprestado a essa carteira (não usa o capital liberado
             NO período, que é lumpy e distorceria dias sem nenhuma liberação nova).
+            "Comissão estimada" usa só a meta/bônus padrão de recuperação (Configurações &gt; Comissão) — não inclui metas por colaborador, bônus
+            progressivo nem as outras métricas (análise, juros, cravo). "Contas a pagar" soma o vencimento dentro do período; "Outras saídas" é todo
+            Lançamento de saída no período que não é liberação de capital (gasolina, almoço, manutenção etc.).
           </p>
         </div>
       </section>
