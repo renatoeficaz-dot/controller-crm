@@ -52,6 +52,7 @@ export async function PUT(req) {
     bonusMinima: num(body.bonusMinima),
     bonusMedia: num(body.bonusMedia),
     bonusMaxima: num(body.bonusMaxima),
+    tipoMeta: body.tipoMeta === "venda" ? "venda" : "cobranca",
     ativo: body.ativo !== false,
   };
   const config = await prisma.pagamentoCobradorConfig.upsert({

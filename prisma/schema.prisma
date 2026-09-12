@@ -1495,6 +1495,13 @@ model PagamentoCobradorConfig {
   bonusMedia  Float @default(0) // ... a media
   bonusMaxima Float @default(0) // ... a maxima (a meta cheia do dia)
 
+  // "cobranca" (default, comportamento de sempre) = bônus pelo Nº de
+  // recebimentos (parcelas baixadas) no dia, contra MetaDiaria.metaRecebimentos*.
+  // "venda" = bônus pelo Nº de vendas novas (Contact.entrouRecebimentoEm) no
+  // dia, contra MetaDiaria.metaVendas* — pra quem o acerto semanal precisa
+  // premiar quem vende, não quem cobra (vendedor, não cobrador).
+  tipoMeta String @default("cobranca")
+
   ativo Boolean @default(true)
 
   createdAt DateTime @default(now())

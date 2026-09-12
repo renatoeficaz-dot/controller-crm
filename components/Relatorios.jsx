@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { aReceber, totalRecebido, planejadoNoPeriodo, liberadoNoPeriodo, custoComissaoEstimado, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
+import { aReceber, totalRecebido, planejadoNoPeriodo, liberadoNoPeriodo, custoComissaoEstimado, rateioContasPagar, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
 import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS, valorEmAberto } from "@/lib/finance";
 import ContactModal from "@/components/ContactModal";
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
@@ -97,35 +97,56 @@ export default function Relatorios() {
     fetch("/api/comissao").then((r) => (r.ok ? r.json() : null)).then((d) => setComissaoCfg(d?.config || null)).catch(() => {});
   }, []);
 
-  // Contas a pagar com vencimento dentro do período filtrado — refaz a busca
-  // toda vez que ini/fim mudam.
-  const [totalContasPagar, setTotalContasPagar] = useState(0);
+  // 1º e último dia do mês de uma data "YYYY-MM-DD" — usados pra buscar
+  // contas/lançamentos de TODO o mês que toca o período (não só o que vence
+  // exatamente dentro do período), porque o rateio abaixo divide cada uma
+  // pelos dias úteis do MÊS inteiro, não só pelos dias do filtro.
+  function primeiroDiaMes(d) { return `${d.slice(0, 7)}-01`; }
+  function ultimoDiaMes(d) {
+    const [ano, mes] = d.slice(0, 7).split("-").map(Number);
+    return `${d.slice(0, 7)}-${String(new Date(Date.UTC(ano, mes, 0)).getUTCDate()).padStart(2, "0")}`;
+  }
+
+  // Contas a pagar cujo mês de vencimento toca o período filtrado — cada uma
+  // é rateada pelos dias úteis (seg-sáb) do PRÓPRIO mês dela, e só a fatia
+  // que cai dentro do período entra na conta (ver rateioContasPagar).
+  const [contasPagarBrutas, setContasPagarBrutas] = useState([]);
   useEffect(() => {
-    const qs = new URLSearchParams({ de: ini, ate: fim });
+    const qs = new URLSearchParams({ de: primeiroDiaMes(ini), ate: ultimoDiaMes(fim) });
     fetch(`/api/contas-pagar?${qs}`)
       .then((r) => (r.ok ? r.json() : []))
-      .then((lista) => setTotalContasPagar(Array.isArray(lista) ? lista.reduce((s, c) => s + (c.valor || 0), 0) : 0))
-      .catch(() => setTotalContasPagar(0));
+      .then((lista) => setContasPagarBrutas(Array.isArray(lista) ? lista : []))
+      .catch(() => setContasPagarBrutas([]));
   }, [ini, fim]);
+  const { total: totalContasPagar, detalhe: listaContasPagar } = useMemo(
+    () => rateioContasPagar(contasPagarBrutas, ini, fim),
+    [contasPagarBrutas, ini, fim]
+  );
 
-  // Outras saídas de caixa no período (gasolina, almoço, manutenção etc.) —
-  // qualquer Lançamento tipo "saída" que NÃO seja a liberação de capital pro
-  // cliente (essa já entra na conta via capital em Recebimento/planejado, e
-  // contá-la de novo aqui duplicaria o custo).
-  const [totalOutrasSaidas, setTotalOutrasSaidas] = useState(0);
+  // Outras saídas de caixa (gasolina, almoço, manutenção etc.) — mesmo
+  // princípio: qualquer Lançamento de saída que não seja liberação de
+  // capital, rateado pelos dias úteis do mês em vez de pesar tudo no dia
+  // exato em que foi lançado.
+  const [outrasSaidasBrutas, setOutrasSaidasBrutas] = useState([]);
   useEffect(() => {
-    const qs = new URLSearchParams({ type: "saida", ini, fim });
+    const qs = new URLSearchParams({ type: "saida", ini: primeiroDiaMes(ini), fim: ultimoDiaMes(fim) });
     fetch(`/api/lancamentos?${qs}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((lista) => {
         const arr = Array.isArray(lista) ? lista : lista?.lancamentos || [];
-        const total = arr
-          .filter((l) => !(l.description || "").startsWith("Liberação de capital"))
-          .reduce((s, l) => s + (l.amount || 0), 0);
-        setTotalOutrasSaidas(total);
+        setOutrasSaidasBrutas(
+          arr
+            .filter((l) => !(l.description || "").startsWith("Liberação de capital"))
+            .map((l) => ({ ...l, valor: l.amount, vencimento: l.date }))
+        );
       })
-      .catch(() => setTotalOutrasSaidas(0));
+      .catch(() => setOutrasSaidasBrutas([]));
   }, [ini, fim]);
+  const { total: totalOutrasSaidas, detalhe: listaOutrasSaidas } = useMemo(
+    () => rateioContasPagar(outrasSaidasBrutas, ini, fim),
+    [outrasSaidasBrutas, ini, fim]
+  );
+  const [detalheCustoAberto, setDetalheCustoAberto] = useState(null); // "contas" | "saidas" | null
 
   // Projeção: precisa das metas FUTURAS, que não vêm no /api/stages.
   // O período é escolhido na tela; vazio = de hoje até a última meta cadastrada.
@@ -1392,14 +1413,22 @@ export default function Relatorios() {
               <p className="text-xs text-slate-400">Comissão estimada no período</p>
               <p className="text-lg font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.comissaoEstimada)}</p>
             </div>
-            <div>
-              <p className="text-xs text-slate-400">Contas a pagar no período</p>
+            <button
+              type="button"
+              onClick={() => listaContasPagar.length > 0 && setDetalheCustoAberto("contas")}
+              className={`text-left ${listaContasPagar.length > 0 ? "cursor-pointer hover:opacity-70" : "cursor-default"}`}
+            >
+              <p className="text-xs text-slate-400">Contas a pagar no período{listaContasPagar.length > 0 ? " — clique pra ver" : ""}</p>
               <p className="text-lg font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.custoContasPagarPeriodo)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Outras saídas (gasolina, almoço etc.)</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => listaOutrasSaidas.length > 0 && setDetalheCustoAberto("saidas")}
+              className={`text-left ${listaOutrasSaidas.length > 0 ? "cursor-pointer hover:opacity-70" : "cursor-default"}`}
+            >
+              <p className="text-xs text-slate-400">Outras saídas (gasolina, almoço etc.){listaOutrasSaidas.length > 0 ? " — clique pra ver" : ""}</p>
               <p className="text-lg font-semibold mt-0.5 text-amber-600">− {money(balancoPeriodo.outrasSaidas)}</p>
-            </div>
+            </button>
             <div>
               <p className="text-xs text-slate-400">Lucro líquido</p>
               <p className={`text-xl font-bold mt-0.5 ${balancoPeriodo.lucroLiquido >= 0 ? "text-emerald-700" : "text-red-600"}`}>
@@ -1413,8 +1442,9 @@ export default function Relatorios() {
             quanto precisaria voltar por dia, em média, só pra acompanhar o ritmo do dinheiro já emprestado a essa carteira (não usa o capital liberado
             NO período, que é lumpy e distorceria dias sem nenhuma liberação nova).
             "Comissão estimada" usa só a meta/bônus padrão de recuperação (Configurações &gt; Comissão) — não inclui metas por colaborador, bônus
-            progressivo nem as outras métricas (análise, juros, cravo). "Contas a pagar" soma o vencimento dentro do período; "Outras saídas" é todo
-            Lançamento de saída no período que não é liberação de capital (gasolina, almoço, manutenção etc.).
+            progressivo nem as outras métricas (análise, juros, cravo). "Contas a pagar" e "Outras saídas" (todo Lançamento de saída que não é
+            liberação de capital — gasolina, almoço, manutenção etc.) não pesam tudo de uma vez no dia do vencimento/lançamento: cada uma é rateada
+            pelos dias úteis (seg-sáb) do mês inteiro, e só a fatia dos dias dentro do período filtrado entra na conta.
           </p>
         </div>
       </section>
@@ -2590,6 +2620,53 @@ export default function Relatorios() {
                 {(adimplenciaDetalheAberto === "Adimplentes" ? adimplentesLista : inadimplentesLista).length === 0 && (
                   <p className="text-sm text-slate-400 py-4">Nenhum cliente.</p>
                 )}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detalheCustoAberto && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
+          onClick={() => setDetalheCustoAberto(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto thin-scroll"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-semibold text-slate-800">
+                {detalheCustoAberto === "contas" ? "Contas a pagar no período" : "Outras saídas no período"}{" "}
+                <span className="text-slate-400 font-normal">
+                  ({detalheCustoAberto === "contas" ? listaContasPagar.length : listaOutrasSaidas.length})
+                </span>
+              </h3>
+              <button onClick={() => setDetalheCustoAberto(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <p className="px-5 text-[11px] text-slate-400">
+              Cada valor abaixo é rateado pelos dias úteis (seg-sáb) do mês do vencimento — só a fatia dos dias
+              dentro do período aparece aqui, não o valor cheio da conta.
+            </p>
+            <div className="p-5 pt-3">
+              <ul className="divide-y divide-slate-50">
+                {(detalheCustoAberto === "contas" ? listaContasPagar : listaOutrasSaidas).map((item) => (
+                  <li key={item.id} className="py-2.5 flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-700 truncate">
+                        {detalheCustoAberto === "contas" ? item.descricao : item.description || "Sem descrição"}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">
+                        Venc. {fmtDia(String(item.vencimento).slice(0, 10))} · {money(item.valor)} cheio ÷ {item.diasUteisMes} dias úteis do mês
+                        {detalheCustoAberto === "contas" && item.categoria?.name ? ` · ${item.categoria.name}` : ""}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-sm font-medium text-amber-600 block">{money(item.valorNoPeriodo)}</span>
+                      <span className="text-[10px] text-slate-400">{item.diasNoPeriodo}d no período</span>
+                    </div>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>

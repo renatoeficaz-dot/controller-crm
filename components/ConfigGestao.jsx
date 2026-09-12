@@ -126,6 +126,7 @@ export function ComissaoConfig() {
           bonusMinima: d.config?.bonusMinima ?? "",
           bonusMedia: d.config?.bonusMedia ?? "",
           bonusMaxima: d.config?.bonusMaxima ?? "",
+          tipoMeta: d.config?.tipoMeta || "cobranca",
           ativo: d.config ? d.config.ativo : true,
         });
         setAcertoPrevia(d.previa || null);
@@ -367,11 +368,23 @@ export function ComissaoConfig() {
             <div>
               <p className="text-sm font-medium text-emerald-800">Acerto semanal do cobrador</p>
               <p className="text-[11px] text-slate-500">
-                Fixo por semana + bônus por DIA em que a operação bate a meta de recebimento.
-                Conta <strong>todos os recebimentos do dia</strong>, não só os que essa pessoa deu baixa.
+                Fixo por semana + bônus por DIA em que a operação bate a meta {acerto.tipoMeta === "venda" ? "de vendas" : "de recebimento"}.
+                Conta <strong>{acerto.tipoMeta === "venda" ? "todas as vendas do dia" : "todos os recebimentos do dia"}</strong>, não só os que essa pessoa fez.
+                A semana fecha sábado às 18h — o que acontecer depois disso conta na semana seguinte.
                 O relatório é entregue no chat interno todo sábado às 16h.
               </p>
             </div>
+            <label className="block">
+              <span className="text-[11px] text-slate-500">Meta usada nesse acerto</span>
+              <select
+                value={acerto.tipoMeta}
+                onChange={(e) => setAcerto((a) => ({ ...a, tipoMeta: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+              >
+                <option value="cobranca">Cobrança — Nº de recebimentos do dia</option>
+                <option value="venda">Vendas — Nº de vendas novas do dia</option>
+              </select>
+            </label>
             <div className="grid grid-cols-2 gap-2">
               {[
                 ["fixoSemanal", "Fixo por semana (R$)"],
@@ -411,7 +424,7 @@ export function ComissaoConfig() {
                   {acertoPrevia.detalhe.map((d) => (
                     <li key={d.dia} className="flex justify-between py-0.5">
                       <span>
-                        {d.dia.slice(8, 10)}/{d.dia.slice(5, 7)} · {d.recebimentos} receb.
+                        {d.dia.slice(8, 10)}/{d.dia.slice(5, 7)} · {d.recebimentos} {acertoPrevia.tipoMeta === "venda" ? "venda(s)" : "receb."}
                         {d.semMeta ? " (sem meta registrada)" : d.faixa ? ` · ${d.faixa}` : " · não bateu"}
                       </span>
                       <span className={d.bonus ? "text-emerald-600 font-medium" : "text-slate-400"}>
@@ -845,10 +858,14 @@ export function SaudeSistema() {
           <p className="text-[11px] text-slate-500">Mensagens falhando (24h)</p>
           <p className={`text-lg font-semibold ${d.falhas24h > 0 ? "text-red-600" : "text-slate-700"}`}>{d.falhas24h}</p>
         </div>
-        <div className={`rounded-xl p-3 ${d.alertasIntegridade > 0 ? "bg-amber-50" : "bg-slate-50"}`}>
-          <p className="text-[11px] text-slate-500">Alertas de integridade</p>
+        <button
+          type="button"
+          onClick={() => document.getElementById("alertas-integridade")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          className={`rounded-xl p-3 text-left ${d.alertasIntegridade > 0 ? "bg-amber-50 hover:bg-amber-100 cursor-pointer" : "bg-slate-50"}`}
+        >
+          <p className="text-[11px] text-slate-500">Alertas de integridade{d.alertasIntegridade > 0 ? " — clique pra ver" : ""}</p>
           <p className={`text-lg font-semibold ${d.alertasIntegridade > 0 ? "text-amber-600" : "text-slate-700"}`}>{d.alertasIntegridade}</p>
-        </div>
+        </button>
         <div className="rounded-xl p-3 bg-slate-50">
           <p className="text-[11px] text-slate-500">Parcelas em aberto</p>
           <p className="text-lg font-semibold text-slate-700">{d.totalParcelasAbertas}</p>

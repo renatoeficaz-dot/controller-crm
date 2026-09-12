@@ -282,7 +282,14 @@ export default function Configuracoes() {
                 <AuditoriaLog />
               </div>
             )}
-            {tab === "saude" && <SaudeSistema />}
+            {tab === "saude" && (
+              <div className="space-y-4">
+                <SaudeSistema />
+                <div id="alertas-integridade">
+                  <IntegridadeConfig />
+                </div>
+              </div>
+            )}
             {tab === "mensagens" && <MensagensProntas />}
             {tab === "automacao" && <AutomacaoFunil />}
             {tab === "ia" && (
