@@ -850,19 +850,26 @@ export default function Relatorios() {
   // (ex.: semana anterior), esse cálculo usava a carteira de HOJE em
   // Recebimento — não a carteira que existia NAQUELE período. Uma semana
   // passada com carteira bem diferente da atual saía com o "custo médio"
+  // Capital das leads que ESTÃO na etapa Recebimento — reconstruído pra data
+  // final do período filtrado via EtapaLog (histórico de mudança de coluna),
+  // não a carteira de hoje. Correção explícita do Renato: "custo médio/dia" é
+  // pelo capital entregue a quem ESTÁ em Recebimento, não pelo capital
+  // liberado dentro das datas filtradas (uma lead que pegou capital fora do
+  // período mas continua em Recebimento tem que entrar na conta do mesmo
+  // jeito).
+  const [capitalEmRecebimento, setCapitalEmRecebimento] = useState(0);
+  useEffect(() => {
+    fetch(`/api/relatorios/capital-historico?data=${fim}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setCapitalEmRecebimento(d?.capitalEmRecebimento || 0))
+      .catch(() => setCapitalEmRecebimento(0));
+  }, [fim]);
   const balancoPeriodo = useMemo(() => {
     const planejado = planejadoNoPeriodo(stagesFiltrados, ini, fim);
     const liberado = liberadoNoPeriodo(stagesFiltrados, ini, fim);
     const dias = Math.max(1, Math.round((new Date(fim) - new Date(ini)) / 86400000) + 1);
-    // custoMedioDiario é o capital que os clientes PEGARAM (liberado, pela
-    // data de pagamentoCapital) DENTRO DO PERÍODO FILTRADO, dividido pelo nº
-    // de parcelas — não é mais um snapshot do capital em Recebimento numa
-    // única data. Isso já soma corretamente pra períodos de vários dias (uma
-    // semana com 5 clientes que pegaram capital em dias diferentes soma os 5
-    // automaticamente, sem precisar multiplicar nada por "dias do período" —
-    // multiplicar um snapshot de 1 dia pelos dias do período foi o bug antigo
-    // que explodia em períodos longos).
-    const custoMedioDiario = liberado / NUM_PARCELAS;
+    // custoMedioDiario = capital das leads em Recebimento ÷ nº de parcelas.
+    const custoMedioDiario = capitalEmRecebimento / NUM_PARCELAS;
     const lucroBruto = recebido - custoMedioDiario;
     // Lucro líquido: desconta do bruto a comissão que bateu meta no período
     // (estimativa — ver custoComissaoEstimado) e a fatia das contas a pagar
@@ -885,7 +892,7 @@ export default function Relatorios() {
       lucroLiquido,
       dias,
     };
-  }, [stagesFiltrados, ini, fim, recebido, comissaoCfg, totalContasPagar, totalOutrasSaidas]);
+  }, [stagesFiltrados, ini, fim, recebido, capitalEmRecebimento, comissaoCfg, totalContasPagar, totalOutrasSaidas]);
 
   // Simulador "e se eu tivesse X clientes em Recebimento" — pega a MÉDIA por
   // cliente de hoje (ticket, planejado por dia, taxa de recebimento) e projeta
@@ -1469,7 +1476,7 @@ export default function Relatorios() {
               <p className="text-base font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.custoMedioDiario)}</p>
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <p className="text-[11px] text-slate-400">Lucro bruto (recebido − planejado)</p>
+              <p className="text-[11px] text-slate-400">Lucro bruto (recebido − custo médio)</p>
               <p className={`text-lg font-bold mt-0.5 ${balancoPeriodo.lucroBruto >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                 {money(balancoPeriodo.lucroBruto)}
               </p>
@@ -1501,8 +1508,8 @@ export default function Relatorios() {
               </p>
             </div>
             <p className="col-span-2 sm:col-span-3 text-[10px] text-slate-400 leading-relaxed">
-              "Planejado" é pelo vencimento (não pelo pagamento). "Custo médio/dia" é o capital liberado aos clientes dentro do período filtrado
-              ({money(balancoPeriodo.liberado)}) ÷ {NUM_PARCELAS} parcelas — entra no lucro bruto (recebido − custo médio). "Comissão" usa só a
+              "Planejado" é pelo vencimento (não pelo pagamento). "Custo médio/dia" é o capital das leads em Recebimento
+              ({money(capitalEmRecebimento)}) ÷ {NUM_PARCELAS} parcelas — entra no lucro bruto (recebido − custo médio). "Comissão" usa só a
               meta padrão de recuperação. "Contas a pagar"/"Outras saídas" são rateadas pelos dias úteis do mês, só a fatia do período filtrado
               entra na conta.
             </p>
