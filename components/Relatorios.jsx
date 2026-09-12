@@ -857,9 +857,18 @@ export default function Relatorios() {
     const planejado = planejadoNoPeriodo(stagesFiltrados, ini, fim);
     const liberado = liberadoNoPeriodo(stagesFiltrados, ini, fim);
     const dias = Math.max(1, Math.round((new Date(fim) - new Date(ini)) / 86400000) + 1);
+    // custoMedioDiario é só INFORMATIVO (quanto, em média por dia, precisaria
+    // voltar pra acompanhar o ritmo do capital em Recebimento) — NÃO entra
+    // mais na conta do lucro. BUG real (11/09→12/09, Renato reportou pra
+    // semana e pro mês): multiplicar esse valor pelos dias do período
+    // ("custoMedioPeriodo") só fazia sentido pra 1 dia. Pra períodos mais
+    // longos (uma semana, um mês inteiro) o valor explodia sem limite —
+    // um mês de 30 dias virava 3x o capital total da carteira, gerando
+    // "prejuízo" de dezenas de milhares mesmo em mês normal. "Planejado"
+    // (pelo vencimento real de cada parcela, já correto pra qualquer
+    // tamanho de período) é a base certa pra comparar com o recebido.
     const custoMedioDiario = capitalEmRecebimento / NUM_PARCELAS;
-    const custoMedioPeriodo = custoMedioDiario * dias;
-    const lucroBruto = recebido - custoMedioPeriodo;
+    const lucroBruto = recebido - planejado;
     // Lucro líquido: desconta do bruto a comissão que bateu meta no período
     // (estimativa — ver custoComissaoEstimado) e a fatia das contas a pagar
     // do período, amortizada pelos dias do próprio período.
@@ -873,7 +882,6 @@ export default function Relatorios() {
       diferencaRecebido: recebido - planejado,
       pctMeta: planejado > 0 ? Math.round((recebido / planejado) * 100) : recebido > 0 ? 100 : 0,
       custoMedioDiario,
-      custoMedioPeriodo,
       lucroBruto,
       comissaoEstimada: comissao.total,
       custoContasPagarPeriodo,
@@ -1410,11 +1418,11 @@ export default function Relatorios() {
           </div>
           <div className="border-t border-slate-100 pt-4 grid sm:grid-cols-3 gap-4">
             <div>
-              <p className="text-xs text-slate-400">Custo médio diário do capital em Recebimento</p>
+              <p className="text-xs text-slate-400">Custo médio diário do capital em Recebimento (informativo)</p>
               <p className="text-xl font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.custoMedioDiario)}</p>
             </div>
             <div className="sm:col-span-2">
-              <p className="text-xs text-slate-400">Lucro bruto (recebido − custo médio do capital parado no período)</p>
+              <p className="text-xs text-slate-400">Lucro bruto (recebido − planejado pra vencer no período)</p>
               <p className={`text-2xl font-semibold mt-0.5 ${balancoPeriodo.lucroBruto >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                 {balancoPeriodo.lucroBruto >= 0 ? "Lucro bruto de " : "Prejuízo bruto de "}{money(Math.abs(balancoPeriodo.lucroBruto))}
               </p>
@@ -1450,10 +1458,11 @@ export default function Relatorios() {
           </div>
           <p className="text-[11px] text-slate-400">
             "Planejado" é pelo vencimento da parcela (não pelo pagamento) — pagar antes ou depois do prazo ainda conta aqui pelo dia que deveria vencer.
-            "Custo médio diário" = capital que estava parado nos clientes em Recebimento no FIM do período filtrado ({money(capitalEmRecebimento)},
-            reconstruído pelo histórico de mudança de etapa — não é sempre a carteira de hoje) ÷ {NUM_PARCELAS} parcelas do ciclo —
-            quanto precisaria voltar por dia, em média, só pra acompanhar o ritmo do dinheiro já emprestado a essa carteira (não usa o capital liberado
-            NO período, que é lumpy e distorceria dias sem nenhuma liberação nova).
+            "Lucro bruto" = recebido − planejado (a mesma comparação de "Bateu a meta do período?" acima, só que em R$ de sobra/falta).
+            "Custo médio diário" ao lado é só INFORMATIVO — capital que estava parado nos clientes em Recebimento no FIM do período filtrado
+            ({money(capitalEmRecebimento)}, reconstruído pelo histórico de mudança de etapa) ÷ {NUM_PARCELAS} parcelas do ciclo — NÃO entra na conta do
+            lucro (multiplicar esse valor pelos dias de períodos longos como um mês inteiro gerava número sem sentido, já que o mesmo capital
+            recicla várias vezes).
             "Comissão estimada" usa só a meta/bônus padrão de recuperação (Configurações &gt; Comissão) — não inclui metas por colaborador, bônus
             progressivo nem as outras métricas (análise, juros, cravo). "Contas a pagar" e "Outras saídas" (todo Lançamento de saída que não é
             liberação de capital — gasolina, almoço, manutenção etc.) não pesam tudo de uma vez no dia do vencimento/lançamento: cada uma é rateada
