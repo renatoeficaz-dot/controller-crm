@@ -920,12 +920,13 @@ export default function Relatorios() {
     // recebido simulado por dividir por um planejado zerado, mesmo a
     // operação tendo recebido de verdade.
     const recebidoSim = base > 0 ? (recebido / base) * x : 0;
-    // Custo médio NÃO escala com X — é capital que já está emprestado hoje,
-    // não uma despesa que cresce junto com "e se eu tivesse mais cliente".
-    // A maioria dos custos reais (contas a pagar, outras saídas) também são
-    // fixos — só o que realmente é variável por cliente (planejado/recebido/
-    // comissão) muda na simulação.
-    const custoMedioDiario = balancoPeriodo.custoMedioDiario;
+    // Custo médio ESCALA com X (correção — Renato confirmou): cada cliente
+    // que empresta o ticket médio soma sua fatia de capital/dia (ex.: R$300
+    // de capital = R$30/dia por cliente) — mais cliente hipotético = mais
+    // capital parado precisando voltar por dia, na mesma proporção X/atual.
+    // Só "Contas a pagar" e "Outras saídas" continuam fixas (essas sim são
+    // despesa de operação que não muda com o tamanho da carteira de crédito).
+    const custoMedioDiario = balancoPeriodo.custoMedioDiario * fator;
     const lucroBruto = recebidoSim - planejado;
     const comissaoEstimada = balancoPeriodo.comissaoEstimada * fator;
     const lucroLiquido = lucroBruto - comissaoEstimada - balancoPeriodo.custoContasPagarPeriodo - balancoPeriodo.outrasSaidas;
@@ -1527,7 +1528,7 @@ export default function Relatorios() {
                 <div className="flex justify-between"><span className="text-slate-400">Planejado</span><span className="font-medium">{money(simulacao.planejado)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Recebido</span><span className="font-medium text-emerald-400">{money(simulacao.recebido)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Bateu a meta?</span><span className="font-medium">{simulacao.pctMeta}%</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Custo médio/dia (fixo, não escala)</span><span className="font-medium">{money(simulacao.custoMedioDiario)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Custo médio/dia</span><span className="font-medium">{money(simulacao.custoMedioDiario)}</span></div>
                 <div className="flex justify-between border-t border-slate-700 pt-1.5"><span className="text-slate-300">Lucro bruto</span><span className={`font-semibold ${simulacao.lucroBruto >= 0 ? "text-emerald-400" : "text-red-400"}`}>{money(simulacao.lucroBruto)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Comissão est.</span><span className="font-medium text-amber-400">− {money(simulacao.comissaoEstimada)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Contas + saídas</span><span className="font-medium text-amber-400">− {money(balancoPeriodo.custoContasPagarPeriodo + balancoPeriodo.outrasSaidas)}</span></div>
