@@ -857,18 +857,16 @@ export default function Relatorios() {
     const planejado = planejadoNoPeriodo(stagesFiltrados, ini, fim);
     const liberado = liberadoNoPeriodo(stagesFiltrados, ini, fim);
     const dias = Math.max(1, Math.round((new Date(fim) - new Date(ini)) / 86400000) + 1);
-    // custoMedioDiario é só INFORMATIVO (quanto, em média por dia, precisaria
-    // voltar pra acompanhar o ritmo do capital em Recebimento) — NÃO entra
-    // mais na conta do lucro. BUG real (11/09→12/09, Renato reportou pra
-    // semana e pro mês): multiplicar esse valor pelos dias do período
-    // ("custoMedioPeriodo") só fazia sentido pra 1 dia. Pra períodos mais
-    // longos (uma semana, um mês inteiro) o valor explodia sem limite —
-    // um mês de 30 dias virava 3x o capital total da carteira, gerando
-    // "prejuízo" de dezenas de milhares mesmo em mês normal. "Planejado"
-    // (pelo vencimento real de cada parcela, já correto pra qualquer
-    // tamanho de período) é a base certa pra comparar com o recebido.
+    // custoMedioDiario é o capital em Recebimento dividido pelo nº de
+    // parcelas — representa o custo de UM dia de operação, não do período
+    // inteiro. Multiplicá-lo pelos dias do período ("custoMedioPeriodo")
+    // era o bug antigo: pra uma semana/mês o valor explodia sem limite (um
+    // mês de 30 dias virava 3x o capital da carteira). Aqui usamos ele
+    // direto (sem multiplicar pelos dias) — pedido explícito de Renato pra
+    // bater com o que o simulador já fazia: lucro bruto = recebido - custo
+    // médio, não recebido - planejado.
     const custoMedioDiario = capitalEmRecebimento / NUM_PARCELAS;
-    const lucroBruto = recebido - planejado;
+    const lucroBruto = recebido - custoMedioDiario;
     // Lucro líquido: desconta do bruto a comissão que bateu meta no período
     // (estimativa — ver custoComissaoEstimado) e a fatia das contas a pagar
     // do período, amortizada pelos dias do próprio período.
