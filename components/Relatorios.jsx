@@ -927,7 +927,12 @@ export default function Relatorios() {
     // Só "Contas a pagar" e "Outras saídas" continuam fixas (essas sim são
     // despesa de operação que não muda com o tamanho da carteira de crédito).
     const custoMedioDiario = balancoPeriodo.custoMedioDiario * fator;
-    const lucroBruto = recebidoSim - planejado;
+    // No simulador (sempre "nesse dia", nunca multiplicado por vários dias
+    // como no balanço geral) o lucro bruto compara com o CUSTO MÉDIO
+    // (capital que precisa voltar por dia), não com "planejado" — aqui não
+    // tem o problema de explosão que tinha no balanço de período longo,
+    // porque custoMedioDiario já É um valor de 1 dia só.
+    const lucroBruto = recebidoSim - custoMedioDiario;
     const comissaoEstimada = balancoPeriodo.comissaoEstimada * fator;
     const lucroLiquido = lucroBruto - comissaoEstimada - balancoPeriodo.custoContasPagarPeriodo - balancoPeriodo.outrasSaidas;
     return {
