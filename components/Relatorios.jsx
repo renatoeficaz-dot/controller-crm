@@ -54,6 +54,11 @@ export default function Relatorios() {
   // usuário clicar de novo num preset — mesmo com "Este mês" já selecionado.
   const [criacaoIni, setCriacaoIni] = useState(inicioMesStr());
   const [criacaoFim, setCriacaoFim] = useState(hojeStr());
+  // Preset da "Data de criação" É SEPARADO do preset de "Período (recebimento/
+  // vendas)" — antes os dois grupos de botão chamavam a mesma aplicarPreset(),
+  // que sempre setava os dois pares de data juntos, então não dava pra escolher
+  // um período diferente pra cada filtro (clicar um preset sempre igualava os dois).
+  const [criacaoPreset, setCriacaoPreset] = useState("mes");
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [openContactId, setOpenContactId] = useState(null);
@@ -740,15 +745,13 @@ export default function Relatorios() {
     const [a, b] = p.range();
     setIni(a);
     setFim(b);
-    // Os botões de preset (Hoje/Esta semana/Este mês) só mexiam em ini/fim,
-    // que alimentam "Total recebido"/"A receber" (filtro por data de
-    // PAGAMENTO). Os donuts de adimplência e a tabela "por estado" usam um
-    // campo separado, "Data de criação da lead" (criacaoIni/criacaoFim) —
-    // clicar num preset não tocava nele, então esses gráficos continuavam
-    // mostrando todo o período por baixo dos panos. Espelhar aqui os dois
-    // filtros por padrão resolve isso; quem quiser um período de criação
-    // diferente do de recebimento ainda pode ajustar os campos de "Data de
-    // criação da lead" manualmente depois.
+  }
+
+  // Mesmos atalhos (Hoje/Esta semana/Este mês/Todo período), mas só pro filtro
+  // de "Data de criação da lead" — independente do preset de período acima.
+  function aplicarPresetCriacao(p) {
+    setCriacaoPreset(p.key);
+    const [a, b] = p.range();
     setCriacaoIni(a);
     setCriacaoFim(b);
   }
@@ -1176,16 +1179,13 @@ export default function Relatorios() {
 
               <div>
                 <span className="text-xs text-slate-400">Data de criação da lead</span>
-                {/* Mesmos atalhos do período de baixo — os dois campos andam juntos
-                    (aplicarPreset seta os dois), então usar os mesmos botões aqui
-                    evita a pessoa ter que digitar a mesma data duas vezes. */}
                 <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
                   {PRESETS.map((p) => (
                     <button
                       key={p.key}
-                      onClick={() => aplicarPreset(p)}
+                      onClick={() => aplicarPresetCriacao(p)}
                       className={`text-xs rounded-full px-3 py-1 border transition-colors ${
-                        preset === p.key
+                        criacaoPreset === p.key
                           ? "bg-slate-800 text-white border-slate-800"
                           : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
                       }`}
@@ -1198,14 +1198,14 @@ export default function Relatorios() {
                   <input
                     type="date"
                     value={criacaoIni}
-                    onChange={(e) => { setPreset("custom"); setCriacaoIni(e.target.value); }}
+                    onChange={(e) => { setCriacaoPreset("custom"); setCriacaoIni(e.target.value); }}
                     className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400"
                   />
                   <span className="text-xs text-slate-400 shrink-0">até</span>
                   <input
                     type="date"
                     value={criacaoFim}
-                    onChange={(e) => { setPreset("custom"); setCriacaoFim(e.target.value); }}
+                    onChange={(e) => { setCriacaoPreset("custom"); setCriacaoFim(e.target.value); }}
                     className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400"
                   />
                 </div>
