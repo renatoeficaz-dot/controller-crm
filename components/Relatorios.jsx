@@ -837,10 +837,22 @@ export default function Relatorios() {
   // isso dá quanto, em média, precisa voltar por dia só pra acompanhar o
   // ritmo do dinheiro já emprestado a essa carteira ativa — e compara com o
   // que realmente entrou no período.
-  const capitalEmRecebimento = useMemo(
-    () => contatosFiltrados.filter((c) => c._stage === "Recebimento").reduce((s, c) => s + (c.valorCapital || 0), 0),
-    [contatosFiltrados]
-  );
+  // BUG real (10/09→11/09, reportado pelo Renato): pra um período PASSADO
+  // (ex.: semana anterior), esse cálculo usava a carteira de HOJE em
+  // Recebimento — não a carteira que existia NAQUELE período. Uma semana
+  // passada com carteira bem diferente da atual saía com o "custo médio"
+  // errado (fixo no valor de hoje). Corrigido: busca no servidor, via
+  // EtapaLog, o capital que estava em "Recebimento" na DATA FINAL do
+  // período filtrado (fim) — reconstrói a carteira histórica de verdade em
+  // vez de usar sempre o estado atual. Quando fim = hoje, dá o mesmo valor
+  // de antes (a carteira atual).
+  const [capitalEmRecebimento, setCapitalEmRecebimento] = useState(0);
+  useEffect(() => {
+    fetch(`/api/relatorios/capital-historico?data=${fim}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setCapitalEmRecebimento(d?.capitalEmRecebimento || 0))
+      .catch(() => setCapitalEmRecebimento(0));
+  }, [fim]);
   const balancoPeriodo = useMemo(() => {
     const planejado = planejadoNoPeriodo(stagesFiltrados, ini, fim);
     const liberado = liberadoNoPeriodo(stagesFiltrados, ini, fim);
@@ -1438,7 +1450,8 @@ export default function Relatorios() {
           </div>
           <p className="text-[11px] text-slate-400">
             "Planejado" é pelo vencimento da parcela (não pelo pagamento) — pagar antes ou depois do prazo ainda conta aqui pelo dia que deveria vencer.
-            "Custo médio diário" = capital hoje parado nos clientes em Recebimento ({money(capitalEmRecebimento)}) ÷ {NUM_PARCELAS} parcelas do ciclo —
+            "Custo médio diário" = capital que estava parado nos clientes em Recebimento no FIM do período filtrado ({money(capitalEmRecebimento)},
+            reconstruído pelo histórico de mudança de etapa — não é sempre a carteira de hoje) ÷ {NUM_PARCELAS} parcelas do ciclo —
             quanto precisaria voltar por dia, em média, só pra acompanhar o ritmo do dinheiro já emprestado a essa carteira (não usa o capital liberado
             NO período, que é lumpy e distorceria dias sem nenhuma liberação nova).
             "Comissão estimada" usa só a meta/bônus padrão de recuperação (Configurações &gt; Comissão) — não inclui metas por colaborador, bônus
