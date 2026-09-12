@@ -15,6 +15,7 @@ export default function RelatoriosGestao() {
   const [loading, setLoading] = useState(true);
   const [openContactId, setOpenContactId] = useState(null);
   const [ordemRent, setOrdemRent] = useState("lucro"); // lucro | prejuizo
+  const [rentExpandida, setRentExpandida] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/relatorios/gestao").catch(() => null);
@@ -219,7 +220,7 @@ export default function RelatoriosGestao() {
                 </tr>
               </thead>
               <tbody>
-                {rentOrdenada.slice(0, 50).map((c) => (
+                {(rentExpandida ? rentOrdenada.slice(0, 50) : rentOrdenada.slice(0, 5)).map((c) => (
                   <tr
                     key={c.id}
                     onClick={() => setOpenContactId(c.id)}
@@ -240,8 +241,20 @@ export default function RelatoriosGestao() {
                 ))}
               </tbody>
             </table>
-            {rentOrdenada.length > 50 && (
-              <p className="text-[11px] text-slate-400 text-center py-2">
+            {rentOrdenada.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setRentExpandida((v) => !v)}
+                className="w-full flex items-center justify-center gap-1 text-xs text-sky-600 hover:text-sky-700 py-2 border-t border-slate-100"
+              >
+                {rentExpandida ? "Mostrar menos" : `Mostrar mais (${Math.min(50, rentOrdenada.length) - 5})`}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`w-3 h-3 transition-transform ${rentExpandida ? "rotate-180" : ""}`}>
+                  <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+            {rentExpandida && rentOrdenada.length > 50 && (
+              <p className="text-[11px] text-slate-400 text-center py-2 border-t border-slate-100">
                 Mostrando 50 de {rentOrdenada.length} — baixe o CSV pra ver todos.
               </p>
             )}
