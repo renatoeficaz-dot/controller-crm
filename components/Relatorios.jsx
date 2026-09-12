@@ -897,10 +897,14 @@ export default function Relatorios() {
   // pra um número hipotético de clientes. Contas a pagar/outras saídas são
   // custo fixo da operação (gasolina, contas do mês) — não escalam com a
   // quantidade de cliente, então ficam como estão hoje na simulação.
-  const clientesAtualEmRecebimento = useMemo(
-    () => contatosFiltrados.filter((c) => c._stage === "Recebimento").length,
-    [contatosFiltrados]
-  );
+  // Usa `stages` (SEM os filtros da tela — estado/etapa/gênero/tipo/data de
+  // criação), não `contatosFiltrados`: o simulador é "quantos clientes tenho
+  // na carteira real agora", e não pode dar 0 só porque algum filtro de
+  // relatório (ex.: "Data de criação" restrita a hoje) deixou a lista vazia.
+  const clientesAtualEmRecebimento = useMemo(() => {
+    const stage = stages.find((s) => s.name === "Recebimento");
+    return stage ? (stage.contacts || []).length : 0;
+  }, [stages]);
   const [simClientes, setSimClientes] = useState("");
   const simulacao = useMemo(() => {
     const base = clientesAtualEmRecebimento || 0;
