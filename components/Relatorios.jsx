@@ -908,8 +908,14 @@ export default function Relatorios() {
     if (!x || x <= 0 || base <= 0) return null;
     const fator = x / base;
     const planejado = balancoPeriodo.planejado * fator;
-    const taxaRecebimento = balancoPeriodo.planejado > 0 ? recebido / balancoPeriodo.planejado : 0;
-    const recebidoSim = planejado * taxaRecebimento;
+    // Recebido simulado segue direto a proporção "recebido no filtro ÷
+    // clientes em Recebimento hoje" × X — NÃO passa mais por "planejado ×
+    // taxa". Bug real: quando o filtro (ex.: "Hoje") não tinha nenhuma
+    // parcela VENCENDO naquele dia, planejado dava 0 mesmo com recebido > 0
+    // (parcela paga adiantada, de outro dia) — a simulação zerava o
+    // recebido simulado por dividir por um planejado zerado, mesmo a
+    // operação tendo recebido de verdade.
+    const recebidoSim = base > 0 ? (recebido / base) * x : 0;
     const custoMedioDiario = balancoPeriodo.custoMedioDiario * fator;
     const lucroBruto = recebidoSim - planejado;
     const comissaoEstimada = balancoPeriodo.comissaoEstimada * fator;
@@ -918,7 +924,7 @@ export default function Relatorios() {
       x,
       planejado,
       recebido: recebidoSim,
-      pctMeta: balancoPeriodo.pctMeta,
+      pctMeta: planejado > 0 ? Math.round((recebidoSim / planejado) * 100) : recebidoSim > 0 ? 100 : 0,
       custoMedioDiario,
       lucroBruto,
       comissaoEstimada,
