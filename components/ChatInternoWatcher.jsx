@@ -39,6 +39,11 @@ export default function ChatInternoWatcher() {
       }
 
       const novos = [];
+      // Conversas que zeraram as não lidas desde a última checagem: a pessoa
+      // leu por fora do popup (abriu pelo menu, por exemplo) — sem isso o
+      // aviso vermelho ficava preso na tela pra sempre, já que só o clique
+      // NELE removia o próprio aviso.
+      const lidasAgora = new Set();
       for (const [id, c] of agora) {
         const antes = anterior.current.get(id) ?? 0;
         const naoLidas = c.naoLidas || 0;
@@ -54,12 +59,16 @@ export default function ChatInternoWatcher() {
             texto: c.ultimaMensagem?.body || "",
             mencao: (c.mencoes || 0) > 0,
           });
+        } else if (naoLidas === 0 && antes > 0) {
+          lidasAgora.add(id);
         }
       }
       anterior.current = new Map(lista.map((c) => [c.id, c.naoLidas || 0]));
 
+      if (novos.length || lidasAgora.size) {
+        setAvisos((atual) => [...atual, ...novos].filter((a) => !lidasAgora.has(a.conversaId)).slice(-MAX_VISIVEIS));
+      }
       if (novos.length) {
-        setAvisos((atual) => [...atual, ...novos].slice(-MAX_VISIVEIS));
         tocarAlerta();
       }
     }

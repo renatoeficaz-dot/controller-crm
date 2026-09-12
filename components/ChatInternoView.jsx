@@ -335,7 +335,7 @@ export default function ChatInternoView() {
     const m = encaminharMsg;
     setEncaminharMsg(null);
     if (!m || !destinoId) return;
-    await fetch(`/api/chat-interno/${destinoId}`, {
+    const res = await fetch(`/api/chat-interno/${destinoId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -345,6 +345,14 @@ export default function ChatInternoView() {
         mediaNome: m.mediaNome,
       }),
     });
+    if (!res.ok) {
+      // Sem isso, uma falha (ex.: perdeu acesso à conversa de destino entre
+      // abrir o menu e escolher) passava batido: o menu fechava e parecia
+      // que tinha encaminhado, mas nada chegava do outro lado.
+      const d = await res.json().catch(() => ({}));
+      setErro(d.error || "Não foi possível encaminhar.");
+      return;
+    }
     if (destinoId === selecionada) carregarDetalhe(selecionada);
     carregarConversas();
   }
