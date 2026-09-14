@@ -4277,7 +4277,7 @@ const emptyAgent = {
   ttsProvider: "deepinfra", ttsModel: TTS_MODELS[0].value, ttsVoice: KOKORO_VOICES[0].value,
   modoResposta: "espelho",
   toolSendContact: false, toolContactName: "", toolContactPhone: "",
-  toolSendTemplate: false, toolMoveStage: false, stopAtStageId: "",
+  toolSendTemplate: false, toolMoveStage: false, toolSaveCadastro: false, stopAtStageId: "",
 };
 
 // Vários agentes de IA — cada um com prompt/modelos próprios. Cada número (aba
@@ -4321,6 +4321,7 @@ function AgentesIa() {
       toolContactPhone: a.toolContactPhone || "",
       toolSendTemplate: !!a.toolSendTemplate,
       toolMoveStage: !!a.toolMoveStage,
+      toolSaveCadastro: !!a.toolSaveCadastro,
       stopAtStageId: a.stopAtStageId || "",
     });
   }
@@ -4368,6 +4369,7 @@ function AgentesIa() {
         toolContactPhone: original.toolContactPhone || "",
         toolSendTemplate: !!original.toolSendTemplate,
         toolMoveStage: !!original.toolMoveStage,
+        toolSaveCadastro: !!original.toolSaveCadastro,
         stopAtStageId: original.stopAtStageId || "",
       }),
     });
@@ -4649,6 +4651,21 @@ function AgentesIa() {
               />
               <span className="text-sm text-slate-700">Mudar a etapa do lead no funil (Kanban)</span>
             </label>
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.toolSaveCadastro}
+                onChange={(e) => setForm((f) => ({ ...f, toolSaveCadastro: e.target.checked }))}
+                className="rounded"
+              />
+              <span className="text-sm text-slate-700">Salvar dados da ficha cadastral (nome, CPF, endereço, CNPJ, placa)</span>
+            </label>
+            {form.toolSaveCadastro && (
+              <p className="text-xs text-slate-400 pl-6 -mt-1">
+                A IA só grava o que o cliente escreveu em texto — não analisa nem confere documento, isso continua sendo revisão manual.
+              </p>
+            )}
 
             <label className="block">
               <span className="text-xs text-slate-400">Parar de responder a partir de qual etapa</span>

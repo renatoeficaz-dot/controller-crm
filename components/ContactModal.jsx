@@ -314,6 +314,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       horarioRecebimento: data.horarioRecebimento || "",
       cpf: data.cpf || "",
       endereco: data.endereco || "",
+      cnpj: data.cnpj || "",
+      razaoSocial: data.razaoSocial || "",
+      placaVeiculo: data.placaVeiculo || "",
       camposCustom: JSON.parse(data.camposCustom || "{}"),
     });
     setMessages(data.messages || []);
@@ -1113,6 +1116,42 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     </label>
                   </div>
                 </label>
+
+                {/* Ficha cadastral extra (comerciante/Uber) — preenchida pelo cliente em
+                    texto (manual ou pela IA via save_cadastro), Arthur confere aqui. */}
+                {form.tipoCliente === "comerciante" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-[11px] text-slate-400">CNPJ</span>
+                      <input
+                        type="text"
+                        value={form.cnpj || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))}
+                        className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] text-slate-400">Razão social</span>
+                      <input
+                        type="text"
+                        value={form.razaoSocial || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, razaoSocial: e.target.value }))}
+                        className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                      />
+                    </label>
+                  </div>
+                )}
+                {(form.tipoCliente === "uber" || form.tipoCliente === "motoboy") && (
+                  <label className="block">
+                    <span className="text-[11px] text-slate-400">Placa do veículo</span>
+                    <input
+                      type="text"
+                      value={form.placaVeiculo || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, placaVeiculo: e.target.value }))}
+                      className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                )}
 
                 <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
                   <input

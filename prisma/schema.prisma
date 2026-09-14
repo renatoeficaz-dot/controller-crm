@@ -48,6 +48,14 @@ model Contact {
   cpf         String?
   // Endereço do lead — preenchido manualmente ou pela IA ao ler um comprovante de residência recebido.
   endereco    String?
+  // Ficha cadastral (comerciante): preenchidos pela IA a partir do que o
+  // cliente escreve na conversa (texto puro, não é análise de documento) —
+  // ver a função save_cadastro em lib/ia.js.
+  cnpj         String?
+  razaoSocial  String?
+  // Ficha cadastral (Uber/motoboy): placa do veículo, escrita pela IA a
+  // partir do que o cliente conta.
+  placaVeiculo String?
   notes       String?
   order       Int       @default(0)
   stage       Stage     @relation(fields: [stageId], references: [id])
@@ -715,6 +723,7 @@ model IaAgent {
   toolContactPhone String? // telefone do contato que a função "enviar contato" manda
   toolSendTemplate Boolean @default(false) // pode enviar uma das mensagens prontas (inclui áudios pré-gravados)
   toolMoveStage    Boolean @default(false) // pode mover o lead para outra etapa do funil
+  toolSaveCadastro Boolean @default(false) // pode salvar dados da ficha cadastral (nome, CPF, CNPJ...) que o cliente contar em texto
 
   // A partir desta etapa (e qualquer etapa depois dela na ordem do funil), a IA
   // para de responder — o atendimento passa a ser 100% humano. null = nunca para.
