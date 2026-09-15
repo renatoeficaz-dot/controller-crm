@@ -56,6 +56,15 @@ model Contact {
   // Ficha cadastral (Uber/motoboy): placa do veículo, escrita pela IA a
   // partir do que o cliente conta.
   placaVeiculo String?
+  // Ficha cadastral: e-mail do app (motorista/motoboy) e endereço comercial
+  // (comerciante) — mesma origem dos campos acima (save_cadastro).
+  emailApp          String?
+  enderecoComercial String?
+  // Ficha cadastral: telefone de um parente e de outro contato — só o
+  // número, sem nome (diferente de ContatoReferencia, que guarda nome+relação
+  // pro fluxo antigo de documentos).
+  telefoneParente String?
+  telefoneContato String?
   notes       String?
   order       Int       @default(0)
   stage       Stage     @relation(fields: [stageId], references: [id])

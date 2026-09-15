@@ -317,6 +317,10 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       cnpj: data.cnpj || "",
       razaoSocial: data.razaoSocial || "",
       placaVeiculo: data.placaVeiculo || "",
+      emailApp: data.emailApp || "",
+      enderecoComercial: data.enderecoComercial || "",
+      telefoneParente: data.telefoneParente || "",
+      telefoneContato: data.telefoneContato || "",
       camposCustom: JSON.parse(data.camposCustom || "{}"),
     });
     setMessages(data.messages || []);
@@ -1139,19 +1143,59 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
                       />
                     </label>
+                    <label className="block col-span-2">
+                      <span className="text-[11px] text-slate-400">Endereço comercial</span>
+                      <input
+                        type="text"
+                        value={form.enderecoComercial || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, enderecoComercial: e.target.value }))}
+                        className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                      />
+                    </label>
                   </div>
                 )}
                 {(form.tipoCliente === "uber" || form.tipoCliente === "motoboy") && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-[11px] text-slate-400">Placa do veículo</span>
+                      <input
+                        type="text"
+                        value={form.placaVeiculo || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, placaVeiculo: e.target.value }))}
+                        className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] text-slate-400">E-mail do app</span>
+                      <input
+                        type="text"
+                        value={form.emailApp || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, emailApp: e.target.value }))}
+                        className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                      />
+                    </label>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
                   <label className="block">
-                    <span className="text-[11px] text-slate-400">Placa do veículo</span>
+                    <span className="text-[11px] text-slate-400">Telefone de um parente</span>
                     <input
                       type="text"
-                      value={form.placaVeiculo || ""}
-                      onChange={(e) => setForm((f) => ({ ...f, placaVeiculo: e.target.value }))}
+                      value={form.telefoneParente || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, telefoneParente: e.target.value }))}
                       className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
                     />
                   </label>
-                )}
+                  <label className="block">
+                    <span className="text-[11px] text-slate-400">Telefone de outro contato</span>
+                    <input
+                      type="text"
+                      value={form.telefoneContato || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, telefoneContato: e.target.value }))}
+                      className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                </div>
 
                 <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
                   <input
