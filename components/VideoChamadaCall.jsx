@@ -11,6 +11,8 @@ import Icone from "@/components/Icones";
 export default function VideoChamadaCall({ sessaoId, onClose }) {
   const [status, setStatus] = useState("carregando"); // carregando | aguardando-entrar | aguardando-cliente | conectando | conectado | encerrada | erro
   const [contactName, setContactName] = useState("");
+  const [contact, setContact] = useState(null);
+  const [dadosAbertos, setDadosAbertos] = useState(true);
   const [micLigado, setMicLigado] = useState(true);
   const [camLigada, setCamLigada] = useState(true);
   const [erro, setErro] = useState("");
@@ -28,6 +30,7 @@ export default function VideoChamadaCall({ sessaoId, onClose }) {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
         setContactName(d.contactName || "");
+        setContact(d.contact || null);
         setStatus("aguardando-entrar");
       })
       .catch(() => {
@@ -160,6 +163,49 @@ export default function VideoChamadaCall({ sessaoId, onClose }) {
           <span className="text-sm text-slate-200 font-medium">Vídeo chamada{contactName ? ` — ${contactName}` : ""}</span>
           <button onClick={() => (status === "conectado" || status === "conectando" || status === "aguardando-cliente" ? encerrar(true) : onClose())} className="text-slate-400 hover:text-white text-xl leading-none">×</button>
         </div>
+
+        {/* Dados do cliente — pedido do kbrito: quem atende a chamada precisa
+            saber com quem está falando sem sair dessa tela. */}
+        {contact && (
+          <div className="bg-slate-900 border-t border-slate-800 text-xs text-slate-300">
+            <button
+              type="button"
+              onClick={() => setDadosAbertos((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-1.5 text-slate-400 hover:text-slate-200"
+            >
+              <span>Dados do cliente</span>
+              <span>{dadosAbertos ? "▲" : "▼"}</span>
+            </button>
+            {dadosAbertos && (
+              <div className="px-4 pb-3 grid grid-cols-2 gap-x-4 gap-y-1">
+                {contact.phone && <div><span className="text-slate-500">Telefone:</span> {contact.phone}</div>}
+                {contact.cpf && <div><span className="text-slate-500">CPF:</span> {contact.cpf}</div>}
+                {contact.tipoCliente && <div><span className="text-slate-500">Tipo:</span> {contact.tipoCliente}</div>}
+                {contact.estado && <div><span className="text-slate-500">Estado:</span> {contact.estado}</div>}
+                {contact.valorCapital != null && (
+                  <div><span className="text-slate-500">Capital:</span> R$ {contact.valorCapital}</div>
+                )}
+                {contact.endereco && (
+                  <div className="col-span-2"><span className="text-slate-500">Endereço:</span> {contact.endereco}</div>
+                )}
+                {contact.tipoCliente === "comerciante" ? (
+                  <>
+                    {contact.razaoSocial && <div><span className="text-slate-500">Razão social:</span> {contact.razaoSocial}</div>}
+                    {contact.cnpj && <div><span className="text-slate-500">CNPJ:</span> {contact.cnpj}</div>}
+                    {contact.enderecoComercial && (
+                      <div className="col-span-2"><span className="text-slate-500">Endereço comercial:</span> {contact.enderecoComercial}</div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {contact.placaVeiculo && <div><span className="text-slate-500">Placa:</span> {contact.placaVeiculo}</div>}
+                    {contact.emailApp && <div><span className="text-slate-500">E-mail do app:</span> {contact.emailApp}</div>}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="relative bg-black" style={{ aspectRatio: "4/3" }}>
           {(status === "conectando" || status === "aguardando-cliente" || status === "conectado") && (

@@ -11,6 +11,7 @@ import ReferenciasContato from "./ReferenciasContato";
 import Icone from "@/components/Icones";
 import PixModal from "./PixModal";
 import DocumentosPopup from "./DocumentosPopup";
+import PuxadaAnexo from "./PuxadaAnexo";
 import TimelineLead from "./TimelineLead";
 import AgendarMensagemModal from "./AgendarMensagemModal";
 
@@ -321,6 +322,16 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       enderecoComercial: data.enderecoComercial || "",
       telefoneParente: data.telefoneParente || "",
       telefoneContato: data.telefoneContato || "",
+      puxadaUrl: data.puxadaUrl || "",
+      puxadaFileName: data.puxadaFileName || "",
+      puxadaScore: data.puxadaScore ?? null,
+      puxadaRisco: data.puxadaRisco || "",
+      puxadaLimite: data.puxadaLimite ?? null,
+      puxadaMotivos: data.puxadaMotivos || "",
+      puxadaRenda: data.puxadaRenda ?? null,
+      puxadaEmprestimos: data.puxadaEmprestimos ?? null,
+      puxadaCcf: data.puxadaCcf ?? null,
+      puxadaProcessos: data.puxadaProcessos ?? null,
       camposCustom: JSON.parse(data.camposCustom || "{}"),
     });
     setMessages(data.messages || []);
@@ -1176,26 +1187,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     </label>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="block">
-                    <span className="text-[11px] text-slate-400">Telefone de um parente</span>
-                    <input
-                      type="text"
-                      value={form.telefoneParente || ""}
-                      onChange={(e) => setForm((f) => ({ ...f, telefoneParente: e.target.value }))}
-                      className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-[11px] text-slate-400">Telefone de outro contato</span>
-                    <input
-                      type="text"
-                      value={form.telefoneContato || ""}
-                      onChange={(e) => setForm((f) => ({ ...f, telefoneContato: e.target.value }))}
-                      className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-                    />
-                  </label>
-                </div>
+                {/* Telefone de parente/outro contato: removido daqui a pedido do
+                    Arthur (duplicava a seção "Contatos de referência" abaixo) —
+                    o valor que a IA salva (telefoneParente/telefoneContato)
+                    continua gravado no banco, só não aparece mais duas vezes na
+                    tela. */}
 
                 <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
                   <input
@@ -1455,6 +1451,28 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 <p className="text-[11px] text-red-500 mt-1">CPF inválido — confira os números antes de consultar a puxada.</p>
               )}
             </label>
+
+            {/* Puxada (consulta de crédito / "ficha detetive forense") — já existia
+                só no Chat, Arthur pediu pra também aparecer aqui na ficha do
+                contato, pra o Hulk (ou quem revisar) achar sem precisar abrir o
+                chat. */}
+            {contactId && (
+              <PuxadaAnexo
+                contactId={contactId}
+                cpf={form.cpf}
+                puxadaUrl={form.puxadaUrl}
+                puxadaFileName={form.puxadaFileName}
+                puxadaScore={form.puxadaScore}
+                puxadaRisco={form.puxadaRisco}
+                puxadaLimite={form.puxadaLimite}
+                puxadaMotivos={form.puxadaMotivos}
+                puxadaRenda={form.puxadaRenda}
+                puxadaEmprestimos={form.puxadaEmprestimos}
+                puxadaCcf={form.puxadaCcf}
+                puxadaProcessos={form.puxadaProcessos}
+                onChange={(d) => setForm((f) => ({ ...f, ...d }))}
+              />
+            )}
 
             {/* Campos personalizados (item 67) — definidos em Configurações → Campos */}
             {camposDef.length > 0 && (
