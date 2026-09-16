@@ -878,7 +878,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // Recebimento/Pago antes de voltar pra Liberação pagamento) e nunca tinha
   // preenchido a chave Pix antes: dava pra ver o erro pedindo a chave, mas
   // não tinha onde digitar ela.
-  const mostraDadosPix = ["Análise", "Liberação pagamento", "Recebimento", "Pago"].includes(contact?.stage?.name);
+  const mostraDadosPix = ["Análise", "Liberação pagamento", "Recebimento", "Pago", "Vídeo chamada", "Cravo"].includes(contact?.stage?.name);
   const emLiberacao = contact?.stage?.name === "Liberação pagamento";
   // As 10 parcelas simuladas usam a MESMA fórmula (lib/finance) que gera as
   // parcelas de verdade em "Recebimento" — se fossem duas contas separadas, a
@@ -894,8 +894,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // O checklist de conferência (referências, CPF, endereço, antecedente) abre
   // já na DOCUMENTAÇÃO, não só na Análise: é nela que a equipe junta esses
   // dados: deixar pra Análise obrigava a passar o lead de etapa antes de ter
-  // onde anotar o que já tinha coletado.
-  const mostraChecklistAnalise = ["Documentação", "Análise"].includes(contact?.stage?.name);
+  // onde anotar o que já tinha coletado. Também fica visível em Vídeo
+  // chamada/Recebimento/Pago/Cravo — pedido do Renato: quem atende nessas
+  // etapas (ex.: o cobrador na vídeo chamada) precisa conferir os mesmos
+  // dados sem o lead ter que "voltar" pra Documentação/Análise.
+  const mostraChecklistAnalise = ["Documentação", "Análise", "Vídeo chamada", "Recebimento", "Pago", "Cravo"].includes(contact?.stage?.name);
   const resumo = resumoCobranca(form.valorCapital, honorariosPct);
   // Limite de capital do ciclo atual, quando o escalonamento está ligado.
   const limiteCiclo = escalonamentoCfg ? limiteEscalonado(cicloAtual, escalonamentoCfg) : null;
