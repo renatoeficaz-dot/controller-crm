@@ -157,49 +157,49 @@ export default function VideoChamadaCall({ sessaoId, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
-      <div className="bg-slate-950 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900">
-          <span className="text-sm text-slate-200 font-medium">Vídeo chamada{contactName ? ` — ${contactName}` : ""}</span>
-          <button onClick={() => (status === "conectado" || status === "conectando" || status === "aguardando-cliente" ? encerrar(true) : onClose())} className="text-slate-400 hover:text-white text-xl leading-none">×</button>
+    <div className="fixed inset-0 z-50 bg-zinc-900/70 flex items-center justify-center p-4">
+      <div className="bg-zinc-950 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-900">
+          <span className="text-sm text-zinc-200 font-medium">Vídeo chamada{contactName ? ` — ${contactName}` : ""}</span>
+          <button onClick={() => (status === "conectado" || status === "conectando" || status === "aguardando-cliente" ? encerrar(true) : onClose())} className="text-zinc-400 hover:text-white text-xl leading-none">×</button>
         </div>
 
         {/* Dados do cliente — pedido do kbrito: quem atende a chamada precisa
             saber com quem está falando sem sair dessa tela. */}
         {contact && (
-          <div className="bg-slate-900 border-t border-slate-800 text-xs text-slate-300">
+          <div className="bg-zinc-900 border-t border-zinc-800 text-xs text-zinc-300">
             <button
               type="button"
               onClick={() => setDadosAbertos((v) => !v)}
-              className="w-full flex items-center justify-between px-4 py-1.5 text-slate-400 hover:text-slate-200"
+              className="w-full flex items-center justify-between px-4 py-1.5 text-zinc-400 hover:text-zinc-200"
             >
               <span>Dados do cliente</span>
               <span>{dadosAbertos ? "▲" : "▼"}</span>
             </button>
             {dadosAbertos && (
               <div className="px-4 pb-3 grid grid-cols-2 gap-x-4 gap-y-1">
-                {contact.phone && <div><span className="text-slate-500">Telefone:</span> {contact.phone}</div>}
-                {contact.cpf && <div><span className="text-slate-500">CPF:</span> {contact.cpf}</div>}
-                {contact.tipoCliente && <div><span className="text-slate-500">Tipo:</span> {contact.tipoCliente}</div>}
-                {contact.estado && <div><span className="text-slate-500">Estado:</span> {contact.estado}</div>}
+                {contact.phone && <div><span className="text-zinc-500">Telefone:</span> {contact.phone}</div>}
+                {contact.cpf && <div><span className="text-zinc-500">CPF:</span> {contact.cpf}</div>}
+                {contact.tipoCliente && <div><span className="text-zinc-500">Tipo:</span> {contact.tipoCliente}</div>}
+                {contact.estado && <div><span className="text-zinc-500">Estado:</span> {contact.estado}</div>}
                 {contact.valorCapital != null && (
-                  <div><span className="text-slate-500">Capital:</span> R$ {contact.valorCapital}</div>
+                  <div><span className="text-zinc-500">Capital:</span> R$ {contact.valorCapital}</div>
                 )}
                 {contact.endereco && (
-                  <div className="col-span-2"><span className="text-slate-500">Endereço:</span> {contact.endereco}</div>
+                  <div className="col-span-2"><span className="text-zinc-500">Endereço:</span> {contact.endereco}</div>
                 )}
                 {contact.tipoCliente === "comerciante" ? (
                   <>
-                    {contact.razaoSocial && <div><span className="text-slate-500">Razão social:</span> {contact.razaoSocial}</div>}
-                    {contact.cnpj && <div><span className="text-slate-500">CNPJ:</span> {contact.cnpj}</div>}
+                    {contact.razaoSocial && <div><span className="text-zinc-500">Razão social:</span> {contact.razaoSocial}</div>}
+                    {contact.cnpj && <div><span className="text-zinc-500">CNPJ:</span> {contact.cnpj}</div>}
                     {contact.enderecoComercial && (
-                      <div className="col-span-2"><span className="text-slate-500">Endereço comercial:</span> {contact.enderecoComercial}</div>
+                      <div className="col-span-2"><span className="text-zinc-500">Endereço comercial:</span> {contact.enderecoComercial}</div>
                     )}
                   </>
                 ) : (
                   <>
-                    {contact.placaVeiculo && <div><span className="text-slate-500">Placa:</span> {contact.placaVeiculo}</div>}
-                    {contact.emailApp && <div><span className="text-slate-500">E-mail do app:</span> {contact.emailApp}</div>}
+                    {contact.placaVeiculo && <div><span className="text-zinc-500">Placa:</span> {contact.placaVeiculo}</div>}
+                    {contact.emailApp && <div><span className="text-zinc-500">E-mail do app:</span> {contact.emailApp}</div>}
                   </>
                 )}
               </div>
@@ -210,7 +210,7 @@ export default function VideoChamadaCall({ sessaoId, onClose }) {
         <div className="relative bg-black" style={{ aspectRatio: "4/3" }}>
           {(status === "conectando" || status === "aguardando-cliente" || status === "conectado") && (
             <>
-              <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-slate-900" />
+              <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-zinc-900" />
               <video
                 ref={localVideoRef}
                 autoPlay
@@ -220,15 +220,15 @@ export default function VideoChamadaCall({ sessaoId, onClose }) {
                 style={{ width: 110, height: 150 }}
               />
               {status !== "conectado" && (
-                <div className="absolute top-3 left-3 bg-slate-900/75 text-white text-xs px-3 py-1.5 rounded-full">
+                <div className="absolute top-3 left-3 bg-zinc-900/75 text-white text-xs px-3 py-1.5 rounded-full">
                   {status === "aguardando-cliente" ? "Aguardando o cliente entrar…" : "Conectando…"}
                 </div>
               )}
               <div className="absolute bottom-5 left-0 right-0 flex justify-center gap-3">
-                <button onClick={alternarMic} className={`w-11 h-11 rounded-full flex items-center justify-center text-white ${micLigado ? "bg-white/15" : "bg-slate-600"}`} title={micLigado ? "Desligar microfone" : "Ligar microfone"}>
+                <button onClick={alternarMic} className={`w-11 h-11 rounded-full flex items-center justify-center text-white ${micLigado ? "bg-white/15" : "bg-zinc-600"}`} title={micLigado ? "Desligar microfone" : "Ligar microfone"}>
                   <Icone nome="fone" className="w-4 h-4" />
                 </button>
-                <button onClick={alternarCam} className={`w-11 h-11 rounded-full flex items-center justify-center text-white ${camLigada ? "bg-white/15" : "bg-slate-600"}`} title={camLigada ? "Desligar câmera" : "Ligar câmera"}>
+                <button onClick={alternarCam} className={`w-11 h-11 rounded-full flex items-center justify-center text-white ${camLigada ? "bg-white/15" : "bg-zinc-600"}`} title={camLigada ? "Desligar câmera" : "Ligar câmera"}>
                   <Icone nome="video" className="w-4 h-4" />
                 </button>
                 <button onClick={() => encerrar(true)} className="w-11 h-11 rounded-full flex items-center justify-center text-white bg-red-600" title="Encerrar chamada">
@@ -240,7 +240,7 @@ export default function VideoChamadaCall({ sessaoId, onClose }) {
 
           {status === "aguardando-entrar" && (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
-              <p className="text-slate-300 text-sm">
+              <p className="text-zinc-300 text-sm">
                 O link já foi mandado pro cliente. Quando você entrar, a chamada conecta automaticamente assim que ele passar pela verificação.
               </p>
               <button onClick={entrarNaChamada} className="bg-emerald-500 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-emerald-600">
@@ -250,7 +250,7 @@ export default function VideoChamadaCall({ sessaoId, onClose }) {
           )}
 
           {status === "carregando" && (
-            <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">Carregando…</div>
+            <div className="w-full h-full flex items-center justify-center text-zinc-400 text-sm">Carregando…</div>
           )}
 
           {status === "erro" && (
@@ -259,14 +259,14 @@ export default function VideoChamadaCall({ sessaoId, onClose }) {
               <button onClick={entrarNaChamada} className="bg-emerald-500 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-emerald-600">
                 Tentar de novo
               </button>
-              <button onClick={onClose} className="text-slate-300 text-sm underline">Fechar</button>
+              <button onClick={onClose} className="text-zinc-300 text-sm underline">Fechar</button>
             </div>
           )}
 
           {status === "encerrada" && (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
-              <p className="text-slate-300 text-sm">Chamada encerrada.</p>
-              <button onClick={onClose} className="bg-slate-700 text-white text-sm rounded-lg px-4 py-2 hover:bg-slate-600">Fechar</button>
+              <p className="text-zinc-300 text-sm">Chamada encerrada.</p>
+              <button onClick={onClose} className="bg-zinc-700 text-white text-sm rounded-lg px-4 py-2 hover:bg-zinc-600">Fechar</button>
             </div>
           )}
         </div>

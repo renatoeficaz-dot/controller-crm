@@ -991,73 +991,78 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
                 <div className="space-y-1">
                   <span className="text-[11px] text-slate-400">Telefones</span>
-                  {/* Sempre mostra Cliente + Contato 1 + Contato 2 (mesmo vazios, como
-                      lembrete do que falta pegar) — contatos 3+ só aparecem se já
-                      cadastrados. Cadastro/edição fica no card "Contatos de referência",
-                      mais abaixo (só admin edita, aqui é só visualizar/copiar). */}
-                  {[
-                    { id: "cliente", rotulo: "Cliente", nome: contact?.name || "", telefone: form.phone, tipo: "cliente" },
-                    ...[0, 1].map((i) => {
-                      const r = (contact?.referencias || [])[i];
-                      return { id: r?.id || `contato-${i + 1}`, rotulo: `Contato ${i + 1}`, nome: r?.nome || "", telefone: r?.telefone || "", tipo: "referencia", refId: r?.id, conferido: r?.conferido };
-                    }),
-                    ...(contact?.referencias || []).slice(2).map((r, i) => ({ id: r.id, rotulo: `Contato ${i + 3}`, nome: r.nome, telefone: r.telefone, tipo: "referencia", refId: r.id, conferido: r.conferido })),
-                  ].map((t) => (
-                    <div key={t.id} className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-lg px-2 py-1.5">
-                      <span className="text-slate-400 shrink-0 w-16">{t.rotulo}</span>
-                      <span className="flex-1 min-w-0 truncate">
-                        {t.telefone ? (
-                          <>
-                            <span className="text-slate-700">{t.telefone}</span>
-                            {t.nome && <span className="text-slate-400"> — {t.nome}</span>}
-                          </>
-                        ) : (
-                          <span className="text-slate-300 italic">pendente</span>
-                        )}
-                      </span>
-                      {t.telefone && (
+                  {/* Cliente: só confere/copia (o número de verdade é editado no campo
+                      WhatsApp lá em cima). Contato 1/2: EDITÁVEIS direto aqui — são os
+                      mesmos telefoneParente/telefoneContato que a IA tenta preencher
+                      sozinha (save_cadastro); quando ela erra ou não pega certo, dá pra
+                      corrigir na mão sem precisar abrir outro lugar. */}
+                  <div className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-lg px-2 py-1.5">
+                    <span className="text-slate-400 shrink-0 w-16">Cliente</span>
+                    <span className="flex-1 min-w-0 truncate">
+                      {form.phone ? (
                         <>
-                          {/* Confirmar OK: telefone do cliente fica no form (salva junto
-                              com o resto), referência salva na hora (não passa pelo
-                              "Salvar" do card, é o mesmo padrão de outros toggles). */}
-                          <label className="shrink-0 flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer" title="Confirmar que esse dado está OK">
-                            <input
-                              type="checkbox"
-                              checked={t.tipo === "cliente" ? !!form.checklistTelefoneClienteOk : !!t.conferido}
-                              onChange={async (e) => {
-                                const marcado = e.target.checked;
-                                if (t.tipo === "cliente") {
-                                  setForm((f) => ({ ...f, checklistTelefoneClienteOk: marcado }));
-                                } else if (t.refId) {
-                                  setContact((c) => ({
-                                    ...c,
-                                    referencias: (c.referencias || []).map((r) => (r.id === t.refId ? { ...r, conferido: marcado } : r)),
-                                  }));
-                                  await fetch(`/api/referencias/${t.refId}`, {
-                                    method: "PATCH",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ conferido: marcado }),
-                                  }).catch(() => {});
-                                }
-                              }}
-                            />
-                            OK
-                          </label>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(t.telefone);
-                                setTelefoneCopiadoId(t.id);
-                                setTimeout(() => setTelefoneCopiadoId(null), 1500);
-                              } catch {}
-                            }}
-                            title="Copiar telefone"
-                            className="shrink-0 flex items-center justify-center text-slate-400 hover:text-emerald-600"
-                          >
-                            <Icone nome={telefoneCopiadoId === t.id ? "check" : "copiar"} className="w-3.5 h-3.5" />
-                          </button>
+                          <span className="text-slate-700">{form.phone}</span>
+                          {contact?.name && <span className="text-slate-400"> — {contact.name}</span>}
                         </>
+                      ) : (
+                        <span className="text-slate-300 italic">pendente</span>
+                      )}
+                    </span>
+                    {form.phone && (
+                      <>
+                        <label className="shrink-0 flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer" title="Confirmar que esse dado está OK">
+                          <input
+                            type="checkbox"
+                            checked={!!form.checklistTelefoneClienteOk}
+                            onChange={(e) => setForm((f) => ({ ...f, checklistTelefoneClienteOk: e.target.checked }))}
+                          />
+                          OK
+                        </label>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(form.phone);
+                              setTelefoneCopiadoId("cliente");
+                              setTimeout(() => setTelefoneCopiadoId(null), 1500);
+                            } catch {}
+                          }}
+                          title="Copiar telefone"
+                          className="shrink-0 flex items-center justify-center text-slate-400 hover:text-emerald-600"
+                        >
+                          <Icone nome={telefoneCopiadoId === "cliente" ? "check" : "copiar"} className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {[
+                    { chave: "telefoneParente", rotulo: "Contato 1" },
+                    { chave: "telefoneContato", rotulo: "Contato 2" },
+                  ].map((t) => (
+                    <div key={t.chave} className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-lg px-2 py-1.5">
+                      <span className="text-slate-400 shrink-0 w-16">{t.rotulo}</span>
+                      <input
+                        type="text"
+                        value={form[t.chave] || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, [t.chave]: e.target.value }))}
+                        placeholder="pendente"
+                        className="flex-1 min-w-0 text-slate-700 placeholder:text-slate-300 placeholder:italic outline-none"
+                      />
+                      {form[t.chave] && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(form[t.chave]);
+                              setTelefoneCopiadoId(t.chave);
+                              setTimeout(() => setTelefoneCopiadoId(null), 1500);
+                            } catch {}
+                          }}
+                          title="Copiar telefone"
+                          className="shrink-0 flex items-center justify-center text-slate-400 hover:text-emerald-600"
+                        >
+                          <Icone nome={telefoneCopiadoId === t.chave ? "check" : "copiar"} className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
                   ))}

@@ -507,8 +507,27 @@ function Usuarios() {
   const [showPassword, setShowPassword] = useState(false);
   const [busca, setBusca] = useState("");
   const [filtroNivel, setFiltroNivel] = useState("");
+  const [entrandoComo, setEntrandoComo] = useState(false);
 
   const editando = editId !== null;
+
+  // "Entrar como" — pra admin depurar o que um usuário específico vê de
+  // verdade (permissão de kanban/número às vezes só fica clara olhando pela
+  // conta da pessoa). Troca a sessão do navegador atual pra do usuário alvo
+  // e recarrega a página inteira em "/" — pra voltar a ser você mesmo, é só
+  // sair e logar de novo com sua conta.
+  async function entrarComo(userId) {
+    if (!confirm("Isso troca sua sessão pra desse usuário — pra voltar a ser você, saia e logue de novo. Continuar?")) return;
+    setEntrandoComo(true);
+    const res = await fetch(`/api/users/${userId}/impersonate`, { method: "POST" });
+    setEntrandoComo(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || "Não foi possível entrar como esse usuário.");
+      return;
+    }
+    window.location.href = "/";
+  }
 
   const load = useCallback(async () => {
     setUsers(await fetch("/api/users").then((r) => r.json()));
@@ -728,7 +747,20 @@ function Usuarios() {
               <h3 className="font-semibold text-slate-800">
                 {editando ? "Detalhes do usuário" : "Novo usuário"}
               </h3>
-              <button type="button" onClick={closePanel} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              <div className="flex items-center gap-3">
+                {editando && (
+                  <button
+                    type="button"
+                    onClick={() => entrarComo(editId)}
+                    disabled={entrandoComo}
+                    title="Abre o sistema logado como esse usuário, pra ver exatamente o que ele vê — só administrador consegue"
+                    className="text-xs text-sky-600 hover:text-sky-700 disabled:opacity-50"
+                  >
+                    {entrandoComo ? "Entrando..." : "Entrar como"}
+                  </button>
+                )}
+                <button type="button" onClick={closePanel} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto thin-scroll px-5 py-4 space-y-4">
