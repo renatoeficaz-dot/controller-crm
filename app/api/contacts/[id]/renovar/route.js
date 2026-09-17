@@ -81,6 +81,7 @@ export async function POST(req, { params }) {
       cicloAtual: novoCiclo,
       valorCapital,
       pagamentoCapital: new Date(pagamentoCapital),
+      renovadoEm: new Date(),
       ...(stageLiberacao ? { stageId: stageLiberacao.id } : {}),
     },
   });

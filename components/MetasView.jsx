@@ -264,6 +264,7 @@ export default function MetasView() {
   const [loading, setLoading] = useState(true);
   const [openContactId, setOpenContactId] = useState(null);
   const [modalVendas, setModalVendas] = useState(false);
+  const [modalRenovacoes, setModalRenovacoes] = useState(false);
   const [modalRecebimentos, setModalRecebimentos] = useState(false);
   const [dia, setDia] = useState(hojeStr());
   const [usuario, setUsuario] = useState("");   // "" = total da empresa
@@ -508,6 +509,22 @@ export default function MetasView() {
             que a meta de recebimento normal não separa.
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setModalRenovacoes(true)}
+          title="Ver as renovações feitas neste dia"
+          className="text-left bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 hover:border-emerald-300 transition-colors"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-slate-700">Renovações {ehHoje ? "hoje" : "no dia"}</p>
+            <p className="text-sm text-slate-500">{r.renovacoesHoje ?? 0}</p>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2">
+            Cliente que já estava na carteira e pegou capital de novo — não conta como venda nova.
+          </p>
+          <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver as renovações →</p>
+        </button>
       </div>
 
       {/* -------- Números do dia -------- */}
@@ -664,6 +681,29 @@ export default function MetasView() {
                 <p className="text-sm font-medium text-slate-700 truncate">{v.nome || "Sem nome"}</p>
                 <p className="text-xs text-slate-400 truncate">
                   {v.phone || "sem telefone"} · {fmtHora(v.entrouRecebimentoEm)}
+                  {v.responsavel && <> · {v.responsavel}</>}
+                </p>
+              </div>
+              <span className="text-sm font-medium text-emerald-600 shrink-0">{money(v.valorCapital)}</span>
+            </>
+          )}
+        />
+      )}
+
+      {modalRenovacoes && (
+        <ListaModal
+          titulo="Renovações"
+          itens={r.renovacoesDetalhe || []}
+          vazio="Nenhuma renovação feita neste dia."
+          onClose={() => setModalRenovacoes(false)}
+          onAbrirContato={(id) => { setModalRenovacoes(false); setOpenContactId(id); }}
+          renderItem={(v) => (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-700 truncate">{v.nome || "Sem nome"}</p>
+                <p className="text-xs text-slate-400 truncate">
+                  {v.phone || "sem telefone"} · {fmtHora(v.renovadoEm)}
+                  {v.cicloAtual && <> · ciclo {v.cicloAtual}</>}
                   {v.responsavel && <> · {v.responsavel}</>}
                 </p>
               </div>

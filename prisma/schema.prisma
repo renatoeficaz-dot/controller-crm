@@ -81,6 +81,10 @@ model Contact {
   pagamentoCapital DateTime? // data da entrega do capital; 1ª cobrança = +1 dia
   responsavel      String? // usuário responsável pela lead
   cicloAtual       Int                @default(1) // ciclo de empréstimo atual (renovações incrementam)
+  // Quando a última renovação aconteceu — não existia nenhum jeito de contar
+  // "quantas renovações no dia" (Metas só contava vendas NOVAS, via
+  // entrouRecebimentoEm, que a renovação nunca toca). Ver app/api/contacts/[id]/renovar.
+  renovadoEm       DateTime?
   tags             Tag[]              @relation("ContactTags")
   parcelas         Parcela[]
   tasks            Task[]
