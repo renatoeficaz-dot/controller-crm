@@ -17,17 +17,34 @@ const TECLAS = [
 
 const OPERADORES = { "÷": "/", "×": "*", "−": "-", "+": "+" };
 
-// Vale só pra esta aba e morre quando ela fecha — é o que separa "navegar
-// dentro do sistema" de "abrir o sistema de novo".
+// Fica destravado por um tempo (não só "essa aba") — é o que separa "abrir o
+// WhatsApp rapidinho e voltar" de "guardar o celular e abrir de novo depois".
+// Antes usava sessionStorage (morre quando a aba fecha), mas no celular
+// trocar de app derruba a aba em segundos por falta de memória — a mesma
+// pessoa que só saiu pra ver uma mensagem no WhatsApp voltava e tinha que
+// digitar o código nas costas do cliente de novo. localStorage + expiração
+// por tempo resolve isso sem abrir mão do disfarce: builds depois desse
+// prazo, ou reiniciando o navegador, pede o código de novo do mesmo jeito.
 export const CHAVE_DESTRAVADO = "crm-calc-destravado";
+const VALIDADE_MS = 60 * 60 * 1000; // 1h sem mexer no app = tranca de novo
 
 export function jaDestravado() {
   try {
-    return sessionStorage.getItem(CHAVE_DESTRAVADO) === "1";
+    const em = Number(localStorage.getItem(CHAVE_DESTRAVADO) || 0);
+    return em > 0 && Date.now() - em < VALIDADE_MS;
   } catch {
     // Navegador bloqueando storage: melhor pedir o código do que estourar.
     return false;
   }
+}
+
+// Renova a validade a cada navegação dentro do sistema — sem isso, alguém
+// trabalhando mais de 1h seguida (sem trocar de tela) cairia na trava no
+// meio do atendimento, mesmo tendo ficado o tempo todo dentro do app.
+export function renovarDestravado() {
+  try {
+    if (jaDestravado()) localStorage.setItem(CHAVE_DESTRAVADO, String(Date.now()));
+  } catch {}
 }
 
 export default function CalculadoraEntrada({ onAbrir }) {
@@ -92,11 +109,10 @@ export default function CalculadoraEntrada({ onAbrir }) {
       .catch(() => null);
     setVerificando(false);
     if (r?.ok) {
-      // Marca a aba como destravada. sessionStorage e não memória: qualquer
-      // recarga de página (e algumas telas recarregam de verdade) remontava a
-      // trava e pedia o código de novo no meio do trabalho. Aqui ela some
-      // quando a aba/app fecha, que é o "abrir o sistema" de novo.
-      try { sessionStorage.setItem(CHAVE_DESTRAVADO, "1"); } catch {}
+      // Marca como destravado por VALIDADE_MS a partir de agora (ver
+      // jaDestravado acima) — localStorage, não sessionStorage: sobrevive a
+      // trocar de app rapidinho (WhatsApp e volta) sem re-travar à toa.
+      try { localStorage.setItem(CHAVE_DESTRAVADO, String(Date.now())); } catch {}
       onAbrir?.();
     }
     return !!r?.ok;
