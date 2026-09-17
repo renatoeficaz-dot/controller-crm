@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CHAVE_DESTRAVADO } from "@/components/CalculadoraEntrada";
 
 const links = [
   { href: "/contatos", label: "Contatos", pagina: "contatos" },
@@ -46,6 +47,10 @@ export default function TopNav() {
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    // Sem isso, a trava continuava "destravada" (localStorage) e a tela de
+    // login pulava a calculadora e mostrava o login de verdade na hora — bem
+    // no momento em que alguém mais tem chance de olhar o celular.
+    try { localStorage.removeItem(CHAVE_DESTRAVADO); } catch {}
     router.push("/login");
     router.refresh();
   }
