@@ -69,6 +69,13 @@ model Contact {
   nomeParente     String?
   telefoneContato String?
   nomeContato     String?
+  // Lead vindo de um formulário instantâneo (Instant Form) da Meta (Facebook/
+  // Instagram Lead Ads) — ver app/api/webhook/meta-leads. metaLeadId é único
+  // pra não duplicar o card se a Meta reenviar o mesmo webhook (acontece).
+  metaLeadId     String? @unique
+  metaFormId     String?
+  metaAdId       String?
+  metaCampaignId String?
   notes       String?
   order       Int       @default(0)
   stage       Stage     @relation(fields: [stageId], references: [id])
@@ -572,6 +579,22 @@ model Config {
   // ingestao ate a Evolution/WAHA ser reconfigurada com a URL nova.
   webhookToken        String?
 
+  // Integração Meta Ads (Facebook/Instagram Lead Ads — formulários instantâneos):
+  // deixado pronto pra conectar depois, do lado de quem cria o App no Meta for
+  // Developers. O CRM só precisa dessas 3 credenciais pra validar o webhook e
+  // buscar o lead completo na Graph API assim que alguém preenche o formulário.
+  metaAdsAppSecret    String? // App Secret do App no Meta for Developers (valida a assinatura do webhook)
+  metaAdsPageId       String? // ID da Página do Facebook vinculada aos anúncios
+  metaAdsPageToken    String? // Token de acesso de Página com permissão leads_retrieval
+  // Gerado automaticamente na primeira vez que a tela é aberta — é o valor que
+  // vai no campo "Verify Token" ao configurar o Webhook no Meta for Developers.
+  metaAdsVerifyToken  String?
+  // Novo lead da Meta entra atribuído a este número (mesmo sem nenhuma
+  // mensagem de WhatsApp ainda) — decide quem cobra, qual IA atende se o
+  // cliente escrever depois, etc.
+  metaAdsNumero       WhatsappNumber? @relation(fields: [metaAdsNumeroId], references: [id], onDelete: SetNull)
+  metaAdsNumeroId     String?
+
   // Meta diária: X% de todos os leads atualmente na etapa "Recebimento"
   // precisam pagar (dar baixa numa parcela) hoje. 3 níveis: mínima < média < meta
   // (meta = metaPctRecebimento, o valor "ideal"/cheio, já existia antes).
@@ -890,6 +913,7 @@ model WhatsappNumber {
   logs               ConexaoLog[]
   campanhas          LinkCampanha[]
   mensagensAgendadas MensagemAgendada[]
+  metaAdsConfigs     Config[]
 
   createdAt DateTime @default(now())
 }

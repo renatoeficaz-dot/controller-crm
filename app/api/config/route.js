@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { lerCorpo, texto } from "@/lib/corpo";
+import crypto from "crypto";
 
 // Garante que a linha única de config exista
 async function getConfig() {
@@ -31,6 +32,8 @@ const CAMPOS_SECRETOS = [
   // qualquer usuário logado tornaria o disfarce inútil dentro da própria
   // equipe, que é justamente de quem ele às vezes precisa esconder a tela.
   "codigoCalculadora",
+  // Credenciais da integração Meta Ads — mesmo motivo dos tokens acima.
+  "metaAdsAppSecret", "metaAdsPageToken",
 ];
 
 // Mudar isso aqui muda dinheiro (honorários, multa) ou credenciais de
@@ -40,7 +43,15 @@ const CAMPOS_SECRETOS = [
 const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", ...CAMPOS_SECRETOS];
 
 export async function GET() {
-  const cfg = await getConfig();
+  let cfg = await getConfig();
+  // Gerado uma vez só, na primeira vez que alguém abre a tela — é o valor
+  // que vai no campo "Verify Token" do Webhook no Meta for Developers.
+  if (!cfg.metaAdsVerifyToken) {
+    cfg = await prisma.config.update({
+      where: { id: "singleton" },
+      data: { metaAdsVerifyToken: crypto.randomBytes(24).toString("hex") },
+    });
+  }
   const user = await getCurrentUser().catch(() => null);
   if (isAdmin(user)) return NextResponse.json(cfg);
 
@@ -84,6 +95,10 @@ export async function PATCH(req) {
   if ("wahaUrl" in body) data.wahaUrl = texto(body.wahaUrl) || null;
   if ("wahaApiKey" in body) data.wahaApiKey = texto(body.wahaApiKey) || null;
   if ("webhookToken" in body) data.webhookToken = texto(body.webhookToken) || null;
+  if ("metaAdsAppSecret" in body) data.metaAdsAppSecret = texto(body.metaAdsAppSecret) || null;
+  if ("metaAdsPageId" in body) data.metaAdsPageId = texto(body.metaAdsPageId) || null;
+  if ("metaAdsPageToken" in body) data.metaAdsPageToken = texto(body.metaAdsPageToken) || null;
+  if ("metaAdsNumeroId" in body) data.metaAdsNumeroId = body.metaAdsNumeroId || null;
   if ("deepinfraApiKey" in body) data.deepinfraApiKey = texto(body.deepinfraApiKey) || null;
   if ("fishAudioApiKey" in body) data.fishAudioApiKey = texto(body.fishAudioApiKey) || null;
   if ("elevenLabsApiKey" in body) data.elevenLabsApiKey = texto(body.elevenLabsApiKey) || null;

@@ -104,6 +104,11 @@ const ICONS = {
   campanhas: (
     <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07L11.5 4.5M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07L12.5 19.5" strokeLinecap="round" strokeLinejoin="round" />
   ),
+  metaads: (
+    <>
+      <path d="M3 11v2a2 2 0 0 0 2 2h1l2 5h2l-1.5-5H10l9 4V5l-9 4H5a2 2 0 0 0-2 2z" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
   aparencia: (
     <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36A5 5 0 0 1 12 3z" strokeLinecap="round" strokeLinejoin="round" />
   ),
@@ -151,6 +156,7 @@ const TABS = [
   { key: "usuarios", label: "Usuários", desc: "Acessos e permissões da equipe" },
   { key: "numeros", label: "Números", desc: "WhatsApp conectados e cobrança automática" },
   { key: "campanhas", label: "Links (UTM)", desc: "Links de rastreamento por campanha/região" },
+  { key: "metaads", label: "Meta Ads", desc: "Conectar formulários de anúncio (Facebook/Instagram) ao CRM" },
   { key: "tags", label: "Tags / Auto-tag", desc: "Etiquetas e regras automáticas" },
   { key: "tarefas", label: "Tipos de Tarefa", desc: "Categorias das tarefas dos leads" },
   { key: "metas", label: "Metas", desc: "Regra da meta diária de recebimento" },
@@ -299,6 +305,7 @@ export default function Configuracoes() {
                 <AgentesIa />
               </div>
             )}
+            {tab === "metaads" && <MetaAdsConfig />}
             {tab === "alertas" && <AlertasWhatsapp />}
             {tab === "backup" && <BackupBanco />}
             {tab === "regua" && <ReguaCobranca />}
@@ -4226,6 +4233,118 @@ function PromptModal({ value, onChange, onClose }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// Integração com Meta Lead Ads (Facebook/Instagram — formulários instantâneos).
+// Deixado pronto pro Renato conectar depois, sem precisar mexer em código:
+// cria o App no Meta for Developers, vincula a Página, gera o token de
+// Página com permissão leads_retrieval, e cola os 3 campos abaixo. A URL de
+// callback e o Verify Token (gerados automaticamente) vão no formulário de
+// Webhooks do App, assinando o campo "leadgen" da Página.
+function MetaAdsConfig() {
+  const [form, setForm] = useState({ metaAdsAppSecret: "", metaAdsPageId: "", metaAdsPageToken: "", metaAdsNumeroId: "" });
+  const [verifyToken, setVerifyToken] = useState("");
+  const [numeros, setNumeros] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [copiado, setCopiado] = useState("");
+
+  useEffect(() => {
+    fetch("/api/config").then((r) => r.json()).then((d) => {
+      setForm({
+        metaAdsAppSecret: d?.metaAdsAppSecret === "***" ? "" : d?.metaAdsAppSecret || "",
+        metaAdsPageId: d?.metaAdsPageId || "",
+        metaAdsPageToken: d?.metaAdsPageToken === "***" ? "" : d?.metaAdsPageToken || "",
+        metaAdsNumeroId: d?.metaAdsNumeroId || "",
+      });
+      setVerifyToken(d?.metaAdsVerifyToken || "");
+    }).catch(() => {});
+    fetch("/api/numbers").then((r) => r.json()).then((n) => setNumeros(Array.isArray(n) ? n : [])).catch(() => {});
+  }, []);
+
+  const callbackUrl = typeof window !== "undefined" ? `${window.location.origin}/api/webhook/meta-leads` : "";
+
+  async function copiar(texto, chave) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(chave);
+      setTimeout(() => setCopiado(""), 1500);
+    } catch {}
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    setSaving(true);
+    await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  return (
+    <form onSubmit={save} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-lg space-y-4">
+      <div>
+        <h2 className="font-semibold text-slate-800">Meta Ads — formulários instantâneos</h2>
+        <p className="text-xs text-slate-400 mt-1">
+          Conecta os anúncios de geração de cadastro (Instant Forms) do Facebook/Instagram: assim que alguém preenche
+          o formulário na Meta, um card novo aparece direto no funil, sem precisar do cliente mandar mensagem primeiro.
+        </p>
+      </div>
+
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2.5">
+        <p className="text-[11px] font-medium text-slate-500">1. No Meta for Developers, configure o Webhook do App com:</p>
+        <div className="space-y-1.5">
+          <span className="text-[11px] text-slate-400">URL de callback</span>
+          <div className="flex items-center gap-1.5">
+            <code className="flex-1 min-w-0 truncate text-xs bg-white border border-slate-200 rounded px-2 py-1.5">{callbackUrl}</code>
+            <button type="button" onClick={() => copiar(callbackUrl, "url")} className="shrink-0 text-xs text-emerald-600 hover:underline">
+              {copiado === "url" ? "Copiado ✓" : "Copiar"}
+            </button>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <span className="text-[11px] text-slate-400">Verify Token</span>
+          <div className="flex items-center gap-1.5">
+            <code className="flex-1 min-w-0 truncate text-xs bg-white border border-slate-200 rounded px-2 py-1.5">{verifyToken || "carregando…"}</code>
+            <button type="button" onClick={() => copiar(verifyToken, "token")} className="shrink-0 text-xs text-emerald-600 hover:underline">
+              {copiado === "token" ? "Copiado ✓" : "Copiar"}
+            </button>
+          </div>
+        </div>
+        <p className="text-[11px] text-slate-400">Assine o campo <strong>leadgen</strong> da Página conectada ao App.</p>
+      </div>
+
+      <p className="text-[11px] font-medium text-slate-500">2. Cole as credenciais do App/Página:</p>
+      <Field label="App Secret" value={form.metaAdsAppSecret} onChange={(v) => setForm((f) => ({ ...f, metaAdsAppSecret: v }))} placeholder="Definições do App → Básico" />
+      <Field label="ID da Página" value={form.metaAdsPageId} onChange={(v) => setForm((f) => ({ ...f, metaAdsPageId: v }))} placeholder="ex.: 102938475..." />
+      <Field label="Token de acesso da Página" value={form.metaAdsPageToken} onChange={(v) => setForm((f) => ({ ...f, metaAdsPageToken: v }))} placeholder="com permissão leads_retrieval" />
+
+      <label className="block">
+        <span className="text-xs font-medium text-slate-500">Novo lead da Meta entra atribuído a</span>
+        <select
+          value={form.metaAdsNumeroId}
+          onChange={(e) => setForm((f) => ({ ...f, metaAdsNumeroId: e.target.value }))}
+          className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
+        >
+          <option value="">— Nenhum (fica sem responsável) —</option>
+          {numeros.map((n) => (
+            <option key={n.id} value={n.id}>{n.label}</option>
+          ))}
+        </select>
+      </label>
+
+      <button
+        disabled={saving}
+        className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
+      >
+        {saving ? "Salvando…" : saved ? "Salvo ✓" : "Salvar"}
+      </button>
+    </form>
   );
 }
 
