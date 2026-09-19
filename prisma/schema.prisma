@@ -211,6 +211,7 @@ model Contact {
   mensagensAgendadas MensagemAgendada[]
 
   negociacoes Negociacao[]
+  suportesIa  SuporteIa[]
 
   // Link de rastreamento (UTM) que trouxe esse lead — atribuição de primeiro
   // toque: setado uma vez, na criação, a partir da tag "[ref:slug]" que o
@@ -413,6 +414,25 @@ model Negociacao {
   notas          String?
   usuario        String?
   createdAt      DateTime @default(now())
+}
+
+// Botão vermelho de "erro da IA" no card da lead: quem está atendendo aperta
+// na hora que percebe que a IA preencheu/entendeu algo errado (e teve que
+// corrigir manualmente), sem precisar escrever no chat interno. Fica numa
+// fila em Configurações → IA → Suporte da IA pra revisão — de lá dá pra ver
+// o que os humanos tiveram que consertar e ajustar o prompt/lógica da IA
+// pra não repetir.
+model SuporteIa {
+  id            String    @id @default(cuid())
+  contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId     String
+  descricao     String? // o que a IA fez errado — opcional, quem aperta pode não escrever nada
+  criadoPor     String?
+  resolvido     Boolean   @default(false)
+  resolvidoEm   DateTime?
+  resolvidoPor  String?
+  notaResolucao String? // o que foi ajustado na IA pra corrigir
+  createdAt     DateTime  @default(now())
 }
 
 // Tempo de uso do sistema por colaborador, por dia — só conta enquanto o

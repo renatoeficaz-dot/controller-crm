@@ -295,6 +295,7 @@ export default function Configuracoes() {
             {tab === "ia" && (
               <div className="space-y-6">
                 <TokenDeepInfra />
+                <SuporteIaConfig />
                 <AgentesIa />
               </div>
             )}
@@ -4295,6 +4296,109 @@ function TokenDeepInfra() {
         {saving ? "Salvando…" : saved ? "Salvo ✓" : "Salvar"}
       </button>
     </form>
+  );
+}
+
+// Fila do botão vermelho "erro da IA" no card da lead (ver ContactModal e
+// schema SuporteIa) — cada item é um humano avisando que teve que corrigir
+// algo que a IA entendeu/preencheu errado. Serve pra revisar e ajustar o
+// prompt/lógica da IA, não é uma tarefa de atendimento do dia a dia.
+function SuporteIaConfig() {
+  const [itens, setItens] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [mostrarResolvidos, setMostrarResolvidos] = useState(false);
+  const [notaPorId, setNotaPorId] = useState({});
+  const [salvandoId, setSalvandoId] = useState(null);
+
+  const carregar = useCallback(() => {
+    setCarregando(true);
+    fetch("/api/suporte-ia")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setItens(Array.isArray(d) ? d : []))
+      .catch(() => setItens([]))
+      .finally(() => setCarregando(false));
+  }, []);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  async function resolver(id) {
+    setSalvandoId(id);
+    await fetch(`/api/suporte-ia/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resolvido: true, notaResolucao: notaPorId[id] || "" }),
+    });
+    setSalvandoId(null);
+    carregar();
+  }
+
+  const visiveis = itens.filter((i) => mostrarResolvidos || !i.resolvido);
+  const pendentes = itens.filter((i) => !i.resolvido).length;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold text-slate-800">Suporte da IA</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Erros que a equipe reportou pelo botão vermelho no card da lead — o que a IA preencheu/entendeu errado
+            e teve que ser corrigido na mão. Revisa aqui e ajusta o prompt/lógica pra não repetir.
+          </p>
+        </div>
+        {pendentes > 0 && (
+          <span className="shrink-0 text-xs font-medium bg-red-50 text-red-600 border border-red-200 rounded-full px-2.5 py-1">
+            {pendentes} pendente{pendentes === 1 ? "" : "s"}
+          </span>
+        )}
+      </div>
+      <label className="flex items-center gap-1.5 text-xs text-slate-500">
+        <input type="checkbox" checked={mostrarResolvidos} onChange={(e) => setMostrarResolvidos(e.target.checked)} />
+        Mostrar já resolvidos
+      </label>
+      {carregando ? (
+        <p className="text-xs text-slate-400">Carregando…</p>
+      ) : visiveis.length === 0 ? (
+        <p className="text-xs text-slate-400">Nenhum erro reportado{mostrarResolvidos ? "" : " (ou está tudo resolvido)"}.</p>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {visiveis.map((item) => (
+            <li key={item.id} className="py-3 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-slate-700">
+                  {item.contact?.name || "Sem nome"}
+                  {item.contact?.phone && <span className="text-slate-400 font-normal"> — {item.contact.phone}</span>}
+                </span>
+                <span className="text-[11px] text-slate-400 shrink-0">
+                  {new Date(item.createdAt).toLocaleString("pt-BR")}{item.criadoPor ? ` · ${item.criadoPor}` : ""}
+                </span>
+              </div>
+              {item.descricao && <p className="text-xs text-slate-600">{item.descricao}</p>}
+              {item.resolvido ? (
+                <p className="text-[11px] text-emerald-600">
+                  ✓ Resolvido por {item.resolvidoPor} em {new Date(item.resolvidoEm).toLocaleString("pt-BR")}
+                  {item.notaResolucao && <> — {item.notaResolucao}</>}
+                </p>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    value={notaPorId[item.id] || ""}
+                    onChange={(e) => setNotaPorId((n) => ({ ...n, [item.id]: e.target.value }))}
+                    placeholder="O que foi ajustado na IA? (opcional)"
+                    className="flex-1 text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400"
+                  />
+                  <button
+                    onClick={() => resolver(item.id)}
+                    disabled={salvandoId === item.id}
+                    className="shrink-0 text-xs bg-emerald-500 text-white rounded px-2.5 py-1 hover:bg-emerald-600 disabled:opacity-50"
+                  >
+                    {salvandoId === item.id ? "…" : "Marcar resolvido"}
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

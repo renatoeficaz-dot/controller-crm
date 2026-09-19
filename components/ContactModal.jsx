@@ -232,6 +232,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [allTags, setAllTags] = useState([]);
   const [novaTag, setNovaTag] = useState("");
   const [encaminharLeadAberto, setEncaminharLeadAberto] = useState(false);
+  const [suporteIaAberto, setSuporteIaAberto] = useState(false);
+  const [suporteIaDescricao, setSuporteIaDescricao] = useState("");
+  const [enviandoSuporteIa, setEnviandoSuporteIa] = useState(false);
   const [conversasInternas, setConversasInternas] = useState([]);
   const [convInternaAlvo, setConvInternaAlvo] = useState("");
   const [notaInterna, setNotaInterna] = useState("");
@@ -834,6 +837,19 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     setNotaInterna("");
     setConvInternaAlvo("");
     setPendenteDe("");
+  }
+
+  async function reportarErroIa() {
+    setEnviandoSuporteIa(true);
+    const res = await fetch("/api/suporte-ia", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId, descricao: suporteIaDescricao }),
+    });
+    setEnviandoSuporteIa(false);
+    if (!res.ok) { alert("Não foi possível registrar."); return; }
+    setSuporteIaAberto(false);
+    setSuporteIaDescricao("");
   }
 
   async function removeContact() {
@@ -2134,6 +2150,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               <Icone nome="pessoas" className="w-3.5 h-3.5" /> Chat interno
             </button>
             <button
+              onClick={() => setSuporteIaAberto(true)}
+              title="Reportar que a IA preencheu/entendeu algo errado nesta lead"
+              className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+            >
+              !
+            </button>
+            <button
               onClick={toggleIaPausada}
               title={contact?.iaPausada ? "IA desligada — clique para religar" : "IA ligada — clique para desligar (atendimento manual)"}
               className={`shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border ${
@@ -2678,6 +2701,43 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 className="w-full bg-emerald-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50"
               >
                 {enviandoInterno ? "Enviando..." : "Enviar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {suporteIaAberto && (
+        <div
+          className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4"
+          onClick={() => setSuporteIaAberto(false)}
+        >
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-800">Reportar erro da IA</h3>
+              <button onClick={() => setSuporteIaAberto(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-slate-500">
+                Fica registrado numa fila em Configurações → IA → Suporte da IA, pra revisar depois e ajustar
+                a IA pra não repetir. Não precisa escrever no chat interno pra isso.
+              </p>
+              <label className="block">
+                <span className="text-xs text-slate-500">O que a IA fez errado? (opcional)</span>
+                <textarea
+                  value={suporteIaDescricao}
+                  onChange={(e) => setSuporteIaDescricao(e.target.value)}
+                  rows={3}
+                  placeholder="Ex.: salvou o CPF errado, misturou os campos de comerciante com motorista..."
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-red-400 resize-none"
+                  autoFocus
+                />
+              </label>
+              <button
+                onClick={reportarErroIa}
+                disabled={enviandoSuporteIa}
+                className="w-full bg-red-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+              >
+                {enviandoSuporteIa ? "Registrando..." : "Registrar erro"}
               </button>
             </div>
           </div>
