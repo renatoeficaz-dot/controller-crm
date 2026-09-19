@@ -324,7 +324,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       emailApp: data.emailApp || "",
       enderecoComercial: data.enderecoComercial || "",
       telefoneParente: data.telefoneParente || "",
+      nomeParente: data.nomeParente || "",
       telefoneContato: data.telefoneContato || "",
+      nomeContato: data.nomeContato || "",
       puxadaUrl: data.puxadaUrl || "",
       puxadaFileName: data.puxadaFileName || "",
       puxadaScore: data.puxadaScore ?? null,
@@ -1052,18 +1054,27 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     )}
                   </div>
                   {[
-                    { chave: "telefoneParente", rotulo: "Contato 1" },
-                    { chave: "telefoneContato", rotulo: "Contato 2" },
+                    { chave: "telefoneParente", nomeChave: "nomeParente", rotulo: "Parente", placeholderNome: "nome do familiar" },
+                    { chave: "telefoneContato", nomeChave: "nomeContato", rotulo: "Contato 2", placeholderNome: "nome da pessoa" },
                   ].map((t) => (
                     <div key={t.chave} className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-lg px-2 py-1.5">
                       <span className="text-slate-400 shrink-0 w-16">{t.rotulo}</span>
-                      <input
-                        type="text"
-                        value={form[t.chave] || ""}
-                        onChange={(e) => setForm((f) => ({ ...f, [t.chave]: e.target.value }))}
-                        placeholder="pendente"
-                        className="flex-1 min-w-0 text-slate-700 placeholder:text-slate-300 placeholder:italic outline-none"
-                      />
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        <input
+                          type="text"
+                          value={form[t.nomeChave] || ""}
+                          onChange={(e) => setForm((f) => ({ ...f, [t.nomeChave]: e.target.value }))}
+                          placeholder={t.placeholderNome}
+                          className="min-w-0 text-slate-700 placeholder:text-slate-300 placeholder:italic outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={form[t.chave] || ""}
+                          onChange={(e) => setForm((f) => ({ ...f, [t.chave]: e.target.value }))}
+                          placeholder="telefone pendente"
+                          className="min-w-0 text-slate-400 placeholder:text-slate-300 placeholder:italic outline-none"
+                        />
+                      </div>
                       {form[t.chave] && (
                         <button
                           type="button"

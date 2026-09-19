@@ -60,11 +60,15 @@ model Contact {
   // (comerciante) — mesma origem dos campos acima (save_cadastro).
   emailApp          String?
   enderecoComercial String?
-  // Ficha cadastral: telefone de um parente e de outro contato — só o
-  // número, sem nome (diferente de ContatoReferencia, que guarda nome+relação
-  // pro fluxo antigo de documentos).
+  // Ficha cadastral: telefone (+ nome) de um parente e de outro contato de
+  // referência — parente é obrigatoriamente família (a IA pergunta o
+  // parentesco); "contato" é qualquer outra referência que não mora com o
+  // cliente. Nome junto do telefone porque sem ele o cobrador liga e não sabe
+  // nem quem é nem o que dizer.
   telefoneParente String?
+  nomeParente     String?
   telefoneContato String?
+  nomeContato     String?
   notes       String?
   order       Int       @default(0)
   stage       Stage     @relation(fields: [stageId], references: [id])
