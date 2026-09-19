@@ -3,6 +3,42 @@
 import { useEffect, useState } from "react";
 import Icone from "@/components/Icones";
 
+// Mensagens antigas ainda guardam o arquivo como "data:mime;base64,..." em vez
+// de um link /uploads/xxx (ver lib/mediaStorage.js). Um <a href="data:..."
+// target="_blank"> nesses casos não abre nada no Chrome mobile — o navegador
+// bloqueia navegação de página inteira pra uma data: URL por segurança, e o
+// clique simplesmente não faz nada, sem erro visível. Convertendo pra blob
+// primeiro, o navegador abre/baixa normalmente.
+function BotaoAbrirArquivo({ url, fileName, mimetype }) {
+  const [abrindo, setAbrindo] = useState(false);
+  async function abrir() {
+    if (!url.startsWith("data:")) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    setAbrindo(true);
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = fileName || "documento";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } finally {
+      setAbrindo(false);
+    }
+  }
+  return (
+    <button type="button" onClick={abrir} disabled={abrindo} className="text-emerald-600 underline disabled:opacity-50">
+      {abrindo ? "Abrindo…" : "Abrir em nova aba"}
+    </button>
+  );
+}
+
 // Popup pra ver a mídia direto no sistema, sem abrir aba nova nem forçar download.
 export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
   // Documento que na verdade é uma foto/scan (ex.: comprovante mandado como
@@ -42,9 +78,7 @@ export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
         {!isPreviewable && (
           <div className="bg-white rounded-lg p-6 text-center text-sm text-slate-600">
             <p className="mb-3">Esse tipo de arquivo não tem visualização direta ({fileName || "documento"}).</p>
-            <a href={url} target="_blank" rel="noreferrer" className="text-emerald-600 underline">
-              Abrir em nova aba
-            </a>
+            <BotaoAbrirArquivo url={url} fileName={fileName} mimetype={mimetype} />
           </div>
         )}
       </div>

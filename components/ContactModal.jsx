@@ -1989,7 +1989,10 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         <p className="text-[11px] text-slate-500">
                           Cliente que renova costuma pagar bem melhor que o primeiro empréstimo.
                           {limiteProximoCiclo != null && (
-                            <> Pelo escalonamento, o ciclo {cicloAtual + 1} libera até <strong>{money(limiteProximoCiclo)}</strong>.</>
+                            <>
+                              {" "}Pelo escalonamento, o ciclo {cicloAtual + 1} libera até <strong>{money(limiteProximoCiclo)}</strong>
+                              {" "}({NUM_PARCELAS}x de <strong>{money(resumoCobranca(limiteProximoCiclo, honorariosPct).valorParcela)}</strong>).
+                            </>
                           )}
                         </p>
                         <div className="grid grid-cols-2 gap-2">
