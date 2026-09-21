@@ -123,6 +123,36 @@ export async function POST(req) {
       const { nome, telefone, extras } = mapearCampos(lead.field_data);
       if (!stagePrimeira) continue;
 
+      // Mesmo telefone já é um contato (ex.: cliente antigo, ou já mandou
+      // mensagem antes de preencher o formulário) — vincula nesse card em vez
+      // de criar um duplicado. Compara pelos últimos 8 dígitos, igual ao
+      // pré-cadastro por link (/api/formulario): DDI/DDD podem vir diferentes
+      // entre o que o WhatsApp registrou e o que a Meta formatou.
+      const existente = telefone
+        ? await prisma.contact.findFirst({ where: { phone: { endsWith: telefone.slice(-8) }, excluidoEm: null } })
+        : null;
+
+      const notaMeta = [
+        "Lead recebido via Meta Ads (formulário instantâneo).",
+        extras ? `\nRespostas adicionais:\n${extras}` : "",
+      ].join("");
+
+      if (existente) {
+        await prisma.contact.update({
+          where: { id: existente.id },
+          data: {
+            metaLeadId: leadgenId,
+            metaFormId: v.form_id ? String(v.form_id) : null,
+            metaAdId: v.ad_id ? String(v.ad_id) : null,
+            metaCampaignId: v.campaign_id ? String(v.campaign_id) : null,
+            // Nunca sobrescreve nome/notas de quem já é um lead com histórico —
+            // só anexa a nota do novo formulário ao que já existia.
+            notes: [existente.notes, notaMeta].filter(Boolean).join("\n\n"),
+          },
+        });
+        continue;
+      }
+
       await prisma.contact.create({
         data: {
           name: nome || telefone || "Lead do Facebook/Instagram",
@@ -133,10 +163,7 @@ export async function POST(req) {
           metaAdId: v.ad_id ? String(v.ad_id) : null,
           metaCampaignId: v.campaign_id ? String(v.campaign_id) : null,
           responsavel: responsavelPadrao,
-          notes: [
-            "Lead recebido via Meta Ads (formulário instantâneo).",
-            extras ? `\nRespostas adicionais:\n${extras}` : "",
-          ].join(""),
+          notes: notaMeta,
         },
       });
     }
