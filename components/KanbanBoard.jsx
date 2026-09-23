@@ -236,6 +236,30 @@ export default function KanbanBoard() {
     load();
   }, [load]);
 
+  // O funil só carregava uma vez ao abrir a página — sem isso, um card movido
+  // por outra pessoa (outro cobrador, outra aba) ficava "grudado" na coluna
+  // antiga até alguém recarregar a página manualmente. Atualiza sozinho de
+  // tempos em tempos e sempre que a aba volta a ficar em primeiro plano —
+  // pula enquanto um card está sendo arrastado, pra não interromper o drag.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!dragging) load();
+    }, 30000);
+    return () => clearInterval(id);
+  }, [load, dragging]);
+
+  useEffect(() => {
+    function aoFocar() {
+      if (document.visibilityState === "visible" && !dragging) load();
+    }
+    document.addEventListener("visibilitychange", aoFocar);
+    window.addEventListener("focus", aoFocar);
+    return () => {
+      document.removeEventListener("visibilitychange", aoFocar);
+      window.removeEventListener("focus", aoFocar);
+    };
+  }, [load, dragging]);
+
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsuarios).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then(setTags).catch(() => {});
