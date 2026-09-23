@@ -882,6 +882,8 @@ export default function KanbanBoard() {
                   <option value="recentes">Mais recentes</option>
                   <option value="antigas">Mais antigas</option>
                   <option value="inadimplencia">Mais tempo inadimplente</option>
+                  <option value="etiqueta">Etiqueta (A-Z)</option>
+                  <option value="regiao">Região / Estado (A-Z)</option>
                 </select>
               </label>
             </div>
@@ -895,6 +897,24 @@ export default function KanbanBoard() {
             const isOver = overStage === stage.id;
             const visiveis = stage.contacts.filter(passaFiltro).sort((a, b) => {
               if (ordem === "inadimplencia") return diasInadimplente(b) - diasInadimplente(a);
+              // Sem etiqueta/estado vai pro fim da lista, não pro topo (string
+              // vazia ordenaria antes de qualquer letra em localeCompare).
+              if (ordem === "etiqueta") {
+                const ta = a.tags?.[0]?.name || "";
+                const tb = b.tags?.[0]?.name || "";
+                if (!ta && !tb) return 0;
+                if (!ta) return 1;
+                if (!tb) return -1;
+                return ta.localeCompare(tb, "pt-BR");
+              }
+              if (ordem === "regiao") {
+                const ea = a.estado || "";
+                const eb = b.estado || "";
+                if (!ea && !eb) return 0;
+                if (!ea) return 1;
+                if (!eb) return -1;
+                return ea.localeCompare(eb, "pt-BR");
+              }
               const da = new Date(a.lastMessageAt || 0);
               const db = new Date(b.lastMessageAt || 0);
               return ordem === "recentes" ? db - da : da - db;
