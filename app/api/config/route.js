@@ -40,7 +40,7 @@ const CAMPOS_SECRETOS = [
 // integração — mesmo só admin conseguindo (o middleware já trava isso),
 // não tinha NENHUM registro de quem mudou o quê. Com 2+ admins, "os
 // honorários foram de 30% pra 1%" ficava sem rastro nenhum de autoria.
-const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", ...CAMPOS_SECRETOS];
+const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", "iaGlobalPausada", ...CAMPOS_SECRETOS];
 
 export async function GET() {
   let cfg = await getConfig();
@@ -99,6 +99,7 @@ export async function PATCH(req) {
   if ("metaAdsPageId" in body) data.metaAdsPageId = texto(body.metaAdsPageId) || null;
   if ("metaAdsPageToken" in body) data.metaAdsPageToken = texto(body.metaAdsPageToken) || null;
   if ("metaAdsNumeroId" in body) data.metaAdsNumeroId = body.metaAdsNumeroId || null;
+  if ("iaGlobalPausada" in body) data.iaGlobalPausada = !!body.iaGlobalPausada;
   if ("deepinfraApiKey" in body) data.deepinfraApiKey = texto(body.deepinfraApiKey) || null;
   if ("fishAudioApiKey" in body) data.fishAudioApiKey = texto(body.fishAudioApiKey) || null;
   if ("elevenLabsApiKey" in body) data.elevenLabsApiKey = texto(body.elevenLabsApiKey) || null;

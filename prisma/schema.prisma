@@ -595,6 +595,12 @@ model Config {
   metaAdsNumero       WhatsappNumber? @relation(fields: [metaAdsNumeroId], references: [id], onDelete: SetNull)
   metaAdsNumeroId     String?
 
+  // Interruptor geral: liga/desliga a IA pra TODOS os leads de uma vez (nem
+  // responde, nem move etapa sozinha) — diferente de Contact.iaPausada, que é
+  // por lead. Pra quando a decisão é "por enquanto é tudo manual" e não faz
+  // sentido apagar a config de cada agente pra isso.
+  iaGlobalPausada Boolean @default(false)
+
   // Meta diária: X% de todos os leads atualmente na etapa "Recebimento"
   // precisam pagar (dar baixa numa parcela) hoje. 3 níveis: mínima < média < meta
   // (meta = metaPctRecebimento, o valor "ideal"/cheio, já existia antes).

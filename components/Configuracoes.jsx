@@ -300,6 +300,7 @@ export default function Configuracoes() {
             {tab === "automacao" && <AutomacaoFunil />}
             {tab === "ia" && (
               <div className="space-y-6">
+                <InterruptorGlobalIa />
                 <TokenDeepInfra />
                 <SuporteIaConfig />
                 <AgentesIa />
@@ -4232,6 +4233,55 @@ function PromptModal({ value, onChange, onClose }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Interruptor geral: liga/desliga a IA pra TODOS os leads de uma vez (nem
+// responde, nem move etapa sozinha) — diferente do "IA ligada/desligada" de
+// cada lead (esse é individual). Pra quando a decisão é "por enquanto é tudo
+// manual" e não faz sentido desconfigurar cada agente pra isso.
+function InterruptorGlobalIa() {
+  const [pausada, setPausada] = useState(null); // null = ainda carregando
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/config").then((r) => r.json()).then((d) => setPausada(!!d?.iaGlobalPausada)).catch(() => setPausada(false));
+  }, []);
+
+  async function alternar() {
+    const novo = !pausada;
+    setSalvando(true);
+    setPausada(novo);
+    await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ iaGlobalPausada: novo }),
+    });
+    setSalvando(false);
+  }
+
+  return (
+    <div className={`rounded-2xl border shadow-sm p-5 flex items-center justify-between gap-4 ${pausada ? "bg-red-50 border-red-200" : "bg-white border-slate-200/70"}`}>
+      <div>
+        <h2 className="font-semibold text-slate-800">
+          IA {pausada ? "desligada pra todo mundo" : "ligada"}
+        </h2>
+        <p className="text-xs text-slate-500 mt-1 max-w-md">
+          {pausada
+            ? "Nenhum lead recebe resposta automática nem tem etapa movida sozinha — tudo manual até religar aqui."
+            : "Cada agente/lead segue as próprias regras normalmente. Desligue aqui só se quiser parar TUDO de uma vez, pra todo mundo."}
+        </p>
+      </div>
+      <button
+        onClick={alternar}
+        disabled={pausada === null || salvando}
+        className={`shrink-0 text-sm font-medium rounded-full px-4 py-2 disabled:opacity-50 ${
+          pausada ? "bg-red-600 text-white hover:bg-red-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+        }`}
+      >
+        {pausada === null ? "…" : pausada ? "Religar IA" : "Desligar tudo"}
+      </button>
     </div>
   );
 }
