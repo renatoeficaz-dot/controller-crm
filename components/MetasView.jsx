@@ -463,6 +463,18 @@ export default function MetasView() {
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver o que foi recebido →</p>
         </button>
 
+        {/* Capital liberado no dia = venda nova + renovação somadas — sem meta
+            configurável, é só o total de verdade que saiu do caixa hoje. */}
+        <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-slate-700">Liberado no dia</p>
+            <p className="text-sm font-semibold text-emerald-700">{money(r.valorLiberadoTotalHoje)}</p>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Venda nova ({money(r.valorVendidoHoje)}) + renovação ({money(r.valorLiberadoTotalHoje - r.valorVendidoHoje)}), somadas.
+          </p>
+        </div>
+
         {/* 5. Meta de vendas em R$ */}
         {r.metaValorVendasDia > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
