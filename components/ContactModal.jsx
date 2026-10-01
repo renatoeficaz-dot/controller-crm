@@ -2526,6 +2526,26 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             <label className="block">
               <span className="text-xs text-slate-500">Novo vencimento</span>
               <input type="date" autoFocus value={editandoVencimento.novoVencimento} onChange={(e) => setEditandoVencimento((f) => ({ ...f, novoVencimento: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {[
+                  { label: "Amanhã", dias: 1 },
+                  { label: "1 semana", dias: 7 },
+                  { label: "1 mês", dias: 30 },
+                ].map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + a.dias);
+                      setEditandoVencimento((f) => ({ ...f, novoVencimento: d.toLocaleDateString("en-CA") }));
+                    }}
+                    className="text-xs rounded-full px-3 py-1 border bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
             </label>
             <label className="block">
               <span className="text-xs text-slate-500">Motivo</span>
