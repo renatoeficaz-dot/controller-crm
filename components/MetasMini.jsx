@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 
 const NIVEL_COR = {
   abaixo: "text-red-600",
@@ -53,7 +54,7 @@ export default function MetasMini() {
   const renovPct = pctDaMeta(resumo.renovacoesHoje, resumo.metaRenovacaoDia);
 
   return (
-    <a
+    <Link
       href="/metas"
       className="flex items-center gap-2.5 text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white hover:border-slate-300 transition-colors shrink-0"
       title="Ver metas do dia"
@@ -82,6 +83,6 @@ export default function MetasMini() {
           </span>
         </>
       )}
-    </a>
+    </Link>
   );
 }
