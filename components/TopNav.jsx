@@ -95,7 +95,9 @@ export default function TopNav() {
               >
                 {l.label}
                 {l.href === "/chat" && naoLidas > 0 && (
-                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500" />
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-medium">
+                    {naoLidas > 99 ? "99+" : naoLidas}
+                  </span>
                 )}
               </Link>
             );
@@ -149,7 +151,9 @@ export default function TopNav() {
               >
                 {l.label}
                 {l.href === "/chat" && naoLidas > 0 && (
-                  <span className="absolute top-1.5 left-[4.5rem] w-2 h-2 rounded-full bg-red-500" />
+                  <span className="ml-1.5 inline-block min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-medium align-middle">
+                    {naoLidas > 99 ? "99+" : naoLidas}
+                  </span>
                 )}
               </Link>
             );
