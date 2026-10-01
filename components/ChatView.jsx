@@ -178,6 +178,7 @@ export default function ChatView() {
   const [videoChamadaAberta, setVideoChamadaAberta] = useState(null); // sessaoId | null
   const [attachError, setAttachError] = useState("");
   const [multaPct, setMultaPct] = useState(50);
+  const [cfgGlobal, setCfgGlobal] = useState(null); // Config inteiro — usado pra interpolar {{chave_pix}} nos envios manuais
   const [tasks, setTasks] = useState([]);
   const [atividade, setAtividade] = useState([]);
   const [atividadeAberta, setAtividadeAberta] = useState(false);
@@ -269,6 +270,7 @@ export default function ChatView() {
     fetch("/api/config").then((r) => r.json()).then((cfg) => {
       if (cfg?.multaPct != null) setMultaPct(cfg.multaPct);
       setHoraLimite(cfg?.pagamentoHoraLimite || "");
+      setCfgGlobal(cfg);
     }).catch(() => {});
   }, []);
 
@@ -572,7 +574,7 @@ export default function ChatView() {
         payload.mediaUrl = t.mediaUrl;
         payload.mediaMimetype = t.mediaMimetype;
         payload.mediaFileName = t.mediaFileName;
-        payload.body = interpolarVariaveis(t.body || "", contact);
+        payload.body = interpolarVariaveis(t.body || "", contact, { cfg: cfgGlobal });
       }
       const res = await fetch(`/api/contacts/${selectedId}/messages`, {
         method: "POST",
@@ -592,7 +594,7 @@ export default function ChatView() {
       return;
     }
 
-    const bodyFinal = interpolarVariaveis(t.body, contact);
+    const bodyFinal = interpolarVariaveis(t.body, contact, { cfg: cfgGlobal });
     setText(bodyFinal);
     try {
       await navigator.clipboard.writeText(bodyFinal);

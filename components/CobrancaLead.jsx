@@ -94,7 +94,7 @@ export default function CobrancaLead({ contactId, contact, onChanged }) {
     s.diasAtraso >= (cfg?.descontoDiasMin ?? 15);
 
   async function copiarOferta() {
-    const texto = interpolarVariaveis(cfg?.descontoMensagem || "", contact, { descontoPct: cfg?.descontoPct });
+    const texto = interpolarVariaveis(cfg?.descontoMensagem || "", contact, { descontoPct: cfg?.descontoPct, cfg });
     try {
       await navigator.clipboard.writeText(texto);
       setCopiado(true);

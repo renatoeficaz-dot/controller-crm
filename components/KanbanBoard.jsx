@@ -1079,7 +1079,12 @@ export default function KanbanBoard() {
                           <div className="relative w-8 h-8 shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center">
                             {initials(c.name)}
                             {c.unreadCount > 0 && (
-                              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
+                              <span
+                                title={`${c.unreadCount} mensagem${c.unreadCount === 1 ? "" : "s"} não lida${c.unreadCount === 1 ? "" : "s"}`}
+                                className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-medium border-2 border-white"
+                              >
+                                {c.unreadCount > 99 ? "99+" : c.unreadCount}
+                              </span>
                             )}
                           </div>
                           <div className="min-w-0">
