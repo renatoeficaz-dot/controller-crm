@@ -97,6 +97,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [salvandoAvulsa, setSalvandoAvulsa] = useState(false);
   const [editandoVencimento, setEditandoVencimento] = useState(null); // { parcela, novoVencimento, motivo } | null
   const [salvandoVencimento, setSalvandoVencimento] = useState(false);
+  const [editandoHorario, setEditandoHorario] = useState(null); // { parcela, novoHorario, manterValorAtual } | null
+  const [salvandoHorario, setSalvandoHorario] = useState(false);
   const [descontoAberto, setDescontoAberto] = useState(null); // { parcela, valorPedido, motivo } | null
   const [enviandoDesconto, setEnviandoDesconto] = useState(false);
   const [descontoMsg, setDescontoMsg] = useState("");
@@ -166,6 +168,39 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     if (!res.ok) { alert(d.error || "Erro ao alterar vencimento."); return; }
     setParcelas((prev) => prev.map((x) => (x.id === d.id ? d : x)));
     setEditandoVencimento(null);
+  }
+
+  // Cliente pediu outro horário de recebimento (pra não ficar "atrasado" por
+  // causa do horário antigo) — muda o horário do contato e, se marcado,
+  // trava o valor ATUAL da parcela clicada (com a multa que já tinha), pra
+  // não cair de volta pro valor sem multa só porque o horário mudou.
+  async function salvarHorario() {
+    if (!editandoHorario?.novoHorario) return;
+    setSalvandoHorario(true);
+    const res = await fetch(`/api/contacts/${contactId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ horarioRecebimento: editandoHorario.novoHorario }),
+    });
+    if (!res.ok) {
+      setSalvandoHorario(false);
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || "Erro ao alterar horário.");
+      return;
+    }
+    if (editandoHorario.manterValorAtual) {
+      const valorAtual = editandoHorario.parcela.paid
+        ? editandoHorario.parcela.amountPago
+        : valorParcelaAtual(editandoHorario.parcela, undefined, multaOpts);
+      const res2 = await fetch(`/api/parcelas/${editandoHorario.parcela.id}/fixar-valor`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ novoValor: valorAtual }),
+      });
+      const d2 = await res2.json().catch(() => ({}));
+      if (res2.ok) setParcelas((prev) => prev.map((x) => (x.id === d2.id ? d2 : x)));
+    }
+    setSalvandoHorario(false);
+    setEditandoHorario(null);
+    loadContact();
   }
   const [valorParcial, setValorParcial] = useState("");
   const [enviandoParcial, setEnviandoParcial] = useState(false);
@@ -1978,6 +2013,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                                 >
                                   <Icone nome="lapis" className="w-3.5 h-3.5" />
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditandoHorario({ parcela: p, novoHorario: form.horarioRecebimento || horaLimite || "", manterValorAtual: true })}
+                                  title="Mudar horário de recebimento (ex.: cliente pediu outro horário pra não ficar atrasado)"
+                                  className="text-sky-400 hover:text-sky-600"
+                                >
+                                  <Icone nome="relogio" className="w-3.5 h-3.5" />
+                                </button>
                               </>
                             )}
                             <span className={`font-medium ${p.paid ? "text-emerald-600" : atrasada ? "text-red-600" : "text-slate-700"}`}>
@@ -2489,6 +2532,44 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               <button onClick={() => setEditandoVencimento(null)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
               <button disabled={salvandoVencimento || !editandoVencimento.motivo.trim()} onClick={salvarVencimento} className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50">
                 {salvandoVencimento ? "Salvando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editandoHorario && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEditandoHorario(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Mudar horário de recebimento</h3>
+            <p className="text-xs text-slate-400">
+              Vale pra todas as parcelas futuras deste cliente, não só a {editandoHorario.parcela.number}ª.
+            </p>
+            <label className="block">
+              <span className="text-xs text-slate-500">Novo horário</span>
+              <input
+                type="time" autoFocus
+                value={editandoHorario.novoHorario}
+                onChange={(e) => setEditandoHorario((f) => ({ ...f, novoHorario: e.target.value }))}
+                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={editandoHorario.manterValorAtual}
+                onChange={(e) => setEditandoHorario((f) => ({ ...f, manterValorAtual: e.target.checked }))}
+                className="accent-emerald-500 mt-0.5"
+              />
+              <span className="text-xs text-slate-600">
+                Manter o valor atual desta parcela ({money(editandoHorario.parcela.paid ? editandoHorario.parcela.amountPago : valorParcelaAtual(editandoHorario.parcela, undefined, multaOpts))}) —
+                sem marcar, ela pode voltar pro valor sem multa depois da troca.
+              </span>
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditandoHorario(null)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
+              <button disabled={salvandoHorario || !editandoHorario.novoHorario} onClick={salvarHorario} className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50">
+                {salvandoHorario ? "Salvando…" : "Confirmar"}
               </button>
             </div>
           </div>
