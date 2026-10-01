@@ -54,35 +54,41 @@ export default function MetasMini() {
   const renovPct = pctDaMeta(resumo.renovacoesHoje, resumo.metaRenovacaoDia);
 
   return (
-    <Link
-      href="/metas"
-      className="flex items-center gap-2.5 text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white hover:border-slate-300 transition-colors shrink-0"
-      title="Ver metas do dia"
-    >
-      <span className="text-slate-400">
-        Vendas{" "}
-        <strong className={NIVEL_COR[niveis.vendas] || "text-slate-400"}>
-          {vendasPct == null ? "—" : `${vendasPct}%`}
-        </strong>
-      </span>
-      <span className="w-px h-3 bg-slate-200" />
-      <span className="text-slate-400">
-        Recebimentos{" "}
-        <strong className={NIVEL_COR[niveis.recebimentos] || "text-slate-400"}>
-          {recebPct == null ? "—" : `${recebPct}%`}
-        </strong>
-      </span>
-      {renovPct != null && (
-        <>
-          <span className="w-px h-3 bg-slate-200" />
-          <span className="text-slate-400">
-            Renovação{" "}
-            <strong className={NIVEL_COR[niveis.renovacao] || "text-slate-400"}>
-              {`${renovPct}%`}
-            </strong>
-          </span>
-        </>
-      )}
-    </Link>
+    <div className="flex items-center gap-2 shrink-0">
+      <Link
+        href="/metas"
+        className="flex items-center gap-2.5 text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white hover:border-slate-300 transition-colors shrink-0"
+        title="Ver metas do dia"
+      >
+        <span className="text-slate-400">
+          Vendas{" "}
+          <strong className={NIVEL_COR[niveis.vendas] || "text-slate-400"}>
+            {vendasPct == null ? "—" : `${vendasPct}%`}
+          </strong>
+        </span>
+        <span className="w-px h-3 bg-slate-200" />
+        <span className="text-slate-400">
+          Recebimentos{" "}
+          <strong className={NIVEL_COR[niveis.recebimentos] || "text-slate-400"}>
+            {recebPct == null ? "—" : `${recebPct}%`}
+          </strong>
+        </span>
+      </Link>
+      {/* Renovação fica num pill à parte — meta de natureza diferente
+          (contagem fixa, sem % de carteira), não faz sentido misturar com
+          Vendas/Recebimentos na mesma caixinha. */}
+      <Link
+        href="/metas"
+        className="flex items-center text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white hover:border-slate-300 transition-colors shrink-0"
+        title="Ver metas do dia"
+      >
+        <span className="text-slate-400">
+          Renovação{" "}
+          <strong className={NIVEL_COR[niveis.renovacao] || "text-slate-400"}>
+            {renovPct == null ? "—" : `${renovPct}%`}
+          </strong>
+        </span>
+      </Link>
+    </div>
   );
 }
