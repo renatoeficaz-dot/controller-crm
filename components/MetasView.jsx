@@ -446,7 +446,10 @@ export default function MetasView() {
         >
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-semibold text-slate-700">Recebimentos ({r.metaPctRecebimento}%)</p>
-            <p className="text-sm text-slate-500">{r.recebimentosHoje} / {r.metaRecebimentosDia} parcelas</p>
+            <div className="text-right">
+              <p className="text-sm text-slate-500">{r.recebimentosHoje} / {r.metaRecebimentosDia} parcelas</p>
+              <p className="text-[11px] text-slate-400">{r.clientesRecebimentoHoje ?? 0} cliente{(r.clientesRecebimentoHoje ?? 0) === 1 ? "" : "s"}</p>
+            </div>
           </div>
           <NivelBar
             atual={r.recebimentosHoje}
