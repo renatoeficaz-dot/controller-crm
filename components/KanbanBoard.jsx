@@ -199,6 +199,8 @@ export default function KanbanBoard() {
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
   const [etapaFiltro, setEtapaFiltro] = useState([]); // stageIds selecionados; vazio = todas as colunas
   const [tempoFiltro, setTempoFiltro] = useState(""); // "" = todos; "3" | "7" | "15" | "30" = pelo menos N dias parado na etapa
+  const [etapaDeFiltro, setEtapaDeFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = entrou na etapa atual a partir dessa data
+  const [etapaAteFiltro, setEtapaAteFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = entrou na etapa atual até essa data
   const [criadoDeFiltro, setCriadoDeFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = lead criado a partir dessa data
   const [criadoAteFiltro, setCriadoAteFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = lead criado até essa data
   const [bulkAction, setBulkAction] = useState(""); // "", stage, responsavel, unit, delete
@@ -410,6 +412,13 @@ export default function KanbanBoard() {
     if (renovacaoFiltro === "nao" && (c.cicloAtual || 1) > 1) return false;
     if (tarefaFiltro && statusTarefas(c) !== tarefaFiltro) return false;
     if (tempoFiltro && diasNaEtapa(c) < Number(tempoFiltro)) return false;
+    if (etapaDeFiltro || etapaAteFiltro) {
+      const base = c.entrouEtapaEm || c.createdAt;
+      if (!base) return false;
+      const entrou = new Date(base).toLocaleDateString("en-CA"); // AAAA-MM-DD local
+      if (etapaDeFiltro && entrou < etapaDeFiltro) return false;
+      if (etapaAteFiltro && entrou > etapaAteFiltro) return false;
+    }
     if (c.createdAt) {
       const criado = new Date(c.createdAt).toLocaleDateString("en-CA"); // AAAA-MM-DD local
       if (criadoDeFiltro && criado < criadoDeFiltro) return false;
@@ -519,7 +528,9 @@ export default function KanbanBoard() {
     etapaFiltro.length +
     (tempoFiltro ? 1 : 0) +
     (criadoDeFiltro ? 1 : 0) +
-    (criadoAteFiltro ? 1 : 0);
+    (criadoAteFiltro ? 1 : 0) +
+    (etapaDeFiltro ? 1 : 0) +
+    (etapaAteFiltro ? 1 : 0);
 
   return (
     <>
@@ -650,6 +661,7 @@ export default function KanbanBoard() {
                       setGeneroFiltro(""); setTipoClienteFiltro(""); setRenovacaoFiltro(""); setTarefaFiltro("");
                       setEtapaFiltro([]); setTempoFiltro("");
                       setCriadoDeFiltro(""); setCriadoAteFiltro("");
+                      setEtapaDeFiltro(""); setEtapaAteFiltro("");
                     }}
                     className="text-xs text-red-400 hover:text-red-600"
                   >
@@ -896,6 +908,24 @@ export default function KanbanBoard() {
                 </select>
               </label>
 
+              <div>
+                <span className="text-xs text-slate-400">Entrou na etapa atual entre</span>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <input
+                    type="date"
+                    value={etapaDeFiltro}
+                    onChange={(e) => setEtapaDeFiltro(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  />
+                  <input
+                    type="date"
+                    value={etapaAteFiltro}
+                    onChange={(e) => setEtapaAteFiltro(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  />
+                </div>
+              </div>
+
               <label className="block">
                 <span className="text-xs text-slate-400">Ordenar</span>
                 <select
@@ -906,6 +936,7 @@ export default function KanbanBoard() {
                   <option value="recentes">Mais recentes</option>
                   <option value="antigas">Mais antigas</option>
                   <option value="inadimplencia">Mais tempo inadimplente</option>
+                  <option value="tempo_etapa">Mais tempo parado na etapa</option>
                   <option value="etiqueta">Etiqueta (A-Z)</option>
                   <option value="regiao">Região / Estado (A-Z)</option>
                 </select>
@@ -921,6 +952,7 @@ export default function KanbanBoard() {
             const isOver = overStage === stage.id;
             const visiveis = stage.contacts.filter(passaFiltro).sort((a, b) => {
               if (ordem === "inadimplencia") return diasInadimplente(b) - diasInadimplente(a);
+              if (ordem === "tempo_etapa") return diasNaEtapa(b) - diasNaEtapa(a);
               // Sem etiqueta/estado vai pro fim da lista, não pro topo (string
               // vazia ordenaria antes de qualquer letra em localeCompare).
               if (ordem === "etiqueta") {
