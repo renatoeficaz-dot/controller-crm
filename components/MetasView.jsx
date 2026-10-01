@@ -530,10 +530,19 @@ export default function MetasView() {
         >
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-semibold text-slate-700">Renovações {ehHoje ? "hoje" : "no dia"}</p>
-            <p className="text-sm text-slate-500">{r.renovacoesHoje ?? 0}</p>
+            <p className="text-sm text-slate-500">{r.renovacoesHoje ?? 0}{r.metaRenovacaoDia > 0 ? ` / ${r.metaRenovacaoDia}` : ""}</p>
           </div>
+          <NivelBar
+            atual={r.renovacoesHoje ?? 0}
+            minima={r.metaRenovacaoMinima}
+            media={r.metaRenovacaoMedia}
+            meta={r.metaRenovacaoDia}
+            nivel={r.niveis?.renovacao}
+            unidade="renovação"
+            unidadePlural="renovações"
+          />
           <p className="text-[11px] text-slate-400 mt-2">
-            Cliente que já estava na carteira e pegou capital de novo — não conta como venda nova.
+            Conta cada <strong>cliente que renovou</strong> — já estava na carteira e pegou capital de novo, não conta como venda nova.
           </p>
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver as renovações →</p>
         </button>

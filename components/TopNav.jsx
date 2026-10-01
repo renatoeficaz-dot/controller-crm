@@ -23,6 +23,7 @@ export default function TopNav() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [naoLidas, setNaoLidas] = useState(0);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -33,7 +34,20 @@ export default function TopNav() {
 
   useEffect(() => { setMenuOpen(false); }, [pathname]);
 
-  if (pathname === "/login" || pathname.startsWith("/v/") || pathname.startsWith("/f/") || pathname.startsWith("/l/")) return null;
+  const rotaPublica = pathname === "/login" || pathname.startsWith("/v/") || pathname.startsWith("/f/") || pathname.startsWith("/l/");
+
+  // Selo de não lidas no link "Chat" — mesmo endpoint que o SideNav já usa
+  // (que também toca o som); aqui é só o indicador visual pra quem olha o
+  // menu de cima.
+  useEffect(() => {
+    if (rotaPublica) return;
+    const carregar = () => fetch("/api/chat/nao-lidas").then((r) => r.json()).then((d) => setNaoLidas(d.total || 0)).catch(() => {});
+    carregar();
+    const t = setInterval(carregar, 20000);
+    return () => clearInterval(t);
+  }, [pathname, rotaPublica]);
+
+  if (rotaPublica) return null;
 
   const isAdmin = user?.role === "admin";
   const paginasPermitidas = isAdmin || !user?.paginasVisiveis
@@ -73,13 +87,16 @@ export default function TopNav() {
               <Link
                 key={l.href}
                 href={l.href}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`relative px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   active
                     ? "bg-emerald-50 text-emerald-700"
                     : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 }`}
               >
                 {l.label}
+                {l.href === "/chat" && naoLidas > 0 && (
+                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500" />
+                )}
               </Link>
             );
           })}
@@ -126,11 +143,14 @@ export default function TopNav() {
               <Link
                 key={l.href}
                 href={l.href}
-                className={`block px-3 py-2 rounded-lg text-sm font-medium ${
+                className={`relative block px-3 py-2 rounded-lg text-sm font-medium ${
                   active ? "bg-emerald-50 text-emerald-700" : "text-slate-600"
                 }`}
               >
                 {l.label}
+                {l.href === "/chat" && naoLidas > 0 && (
+                  <span className="absolute top-1.5 left-[4.5rem] w-2 h-2 rounded-full bg-red-500" />
+                )}
               </Link>
             );
           })}

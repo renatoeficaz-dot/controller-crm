@@ -8,6 +8,8 @@ import { limiteEscalonado } from "@/lib/escalonamento";
 import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { criarTarefaLiberarPagamento } from "@/lib/tarefaLiberarPagamento";
+import { criarTarefaVideoChamada } from "@/lib/tarefaVideoChamada";
+import { criarTarefaPuxada } from "@/lib/tarefaPuxada";
 import { getSession, getCurrentUser } from "@/lib/session";
 import { escolherPorCarga } from "@/lib/distribuicao";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
@@ -239,12 +241,24 @@ export async function PATCH(req, { params }) {
       await criarTarefaLiberarPagamento(id).catch(() => {});
     }
 
-    // Qualquer lead que vai pra "Venda perdida" por suspeita de fraude (manual
-    // aqui, ou automático em lib/ia.js na detecção de print) recebe a mesma
-    // mensagem pronta "Suspeita de Fraude" (cadastrada em Configurações).
-    if (stage.name === "Venda perdida" && trocandoDeEtapa && motivoPerda === "Suspeita de fraude") {
-      const instance = await resolveInstanceForContact(id);
-      await sendTemplateByTitle("Suspeita de Fraude", updated, instance).catch(() => {});
+    // Ao ENTRAR em "Vídeo chamada" / "Análise": cria sozinho o lembrete da
+    // tarefa que normalmente precisa acontecer logo ao chegar nessa etapa.
+    if (stage.name === "Vídeo chamada" && trocandoDeEtapa) {
+      await criarTarefaVideoChamada(id).catch(() => {});
+    }
+    if (stage.name === "Análise" && trocandoDeEtapa) {
+      await criarTarefaPuxada(id).catch(() => {});
+    }
+
+    // Cada motivo de perda pode ter sua própria mensagem automática
+    // (configurada em Configurações > Motivos de perda, selecionando uma
+    // mensagem pronta). Sem mensagem vinculada ao motivo, não manda nada.
+    if (stage.name === "Venda perdida" && trocandoDeEtapa && motivoPerda) {
+      const motivo = await prisma.motivoPerda.findUnique({ where: { nome: motivoPerda }, include: { template: true } });
+      if (motivo?.template) {
+        const instance = await resolveInstanceForContact(id);
+        await sendTemplateByTitle(motivo.template.title, updated, instance).catch(() => {});
+      }
     }
 
     return NextResponse.json(updated);

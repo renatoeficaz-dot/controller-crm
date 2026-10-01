@@ -50,6 +50,7 @@ export default function MetasMini() {
   const niveis = resumo.niveis || {};
   const vendasPct = pctDaMeta(resumo.vendasHoje, resumo.metaVendasDia);
   const recebPct = pctDaMeta(resumo.recebimentosHoje, resumo.metaRecebimentosDia);
+  const renovPct = pctDaMeta(resumo.renovacoesHoje, resumo.metaRenovacaoDia);
 
   return (
     <a
@@ -70,6 +71,17 @@ export default function MetasMini() {
           {recebPct == null ? "—" : `${recebPct}%`}
         </strong>
       </span>
+      {renovPct != null && (
+        <>
+          <span className="w-px h-3 bg-slate-200" />
+          <span className="text-slate-400">
+            Renovação{" "}
+            <strong className={NIVEL_COR[niveis.renovacao] || "text-slate-400"}>
+              {`${renovPct}%`}
+            </strong>
+          </span>
+        </>
+      )}
     </a>
   );
 }

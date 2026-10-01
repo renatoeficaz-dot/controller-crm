@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Icone from "@/components/Icones";
 
 // Mesma ordem do menu do topo (TopNav) — os dois menus levam aos mesmos
@@ -22,10 +22,32 @@ const links = [
 
 // Trilho de ícones fixo à esquerda — atalho rápido entre as seções
 // principais, complementar ao menu do topo (mesmas rotas, visual compacto).
+// Beep curto de notificação, sintetizado na hora (sem arquivo de áudio) — toca
+// quando o número de não lidas SOBE, nunca no carregamento inicial da página.
+function tocarSomNotificacao() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+    osc.onended = () => ctx.close();
+  } catch {}
+}
+
 export default function SideNav() {
   const pathname = usePathname();
   const [user, setUser] = useState(null);
   const [naoLidas, setNaoLidas] = useState(0);
+  const naoLidasAnterior = useRef(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -40,7 +62,12 @@ export default function SideNav() {
 
   useEffect(() => {
     if (rotaPublica) return;
-    const carregar = () => fetch("/api/chat/nao-lidas").then((r) => r.json()).then((d) => setNaoLidas(d.total || 0)).catch(() => {});
+    const carregar = () => fetch("/api/chat/nao-lidas").then((r) => r.json()).then((d) => {
+      const total = d.total || 0;
+      if (naoLidasAnterior.current != null && total > naoLidasAnterior.current) tocarSomNotificacao();
+      naoLidasAnterior.current = total;
+      setNaoLidas(total);
+    }).catch(() => {});
     carregar();
     const t = setInterval(carregar, 20000);
     return () => clearInterval(t);

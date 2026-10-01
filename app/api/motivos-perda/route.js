@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { lerCorpo, texto, nomeMuitoLongo } from "@/lib/corpo";
 
 export async function GET() {
-  const lista = await prisma.motivoPerda.findMany({ orderBy: [{ ordem: "asc" }, { nome: "asc" }] });
+  const lista = await prisma.motivoPerda.findMany({
+    orderBy: [{ ordem: "asc" }, { nome: "asc" }],
+    include: { template: { select: { id: true, title: true } } },
+  });
   return NextResponse.json(lista);
 }
 

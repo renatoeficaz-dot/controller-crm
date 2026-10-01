@@ -184,6 +184,7 @@ export default function ChatView() {
   const [atividadeAberta, setAtividadeAberta] = useState(false);
   const [taskTypes, setTaskTypes] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [tarefaModalAberta, setTarefaModalAberta] = useState(false);
   const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
   const [horaLimite, setHoraLimite] = useState("");
   const fileInputRef = useRef(null);
@@ -823,6 +824,7 @@ export default function ChatView() {
     });
     setTaskForm({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
     setShowTaskForm(false);
+    setTarefaModalAberta(false);
     loadTasks();
   }
 
@@ -1392,6 +1394,15 @@ export default function ChatView() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setTarefaModalAberta(true)}
+                  disabled={uploading || recording}
+                  title="Criar tarefa para este lead"
+                  className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
+                >
+                  <Icone nome="tarefa" className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
                   onClick={gerarLinkVideoChamada}
                   disabled={uploading || recording || gerandoLinkVideo}
                   title="Gerar link de vídeo chamada com verificação"
@@ -1419,6 +1430,52 @@ export default function ChatView() {
               )}
               {videoChamadaAberta && (
                 <VideoChamadaCall sessaoId={videoChamadaAberta} onClose={() => setVideoChamadaAberta(null)} />
+              )}
+              {tarefaModalAberta && (
+                <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setTarefaModalAberta(false)}>
+                  <div className="bg-white rounded-xl shadow-lg p-4 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-medium text-slate-700">Nova tarefa</span>
+                      <button type="button" onClick={() => setTarefaModalAberta(false)} className="text-slate-400 hover:text-slate-600">
+                        <Icone nome="x" className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <form onSubmit={createTask} className="space-y-2">
+                      <input
+                        value={taskForm.title}
+                        onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+                        placeholder="Título da tarefa"
+                        autoFocus
+                        className="w-full text-sm border border-slate-200 rounded px-2.5 py-2 outline-none focus:border-emerald-400"
+                      />
+                      <select
+                        value={taskForm.tipoId}
+                        onChange={(e) => setTaskForm((f) => ({ ...f, tipoId: e.target.value }))}
+                        className="w-full text-sm border border-slate-200 rounded px-2.5 py-2 bg-white outline-none"
+                      >
+                        <option value="">— Sem tipo —</option>
+                        {taskTypes.map((t) => (
+                          <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
+                        ))}
+                      </select>
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={taskForm.dueDate}
+                          onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))}
+                          className="min-w-0 flex-1 text-sm border border-slate-200 rounded px-2.5 py-2"
+                        />
+                        <input
+                          type="time"
+                          value={taskForm.dueTime}
+                          onChange={(e) => setTaskForm((f) => ({ ...f, dueTime: e.target.value }))}
+                          className="min-w-0 w-28 shrink-0 text-sm border border-slate-200 rounded px-2.5 py-2"
+                        />
+                      </div>
+                      <button className="w-full bg-emerald-500 text-white rounded py-2 text-sm hover:bg-emerald-600">Criar tarefa</button>
+                    </form>
+                  </div>
+                </div>
               )}
             </div>
           </>

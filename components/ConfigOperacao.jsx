@@ -30,12 +30,16 @@ function Campo({ label, hint, ...props }) {
 /* ---------------- Motivos de perda (item 13) ---------------- */
 export function MotivosPerdaConfig() {
   const [lista, setLista] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [novo, setNovo] = useState("");
 
   const load = useCallback(() => {
     fetch("/api/motivos-perda").then((r) => r.json()).then(setLista).catch(() => {});
   }, []);
   useEffect(load, [load]);
+  useEffect(() => {
+    fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
+  }, []);
 
   async function adicionar(e) {
     e.preventDefault();
@@ -49,6 +53,12 @@ export function MotivosPerdaConfig() {
     await fetch(`/api/motivos-perda/${id}`, { method: "DELETE" });
     load();
   }
+  async function mudarTemplate(id, templateId) {
+    setLista((ls) => ls.map((m) => (m.id === id ? { ...m, templateId, template: templates.find((t) => t.id === templateId) || null } : m)));
+    await fetch(`/api/motivos-perda/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ templateId: templateId || null }),
+    });
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4 max-w-lg">
@@ -59,9 +69,21 @@ export function MotivosPerdaConfig() {
       </form>
       <ul className="divide-y divide-slate-50">
         {lista.map((m) => (
-          <li key={m.id} className="flex items-center justify-between py-2 text-sm text-slate-700">
-            {m.nome}
-            <button onClick={() => remover(m.id)} className="text-slate-300 hover:text-red-500 text-xs">Remover</button>
+          <li key={m.id} className="py-2 text-sm text-slate-700 space-y-1.5">
+            <div className="flex items-center justify-between">
+              {m.nome}
+              <button onClick={() => remover(m.id)} className="text-slate-300 hover:text-red-500 text-xs">Remover</button>
+            </div>
+            <select
+              value={m.templateId || ""}
+              onChange={(e) => mudarTemplate(m.id, e.target.value)}
+              className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400 text-slate-500"
+            >
+              <option value="">Sem mensagem automática</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>{t.title}</option>
+              ))}
+            </select>
           </li>
         ))}
         {lista.length === 0 && <li className="text-xs text-slate-400 py-2">Nenhum motivo cadastrado ainda.</li>}

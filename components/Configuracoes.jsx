@@ -2779,6 +2779,9 @@ function MetasConfig() {
   const [rcMinima, setRcMinima] = useState(0);
   const [rcMedia, setRcMedia] = useState(0);
   const [rcMeta, setRcMeta] = useState(0);
+  const [rnMinima, setRnMinima] = useState(0);
+  const [rnMedia, setRnMedia] = useState(0);
+  const [rnMeta, setRnMeta] = useState(0);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -2795,6 +2798,9 @@ function MetasConfig() {
       setRcMinima(c?.metaRecuperacaoMinima ?? 0);
       setRcMedia(c?.metaRecuperacaoMedia ?? 0);
       setRcMeta(c?.metaRecuperacaoDia ?? 0);
+      setRnMinima(c?.metaRenovacaoMinima ?? 0);
+      setRnMedia(c?.metaRenovacaoMedia ?? 0);
+      setRnMeta(c?.metaRenovacaoDia ?? 0);
     });
   }, []);
 
@@ -2816,6 +2822,9 @@ function MetasConfig() {
         metaRecuperacaoMinima: rcMinima,
         metaRecuperacaoMedia: rcMedia,
         metaRecuperacaoDia: rcMeta,
+        metaRenovacaoMinima: rnMinima,
+        metaRenovacaoMedia: rnMedia,
+        metaRenovacaoDia: rnMeta,
       }),
     });
     setSaved(true);
@@ -2980,6 +2989,40 @@ function MetasConfig() {
           Conta só parcela paga depois do vencimento. Dos seus atrasados, a maior parte está na faixa de 8 a 15 dias —
           é onde a recuperação ainda costuma dar resultado.
         </p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
+        <SectionHeader
+          icon="meta"
+          title="Meta diária de renovação"
+          subtitle="Quantos clientes que já estavam na carteira devem renovar (pegar capital de novo) no dia. Deixe 0 para desligar."
+        />
+        <div className="grid grid-cols-3 gap-3">
+          <label className="block">
+            <span className="text-xs text-red-500">Mínima</span>
+            <input
+              type="number" min={0} value={rnMinima}
+              onChange={(e) => setRnMinima(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-amber-500">Média</span>
+            <input
+              type="number" min={0} value={rnMedia}
+              onChange={(e) => setRnMedia(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-emerald-600">Meta</span>
+            <input
+              type="number" min={0} value={rnMeta}
+              onChange={(e) => setRnMeta(e.target.value)}
+              className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
+            />
+          </label>
+        </div>
       </div>
 
       <button className="w-full bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600">

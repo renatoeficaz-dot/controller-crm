@@ -113,6 +113,9 @@ export async function PATCH(req) {
   if ("metaVendasMinima" in body) data.metaVendasMinima = inteiro(body.metaVendasMinima);
   if ("metaVendasMedia" in body) data.metaVendasMedia = inteiro(body.metaVendasMedia);
   if ("metaVendasDia" in body) data.metaVendasDia = inteiro(body.metaVendasDia);
+  if ("metaRenovacaoMinima" in body) data.metaRenovacaoMinima = inteiro(body.metaRenovacaoMinima);
+  if ("metaRenovacaoMedia" in body) data.metaRenovacaoMedia = inteiro(body.metaRenovacaoMedia);
+  if ("metaRenovacaoDia" in body) data.metaRenovacaoDia = inteiro(body.metaRenovacaoDia);
   if ("descontoAtivo" in body) data.descontoAtivo = !!body.descontoAtivo;
   if ("descontoPct" in body) data.descontoPct = Math.min(100, Math.max(0, Number(body.descontoPct) || 0));
   if ("descontoDiasMin" in body) data.descontoDiasMin = inteiro(body.descontoDiasMin);

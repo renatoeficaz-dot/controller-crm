@@ -562,6 +562,7 @@ model MessageTemplate {
   interno       Boolean            @default(false)
   createdAt     DateTime           @default(now())
   agendamentos  MensagemAgendada[]
+  motivosPerda  MotivoPerda[]
 }
 
 // Configurações globais do sistema (linha única)
@@ -633,6 +634,13 @@ model Config {
   metaVendasMinima Int @default(2)
   metaVendasMedia  Int @default(3)
   metaVendasDia    Int @default(5)
+
+  // Meta diária de RENOVAÇÃO: quantos clientes devem renovar (pegar capital de
+  // novo, ciclo incrementado) no dia. Mesmo padrão de 3 níveis da meta de
+  // vendas — aqui não tem "carteira" pra calcular %, é contagem fixa mesmo.
+  metaRenovacaoMinima Int @default(0)
+  metaRenovacaoMedia  Int @default(0)
+  metaRenovacaoDia    Int @default(0)
 
   // Horário comercial da automação de responsável por etapa — fora dessa janela,
   // o lead entra na etapa mas NÃO é auto-atribuído (fica sem responsável até
@@ -963,6 +971,12 @@ model MotivoPerda {
   id    String @id @default(cuid())
   nome  String @unique
   ordem Int    @default(0)
+
+  // Mensagem automática própria desse motivo, disparada ao mover um lead pra
+  // "Venda perdida" com esse motivo escolhido (substitui a mensagem padrão
+  // de perda, quando configurada). Sem isso nenhuma mensagem extra é enviada.
+  template   MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  templateId String?
 }
 
 // Atalhos pra links que a equipe usa no dia a dia (painel da Evolution,
@@ -1270,6 +1284,12 @@ model MetaDiaria {
   metaRecuperacaoMinima Float @default(0)
   metaRecuperacaoMedia  Float @default(0)
   metaRecuperacaoDia    Float @default(0)
+
+  // Meta e resultado de RENOVAÇÃO vigentes no dia.
+  metaRenovacaoMinima Int @default(0)
+  metaRenovacaoMedia  Int @default(0)
+  metaRenovacaoDia    Int @default(0)
+  renovacoes          Int @default(0)
 
   // Tamanho da carteira por responsável naquele dia, em JSON
   // ({"Kabrito": 12, "Maria": 8}). É o que permite a meta de recebimento POR
