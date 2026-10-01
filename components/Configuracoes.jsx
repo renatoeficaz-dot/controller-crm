@@ -3546,6 +3546,7 @@ function MensagensProntas() {
   const [variaveisPos, setVariaveisPos] = useState(null);
   const [showEmojis, setShowEmojis] = useState(false);
   const [emojiPos, setEmojiPos] = useState(null);
+  const [telaCheiaMensagem, setTelaCheiaMensagem] = useState(false);
   const fileRef = useRef(null);
   const bodyRef = useRef(null);
 
@@ -3681,79 +3682,120 @@ function MensagensProntas() {
         </label>
 
         {/* Texto */}
-        {mt === "text" && (
-          <div>
-            <span className="text-xs text-slate-400">Mensagem</span>
-            <div className="mt-0.5 border border-slate-200 rounded-lg overflow-hidden focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-100 transition-shadow">
-              <div className="flex items-center gap-1 px-2 py-1.5 border-b border-slate-100 bg-slate-50/60">
-                <button type="button" title="Negrito" onClick={() => inserirNoTexto("*", "*")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm font-bold text-slate-500">B</button>
-                <button type="button" title="Itálico" onClick={() => inserirNoTexto("_", "_")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm italic text-slate-500">I</button>
-                <span className="w-px h-4 bg-slate-200 mx-0.5" />
-                <button type="button" title="Lista com marcadores" onClick={() => inserirNoTexto("\n- ")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-slate-500 flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="w-4 h-4"><path d="M8 6h12M8 12h12M8 18h12" /><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" /></svg>
+        {mt === "text" && (() => {
+          const toolbar = (
+            <div className="flex items-center gap-1 px-2 py-1.5 border-b border-slate-100 bg-slate-50/60">
+              <button type="button" title="Negrito" onClick={() => inserirNoTexto("*", "*")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm font-bold text-slate-500">B</button>
+              <button type="button" title="Itálico" onClick={() => inserirNoTexto("_", "_")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm italic text-slate-500">I</button>
+              <span className="w-px h-4 bg-slate-200 mx-0.5" />
+              <button type="button" title="Lista com marcadores" onClick={() => inserirNoTexto("\n- ")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-slate-500 flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="w-4 h-4"><path d="M8 6h12M8 12h12M8 18h12" /><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" /></svg>
+              </button>
+              <button type="button" title="Lista numerada" onClick={() => inserirNoTexto("\n1. ")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-xs text-slate-500">1.</button>
+              <span className="w-px h-4 bg-slate-200 mx-0.5" />
+              <button type="button" title="Link" onClick={() => inserirNoTexto("", " (https://)")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-slate-500 flex items-center justify-center">
+                <Icone nome="link" className="w-3.5 h-3.5" />
+              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  title="Emoji"
+                  onClick={(e) => { setEmojiPos(posEmojiPicker(e.currentTarget.getBoundingClientRect())); setShowEmojis((v) => !v); }}
+                  className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500"
+                >
+                  🙂
                 </button>
-                <button type="button" title="Lista numerada" onClick={() => inserirNoTexto("\n1. ")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-xs text-slate-500">1.</button>
-                <span className="w-px h-4 bg-slate-200 mx-0.5" />
-                <button type="button" title="Link" onClick={() => inserirNoTexto("", " (https://)")} className="w-7 h-7 rounded hover:bg-slate-200/60 text-slate-500 flex items-center justify-center">
-                  <Icone nome="link" className="w-3.5 h-3.5" />
-                </button>
-                <div className="relative">
-                  <button
-                    type="button"
-                    title="Emoji"
-                    onClick={(e) => { setEmojiPos(posEmojiPicker(e.currentTarget.getBoundingClientRect())); setShowEmojis((v) => !v); }}
-                    className="w-7 h-7 rounded hover:bg-slate-200/60 text-sm text-slate-500"
-                  >
-                    🙂
-                  </button>
-                  {showEmojis && (
-                    <EmojiPicker pos={emojiPos} onPick={(e) => inserirNoTexto(e)} onClose={() => setShowEmojis(false)} />
-                  )}
-                </div>
-                <div className="relative ml-auto">
-                  <button
-                    type="button"
-                    onClick={(e) => { setVariaveisPos(posEmojiPicker(e.currentTarget.getBoundingClientRect())); setShowVariaveis((v) => !v); }}
-                    className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 px-1.5"
-                  >
-                    Variáveis <span className="text-[9px]">▾</span>
-                  </button>
-                  {showVariaveis && variaveisPos && createPortal(
-                    <>
-                      <div className="fixed inset-0 z-30" onClick={() => setShowVariaveis(false)} />
-                      <div
-                        className="fixed z-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-56 text-sm max-h-64 overflow-y-auto thin-scroll"
-                        style={{ top: variaveisPos.top, left: variaveisPos.left }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {VARIAVEIS_DISPONIVEIS.map((v) => (
-                          <button
-                            key={v.key}
-                            type="button"
-                            onClick={() => { inserirNoTexto(`{{${v.key}}}`); setShowVariaveis(false); }}
-                            className="w-full text-left px-3 py-1.5 hover:bg-slate-50"
-                          >
-                            <span className="text-emerald-600 font-mono text-xs">{"{{" + v.key + "}}"}</span>
-                            <span className="text-slate-400 text-xs ml-1.5">{v.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </>,
-                    document.body
-                  )}
-                </div>
+                {showEmojis && (
+                  <EmojiPicker pos={emojiPos} onPick={(e) => inserirNoTexto(e)} onClose={() => setShowEmojis(false)} />
+                )}
               </div>
-              <textarea
-                ref={bodyRef}
-                value={form.body}
-                onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
-                rows={5}
-                placeholder="Ex.: Olá! Tudo bem? Aqui é da Controller…"
-                className="w-full text-sm px-2.5 py-2 outline-none resize-none"
-              />
+              <div className="relative ml-auto flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={(e) => { setVariaveisPos(posEmojiPicker(e.currentTarget.getBoundingClientRect())); setShowVariaveis((v) => !v); }}
+                  className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 px-1.5"
+                >
+                  Variáveis <span className="text-[9px]">▾</span>
+                </button>
+                {showVariaveis && variaveisPos && createPortal(
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setShowVariaveis(false)} />
+                    <div
+                      className="fixed z-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-56 text-sm max-h-64 overflow-y-auto thin-scroll"
+                      style={{ top: variaveisPos.top, left: variaveisPos.left }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {VARIAVEIS_DISPONIVEIS.map((v) => (
+                        <button
+                          key={v.key}
+                          type="button"
+                          onClick={() => { inserirNoTexto(`{{${v.key}}}`); setShowVariaveis(false); }}
+                          className="w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                        >
+                          <span className="text-emerald-600 font-mono text-xs">{"{{" + v.key + "}}"}</span>
+                          <span className="text-slate-400 text-xs ml-1.5">{v.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>,
+                  document.body
+                )}
+                <button
+                  type="button"
+                  title={telaCheiaMensagem ? "Sair da tela cheia" : "Abrir em tela cheia"}
+                  onClick={() => setTelaCheiaMensagem((v) => !v)}
+                  className="w-7 h-7 rounded hover:bg-slate-200/60 text-slate-500 flex items-center justify-center shrink-0"
+                >
+                  {telaCheiaMensagem ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M9 4v4a1 1 0 0 1-1 1H4M20 9h-4a1 1 0 0 1-1-1V4M15 20v-4a1 1 0 0 1 1-1h4M4 15h4a1 1 0 0 1 1 1v4" /></svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4" /></svg>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+          const textarea = (
+            <textarea
+              ref={bodyRef}
+              value={form.body}
+              onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
+              rows={telaCheiaMensagem ? undefined : 5}
+              placeholder="Ex.: Olá! Tudo bem? Aqui é da Controller…"
+              className={telaCheiaMensagem ? "flex-1 w-full text-sm px-3 py-2.5 outline-none resize-none" : "w-full text-sm px-2.5 py-2 outline-none resize-none"}
+            />
+          );
+          if (telaCheiaMensagem) {
+            return createPortal(
+              <div className="fixed inset-0 z-50 bg-white flex flex-col p-4 md:p-6">
+                <div className="flex items-center justify-between mb-3 shrink-0">
+                  <h3 className="font-semibold text-slate-800">Mensagem — tela cheia</h3>
+                  <button
+                    type="button"
+                    onClick={() => setTelaCheiaMensagem(false)}
+                    className="text-sm bg-emerald-500 text-white rounded-lg px-4 py-1.5 hover:bg-emerald-600"
+                  >
+                    Concluir
+                  </button>
+                </div>
+                <div className="flex-1 flex flex-col border border-slate-200 rounded-lg overflow-hidden min-h-0">
+                  {toolbar}
+                  {textarea}
+                </div>
+              </div>,
+              document.body
+            );
+          }
+          return (
+            <div>
+              <span className="text-xs text-slate-400">Mensagem</span>
+              <div className="mt-0.5 border border-slate-200 rounded-lg overflow-hidden focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-100 transition-shadow">
+                {toolbar}
+                {textarea}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Imagem / Áudio / Documento */}
         {(mt === "image" || mt === "audio" || mt === "document") && (
