@@ -38,10 +38,13 @@ export async function GET(req) {
 // que nascem vinculadas a uma parcela).
 export async function POST(req) {
   const body = await lerCorpo(req);
-  const title = texto(body.title);
+  // Título deixou de ser obrigatório (pedido: tela já sugere o tipo
+  // escolhido como título antes de chegar aqui) — "Tarefa" é só a rede de
+  // segurança pro caso de vir mesmo assim em branco (ex.: chamada direta à API).
+  const title = texto(body.title) || "Tarefa";
   const contactId = body.contactId;
-  if (!title || !contactId) {
-    return NextResponse.json({ error: "Preencha o título e o lead." }, { status: 400 });
+  if (!contactId) {
+    return NextResponse.json({ error: "Informe o lead." }, { status: 400 });
   }
   const task = await prisma.task.create({
     data: {

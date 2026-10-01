@@ -677,13 +677,16 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   async function createTask(e) {
     e.preventDefault();
     setTaskFormErro("");
-    if (!taskForm.title.trim()) { setTaskFormErro("Preencha o título da tarefa."); return; }
     const dia = taskForm.dueDate || toDateInput(new Date());
     const hora = taskForm.dueTime || "09:00";
+    // Título não é mais obrigatório — sem nada digitado, usa o tipo
+    // escolhido (ex.: "Ligar") como título, ou "Tarefa" se nem isso.
+    const tipoEscolhido = taskTypes.find((t) => t.id === taskForm.tipoId);
+    const title = taskForm.title.trim() || tipoEscolhido?.name || "Tarefa";
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...taskForm, contactId, dueDate: `${dia}T${hora}:00` }),
+      body: JSON.stringify({ ...taskForm, title, contactId, dueDate: `${dia}T${hora}:00` }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));

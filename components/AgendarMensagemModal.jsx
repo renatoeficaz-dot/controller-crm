@@ -20,7 +20,15 @@ export default function AgendarMensagemModal({ contactId, textoInicial, template
   const [templateId, setTemplateId] = useState("");
   const [corpo, setCorpo] = useState(textoInicial || "");
   const [numeroId, setNumeroId] = useState(numeroInicial || "");
-  const [dataHora, setDataHora] = useState("");
+  // Padrão: agora mesmo (hora local de Brasília) — antes abria vazio e a
+  // pessoa tinha que digitar tudo na mão toda vez, mesmo pra agendar daqui a
+  // pouco.
+  const [dataHora, setDataHora] = useState(() => {
+    const agora = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    agora.setMinutes(agora.getMinutes() + (5 - (agora.getMinutes() % 5)) % 5); // arredonda pra cima, múltiplo de 5
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${agora.getFullYear()}-${pad(agora.getMonth() + 1)}-${pad(agora.getDate())}T${pad(agora.getHours())}:${pad(agora.getMinutes())}`;
+  });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 

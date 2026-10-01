@@ -809,13 +809,17 @@ export default function ChatView() {
 
   async function createTask(e) {
     e.preventDefault();
-    if (!taskForm.title.trim() || !selectedId) return;
+    if (!selectedId) return;
     const dia = taskForm.dueDate || todayStr();
     const hora = taskForm.dueTime || "09:00";
+    // Título não é mais obrigatório — sem nada digitado, usa o tipo
+    // escolhido (ex.: "Ligar") como título, ou "Tarefa" se nem isso.
+    const tipoEscolhido = taskTypes.find((t) => t.id === taskForm.tipoId);
+    const title = taskForm.title.trim() || tipoEscolhido?.name || "Tarefa";
     await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...taskForm, contactId: selectedId, dueDate: `${dia}T${hora}:00` }),
+      body: JSON.stringify({ ...taskForm, title, contactId: selectedId, dueDate: `${dia}T${hora}:00` }),
     });
     setTaskForm({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
     setShowTaskForm(false);
