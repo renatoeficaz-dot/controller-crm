@@ -2008,7 +2008,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                                 <button
                                   type="button"
                                   onClick={() => { setDescontoAberto({ parcela: p, valorPedido: "", motivo: "" }); setDescontoMsg(""); }}
-                                  title="Pedir alteração de valor — menor ou maior (precisa aprovação do admin)"
+                                  title="Mudar valor desta parcela — menor ou maior, aplica na hora"
                                   className="text-violet-400 hover:text-violet-600"
                                 >
                                   <Icone nome="lapis" className="w-3.5 h-3.5" />
@@ -2452,10 +2452,10 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       {descontoAberto && (
         <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setDescontoAberto(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-slate-800">Pedir alteração de valor — {descontoAberto.parcela.number}ª parcela</h3>
+            <h3 className="font-semibold text-slate-800">Mudar valor — {descontoAberto.parcela.number}ª parcela</h3>
             <p className="text-xs text-slate-400">
               Valor atual: {money(valorParcelaAtual(descontoAberto.parcela, undefined, multaOpts))}. Pode ser menor (desconto) ou maior
-              (ex.: parcela reagendada). Um admin precisa aprovar antes de valer.
+              (ex.: parcela reagendada). Aplica na hora, fica registrado no histórico.
             </p>
             <label className="block">
               <span className="text-xs text-slate-500">Novo valor</span>
@@ -2483,7 +2483,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 onClick={pedirDesconto}
                 className="text-sm bg-violet-500 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-50"
               >
-                {enviandoDesconto ? "Enviando…" : "Pedir aprovação"}
+                {enviandoDesconto ? "Salvando…" : "Salvar"}
               </button>
             </div>
           </div>
@@ -2562,8 +2562,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 className="accent-emerald-500 mt-0.5"
               />
               <span className="text-xs text-slate-600">
-                Manter o valor atual desta parcela ({money(editandoHorario.parcela.paid ? editandoHorario.parcela.amountPago : valorParcelaAtual(editandoHorario.parcela, undefined, multaOpts))}) —
-                sem marcar, ela pode voltar pro valor sem multa depois da troca.
+                Manter o valor atual desta parcela ({money(editandoHorario.parcela.paid ? editandoHorario.parcela.amountPago : valorParcelaAtual(editandoHorario.parcela, undefined, multaOpts))})
+                e tirar o aviso de atrasada — sem marcar, ela continua recalculando a multa normalmente (se a data já passou, nenhuma
+                troca de horário tira o atraso sozinha; pra isso, mude o vencimento).
               </span>
             </label>
             <div className="flex gap-2 justify-end">

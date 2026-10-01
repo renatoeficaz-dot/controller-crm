@@ -26,7 +26,7 @@ export async function POST(req, { params }) {
   if (parcela.paid) return NextResponse.json({ error: "Essa parcela já está paga." }, { status: 400 });
 
   const user = await getCurrentUser().catch(() => null);
-  const atualizada = await prisma.parcela.update({ where: { id }, data: { amount: novoValor } });
+  const atualizada = await prisma.parcela.update({ where: { id }, data: { amount: novoValor, valorFixado: true } });
 
   registrarAuditoria({
     usuario: user?.name,

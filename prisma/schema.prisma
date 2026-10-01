@@ -372,6 +372,13 @@ model Parcela {
   // true = essa parcela foi GERADA por um acordo parcelado (em vez de fazer
   // parte do plano original de 10). Numeração própria (1000+) pra não colidir.
   deAcordo       Boolean          @default(false)
+  // true = o valor foi travado manualmente (mudança de horário de
+  // recebimento ou pedido de alteração de valor) — valorParcelaAtual() para
+  // de recalcular multa em cima dele. Sem essa trava, qualquer valor "final"
+  // que alguém tentasse fixar numa parcela ainda atrasada levava multa de
+  // novo a cada vez que a tela recalculava, nunca estabilizando no número
+  // combinado com o cliente.
+  valorFixado    Boolean          @default(false)
   task           Task?
   alteracoes     AlteracaoBaixa[]
   ajustes        ParcelaAjuste[]

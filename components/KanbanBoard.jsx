@@ -119,7 +119,9 @@ function situacaoContato(contact) {
   let vencida = false;
   let hojeVence = false;
   for (const p of parcelas) {
-    if (p.paid) continue;
+    // Valor travado manualmente (trava de horário/alteração) não conta como
+    // atraso pro card — mesmo critério de lib/finance.js parcelaAtrasada().
+    if (p.paid || p.valorFixado) continue;
     const d = new Date(p.dueDate).toISOString().slice(0, 10); // UTC
     if (d < hoje) vencida = true;
     else if (d === hoje) hojeVence = true;
