@@ -981,16 +981,16 @@ export default function KanbanBoard() {
             // e contagem de atrasados/vencem hoje entre os leads visíveis nesta
             // coluna. Em Cravo o cliente já é considerado calote, mas o valor em
             // aberto ainda importa pra saber quanto tem represado ali.
-            const mostraTotal = stage.name === "Recebimento" || stage.name === "Cravo";
+            const mostraTotal = stage.name === "Recebimento" || stage.name === "Cravo" || stage.name === "Renovação";
             const totalAReceber = mostraTotal
               ? visiveis.reduce((sum, c) => sum + valorAReceber(c), 0)
               : 0;
             const qtdAtrasados =
-              stage.name === "Recebimento"
+              stage.name === "Recebimento" || stage.name === "Renovação"
                 ? visiveis.filter((c) => situacaoContato(c) === "atrasado").length
                 : 0;
             const qtdHoje =
-              stage.name === "Recebimento"
+              stage.name === "Recebimento" || stage.name === "Renovação"
                 ? visiveis.filter((c) => situacaoContato(c) === "hoje").length
                 : 0;
             return (
@@ -1245,7 +1245,7 @@ export default function KanbanBoard() {
                             </span>
                           </p>
                         )}
-                        {stage.name === "Recebimento" && (
+                        {(stage.name === "Recebimento" || stage.name === "Renovação") && (
                           <p className="mt-1 text-xs font-medium text-emerald-700">
                             A receber: {money(valorAReceber(c))}
                           </p>
