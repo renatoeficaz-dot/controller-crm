@@ -1973,7 +1973,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                                 <button
                                   type="button"
                                   onClick={() => { setDescontoAberto({ parcela: p, valorPedido: "", motivo: "" }); setDescontoMsg(""); }}
-                                  title="Pedir desconto pontual (precisa aprovação do admin)"
+                                  title="Pedir alteração de valor — menor ou maior (precisa aprovação do admin)"
                                   className="text-violet-400 hover:text-violet-600"
                                 >
                                   <Icone nome="lapis" className="w-3.5 h-3.5" />
@@ -2409,12 +2409,13 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       {descontoAberto && (
         <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setDescontoAberto(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-slate-800">Pedir desconto — {descontoAberto.parcela.number}ª parcela</h3>
+            <h3 className="font-semibold text-slate-800">Pedir alteração de valor — {descontoAberto.parcela.number}ª parcela</h3>
             <p className="text-xs text-slate-400">
-              Valor atual: {money(valorParcelaAtual(descontoAberto.parcela, undefined, multaOpts))}. Um admin precisa aprovar antes de valer.
+              Valor atual: {money(valorParcelaAtual(descontoAberto.parcela, undefined, multaOpts))}. Pode ser menor (desconto) ou maior
+              (ex.: parcela reagendada). Um admin precisa aprovar antes de valer.
             </p>
             <label className="block">
-              <span className="text-xs text-slate-500">Novo valor (com desconto)</span>
+              <span className="text-xs text-slate-500">Novo valor</span>
               <input
                 type="number" step="0.01" autoFocus
                 value={descontoAberto.valorPedido}

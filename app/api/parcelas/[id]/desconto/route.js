@@ -5,8 +5,10 @@ import { valorParcelaAtual } from "@/lib/finance";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo, texto } from "@/lib/corpo";
 
-// Item 165: cobrador pede desconto pontual numa parcela — só vira valor de
-// verdade quando um admin aprovar (ver app/api/solicitacoes-desconto).
+// Item 165: cobrador pede um valor diferente pontual numa parcela — pra menos
+// (desconto) ou pra mais (ex.: parcela reagendada, juro combinado à parte) —
+// só vira valor de verdade quando um admin aprovar (ver
+// app/api/solicitacoes-desconto). O nome "desconto" ficou só histórico.
 export async function POST(req, { params }) {
   const { id } = await params;
   // Aqui a chave é o id da PARCELA, não do contato — sem essa checagem dava
@@ -19,8 +21,8 @@ export async function POST(req, { params }) {
   const body = await lerCorpo(req);
   const valorPedido = Number(body.valorPedido);
   const motivo = texto(body.motivo);
-  if (!valorPedido || valorPedido <= 0) return NextResponse.json({ error: "Informe o valor com desconto." }, { status: 400 });
-  if (!motivo) return NextResponse.json({ error: "Informe o motivo do desconto." }, { status: 400 });
+  if (!valorPedido || valorPedido <= 0) return NextResponse.json({ error: "Informe o novo valor." }, { status: 400 });
+  if (!motivo) return NextResponse.json({ error: "Informe o motivo da mudança de valor." }, { status: 400 });
 
   const parcela = await prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { name: true } } } });
   if (!parcela) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
@@ -29,8 +31,8 @@ export async function POST(req, { params }) {
   const user = await getCurrentUser().catch(() => null);
   const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
   const valorOriginal = valorParcelaAtual(parcela, undefined, { multaPct: cfg?.multaPct, horaLimite: cfg?.pagamentoHoraLimite });
-  if (valorPedido >= valorOriginal) {
-    return NextResponse.json({ error: "O valor pedido precisa ser menor que o valor atual da parcela." }, { status: 400 });
+  if (valorPedido === valorOriginal) {
+    return NextResponse.json({ error: "O valor pedido é igual ao valor atual da parcela." }, { status: 400 });
   }
 
   const pendenteExistente = await prisma.solicitacaoDesconto.findFirst({ where: { parcelaId: id, status: "pendente" } });
