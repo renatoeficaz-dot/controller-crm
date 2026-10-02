@@ -24,7 +24,7 @@ export async function GET(_req, { params }) {
     ...etapas.map((e) => ({
       tipo: "etapa",
       usuario: e.usuario,
-      detalhe: `moveu de "${e.deEtapa || "—"}" para "${e.paraEtapa}"`,
+      detalhe: `moveu de "${e.deEtapa || "—"}" para "${e.paraEtapa}"${e.motivo ? ` (motivo: ${e.motivo})` : ""}`,
       createdAt: e.createdAt,
     })),
     ...campos.map((c) => ({

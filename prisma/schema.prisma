@@ -300,6 +300,7 @@ model EtapaLog {
   deEtapa   String?
   paraEtapa String
   usuario   String?
+  motivo    String? // motivo da perda, quando paraEtapa = Venda perdida
   createdAt DateTime @default(now())
 }
 

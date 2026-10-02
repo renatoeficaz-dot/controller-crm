@@ -198,6 +198,7 @@ export async function PATCH(req, { params }) {
           deEtapa: stageAnterior?.name || null,
           paraEtapa: stage.name,
           usuario: session?.name || null,
+          motivo: stage.name === "Venda perdida" ? motivoPerda || null : null,
         },
       }).catch(() => {});
   
