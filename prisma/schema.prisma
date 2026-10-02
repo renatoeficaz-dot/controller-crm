@@ -613,6 +613,13 @@ model Config {
   // sentido apagar a config de cada agente pra isso.
   iaGlobalPausada Boolean @default(false)
 
+  // Mensagem inicial automática: quando um lead NOVO escreve pela 1ª vez, envia a
+  // mensagem pronta escolhida (regra fixa, sem IA). Independente do interruptor
+  // geral da IA. `mensagemInicialInstancia` = só vale nesse número (vazio = todos).
+  mensagemInicialAtiva     Boolean @default(false)
+  mensagemInicialTitulo    String  @default("1 - Mensagem inicial")
+  mensagemInicialInstancia String?
+
   // Meta diária: X% de todos os leads atualmente na etapa "Recebimento"
   // precisam pagar (dar baixa numa parcela) hoje. 3 níveis: mínima < média < meta
   // (meta = metaPctRecebimento, o valor "ideal"/cheio, já existia antes).

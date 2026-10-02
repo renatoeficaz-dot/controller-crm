@@ -100,6 +100,9 @@ export async function PATCH(req) {
   if ("metaAdsPageToken" in body) data.metaAdsPageToken = texto(body.metaAdsPageToken) || null;
   if ("metaAdsNumeroId" in body) data.metaAdsNumeroId = body.metaAdsNumeroId || null;
   if ("iaGlobalPausada" in body) data.iaGlobalPausada = !!body.iaGlobalPausada;
+  if ("mensagemInicialAtiva" in body) data.mensagemInicialAtiva = !!body.mensagemInicialAtiva;
+  if ("mensagemInicialTitulo" in body) data.mensagemInicialTitulo = texto(body.mensagemInicialTitulo) || "1 - Mensagem inicial";
+  if ("mensagemInicialInstancia" in body) data.mensagemInicialInstancia = texto(body.mensagemInicialInstancia) || null;
   if ("deepinfraApiKey" in body) data.deepinfraApiKey = texto(body.deepinfraApiKey) || null;
   if ("fishAudioApiKey" in body) data.fishAudioApiKey = texto(body.fishAudioApiKey) || null;
   if ("elevenLabsApiKey" in body) data.elevenLabsApiKey = texto(body.elevenLabsApiKey) || null;

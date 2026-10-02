@@ -301,6 +301,7 @@ export default function Configuracoes() {
             {tab === "ia" && (
               <div className="space-y-6">
                 <InterruptorGlobalIa />
+                <MensagemInicialAuto />
                 <TokenDeepInfra />
                 <SuporteIaConfig />
                 <AgentesIa />
@@ -4315,6 +4316,7 @@ const TEXT_MODELS = [
   { value: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite" },
   { value: "google/gemini-3.1-pro", label: "Gemini 3.1 Pro (mais forte da linha Gemini)" },
   { value: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash (mais recente)" },
+  { value: "Qwen/Qwen3-235B-A22B-Instruct-2507", label: "Qwen3 235B Instruct (recomendado — segue regras longas, usa funções, ~US$ 0,35 a cada 1.000 respostas)" },
 ];
 const TTS_MODELS = [
   { value: "ResembleAI/chatterbox-turbo", label: "Chatterbox Turbo (recomendado — fala português, rápido)" },
@@ -4422,6 +4424,67 @@ function InterruptorGlobalIa() {
       >
         {pausada === null ? "…" : pausada ? "Religar IA" : "Desligar tudo"}
       </button>
+    </div>
+  );
+}
+
+// Mensagem inicial automática: lead novo escreve pela 1ª vez → recebe a mensagem
+// pronta escolhida. Regra fixa (não usa IA), com interruptor próprio.
+function MensagemInicialAuto() {
+  const [cfg, setCfg] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [numeros, setNumeros] = useState([]);
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/config").then((r) => r.json()).then((d) => setCfg({
+      mensagemInicialAtiva: !!d?.mensagemInicialAtiva,
+      mensagemInicialTitulo: d?.mensagemInicialTitulo || "1 - Mensagem inicial",
+      mensagemInicialInstancia: d?.mensagemInicialInstancia || "",
+    })).catch(() => {});
+    fetch("/api/templates?todos=1").then((r) => r.json()).then((t) => setTemplates(Array.isArray(t) ? t : [])).catch(() => {});
+    fetch("/api/numbers").then((r) => r.json()).then((n) => setNumeros(Array.isArray(n) ? n : [])).catch(() => {});
+  }, []);
+
+  async function salvar(novo) {
+    setCfg(novo);
+    setSalvando(true);
+    await fetch("/api/config", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(novo) });
+    setSalvando(false);
+  }
+  if (!cfg) return null;
+
+  return (
+    <div className="rounded-2xl border border-slate-200/70 bg-white shadow-sm p-5 space-y-3">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="font-semibold text-slate-800">Mensagem inicial automática</h2>
+          <p className="text-xs text-slate-500 mt-1 max-w-md">Toda vez que um lead novo escreve pela primeira vez, recebe esta mensagem pronta. Não usa IA e funciona mesmo com a IA desligada acima.</p>
+        </div>
+        <button
+          onClick={() => salvar({ ...cfg, mensagemInicialAtiva: !cfg.mensagemInicialAtiva })}
+          disabled={salvando}
+          className={`shrink-0 text-sm font-medium rounded-full px-4 py-2 disabled:opacity-50 ${cfg.mensagemInicialAtiva ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+        >
+          {cfg.mensagemInicialAtiva ? "Ligada" : "Desligada"}
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-xs text-slate-400">Mensagem</span>
+          <select value={cfg.mensagemInicialTitulo} onChange={(e) => salvar({ ...cfg, mensagemInicialTitulo: e.target.value })} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+            {!templates.some((t) => t.title === cfg.mensagemInicialTitulo) && <option value={cfg.mensagemInicialTitulo}>{cfg.mensagemInicialTitulo}</option>}
+            {templates.map((t) => (<option key={t.id} value={t.title}>{t.title}</option>))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-xs text-slate-400">Só no número</span>
+          <select value={cfg.mensagemInicialInstancia} onChange={(e) => salvar({ ...cfg, mensagemInicialInstancia: e.target.value })} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+            <option value="">Todos os números</option>
+            {numeros.map((n) => (<option key={n.id} value={n.instance}>{n.label}</option>))}
+          </select>
+        </label>
+      </div>
     </div>
   );
 }
@@ -4718,7 +4781,7 @@ const TTS_PROVIDERS = [
 ];
 
 const emptyAgent = {
-  name: "", prompt: "", textModel: TEXT_MODELS[1].value,
+  name: "", prompt: "", textModel: "Qwen/Qwen3-235B-A22B-Instruct-2507",
   ttsProvider: "deepinfra", ttsModel: TTS_MODELS[0].value, ttsVoice: KOKORO_VOICES[0].value,
   modoResposta: "espelho",
   toolSendContact: false, toolContactName: "", toolContactPhone: "",

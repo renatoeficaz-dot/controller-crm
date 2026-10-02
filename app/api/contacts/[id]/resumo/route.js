@@ -1,3 +1,4 @@
+import { MODELO_TEXTO } from "@/lib/ia";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
@@ -53,7 +54,7 @@ export async function POST(_req, { params }) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.deepinfraApiKey}` },
       body: JSON.stringify({
-        model: "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model: MODELO_TEXTO,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         max_tokens: 300,
