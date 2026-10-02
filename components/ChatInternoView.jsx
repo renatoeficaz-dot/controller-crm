@@ -931,8 +931,25 @@ export default function ChatInternoView() {
                 >
                   <Icone nome={gravando ? "parar" : "microfone"} className="w-4 h-4" />
                 </button>
-                <input
+                <textarea
+                  rows={1}
                   value={texto}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    // Ctrl+Enter / Shift+Enter: quebra de linha; Enter sozinho: envia.
+                    if (e.ctrlKey || e.shiftKey) {
+                      e.preventDefault();
+                      const el = e.target;
+                      const ini = el.selectionStart;
+                      const novo = texto.slice(0, ini) + "
+" + texto.slice(el.selectionEnd);
+                      setTexto(novo);
+                      requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = ini + 1; });
+                      return;
+                    }
+                    e.preventDefault();
+                    e.currentTarget.form?.requestSubmit();
+                  }}
                   onChange={(e) => {
                     const v = e.target.value;
                     setTexto(v);
@@ -948,7 +965,8 @@ export default function ChatInternoView() {
                   }}
                   onPaste={aoColar}
                   placeholder={gravando ? "Gravando… clique no quadrado pra enviar" : "Escreva ou cole um print (Ctrl+V)…"}
-                  className="flex-1 min-w-0 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
+                  className="flex-1 min-w-0 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 resize-none max-h-32 overflow-y-auto"
+                  style={{ fieldSizing: "content" }}
                 />
                 <button
                   disabled={enviando || !texto.trim()}
