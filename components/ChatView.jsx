@@ -276,12 +276,10 @@ export default function ChatView() {
     }).catch(() => {});
   }, []);
 
-  // Quantos números distintos aparecem de fato nas mensagens DESTA conversa —
-  // usado pra decidir se mostra a etiqueta "📱 número" em cada balão. Antes
-  // isso dependia de `numbers.length` (a lista de números que o usuário logado
-  // tem permissão de ver); um cobrador com só 1 número visível nunca via a
-  // etiqueta, mesmo numa conversa que teve mensagens de outro número (ex.:
-  // atendida antes por outro cobrador/setor).
+  // Números que aparecem nas mensagens DESTA conversa (não só os que o usuário
+  // logado pode ver) — decide se mostra a etiqueta do número em cada balão.
+  // Um cobrador com 1 número visível mas conversa com mensagens de outro número
+  // (atendida antes por outro setor) ainda vê a etiqueta.
   const instanciasNaConversa = useMemo(
     () => new Set(messages.map((m) => m.instance).filter(Boolean)),
     [messages]
@@ -1269,11 +1267,6 @@ export default function ChatView() {
                         <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(item.msg.instance, numbers)}
                       </p>
                     )}
-                    {item.msg.fromMe && item.msg.enviadoPor && (
-                      <p className="flex items-center gap-1 text-[10px] mb-0.5 text-emerald-100">
-                        <Icone nome={["IA", "Automático", "Agendada"].includes(item.msg.enviadoPor) ? "robo" : item.msg.enviadoPor === "Celular" ? "celular" : "pessoa"} className="w-2.5 h-2.5" /> {item.msg.enviadoPor}
-                      </p>
-                    )}
                     {item.msg.apagada ? (
                       <p className={`italic ${item.msg.fromMe ? "text-emerald-100" : "text-slate-400"}`}>Mensagem apagada</p>
                     ) : (
@@ -1294,6 +1287,11 @@ export default function ChatView() {
                       )}
                       {item.msg.fromMe && !["falhou", "erro"].includes(item.msg.status) && (
                         <TicksEnvio status={item.msg.status} />
+                      )}
+                      {item.msg.fromMe && item.msg.enviadoPor && (
+                        <span className="flex items-center gap-0.5" title="Quem enviou">
+                          <Icone nome={["IA", "Automático", "Agendada"].includes(item.msg.enviadoPor) ? "robo" : item.msg.enviadoPor === "Celular" ? "celular" : "pessoa"} className="w-2.5 h-2.5" /> {item.msg.enviadoPor}
+                        </span>
                       )}
                     </p>
                   </div>

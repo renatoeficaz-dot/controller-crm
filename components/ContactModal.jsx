@@ -927,7 +927,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // sair da ficha e voltar depois, e acabava editando "Valor do capital" no
   // topo por engano (que usa o limite do ciclo ATUAL, não do próximo, e
   // barra um valor que a renovação de verdade deixaria passar).
-  const mostraCobranca = isRecebimento || contact?.stage?.name === "Pago";
+  // Todas as seções da ficha aparecem em qualquer etapa (pedido do Renato). A
+  // Cobrança fica visível sempre que o lead já tem parcelas, mesmo em Venda
+  // perdida/Cravo; sem parcelas, só nas etapas de cobrança (evita um painel
+  // vazio com botões de gerar parcelas em lead que nem foi liberado).
+  const mostraCobranca = isRecebimento || contact?.stage?.name === "Pago" || parcelas.length > 0;
   // Chave Pix e nome do titular só fazem sentido perto da hora de liberar o
   // capital — antes disso (Novo, Em conversa, Documentação) é ruído no card.
   // Inclui Recebimento e Pago (não só Análise/Liberação pagamento): mover PRA
@@ -937,7 +941,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // Recebimento/Pago antes de voltar pra Liberação pagamento) e nunca tinha
   // preenchido a chave Pix antes: dava pra ver o erro pedindo a chave, mas
   // não tinha onde digitar ela.
-  const mostraDadosPix = ["Análise", "Liberação pagamento", "Recebimento", "Renovação", "Pago", "Vídeo chamada", "Cravo"].includes(contact?.stage?.name);
+  const mostraDadosPix = true;
   const emLiberacao = contact?.stage?.name === "Liberação pagamento";
   // As 10 parcelas simuladas usam a MESMA fórmula (lib/finance) que gera as
   // parcelas de verdade em "Recebimento" — se fossem duas contas separadas, a
@@ -945,7 +949,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // real. Sem data de pagamento de capital ainda, simula a partir de hoje.
   // (É a função importada, pura e sem rede — não confundir com
   // regerarParcelasNoServidor acima, que salva de verdade.)
-  const parcelasSimuladas = emLiberacao
+  const parcelasSimuladas = Number(form.valorCapital) > 0
     ? gerarParcelas(form.valorCapital, honorariosPct, form.pagamentoCapital || new Date().toLocaleDateString("en-CA"))
     : [];
   // Conferência do lead antes de avançar — só faz sentido enquanto ele ainda
@@ -957,7 +961,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // chamada/Recebimento/Pago/Cravo — pedido do Renato: quem atende nessas
   // etapas (ex.: o cobrador na vídeo chamada) precisa conferir os mesmos
   // dados sem o lead ter que "voltar" pra Documentação/Análise.
-  const mostraChecklistAnalise = ["Documentação", "Análise", "Vídeo chamada", "Recebimento", "Renovação", "Pago", "Cravo"].includes(contact?.stage?.name);
+  const mostraChecklistAnalise = true;
   const resumo = resumoCobranca(form.valorCapital, honorariosPct);
   // Limite de capital do ciclo atual, quando o escalonamento está ligado.
   const limiteCiclo = escalonamentoCfg ? limiteEscalonado(cicloAtual, escalonamentoCfg) : null;
@@ -1811,7 +1815,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 cliente vai pagar por dia (a seção de Cobrança abaixo só
                 aparece em Recebimento, quando as parcelas já existem) e
                 precisa da chave Pix à mão pra fazer a transferência. */}
-            {emLiberacao && (
+            {(emLiberacao || Number(form.valorCapital) > 0) && (
               <div className="border border-sky-200 bg-sky-50/50 rounded-lg p-3 mt-1 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-sky-800">Liberação do pagamento</h3>
@@ -2282,11 +2286,6 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(item.msg.instance, numbers)}
                   </p>
                 )}
-                {item.msg.fromMe && item.msg.enviadoPor && (
-                  <p className="flex items-center gap-1 text-[10px] mb-0.5 text-emerald-100">
-                    <Icone nome={["IA", "Automático", "Agendada"].includes(item.msg.enviadoPor) ? "robo" : item.msg.enviadoPor === "Celular" ? "celular" : "pessoa"} className="w-2.5 h-2.5" /> {item.msg.enviadoPor}
-                  </p>
-                )}
                 {(item.msg.kind === "audio" || item.msg.kind === "image" || item.msg.kind === "document" || item.msg.kind === "location") && (
                   <MediaBubble message={item.msg} />
                 )}
@@ -2306,6 +2305,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       {" "}
                       <TicksEnvio status={item.msg.status} />
                     </>
+                  )}
+                  {item.msg.fromMe && item.msg.enviadoPor && (
+                    <span className="inline-flex items-center gap-0.5 align-middle" title="Quem enviou">
+                      {" · "}<Icone nome={["IA", "Automático", "Agendada"].includes(item.msg.enviadoPor) ? "robo" : item.msg.enviadoPor === "Celular" ? "celular" : "pessoa"} className="w-2.5 h-2.5" /> {item.msg.enviadoPor}
+                    </span>
                   )}
                 </span>
                 </div>
