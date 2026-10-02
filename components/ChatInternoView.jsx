@@ -608,9 +608,9 @@ export default function ChatInternoView() {
                   {c.pendentes > 0 && (
                     <span
                       className="bg-amber-400 text-white text-[10px] rounded-full px-1.5 py-0.5"
-                      title="Pedidos pra você resolver"
+                      title="Pedido atribuído a você — só some quando você marcar como resolvido (abrir a conversa não resolve)"
                     >
-                      {c.pendentes}
+                      {c.pendentes} {c.pendentes === 1 ? "pedido" : "pedidos"}
                     </span>
                   )}
                   {c.mencoes > 0 && (
