@@ -1358,13 +1358,29 @@ export default function ChatView() {
                   <Icone nome="clipe" className="w-4 h-4" />
                 </button>
                 <div className="flex-1 relative min-w-[160px]">
-                  <input
+                  <textarea
+                    rows={1}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      // Ctrl+Enter / Shift+Enter: quebra de linha; Enter sozinho: envia.
+                      if (e.ctrlKey || e.shiftKey) {
+                        e.preventDefault();
+                        const el = e.target;
+                        const ini = el.selectionStart;
+                        setText(text.slice(0, ini) + "\n" + text.slice(el.selectionEnd));
+                        requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = ini + 1; });
+                        return;
+                      }
+                      e.preventDefault();
+                      e.currentTarget.form?.requestSubmit();
+                    }}
                     onPaste={onPasteImage}
                     placeholder={recording ? "Gravando áudio…" : uploading ? "Enviando anexo…" : "Digite uma mensagem… (\"/\" pra mensagem pronta, Ctrl+V pra colar imagem)"}
                     disabled={recording}
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 disabled:bg-slate-50"
+                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 disabled:bg-slate-50 resize-none max-h-40 overflow-y-auto"
+                    style={{ fieldSizing: "content" }}
                   />
                   {text.startsWith("/") && (
                     <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto thin-scroll z-10">

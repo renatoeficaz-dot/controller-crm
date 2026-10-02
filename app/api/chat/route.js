@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { getCurrentUser, veTodosLeads, mensagensWhere } from "@/lib/session";
+import { Prisma } from "@prisma/client";
+import { getCurrentUser, veTodosLeads, mensagensWhere, instanciasVisiveis } from "@/lib/session";
 
 // Lista conversas do usuário (contatos com mensagens, ordenados pela mais recente).
 // Cada item traz o contato + última mensagem + contagem de não lidas + dados
@@ -29,17 +30,33 @@ export async function GET(req) {
       cicloAtual: true,
       chatFixado: true,
       chatArquivado: true,
-      messages: {
-        where: msgWhere,
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: { body: true, kind: true, fromMe: true, createdAt: true, instance: true },
-      },
       _count: {
         select: { messages: { where: { fromMe: false, readAt: null, ...(msgWhere || {}) } } },
       },
     },
   });
+
+  // Última mensagem de cada conversa numa consulta só. O `messages: { take: 1 }`
+  // aninhado do Prisma lia TODAS as mensagens de cada contato e cortava na
+  // memória (~800ms de 1,2s desta rota, rodando a cada poucos segundos por
+  // usuário — e como o banco atende uma consulta por vez, abrir uma conversa
+  // ficava na fila atrás dela).
+  const inst = instanciasVisiveis(user);
+  const filtroInst = inst
+    ? Prisma.sql`WHERE (instance IS NULL OR instance IN (${Prisma.join(inst.length ? inst : [""])}))`
+    : Prisma.empty;
+  const ultimas = await prisma.$queryRaw`
+    SELECT m.contactId, m.body, m.kind, m.fromMe, m.createdAt, m.instance
+    FROM Message m
+    JOIN (SELECT contactId, MAX(createdAt) mx FROM Message ${filtroInst} GROUP BY contactId) x
+      ON x.contactId = m.contactId AND x.mx = m.createdAt
+    ${inst ? Prisma.sql`WHERE (m.instance IS NULL OR m.instance IN (${Prisma.join(inst.length ? inst : [""])}))` : Prisma.empty}`;
+  const ultimaPorContato = new Map();
+  for (const m of ultimas) {
+    if (!ultimaPorContato.has(m.contactId)) {
+      ultimaPorContato.set(m.contactId, { body: m.body, kind: m.kind, fromMe: !!m.fromMe, createdAt: m.createdAt, instance: m.instance });
+    }
+  }
 
   const result = contacts
     .map((c) => ({
@@ -54,8 +71,8 @@ export async function GET(req) {
       cicloAtual: c.cicloAtual,
       chatFixado: c.chatFixado,
       chatArquivado: c.chatArquivado,
-      instance: c.messages[0]?.instance || null,
-      lastMessage: c.messages[0] || null,
+      instance: ultimaPorContato.get(c.id)?.instance || null,
+      lastMessage: ultimaPorContato.get(c.id) || null,
       unreadCount: c._count?.messages || 0,
     }))
     .sort((a, b) => {
