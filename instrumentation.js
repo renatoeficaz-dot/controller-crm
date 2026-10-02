@@ -4,7 +4,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   const { checarLembretesCobranca } = await import("@/lib/lembreteCobranca");
-  const { checarFollowUp30min, checarMensagensSemResposta } = await import("@/lib/followUp");
+  const { checarFollowUp1h } = await import("@/lib/followUp");
   const { recalcularScoresComportamentais } = await import("@/lib/atualizarScoreComportamental");
   const { rodarBackup } = await import("@/lib/backup");
   const { checarResumoDiario, checarAlertasCriticos, checarCapitalOcioso, checarCravoParado } = await import("@/lib/alertas");
@@ -65,12 +65,11 @@ export async function register() {
     // Pix pra quem está em dia (item novo) — atrasado nunca entra aqui, isso é
     // trabalho do cobrador via fila de cobrança/régua.
     await rodar("pixAdimplentes", enviarPixAdimplentes);
-    await rodar("followUp30min", checarFollowUp30min);
+    await rodar("followUp1h", checarFollowUp1h);
     // Lead parado demais em "Em conversa" (24h) ou "Documentação" (48h) cai
     // sozinho pra "Venda perdida" — precisa checar a cada 5 min, não 1x/dia,
     // senão passa o dia inteiro sem ninguém notar que sumiu.
     await rodar("leadsParados", checarLeadsParados);
-    await rodar("mensagensSemResposta", checarMensagensSemResposta);
     await rodar("resumoDiario", checarResumoDiario);
     await rodar("alertasCriticos", checarAlertasCriticos);
     // Mensagem agendada (item 45) e campanha em massa (item 44) — paced, então
