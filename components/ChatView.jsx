@@ -198,7 +198,8 @@ export default function ChatView() {
   const [statusFiltro, setStatusFiltro] = useState(""); // "" = todos
   const [tagFiltro, setTagFiltro] = useState("");
   const [stageFiltro, setStageFiltro] = useState("");
-  const [soNaoLidas, setSoNaoLidas] = useState(false);
+  // "" = todas | "naolidas" | "semresposta" | "ambas" (notificadas E sem resposta)
+  const [filtroMsgs, setFiltroMsgs] = useState("");
   const [instanceFiltro, setInstanceFiltro] = useState(""); // número/instância que está conversando
   const [ordem, setOrdem] = useState("recentes"); // "recentes" | "antigas" | "nome"
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -328,7 +329,7 @@ export default function ChatView() {
   }
 
   const chatFiltrosAtivosCount =
-    (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (soNaoLidas ? 1 : 0);
+    (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0);
 
   const conversasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -343,7 +344,12 @@ export default function ChatView() {
       if (tagFiltro && !(c.tags || []).some((t) => t.id === tagFiltro)) return false;
       if (stageFiltro && c.stageId !== stageFiltro) return false;
       if (instanceFiltro && c.instance !== instanceFiltro) return false;
-      if (soNaoLidas && !(c.unreadCount > 0)) return false;
+      // Sem resposta = a última mensagem da conversa é do cliente (ainda não respondemos).
+      const naoLida = c.unreadCount > 0;
+      const semResposta = !!c.lastMessage && c.lastMessage.fromMe === false;
+      if (filtroMsgs === "naolidas" && !naoLida) return false;
+      if (filtroMsgs === "semresposta" && !semResposta) return false;
+      if (filtroMsgs === "ambas" && !(naoLida && semResposta)) return false;
       return true;
     });
     if (ordem === "nome") {
@@ -356,7 +362,7 @@ export default function ChatView() {
       });
     }
     return out;
-  }, [conversations, busca, statusFiltro, tagFiltro, stageFiltro, instanceFiltro, soNaoLidas, ordem]);
+  }, [conversations, busca, statusFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, ordem]);
 
   const loadTasks = useCallback(async () => {
     if (!selectedId) return;
@@ -964,7 +970,7 @@ export default function ChatView() {
                 <div className="flex items-center gap-3">
                   {chatFiltrosAtivosCount > 0 && (
                     <button
-                      onClick={() => { setStatusFiltro(""); setStageFiltro(""); setTagFiltro(""); setInstanceFiltro(""); setSoNaoLidas(false); }}
+                      onClick={() => { setStatusFiltro(""); setStageFiltro(""); setTagFiltro(""); setInstanceFiltro(""); setFiltroMsgs(""); }}
                       className="text-xs text-red-400 hover:text-red-600"
                     >
                       Limpar tudo
@@ -975,10 +981,28 @@ export default function ChatView() {
               </div>
 
               <div className="p-5 space-y-4">
-                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                  <input type="checkbox" checked={soNaoLidas} onChange={(e) => setSoNaoLidas(e.target.checked)} className="accent-emerald-500" />
-                  Só conversas com mensagens não lidas
-                </label>
+                <div>
+                  <span className="text-xs text-slate-400">Mensagens</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {[
+                      ["", "Todas"],
+                      ["naolidas", "Não lidas"],
+                      ["semresposta", "Sem resposta"],
+                      ["ambas", "Notificadas e sem resposta"],
+                    ].map(([v, rotulo]) => (
+                      <button
+                        key={v || "todas"}
+                        type="button"
+                        onClick={() => setFiltroMsgs(v)}
+                        className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                          filtroMsgs === v ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        {rotulo}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div>
                   <span className="text-xs text-slate-400">Situação</span>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">

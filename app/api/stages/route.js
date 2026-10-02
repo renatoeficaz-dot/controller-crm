@@ -43,14 +43,11 @@ export async function GET() {
           campanha: { select: { id: true, nome: true, regiao: true } },
           _count: { select: { messages: { where: { fromMe: false, readAt: null } }, tasks: true } },
           tasks: { where: { done: false }, select: { dueDate: true } },
-          // take: 50 (e não 1) porque além do horário da última mensagem o
-          // relatório precisa saber se o lead JÁ respondeu alguma vez — só o
-          // fromMe da última mensagem não diz isso.
-          messages: {
-            orderBy: { createdAt: "desc" },
-            take: 50,
-            select: { createdAt: true, fromMe: true },
-          },
+          // As mensagens NÃO vêm mais daqui: o `messages { take: 50 }` aninhado do
+          // Prisma lê a conversa inteira de cada lead e corta na memória (~1,3s dos
+          // 1,5s desta rota, a cada 30s por aba aberta — e o banco atende uma
+          // consulta por vez, então abrir uma ficha ficava na fila atrás dela).
+          // Última mensagem e contagem do cliente saem de 2 consultas agregadas.
         },
       },
     },
@@ -61,6 +58,22 @@ export async function GET() {
   // pro filtro de atrasada/hoje/a vencer no front) e o horário da última
   // mensagem (de qualquer direção) — o front ordena os cards por isso (mais
   // recente ou mais antiga primeiro, conforme o filtro escolhido).
+  const [ultimas, doCliente] = await Promise.all([
+    prisma.$queryRaw`
+      SELECT m.contactId, m.createdAt, m.fromMe
+      FROM Message m
+      JOIN (SELECT contactId, MAX(createdAt) mx FROM Message GROUP BY contactId) x
+        ON x.contactId = m.contactId AND x.mx = m.createdAt`,
+    // Mensagens do cliente entre as últimas 50 de cada conversa (mesma janela de antes).
+    prisma.$queryRaw`
+      SELECT contactId, SUM(CASE WHEN fromMe = 0 THEN 1 ELSE 0 END) AS n
+      FROM (SELECT contactId, fromMe, ROW_NUMBER() OVER (PARTITION BY contactId ORDER BY createdAt DESC) rn FROM Message)
+      WHERE rn <= 50 GROUP BY contactId`,
+  ]);
+  const ultimaPorContato = new Map();
+  for (const m of ultimas) if (!ultimaPorContato.has(m.contactId)) ultimaPorContato.set(m.contactId, { createdAt: m.createdAt, fromMe: !!m.fromMe });
+  const clientePorContato = new Map(doCliente.map((g) => [g.contactId, Number(g.n)]));
+
   const agora = Date.now();
   const slaMs = config?.slaPrimeiraRespostaMin ? config.slaPrimeiraRespostaMin * 60 * 1000 : null;
 
@@ -73,12 +86,12 @@ export async function GET() {
       unreadCount: c._count?.messages || 0,
       tasksCount: c._count?.tasks || 0,
       tarefasPendentes: c.tasks || [],
-      lastMessageAt: c.messages?.[0]?.createdAt || c.createdAt,
+      lastMessageAt: ultimaPorContato.get(c.id)?.createdAt || c.createdAt,
       // Quantas mensagens o CLIENTE mandou (limitado às últimas 50 da conversa).
       // Não adianta um booleano "respondeu": todo lead nasce de uma mensagem
       // recebida, então isso seria sempre true — o que separa lead real de
       // lead fantasma é ter mandado mais de uma.
-      msgsCliente: (c.messages || []).filter((m) => !m.fromMe).length,
+      msgsCliente: clientePorContato.get(c.id) || 0,
       // SLA de resposta: a última mensagem da conversa é do CLIENTE e já passou
       // do prazo configurado desde que ela chegou.
       //
@@ -90,9 +103,9 @@ export async function GET() {
       // assim, sem nenhum aviso na tela).
       semRespostaSLA:
         !!slaMs &&
-        !!c.messages?.[0] &&
-        !c.messages[0].fromMe &&
-        agora - new Date(c.messages[0].createdAt).getTime() > slaMs,
+        !!ultimaPorContato.get(c.id) &&
+        !ultimaPorContato.get(c.id).fromMe &&
+        agora - new Date(ultimaPorContato.get(c.id).createdAt).getTime() > slaMs,
       messages: undefined,
       tasks: undefined,
       _count: undefined,
