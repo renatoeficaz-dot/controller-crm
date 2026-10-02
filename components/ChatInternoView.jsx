@@ -941,8 +941,7 @@ export default function ChatInternoView() {
                       e.preventDefault();
                       const el = e.target;
                       const ini = el.selectionStart;
-                      const novo = texto.slice(0, ini) + "
-" + texto.slice(el.selectionEnd);
+                      const novo = texto.slice(0, ini) + "\n" + texto.slice(el.selectionEnd);
                       setTexto(novo);
                       requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = ini + 1; });
                       return;
