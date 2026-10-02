@@ -41,18 +41,20 @@ export async function GET() {
       const naoLidas = await prisma.mensagemInterna.count({
         where: {
           conversaId: c.id,
+          apagada: false,
           autorId: { not: user.id },
           ...(meu?.lidoAte ? { createdAt: { gt: meu.lidoAte } } : {}),
         },
       });
       const pendentes = await prisma.mensagemInterna.count({
-        where: { conversaId: c.id, atribuidoAId: user.id, resolvido: false },
+        where: { conversaId: c.id, atribuidoAId: user.id, resolvido: false, apagada: false },
       });
       // Quantas vezes te marcaram com @ desde a ultima leitura — sem isso a
       // marcacao passava batida numa conversa movimentada.
       const mencoes = await prisma.mensagemInterna.count({
         where: {
           conversaId: c.id,
+          apagada: false,
           mencionados: { some: { id: user.id } },
           autorId: { not: user.id },
           ...(meu?.lidoAte ? { createdAt: { gt: meu.lidoAte } } : {}),
