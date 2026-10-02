@@ -46,6 +46,33 @@ export async function POST(req) {
   if (!contactId) {
     return NextResponse.json({ error: "Informe o lead." }, { status: 400 });
   }
+  // Repetição no período (ex.: das 13:00 às 17:00, a cada 60 min): cria uma
+  // tarefa por horário, no mesmo dia, pro mesmo lead.
+  const rep = body.repetir;
+  if (rep && typeof body.dueDate === "string" && body.dueDate.length >= 10) {
+    const passo = Math.floor(Number(rep.cadaMin));
+    const dia = body.dueDate.slice(0, 10);
+    const fim = new Date(`${dia}T${/^\d{2}:\d{2}$/.test(rep.ate || "") ? rep.ate : "00:00"}:00`);
+    const inicio = new Date(body.dueDate);
+    if (!(passo >= 5 && passo <= 720) || isNaN(fim) || isNaN(inicio) || fim < inicio) {
+      return NextResponse.json({ error: "Período inválido: o horário final precisa ser depois do inicial e o intervalo de 5 min a 12 h." }, { status: 400 });
+    }
+    const horarios = [];
+    for (let t = inicio.getTime(); t <= fim.getTime(); t += passo * 60000) horarios.push(new Date(t));
+    if (horarios.length > 60) {
+      return NextResponse.json({ error: `Isso criaria ${horarios.length} tarefas (máximo 60). Aumente o intervalo ou reduza o período.` }, { status: 400 });
+    }
+    const dados = horarios.map((dueDate) => ({
+      contactId,
+      title,
+      notes: texto(body.notes) || null,
+      dueDate,
+      tipoId: body.tipoId || null,
+      responsavel: body.responsavel || null,
+    }));
+    await prisma.task.createMany({ data: dados });
+    return NextResponse.json({ ok: true, criadas: dados.length });
+  }
   const task = await prisma.task.create({
     data: {
       contactId,

@@ -687,7 +687,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...taskForm, title, contactId, dueDate: `${dia}T${hora}:00` }),
+      body: JSON.stringify({ ...taskForm, title, contactId, dueDate: `${dia}T${hora}:00`, repetir: taskForm.repetir ? { ate: taskForm.ate || "17:00", cadaMin: Number(taskForm.cadaMin) || 60 } : undefined }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -2454,6 +2454,23 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   className="min-w-0 w-28 shrink-0 text-sm border border-slate-200 rounded px-2.5 py-2"
                 />
               </div>
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={!!taskForm.repetir} onChange={(e) => setTaskForm((f) => ({ ...f, repetir: e.target.checked }))} className="accent-emerald-500" />
+                Repetir dentro de um período
+              </label>
+              {taskForm.repetir && (
+                <div className="rounded-lg bg-slate-50 border border-slate-200 p-2.5 space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <span>até</span>
+                    <input type="time" value={taskForm.ate || "17:00"} onChange={(e) => setTaskForm((f) => ({ ...f, ate: e.target.value }))} className="text-sm border border-slate-200 rounded px-2 py-1.5 bg-white" />
+                    <span>a cada</span>
+                    <select value={taskForm.cadaMin || 60} onChange={(e) => setTaskForm((f) => ({ ...f, cadaMin: Number(e.target.value) }))} className="text-sm border border-slate-200 rounded px-2 py-1.5 bg-white">
+                      {[10, 15, 20, 30, 45, 60, 90, 120].map((m) => (<option key={m} value={m}>{m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60} h` : `${m} min`}</option>))}
+                    </select>
+                  </div>
+                  <p className="text-[11px] text-slate-400">Cria uma tarefa para cada horário, do horário acima até o final, no mesmo dia.</p>
+                </div>
+              )}
               {taskFormErro && <p className="text-[11px] text-red-500">{taskFormErro}</p>}
               <button className="w-full bg-emerald-500 text-white rounded py-2 text-sm hover:bg-emerald-600">Criar tarefa</button>
             </form>
