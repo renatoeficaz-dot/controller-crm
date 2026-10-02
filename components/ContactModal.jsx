@@ -1,5 +1,6 @@
 "use client";
 
+import { CHECKLIST_DOC } from "@/lib/checklistDoc";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { resumoCobranca, valorParcelaAtual, parcelaAtrasada, gerarParcelas, NUM_PARCELAS } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
@@ -25,24 +26,6 @@ function fmtTime(iso) {
 // ✓ enviado, ✓✓ cinza entregue, ✓✓ azul lido — igual ao WhatsApp e ao mesmo
 // componente do components/ChatView.jsx (esse painel de dentro da ficha do
 // lead tem a própria renderização de mensagem, separada do /chat).
-// Itens do checklist de documentação por tipo de cliente.
-const CHECKLIST_DOC = {
-  comerciante: [
-    ["enderecoComercial", "Endereço comercial"],
-    ["enderecoResidencial", "Endereço residencial"],
-    ["redeSocial", "Rede social"],
-    ["referencias", "Contatos de referência"],
-    ["cnpj", "CNPJ"],
-    ["cpf", "CPF"],
-  ],
-  uber: [
-    ["endereco", "Endereço"],
-    ["cpf", "CPF"],
-    ["referencias", "Contatos de referência"],
-    ["enderecoResidencial", "Endereço residencial"],
-  ],
-};
-
 function TicksEnvio({ status }) {
   if (status === "lido") return <span className="text-sky-300" title="Lido">✓✓</span>;
   if (status === "entregue") return <span title="Entregue">✓✓</span>;

@@ -1,5 +1,6 @@
 "use client";
 
+import { CHECKLIST_DOC } from "@/lib/checklistDoc";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import MediaBubble from "./MediaBubble";
 import PuxadaAnexo from "./PuxadaAnexo";
@@ -393,6 +394,17 @@ export default function ChatView() {
         genero: ct.genero || "",
         tipoCliente: ct.tipoCliente || "",
         cpf: ct.cpf || "",
+        cnpj: ct.cnpj || "",
+        razaoSocial: ct.razaoSocial || "",
+        endereco: ct.endereco || "",
+        enderecoComercial: ct.enderecoComercial || "",
+        comercioNaResidencia: !!ct.comercioNaResidencia,
+        pixChave: ct.pixChave || "",
+        pixNomeCompleto: ct.pixNomeCompleto || "",
+        checklistTelefoneBate: !!ct.checklistTelefoneBate,
+        checklistDivergenciaPrint: !!ct.checklistDivergenciaPrint,
+        checklistAntecedentes: !!ct.checklistAntecedentes,
+        checklistDocumentacao: (() => { try { return ct.checklistDocumentacao ? JSON.parse(ct.checklistDocumentacao) : {}; } catch { return {}; } })(),
       });
       setContactTags((ct.tags || []).map((t) => t.id));
     }
@@ -1661,6 +1673,86 @@ export default function ChatView() {
                 )}
               </div>
             </label>
+
+            {/* Mesmos dados da ficha do Kanban: documentos, endereços, Pix e checklists. */}
+            <label className="block">
+              <span className="text-[11px] text-slate-400">CNPJ</span>
+              <input value={form.cnpj || ""} onChange={set("cnpj")} className={inputCls} />
+            </label>
+            <label className="block">
+              <span className="text-[11px] text-slate-400">Razão social</span>
+              <input value={form.razaoSocial || ""} onChange={set("razaoSocial")} className={inputCls} />
+            </label>
+            <label className="block">
+              <span className="text-[11px] text-slate-400">Endereço residencial</span>
+              <input
+                value={form.endereco || ""}
+                onChange={(e) => setForm((f) => ({ ...f, endereco: e.target.value, ...(f.comercioNaResidencia ? { enderecoComercial: e.target.value } : {}) }))}
+                className={inputCls}
+              />
+            </label>
+            <label className="block">
+              <span className="text-[11px] text-slate-400">Endereço comercial</span>
+              <input value={form.enderecoComercial || ""} onChange={set("enderecoComercial")} disabled={!!form.comercioNaResidencia} className={`${inputCls} disabled:bg-slate-50 disabled:text-slate-500`} />
+              <span className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                <input
+                  type="checkbox"
+                  checked={!!form.comercioNaResidencia}
+                  onChange={(e) => setForm((f) => ({ ...f, comercioNaResidencia: e.target.checked, ...(e.target.checked ? { enderecoComercial: f.endereco || "" } : {}) }))}
+                />
+                Trabalha em casa — usar o endereço residencial como comercial
+              </span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="text-[11px] text-slate-400">Chave Pix</span>
+                <input value={form.pixChave || ""} onChange={set("pixChave")} className={inputCls} />
+              </label>
+              <label className="block">
+                <span className="text-[11px] text-slate-400">Nome completo (Pix)</span>
+                <input value={form.pixNomeCompleto || ""} onChange={set("pixNomeCompleto")} className={inputCls} />
+              </label>
+            </div>
+
+            {(() => {
+              const tipo = form.tipoCliente === "motoboy" ? "uber" : form.tipoCliente;
+              const itens = CHECKLIST_DOC[tipo];
+              const marcados = form.checklistDocumentacao || {};
+              return (
+                <div className="border border-sky-200 bg-sky-50/50 rounded-lg p-2.5 space-y-1.5">
+                  <span className="text-xs font-semibold text-sky-700">
+                    Checklist de documentação{tipo === "comerciante" ? " — comerciante" : tipo === "uber" ? " — motorista de app" : ""}
+                  </span>
+                  {itens ? itens.map(([chave, rotulo]) => (
+                    <label key={chave} className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!marcados[chave]}
+                        onChange={(e) => setForm((f) => ({ ...f, checklistDocumentacao: { ...(f.checklistDocumentacao || {}), [chave]: e.target.checked } }))}
+                        className="mt-0.5"
+                      />
+                      {rotulo}
+                    </label>
+                  )) : (
+                    <p className="text-[11px] text-slate-400">Escolha o tipo de cliente para ver o checklist.</p>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="border border-amber-200 bg-amber-50/50 rounded-lg p-2.5 space-y-1.5">
+              <span className="text-xs font-semibold text-amber-700">Checklist da análise</span>
+              {[
+                ["checklistTelefoneBate", "Telefone precisa bater o do cliente ou 2 pelo menos"],
+                ["checklistDivergenciaPrint", "Divergência de print"],
+                ["checklistAntecedentes", "Antecedentes conferidos"],
+              ].map(([chave, rotulo]) => (
+                <label key={chave} className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                  <input type="checkbox" checked={!!form[chave]} onChange={(e) => setForm((f) => ({ ...f, [chave]: e.target.checked }))} className="mt-0.5" />
+                  {rotulo}
+                </label>
+              ))}
+            </div>
 
             {/* Puxada (consulta de crédito) em PDF — fixa no card, não depende do chat */}
             <PuxadaAnexo
