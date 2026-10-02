@@ -3593,6 +3593,23 @@ function MensagensProntas() {
   const fileRef = useRef(null);
   const bodyRef = useRef(null);
 
+  // Sobe/desce uma mensagem na lista (a ordem vale pro seletor do chat e dos
+  // modais). Só com a lista inteira visível — com busca ativa a posição
+  // relativa enganaria.
+  async function moverTemplate(id, delta) {
+    const i = templates.findIndex((t) => t.id === id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= templates.length) return;
+    const nova = [...templates];
+    [nova[i], nova[j]] = [nova[j], nova[i]];
+    setTemplates(nova);
+    await fetch("/api/templates/ordem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: nova.map((t) => t.id) }),
+    });
+  }
+
   const editando = editId !== null;
   const templatesFiltrados = templates.filter((t) => !busca.trim() || t.title.toLowerCase().includes(busca.trim().toLowerCase()));
 
@@ -3925,7 +3942,13 @@ function MensagensProntas() {
               className={`relative py-2.5 ${editId === t.id ? "bg-emerald-50/50 -mx-2 px-2 rounded" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                {!busca.trim() && (
+                  <div className="flex flex-col shrink-0 -ml-1">
+                    <button type="button" onClick={() => moverTemplate(t.id, -1)} disabled={templates[0]?.id === t.id} title="Subir" className="text-slate-300 hover:text-emerald-600 disabled:opacity-30 disabled:hover:text-slate-300 leading-none px-1 py-0.5 text-[10px]">▲</button>
+                    <button type="button" onClick={() => moverTemplate(t.id, 1)} disabled={templates[templates.length - 1]?.id === t.id} title="Descer" className="text-slate-300 hover:text-emerald-600 disabled:opacity-30 disabled:hover:text-slate-300 leading-none px-1 py-0.5 text-[10px]">▼</button>
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-slate-700">{t.title}</p>
                     {t.mediaType && (
