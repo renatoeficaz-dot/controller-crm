@@ -119,6 +119,10 @@ export async function PATCH(req, { params }) {
     if ("checklistTelefoneClienteOk" in body) data.checklistTelefoneClienteOk = !!body.checklistTelefoneClienteOk;
     if ("checklistCpfOk" in body) data.checklistCpfOk = !!body.checklistCpfOk;
     if ("checklistEnderecoOk" in body) data.checklistEnderecoOk = !!body.checklistEnderecoOk;
+    if ("checklistDocumentacao" in body) {
+      const marcados = body.checklistDocumentacao && typeof body.checklistDocumentacao === "object" ? Object.fromEntries(Object.entries(body.checklistDocumentacao).filter(([k, v]) => v === true && typeof k === "string" && k.length < 40)) : {};
+      data.checklistDocumentacao = Object.keys(marcados).length ? JSON.stringify(marcados) : null;
+    }
     if ("camposCustom" in body) data.camposCustom = body.camposCustom ? JSON.stringify(body.camposCustom) : null;
     if ("fixado" in body) data.fixado = !!body.fixado;
     if ("corCard" in body) data.corCard = body.corCard || null;

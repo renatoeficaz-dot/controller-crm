@@ -175,6 +175,8 @@ model Contact {
   checklistTelefoneClienteOk Boolean @default(false)
   checklistCpfOk             Boolean @default(false)
   checklistEnderecoOk        Boolean @default(false)
+  // Checklist de documentação (itens variam por tipo de cliente): JSON { chave: true }.
+  checklistDocumentacao      String?
 
   // Agendamento da vídeo chamada com o cobrador (fluxo à parte, não é o
   // Agente vendas): quando o cliente escreve pro número do cobrador em

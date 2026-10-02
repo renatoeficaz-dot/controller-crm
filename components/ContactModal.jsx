@@ -25,6 +25,24 @@ function fmtTime(iso) {
 // ✓ enviado, ✓✓ cinza entregue, ✓✓ azul lido — igual ao WhatsApp e ao mesmo
 // componente do components/ChatView.jsx (esse painel de dentro da ficha do
 // lead tem a própria renderização de mensagem, separada do /chat).
+// Itens do checklist de documentação por tipo de cliente.
+const CHECKLIST_DOC = {
+  comerciante: [
+    ["enderecoComercial", "Endereço comercial"],
+    ["enderecoResidencial", "Endereço residencial"],
+    ["redeSocial", "Rede social"],
+    ["referencias", "Contatos de referência"],
+    ["cnpj", "CNPJ"],
+    ["cpf", "CPF"],
+  ],
+  uber: [
+    ["endereco", "Endereço"],
+    ["cpf", "CPF"],
+    ["referencias", "Contatos de referência"],
+    ["enderecoResidencial", "Endereço residencial"],
+  ],
+};
+
 function TicksEnvio({ status }) {
   if (status === "lido") return <span className="text-sky-300" title="Lido">✓✓</span>;
   if (status === "entregue") return <span title="Entregue">✓✓</span>;
@@ -347,6 +365,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       checklistTelefoneClienteOk: !!data.checklistTelefoneClienteOk,
       checklistCpfOk: !!data.checklistCpfOk,
       checklistEnderecoOk: !!data.checklistEnderecoOk,
+      checklistDocumentacao: (() => { try { return data.checklistDocumentacao ? JSON.parse(data.checklistDocumentacao) : {}; } catch { return {}; } })(),
       responsavel: data.responsavel || "",
       estado: data.estado || "",
       genero: data.genero || "",
@@ -1199,7 +1218,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 </label>
 
                 <label className="block">
-                  <span className="text-[11px] text-slate-400">Endereço</span>
+                  <span className="text-[11px] text-slate-400">Endereço residencial</span>
                   <div className="mt-0.5 flex items-center gap-1.5">
                     <input
                       type="text"
@@ -1234,6 +1253,16 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   </div>
                 </label>
 
+                <label className="block">
+                  <span className="text-[11px] text-slate-400">Endereço comercial</span>
+                  <input
+                    type="text"
+                    value={form.enderecoComercial || ""}
+                    onChange={(e) => setForm((f) => ({ ...f, enderecoComercial: e.target.value }))}
+                    className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                  />
+                </label>
+
                 {/* Ficha cadastral extra (comerciante/Uber) — preenchida pelo cliente em
                     texto (manual ou pela IA via save_cadastro), Arthur confere aqui. */}
                 {form.tipoCliente === "comerciante" && (
@@ -1244,15 +1273,6 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         type="text"
                         value={form.razaoSocial || ""}
                         onChange={(e) => setForm((f) => ({ ...f, razaoSocial: e.target.value }))}
-                        className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-                      />
-                    </label>
-                    <label className="block col-span-2">
-                      <span className="text-[11px] text-slate-400">Endereço comercial</span>
-                      <input
-                        type="text"
-                        value={form.enderecoComercial || ""}
-                        onChange={(e) => setForm((f) => ({ ...f, enderecoComercial: e.target.value }))}
                         className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
                       />
                     </label>
@@ -1358,6 +1378,32 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 </label>
               </div>
             )}
+
+            {(() => {
+              const tipo = form.tipoCliente === "motoboy" ? "uber" : form.tipoCliente;
+              const itens = CHECKLIST_DOC[tipo];
+              const marcados = form.checklistDocumentacao || {};
+              return (
+                <div className="border border-sky-200 bg-sky-50/50 rounded-lg p-2.5 space-y-1.5">
+                  <span className="text-xs font-semibold text-sky-700">
+                    Checklist de documentação{tipo === "comerciante" ? " — comerciante" : tipo === "uber" ? " — motorista de app" : ""}
+                  </span>
+                  {itens ? itens.map(([chave, rotulo]) => (
+                    <label key={chave} className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!marcados[chave]}
+                        onChange={(e) => setForm((f) => ({ ...f, checklistDocumentacao: { ...(f.checklistDocumentacao || {}), [chave]: e.target.checked } }))}
+                        className="mt-0.5"
+                      />
+                      {rotulo}
+                    </label>
+                  )) : (
+                    <p className="text-[11px] text-slate-400">Escolha o tipo de cliente (comerciante ou motorista de app) para ver o checklist.</p>
+                  )}
+                </div>
+              );
+            })()}
 
             {mostraChecklistAnalise && (
               <div className="border border-amber-200 bg-amber-50/50 rounded-lg p-2.5 space-y-1.5">
