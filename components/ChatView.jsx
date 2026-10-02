@@ -1262,7 +1262,7 @@ export default function ChatView() {
                         : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"
                     }`}
                   >
-                    {item.msg.instance && instanciasNaConversa.size > 1 && (
+                    {item.msg.instance && (numbers.length > 1 || instanciasNaConversa.size > 1) && (
                       <p className={`flex items-center gap-1 text-[10px] mb-0.5 ${item.msg.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
                         <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(item.msg.instance, numbers)}
                       </p>
