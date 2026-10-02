@@ -20,7 +20,7 @@ export async function GET() {
   const hoje = hojeStr();
 
   const stages = await prisma.stage.findMany({
-    where: { name: "Recebimento" },
+    where: { name: { in: ["Recebimento", "Renovação"] } },
     select: { id: true, name: true },
   });
   if (!stages.length) return NextResponse.json([]);

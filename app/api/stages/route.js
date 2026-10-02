@@ -14,8 +14,8 @@ export async function GET() {
   // parcelas, mesmo que a configuração de colunas visíveis dele não inclua —
   // é o trabalho dele, não deveria depender de configuração manual.
   if (user?.role === "cobrador" && colunas) {
-    const recebimento = await prisma.stage.findFirst({ where: { name: "Recebimento" } });
-    if (recebimento && !colunas.includes(recebimento.id)) colunas = [...colunas, recebimento.id];
+    const cobrancaStages = await prisma.stage.findMany({ where: { name: { in: ["Recebimento", "Renovação"] } } });
+    for (const st of cobrancaStages) if (!colunas.includes(st.id)) colunas = [...colunas, st.id];
   }
 
   const contactWhere = {

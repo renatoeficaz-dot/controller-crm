@@ -918,7 +918,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     onChanged?.();
   }
 
-  const isRecebimento = contact?.stage?.name === "Recebimento";
+  // "Renovação" é cobrança de verdade igual a Recebimento (parcelas reais, com baixa).
+  const isRecebimento = contact?.stage?.name === "Recebimento" || contact?.stage?.name === "Renovação";
   // Painel de Cobrança (parcelas + renovação) também precisa aparecer em
   // "Pago": é exatamente aí que o ciclo já está quitado e o botão "Renovar
   // empréstimo" (com o limite de escalonamento do PRÓXIMO ciclo) deveria
@@ -936,7 +937,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // Recebimento/Pago antes de voltar pra Liberação pagamento) e nunca tinha
   // preenchido a chave Pix antes: dava pra ver o erro pedindo a chave, mas
   // não tinha onde digitar ela.
-  const mostraDadosPix = ["Análise", "Liberação pagamento", "Recebimento", "Pago", "Vídeo chamada", "Cravo"].includes(contact?.stage?.name);
+  const mostraDadosPix = ["Análise", "Liberação pagamento", "Recebimento", "Renovação", "Pago", "Vídeo chamada", "Cravo"].includes(contact?.stage?.name);
   const emLiberacao = contact?.stage?.name === "Liberação pagamento";
   // As 10 parcelas simuladas usam a MESMA fórmula (lib/finance) que gera as
   // parcelas de verdade em "Recebimento" — se fossem duas contas separadas, a
@@ -956,7 +957,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // chamada/Recebimento/Pago/Cravo — pedido do Renato: quem atende nessas
   // etapas (ex.: o cobrador na vídeo chamada) precisa conferir os mesmos
   // dados sem o lead ter que "voltar" pra Documentação/Análise.
-  const mostraChecklistAnalise = ["Documentação", "Análise", "Vídeo chamada", "Recebimento", "Pago", "Cravo"].includes(contact?.stage?.name);
+  const mostraChecklistAnalise = ["Documentação", "Análise", "Vídeo chamada", "Recebimento", "Renovação", "Pago", "Cravo"].includes(contact?.stage?.name);
   const resumo = resumoCobranca(form.valorCapital, honorariosPct);
   // Limite de capital do ciclo atual, quando o escalonamento está ligado.
   const limiteCiclo = escalonamentoCfg ? limiteEscalonado(cicloAtual, escalonamentoCfg) : null;
