@@ -193,6 +193,7 @@ export default function ChatInternoView() {
   const [listaPendAberta, setListaPendAberta] = useState(false);
   const [destacada, setDestacada] = useState(null);
   const fimRef = useRef(null);
+  const conversaRoladaRef = useRef(null);
   const selRef = useRef(null);
   const fileRef = useRef(null);
   const recorderRef = useRef(null);
@@ -256,8 +257,19 @@ export default function ChatInternoView() {
       }
       return;
     }
-    fimRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [detalhe?.mensagens?.length, destacada]);
+    // Conversa recém-aberta: vai direto pro fim, sem animação (a rolagem suave
+    // fazia a tela "passear" do topo até o final). Só mensagem nova chegando
+    // na conversa que já está aberta rola suave.
+    if (!detalhe?.id) { conversaRoladaRef.current = null; return; }
+    const primeiraVez = conversaRoladaRef.current !== detalhe.id;
+    conversaRoladaRef.current = detalhe.id;
+    fimRef.current?.scrollIntoView({ behavior: primeiraVez ? "auto" : "smooth" });
+    if (primeiraVez) {
+      // imagens/anexos carregam depois e empurram o fim pra baixo
+      const t = setTimeout(() => fimRef.current?.scrollIntoView({ behavior: "auto" }), 250);
+      return () => clearTimeout(t);
+    }
+  }, [detalhe?.id, detalhe?.mensagens?.length, destacada]);
 
   const outrosUsuarios = useMemo(() => usuarios.filter((u) => u.id !== eu?.id), [usuarios, eu]);
 
