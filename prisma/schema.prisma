@@ -177,6 +177,8 @@ model Contact {
   checklistEnderecoOk        Boolean @default(false)
   // Checklist de documentação (itens variam por tipo de cliente): JSON { chave: true }.
   checklistDocumentacao      String?
+  // Comerciante que trabalha em casa: o endereço residencial vale como comercial.
+  comercioNaResidencia       Boolean @default(false)
 
   // Agendamento da vídeo chamada com o cobrador (fluxo à parte, não é o
   // Agente vendas): quando o cliente escreve pro número do cobrador em

@@ -365,6 +365,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       checklistTelefoneClienteOk: !!data.checklistTelefoneClienteOk,
       checklistCpfOk: !!data.checklistCpfOk,
       checklistEnderecoOk: !!data.checklistEnderecoOk,
+      comercioNaResidencia: !!data.comercioNaResidencia,
       checklistDocumentacao: (() => { try { return data.checklistDocumentacao ? JSON.parse(data.checklistDocumentacao) : {}; } catch { return {}; } })(),
       responsavel: data.responsavel || "",
       estado: data.estado || "",
@@ -1223,7 +1224,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     <input
                       type="text"
                       value={form.endereco || ""}
-                      onChange={(e) => setForm((f) => ({ ...f, endereco: e.target.value }))}
+                      onChange={(e) => setForm((f) => ({ ...f, endereco: e.target.value, ...(f.comercioNaResidencia ? { enderecoComercial: e.target.value } : {}) }))}
                       className="flex-1 min-w-0 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
                     />
                     {form.endereco && (
@@ -1259,8 +1260,17 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     type="text"
                     value={form.enderecoComercial || ""}
                     onChange={(e) => setForm((f) => ({ ...f, enderecoComercial: e.target.value }))}
-                    className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                    disabled={!!form.comercioNaResidencia}
+                    className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400 disabled:bg-slate-50 disabled:text-slate-500"
                   />
+                  <span className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <input
+                      type="checkbox"
+                      checked={!!form.comercioNaResidencia}
+                      onChange={(e) => setForm((f) => ({ ...f, comercioNaResidencia: e.target.checked, ...(e.target.checked ? { enderecoComercial: f.endereco || "" } : {}) }))}
+                    />
+                    Trabalha em casa — usar o endereço residencial como comercial
+                  </span>
                 </label>
 
                 {/* Ficha cadastral extra (comerciante/Uber) — preenchida pelo cliente em

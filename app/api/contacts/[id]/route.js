@@ -119,6 +119,7 @@ export async function PATCH(req, { params }) {
     if ("checklistTelefoneClienteOk" in body) data.checklistTelefoneClienteOk = !!body.checklistTelefoneClienteOk;
     if ("checklistCpfOk" in body) data.checklistCpfOk = !!body.checklistCpfOk;
     if ("checklistEnderecoOk" in body) data.checklistEnderecoOk = !!body.checklistEnderecoOk;
+    if ("comercioNaResidencia" in body) data.comercioNaResidencia = !!body.comercioNaResidencia;
     if ("checklistDocumentacao" in body) {
       const marcados = body.checklistDocumentacao && typeof body.checklistDocumentacao === "object" ? Object.fromEntries(Object.entries(body.checklistDocumentacao).filter(([k, v]) => v === true && typeof k === "string" && k.length < 40)) : {};
       data.checklistDocumentacao = Object.keys(marcados).length ? JSON.stringify(marcados) : null;
