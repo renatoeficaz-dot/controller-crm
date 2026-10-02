@@ -1426,6 +1426,8 @@ model Message {
   mimeType  String?
   fileName  String?
   fromMe    Boolean   @default(true) // true = enviada por nós, false = recebida do cliente
+  // Quem enviou (só mensagens nossas): nome do usuário, "IA", "Automático", "Agendada" ou "Celular". null = histórico antigo.
+  enviadoPor String?
   status    String    @default("sent")
   instance  String? // instância da Evolution que originou/enviou (controle de visibilidade por usuário)
   // id da mensagem no provedor (Evolution: data.key.id / WAHA: payload.id).

@@ -38,6 +38,7 @@ export async function GET(req, { params }) {
       contactId: true,
       body: true,
       kind: true,
+      enviadoPor: true,
       mimeType: true,
       fileName: true,
       fromMe: true,
@@ -66,6 +67,7 @@ export async function POST(req, { params }) {
   const { mediaType, mediaUrl: mediaUrlIn, mediaMimetype, mediaFileName, contactName, contactPhone } = payload;
   const body = payload.body || "";
 
+  const user = await getCurrentUser().catch(() => null);
   const contact = await prisma.contact.findUnique({ where: { id } });
   if (!contact) return NextResponse.json({ error: "Contato não encontrado" }, { status: 404 });
 
@@ -124,6 +126,7 @@ export async function POST(req, { params }) {
   if (!result.ok) {
     const falhada = await prisma.message.create({
       data: {
+        enviadoPor: (user?.name || null),
         contactId: id,
         body: displayBody,
         kind,
@@ -145,6 +148,7 @@ export async function POST(req, { params }) {
 
   const message = await prisma.message.create({
     data: {
+      enviadoPor: (user?.name || null),
       contactId: id,
       body: displayBody,
       kind,

@@ -1258,6 +1258,11 @@ export default function ChatView() {
                         <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(item.msg.instance, numbers)}
                       </p>
                     )}
+                    {item.msg.fromMe && item.msg.enviadoPor && (
+                      <p className="flex items-center gap-1 text-[10px] mb-0.5 text-emerald-100">
+                        <Icone nome={["IA", "Automático", "Agendada"].includes(item.msg.enviadoPor) ? "robo" : item.msg.enviadoPor === "Celular" ? "celular" : "pessoa"} className="w-2.5 h-2.5" /> {item.msg.enviadoPor}
+                      </p>
+                    )}
                     {item.msg.apagada ? (
                       <p className={`italic ${item.msg.fromMe ? "text-emerald-100" : "text-slate-400"}`}>Mensagem apagada</p>
                     ) : (

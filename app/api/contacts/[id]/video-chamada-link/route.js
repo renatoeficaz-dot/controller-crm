@@ -45,7 +45,7 @@ export async function POST(req, { params }) {
     const r = await sendWhatsappText(contact.phone, texto, instance).catch(() => ({ ok: false }));
     if (r.ok) {
       message = await prisma.message.create({
-        data: { contactId: id, fromMe: true, status: "enviado", instance: instance || null, kind: "text", body: texto },
+        data: { enviadoPor: (user?.name || null), contactId: id, fromMe: true, status: "enviado", instance: instance || null, kind: "text", body: texto },
       });
       mensagemEnviada = true;
     }

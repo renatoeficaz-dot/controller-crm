@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { sendWhatsappMedia, sendWhatsappAudio, resolveInstanceForContact } from "@/lib/evolution";
 import { saveMediaBuffer } from "@/lib/mediaStorage";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { getCurrentUser } from "@/lib/session";
 
 const MAX_UPLOAD_MB = 25;
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -20,6 +21,7 @@ export async function POST(req, { params }) {
   const { id } = await params;
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
+  const user = await getCurrentUser().catch(() => null);
   const contact = await prisma.contact.findUnique({ where: { id } });
   if (!contact) return NextResponse.json({ error: "Contato não encontrado" }, { status: 404 });
 
@@ -79,6 +81,7 @@ export async function POST(req, { params }) {
 
   const message = await prisma.message.create({
     data: {
+      enviadoPor: (user?.name || null),
       contactId: id,
       body: caption,
       kind,
