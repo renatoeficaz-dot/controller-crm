@@ -366,6 +366,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       nomeParente: data.nomeParente || "",
       telefoneContato: data.telefoneContato || "",
       nomeContato: data.nomeContato || "",
+      telefoneContato3: data.telefoneContato3 || "",
+      nomeContato3: data.nomeContato3 || "",
       puxadaUrl: data.puxadaUrl || "",
       puxadaFileName: data.puxadaFileName || "",
       puxadaScore: data.puxadaScore ?? null,
@@ -1104,6 +1106,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                   {[
                     { chave: "telefoneParente", nomeChave: "nomeParente", rotulo: "Parente", placeholderNome: "nome do familiar" },
                     { chave: "telefoneContato", nomeChave: "nomeContato", rotulo: "Contato 2", placeholderNome: "nome da pessoa" },
+                    { chave: "telefoneContato3", nomeChave: "nomeContato3", rotulo: "Contato 3", placeholderNome: "nome da pessoa" },
                   ].map((t) => (
                     <div key={t.chave} className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-lg px-2 py-1.5">
                       <span className="text-slate-400 shrink-0 w-16">{t.rotulo}</span>

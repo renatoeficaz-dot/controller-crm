@@ -69,6 +69,8 @@ model Contact {
   nomeParente     String?
   telefoneContato String?
   nomeContato     String?
+  telefoneContato3 String?
+  nomeContato3     String?
   // Lead vindo de um formulário instantâneo (Instant Form) da Meta (Facebook/
   // Instagram Lead Ads) — ver app/api/webhook/meta-leads. metaLeadId é único
   // pra não duplicar o card se a Meta reenviar o mesmo webhook (acontece).
