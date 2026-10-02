@@ -3,13 +3,23 @@ import { NextResponse } from "next/server";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
 import { normalizeBrPhone } from "@/lib/evolution";
 import { lerCorpo, texto } from "@/lib/corpo";
+import { getCurrentUser } from "@/lib/session";
 
 // Lista as mensagens prontas (ordenadas)
-export async function GET() {
+export async function GET(req) {
   // Os internos (áudio gravado na hora pra agendar) não entram: são de uso
   // único e só poluiriam a lista de mensagens prontas do chat.
+  const todos = new URL(req.url).searchParams.get("todos") === "1";
+  const user = await getCurrentUser().catch(() => null);
   const templates = await prisma.messageTemplate.findMany({ where: { interno: false }, orderBy: { order: "asc" } });
-  return NextResponse.json(templates);
+  // Restrição por usuário: a tela de Configurações (admin, ?todos=1) enxerga
+  // tudo pra poder editar; o resto só vê o que foi liberado pra si.
+  if (todos && user?.role === "admin") return NextResponse.json(templates);
+  const visiveis = templates.filter((t) => {
+    const ids = (t.usuariosIds || "").split(",").filter(Boolean);
+    return !ids.length || (user && ids.includes(user.id));
+  });
+  return NextResponse.json(visiveis);
 }
 
 // Cria uma mensagem pronta
@@ -66,6 +76,7 @@ export async function POST(req) {
       contactName: texto(data.contactName) || null,
       contactPhone: mediaType === "contact" ? normalizeBrPhone(data.contactPhone) : texto(data.contactPhone) || null,
       interno: !!data.interno,
+      usuariosIds: Array.isArray(data.usuariosIds) && data.usuariosIds.length ? data.usuariosIds.join(",") : null,
       order: (last?.order ?? -1) + 1,
     },
   });

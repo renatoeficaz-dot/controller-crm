@@ -3578,7 +3578,8 @@ function fileToBase64(file) {
 
 function MensagensProntas() {
   const [templates, setTemplates] = useState([]);
-  const emptyForm = { title: "", body: "", mediaType: "text", mediaBase64: null, mediaMimetype: null, mediaFileName: null, contactName: "", contactPhone: "" };
+  const emptyForm = { title: "", body: "", mediaType: "text", mediaBase64: null, mediaMimetype: null, mediaFileName: null, contactName: "", contactPhone: "", usuariosIds: [] };
+  const [usuariosLista, setUsuariosLista] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -3631,9 +3632,12 @@ function MensagensProntas() {
   }
 
   const load = useCallback(async () => {
-    setTemplates(await fetch("/api/templates").then((r) => r.json()));
+    setTemplates(await fetch("/api/templates?todos=1").then((r) => r.json()));
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    fetch("/api/users").then((r) => r.json()).then((d) => setUsuariosLista(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
 
   function startEdit(t) {
     setEditId(t.id);
@@ -3646,6 +3650,7 @@ function MensagensProntas() {
       mediaFileName: t.mediaFileName || null,
       contactName: t.contactName || "",
       contactPhone: t.contactPhone || "",
+      usuariosIds: (t.usuariosIds || "").split(",").filter(Boolean),
     });
     setError("");
   }
@@ -3906,6 +3911,28 @@ function MensagensProntas() {
           </div>
         )}
 
+        <div>
+          <span className="text-xs text-slate-400">Quem pode usar esta mensagem</span>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {usuariosLista.map((u) => {
+              const marcado = form.usuariosIds.includes(u.id);
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, usuariosIds: marcado ? f.usuariosIds.filter((x) => x !== u.id) : [...f.usuariosIds, u.id] }))}
+                  className={`text-xs rounded-full px-2.5 py-1 border transition-colors ${marcado ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-slate-500 border-slate-200 hover:border-emerald-300"}`}
+                >
+                  {u.name}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1">
+            {form.usuariosIds.length === 0 ? "Nenhum selecionado = todos os usuários podem usar." : `Só ${form.usuariosIds.length} usuário(s) selecionado(s) vão ver esta mensagem no chat.`}
+          </p>
+        </div>
+
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex gap-2">
           <button
@@ -3954,6 +3981,11 @@ function MensagensProntas() {
                     {t.mediaType && (
                       <span className="text-[10px] bg-slate-100 text-slate-500 rounded px-1.5 py-0.5 shrink-0">
                         {MEDIA_LABELS[t.mediaType] || t.mediaType}
+                      </span>
+                    )}
+                    {t.usuariosIds && (
+                      <span className="text-[10px] bg-amber-50 text-amber-700 rounded px-1.5 py-0.5 shrink-0" title="Só alguns usuários veem esta mensagem">
+                        restrita
                       </span>
                     )}
                   </div>

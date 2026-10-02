@@ -33,6 +33,7 @@ export async function PATCH(req, { params }) {
     if ("mediaMimetype" in body) data.mediaMimetype = body.mediaMimetype || null;
     if ("mediaFileName" in body) data.mediaFileName = body.mediaFileName || null;
     if ("contactName" in body) data.contactName = texto(body.contactName) || null;
+    if ("usuariosIds" in body) data.usuariosIds = Array.isArray(body.usuariosIds) && body.usuariosIds.length ? body.usuariosIds.join(",") : null;
   
     const existing = await prisma.messageTemplate.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });

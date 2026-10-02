@@ -560,6 +560,8 @@ model MessageTemplate {
   // true = criada por dentro de outro fluxo (ex.: áudio gravado na hora pra
   // agendar) e não deve aparecer na lista de "Mensagens prontas" do chat.
   interno       Boolean            @default(false)
+  // IDs de usuário (separados por vírgula) que podem usar a mensagem no chat. Vazio/null = todos.
+  usuariosIds   String?
   createdAt     DateTime           @default(now())
   agendamentos  MensagemAgendada[]
   motivosPerda  MotivoPerda[]

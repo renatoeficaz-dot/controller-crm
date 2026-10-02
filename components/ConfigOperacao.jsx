@@ -38,7 +38,7 @@ export function MotivosPerdaConfig() {
   }, []);
   useEffect(load, [load]);
   useEffect(() => {
-    fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
+    fetch("/api/templates?todos=1").then((r) => r.json()).then(setTemplates).catch(() => {});
   }, []);
 
   async function adicionar(e) {
