@@ -4177,6 +4177,20 @@ function AutomacaoFunil() {
                   </select>
                 </div>
               </div>
+              {s.autoResponsavel && (
+                <label className="pl-[26px] flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!s.reatribuir}
+                    onChange={(e) => {
+                      const v = e.target.checked;
+                      setStages((prev) => prev.map((x) => (x.id === s.id ? { ...x, reatribuir: v } : x)));
+                      fetch(`/api/stages/${s.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reatribuir: v }) });
+                    }}
+                  />
+                  Sempre passar o lead para {s.autoResponsavel} ao entrar nesta etapa (mesmo que já tenha outro responsável)
+                </label>
+              )}
               {!s.autoResponsavel && (
                 <div className="pl-[26px] flex flex-wrap items-center gap-1.5">
                   <span className="text-[10px] text-slate-400">ou distribuir por carga entre:</span>

@@ -144,7 +144,8 @@ export async function PATCH(req, { params }) {
     // quem acabou de mexer nele. autoResponsavel é o dono PADRÃO de quem chega
     // sem ninguém cuidando, não uma ordem pra tomar o lead de quem já cuida.
     let autoAtribuiu = false;
-    if (trocandoDeEtapa && !contact.responsavel && (await dentroDoHorarioComercial())) {
+    const podeAtribuir = !contact.responsavel || (stage.reatribuir && stage.autoResponsavel && contact.responsavel !== stage.autoResponsavel);
+    if (trocandoDeEtapa && podeAtribuir && (await dentroDoHorarioComercial())) {
       if (stage.autoResponsavel) {
         data.responsavel = stage.autoResponsavel;
         autoAtribuiu = true;

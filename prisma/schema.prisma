@@ -15,6 +15,9 @@ model Stage {
   color            String    @default("#64748b")
   order            Int       @default(0)
   autoResponsavel  String? // nome do usuário atribuído automaticamente quando um lead entra nesta etapa
+  // true = ao entrar nesta etapa o lead SEMPRE passa pro autoResponsavel, mesmo que já tenha dono
+  // (ex.: Análise → Arthur). false = só atribui quando o lead está sem responsável.
+  reatribuir       Boolean   @default(false)
   // Alternativa ao autoResponsavel fixo: nomes separados por vírgula. Quando
   // preenchido, o lead que entra na etapa é atribuído a quem da lista tem
   // MENOS leads ativos agora (não é só um rodízio — é por carga real).
