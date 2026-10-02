@@ -1177,6 +1177,28 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                 </label>
 
                 <label className="block">
+                  <span className="text-[11px] text-slate-400">CNPJ</span>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={form.cnpj || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))}
+                      className="flex-1 min-w-0 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                    />
+                    {form.cnpj && (
+                      <button
+                        type="button"
+                        onClick={() => { navigator.clipboard?.writeText(form.cnpj).catch(() => {}); }}
+                        title="Copiar CNPJ"
+                        className="shrink-0 flex items-center justify-center border border-slate-200 rounded px-2 py-1.5 text-slate-500 hover:text-emerald-600 hover:border-emerald-300"
+                      >
+                        <Icone nome="copiar" className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </label>
+
+                <label className="block">
                   <span className="text-[11px] text-slate-400">Endereço</span>
                   <div className="mt-0.5 flex items-center gap-1.5">
                     <input
@@ -1216,16 +1238,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     texto (manual ou pela IA via save_cadastro), Arthur confere aqui. */}
                 {form.tipoCliente === "comerciante" && (
                   <div className="grid grid-cols-2 gap-3">
-                    <label className="block">
-                      <span className="text-[11px] text-slate-400">CNPJ</span>
-                      <input
-                        type="text"
-                        value={form.cnpj || ""}
-                        onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))}
-                        className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-                      />
-                    </label>
-                    <label className="block">
+                    <label className="block col-span-2">
                       <span className="text-[11px] text-slate-400">Razão social</span>
                       <input
                         type="text"
