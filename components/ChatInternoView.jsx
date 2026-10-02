@@ -194,6 +194,7 @@ export default function ChatInternoView() {
   const [destacada, setDestacada] = useState(null);
   const fimRef = useRef(null);
   const conversaRoladaRef = useRef(null);
+  const destacadaAntesRef = useRef(null);
   const selRef = useRef(null);
   const fileRef = useRef(null);
   const recorderRef = useRef(null);
@@ -251,6 +252,7 @@ export default function ChatInternoView() {
     if (destacada) {
       const el = document.getElementById(`msg-${destacada}`);
       if (el) {
+        destacadaAntesRef.current = destacada;
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         const t = setTimeout(() => setDestacada(null), 4000);
         return () => clearTimeout(t);
@@ -261,6 +263,13 @@ export default function ChatInternoView() {
     // fazia a tela "passear" do topo até o final). Só mensagem nova chegando
     // na conversa que já está aberta rola suave.
     if (!detalhe?.id) { conversaRoladaRef.current = null; return; }
+    // O destaque de um pedido acabou de ser removido (passaram os 4s): a tela já
+    // está onde deveria — não pode "descer sozinha" pro fim da conversa.
+    if (destacadaAntesRef.current) {
+      destacadaAntesRef.current = null;
+      conversaRoladaRef.current = detalhe.id;
+      return;
+    }
     const primeiraVez = conversaRoladaRef.current !== detalhe.id;
     conversaRoladaRef.current = detalhe.id;
     fimRef.current?.scrollIntoView({ behavior: primeiraVez ? "auto" : "smooth" });
