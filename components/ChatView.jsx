@@ -197,6 +197,7 @@ export default function ChatView() {
   const [statusFiltro, setStatusFiltro] = useState(""); // "" = todos
   const [tagFiltro, setTagFiltro] = useState("");
   const [stageFiltro, setStageFiltro] = useState("");
+  const [soNaoLidas, setSoNaoLidas] = useState(false);
   const [instanceFiltro, setInstanceFiltro] = useState(""); // número/instância que está conversando
   const [ordem, setOrdem] = useState("recentes"); // "recentes" | "antigas" | "nome"
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -328,7 +329,7 @@ export default function ChatView() {
   }
 
   const chatFiltrosAtivosCount =
-    (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0);
+    (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (soNaoLidas ? 1 : 0);
 
   const conversasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -343,6 +344,7 @@ export default function ChatView() {
       if (tagFiltro && !(c.tags || []).some((t) => t.id === tagFiltro)) return false;
       if (stageFiltro && c.stageId !== stageFiltro) return false;
       if (instanceFiltro && c.instance !== instanceFiltro) return false;
+      if (soNaoLidas && !(c.unreadCount > 0)) return false;
       return true;
     });
     if (ordem === "nome") {
@@ -355,7 +357,7 @@ export default function ChatView() {
       });
     }
     return out;
-  }, [conversations, busca, statusFiltro, tagFiltro, stageFiltro, instanceFiltro, ordem]);
+  }, [conversations, busca, statusFiltro, tagFiltro, stageFiltro, instanceFiltro, soNaoLidas, ordem]);
 
   const loadTasks = useCallback(async () => {
     if (!selectedId) return;
@@ -952,7 +954,7 @@ export default function ChatView() {
                 <div className="flex items-center gap-3">
                   {chatFiltrosAtivosCount > 0 && (
                     <button
-                      onClick={() => { setStatusFiltro(""); setStageFiltro(""); setTagFiltro(""); setInstanceFiltro(""); }}
+                      onClick={() => { setStatusFiltro(""); setStageFiltro(""); setTagFiltro(""); setInstanceFiltro(""); setSoNaoLidas(false); }}
                       className="text-xs text-red-400 hover:text-red-600"
                     >
                       Limpar tudo
@@ -963,6 +965,10 @@ export default function ChatView() {
               </div>
 
               <div className="p-5 space-y-4">
+                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <input type="checkbox" checked={soNaoLidas} onChange={(e) => setSoNaoLidas(e.target.checked)} className="accent-emerald-500" />
+                  Só conversas com mensagens não lidas
+                </label>
                 <div>
                   <span className="text-xs text-slate-400">Situação</span>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
