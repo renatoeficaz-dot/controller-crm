@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icone from "@/components/Icones";
 
 // Mensagens antigas ainda guardam o arquivo como "data:mime;base64,..." em vez
@@ -48,6 +48,17 @@ export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
   const isPdf = mimetype === "application/pdf";
   const isPreviewable = isImagem || isPdf;
   const [expandido, setExpandido] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const arrasto = useRef(null);
+  function mudarZoom(d) {
+    setZoom((z) => {
+      const n = Math.min(6, Math.max(1, +(z + d).toFixed(2)));
+      if (n === 1) setPos({ x: 0, y: 0 });
+      return n;
+    });
+  }
+  function resetZoom() { setZoom(1); setPos({ x: 0, y: 0 }); }
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
       <div
@@ -55,6 +66,14 @@ export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-full flex justify-end items-center gap-3 mb-2">
+          {isImagem && (
+            <div className="flex items-center gap-1 text-white/80 text-xs">
+              <button onClick={() => mudarZoom(-0.5)} className="border border-white/30 rounded px-2 py-1 hover:text-white">−</button>
+              <span className="w-10 text-center">{Math.round(zoom * 100)}%</span>
+              <button onClick={() => mudarZoom(0.5)} className="border border-white/30 rounded px-2 py-1 hover:text-white">+</button>
+              <button onClick={resetZoom} className="border border-white/30 rounded px-2 py-1 hover:text-white ml-1">100%</button>
+            </div>
+          )}
           {isPdf && (
             <button
               onClick={() => setExpandido((v) => !v)}
@@ -66,7 +85,27 @@ export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
           <button onClick={onClose} className="text-white/80 hover:text-white text-2xl leading-none">×</button>
         </div>
         {isImagem && (
-          <img src={url} alt={fileName || "imagem"} className="max-w-full max-h-[75vh] rounded-lg object-contain" />
+          <div
+            className="w-full flex-1 min-h-0 overflow-hidden flex items-center justify-center select-none"
+            style={{ maxHeight: "80vh", cursor: zoom > 1 ? (arrasto.current ? "grabbing" : "grab") : "zoom-in" }}
+            onWheel={(e) => mudarZoom(e.deltaY < 0 ? 0.25 : -0.25)}
+            onMouseDown={(e) => { arrasto.current = { x: e.clientX - pos.x, y: e.clientY - pos.y, moveu: false }; }}
+            onMouseMove={(e) => {
+              if (!arrasto.current || zoom <= 1) return;
+              arrasto.current.moveu = true;
+              setPos({ x: e.clientX - arrasto.current.x, y: e.clientY - arrasto.current.y });
+            }}
+            onMouseUp={() => { const moveu = arrasto.current?.moveu; arrasto.current = null; if (!moveu) { zoom > 1 ? resetZoom() : mudarZoom(1); } }}
+            onMouseLeave={() => { arrasto.current = null; }}
+          >
+            <img
+              src={url}
+              alt={fileName || "imagem"}
+              draggable={false}
+              className="max-w-full max-h-[75vh] rounded-lg object-contain"
+              style={{ transform: `translate(${pos.x}px, ${pos.y}px) scale(${zoom})`, transition: arrasto.current ? "none" : "transform 0.12s" }}
+            />
+          </div>
         )}
         {!isImagem && isPdf && (
           <iframe
