@@ -243,6 +243,13 @@ export async function PATCH(req, { params }) {
       await criarTarefaLiberarPagamento(id).catch(() => {});
     }
 
+    // Entrou em "Análise" fora do horário do setor (sábado 14h → segunda 8h): avisa o cliente.
+    if (stage.name === "Análise" && trocandoDeEtapa) {
+      const { avisarAnaliseForaDoHorario } = await import("@/lib/fluxoDuvida");
+      const inst = await resolveInstanceForContact(id).catch(() => null);
+      if (inst) await avisarAnaliseForaDoHorario(updated, inst).catch(() => {});
+    }
+
     // Ao ENTRAR em "Vídeo chamada" / "Análise": cria sozinho o lembrete da
     // tarefa que normalmente precisa acontecer logo ao chegar nessa etapa.
     if (stage.name === "Vídeo chamada" && trocandoDeEtapa) {

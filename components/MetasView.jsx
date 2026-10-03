@@ -265,6 +265,7 @@ export default function MetasView() {
   const [openContactId, setOpenContactId] = useState(null);
   const [modalVendas, setModalVendas] = useState(false);
   const [modalRenovacoes, setModalRenovacoes] = useState(false);
+  const [modalLiberado, setModalLiberado] = useState(false);
   const [modalRecebimentos, setModalRecebimentos] = useState(false);
   const [dia, setDia] = useState(hojeStr());
   const [usuario, setUsuario] = useState("");   // "" = total da empresa
@@ -468,7 +469,12 @@ export default function MetasView() {
 
         {/* Capital liberado no dia = venda nova + renovação somadas — sem meta
             configurável, é só o total de verdade que saiu do caixa hoje. */}
-        <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+        <button
+          type="button"
+          onClick={() => setModalLiberado(true)}
+          title="Ver as vendas novas e renovações do dia"
+          className="text-left bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 hover:border-emerald-300 transition-colors"
+        >
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-semibold text-slate-700">Liberado no dia</p>
             <p className="text-sm font-semibold text-emerald-700">{money(r.valorLiberadoTotalHoje)}</p>
@@ -476,7 +482,8 @@ export default function MetasView() {
           <p className="text-[11px] text-slate-400">
             Venda nova ({money(r.valorVendidoHoje)}) + renovação ({money(r.valorLiberadoTotalHoje - r.valorVendidoHoje)}), somadas.
           </p>
-        </div>
+          <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver quem foi liberado →</p>
+        </button>
 
         {/* 5. Meta de vendas em R$ */}
         {r.metaValorVendasDia > 0 && (
@@ -705,6 +712,35 @@ export default function MetasView() {
                 <p className="text-sm font-medium text-slate-700 truncate">{v.nome || "Sem nome"}</p>
                 <p className="text-xs text-slate-400 truncate">
                   {v.phone || "sem telefone"} · {fmtHora(v.entrouRecebimentoEm)}
+                  {v.responsavel && <> · {v.responsavel}</>}
+                </p>
+              </div>
+              <span className="text-sm font-medium text-emerald-600 shrink-0">{money(v.valorCapital)}</span>
+            </>
+          )}
+        />
+      )}
+
+      {modalLiberado && (
+        <ListaModal
+          titulo="Liberado no dia"
+          itens={[
+            ...(r.vendasDetalhe || []).map((v) => ({ ...v, id: "v-" + v.id, _tipo: "Venda nova", _hora: v.entrouRecebimentoEm })),
+            ...(r.renovacoesDetalhe || []).map((v) => ({ ...v, id: "r-" + v.id, _tipo: "Renovação", _hora: v.renovadoEm })),
+          ].sort((a, b) => new Date(b._hora) - new Date(a._hora))}
+          vazio="Nada liberado neste dia."
+          onClose={() => setModalLiberado(false)}
+          onAbrirContato={(id) => { setModalLiberado(false); setOpenContactId(id); }}
+          renderItem={(v) => (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-700 truncate">
+                  {v.nome || "Sem nome"}
+                  <span className={`ml-1.5 text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${v._tipo === "Renovação" ? "text-violet-700 bg-violet-50" : "text-emerald-700 bg-emerald-50"}`}>{v._tipo}</span>
+                </p>
+                <p className="text-xs text-slate-400 truncate">
+                  {v.phone || "sem telefone"} · {fmtHora(v._hora)}
+                  {v.cicloAtual && v._tipo === "Renovação" && <> · ciclo {v.cicloAtual}</>}
                   {v.responsavel && <> · {v.responsavel}</>}
                 </p>
               </div>

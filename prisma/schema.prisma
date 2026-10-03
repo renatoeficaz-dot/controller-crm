@@ -188,6 +188,8 @@ model Contact {
   docPedido                  String?
   // true = as fotos/documentos que o cliente já tinha mandado antes do atendimento por etapas já foram lidas e marcadas.
   docHistoricoLido           Boolean @default(false)
+  // Hora da última mensagem do cliente que a IA já tratou — a varredura de recuperação só pega o que passou dessa hora.
+  iaProcessouAte             DateTime?
   // Comprovante de residência em nome de familiar: exige também um documento que comprove o vínculo.
   comprovanteDeTerceiro      Boolean @default(false)
 
