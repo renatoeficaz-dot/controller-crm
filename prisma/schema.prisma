@@ -184,6 +184,10 @@ model Contact {
   checklistDocumentacao      String?
   // Comerciante que trabalha em casa: o endereço residencial vale como comercial.
   comercioNaResidencia       Boolean @default(false)
+  // Último documento que a IA pediu ao cliente (chave do passo em lib/checklistDoc.js) — evita pedir o mesmo duas vezes.
+  docPedido                  String?
+  // true = as fotos/documentos que o cliente já tinha mandado antes do atendimento por etapas já foram lidas e marcadas.
+  docHistoricoLido           Boolean @default(false)
 
   // Agendamento da vídeo chamada com o cobrador (fluxo à parte, não é o
   // Agente vendas): quando o cliente escreve pro número do cobrador em
@@ -627,6 +631,8 @@ model Config {
   mensagemInicialAtiva     Boolean @default(false)
   mensagemInicialTitulo    String  @default("1 - Mensagem inicial")
   mensagemInicialInstancia String?
+  // Rotina única: quando true, a IA responde (uma vez) todos os leads do funil que ficaram sem resposta e desliga sozinha.
+  reprocessarPendentes     Boolean @default(false)
 
   // Meta diária: X% de todos os leads atualmente na etapa "Recebimento"
   // precisam pagar (dar baixa numa parcela) hoje. 3 níveis: mínima < média < meta

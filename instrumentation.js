@@ -66,6 +66,9 @@ export async function register() {
     // trabalho do cobrador via fila de cobrança/régua.
     await rodar("pixAdimplentes", enviarPixAdimplentes);
     await rodar("followUp1h", checarFollowUp1h);
+    // Rotina única de "responder quem ficou sem resposta" (liga por Config.reprocessarPendentes e se
+    // desliga sozinha). Fora da fila do tick: leva minutos e não pode atrasar as outras tarefas.
+    import("@/lib/reprocessarSemResposta").then((m) => m.reprocessarSemResposta()).catch((err) => console.error("[reprocessarSemResposta]", err.message));
     // Lead parado demais em "Em conversa" (24h) ou "Documentação" (48h) cai
     // sozinho pra "Venda perdida" — precisa checar a cada 5 min, não 1x/dia,
     // senão passa o dia inteiro sem ninguém notar que sumiu.
