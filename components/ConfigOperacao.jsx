@@ -166,7 +166,7 @@ export function OperacaoConfig() {
         pixAdimplentesAtivo: !!c.pixAdimplentesAtivo,
         pixAdimplentesDiasAntes: c.pixAdimplentesDiasAntes,
         pixAdimplentesHora: c.pixAdimplentesHora || "08:00",
-        pixAdimplentesMensagem: c.pixAdimplentesMensagem || null,
+        pixBanco: c.pixBanco || "Infinitepay",
       }),
     });
     setC(await res.json());
@@ -196,6 +196,7 @@ export function OperacaoConfig() {
           <Campo label="Chave Pix" value={c.pixChave || ""} onChange={set("pixChave")} placeholder="CPF, e-mail, telefone ou aleatória" />
           <Campo label="Nome do recebedor" value={c.pixNomeRecebedor || ""} onChange={set("pixNomeRecebedor")} maxLength={25} />
           <Campo label="Cidade" value={c.pixCidade || ""} onChange={set("pixCidade")} maxLength={15} />
+          <Campo label="Banco" value={c.pixBanco || ""} onChange={set("pixBanco")} maxLength={30} />
         </div>
       </div>
 
@@ -226,19 +227,11 @@ export function OperacaoConfig() {
               />
               <Campo label="Horário do envio" type="time" value={c.pixAdimplentesHora || "08:00"} onChange={set("pixAdimplentesHora")} />
             </div>
-            <label className="block">
-              <span className="text-xs text-slate-500">Mensagem</span>
-              <textarea
-                rows={4}
-                value={c.pixAdimplentesMensagem || ""}
-                onChange={set("pixAdimplentesMensagem")}
-                placeholder={"Oi {{nome}}! Sua parcela de {{valor_parcela}} vence hoje. Pra facilitar, aqui está o Pix:\n\n{{pix_copia_cola}}"}
-                className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 resize-y"
-              />
-              <span className="block text-[10px] text-slate-400 mt-0.5">
-                Use <code className="bg-slate-100 rounded px-1">{"{{pix_copia_cola}}"}</code> onde o código Pix deve entrar. Vazio = usa a mensagem padrão.
-              </span>
-            </label>
+            <div>
+              <span className="text-xs text-slate-500">Mensagem que sai (padrão fixo — não editável)</span>
+              <pre className="mt-0.5 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans text-slate-700">{[c.pixChave || "(chave Pix)", "Segue a chave Pix", (c.pixNomeRecebedor || "(recebedor)").replace(/\.$/, "") + ".", "Banco " + (c.pixBanco || "Infinitepay")].join("\n")}</pre>
+              <span className="block text-[10px] text-slate-400 mt-0.5">A chave, o recebedor e o banco vêm dos campos de cima. O texto não pode ser digitado à mão para a chave nunca sair errada.</span>
+            </div>
             {!c.pixChave && (
               <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
                 Cadastre a chave Pix acima antes de ativar — sem ela, nada é enviado.

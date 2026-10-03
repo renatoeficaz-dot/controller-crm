@@ -742,6 +742,7 @@ model Config {
   pixChave         String?
   pixNomeRecebedor String?
   pixCidade        String?
+  pixBanco         String  @default("Infinitepay")
 
   // Mensagem diária automática com o Pix pra quem está EM DIA (nenhuma parcela
   // atrasada) — manda sozinho, sem depender do cobrador. Atrasado NUNCA entra

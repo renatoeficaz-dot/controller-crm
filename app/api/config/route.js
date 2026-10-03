@@ -183,7 +183,9 @@ export async function PATCH(req) {
   if ("pixAdimplentesAtivo" in body) data.pixAdimplentesAtivo = !!body.pixAdimplentesAtivo;
   if ("pixAdimplentesDiasAntes" in body) data.pixAdimplentesDiasAntes = Math.max(0, Math.min(5, Number(body.pixAdimplentesDiasAntes) || 0));
   if ("pixAdimplentesHora" in body) data.pixAdimplentesHora = (body.pixAdimplentesHora || "08:00").trim();
-  if ("pixAdimplentesMensagem" in body) data.pixAdimplentesMensagem = texto(body.pixAdimplentesMensagem) || null;
+  // A mensagem do Pix automático NÃO é editável: é montada pelo código (lib/pixAdimplentes.js)
+  // a partir da chave, do recebedor e do banco — texto digitado à mão já saiu com a chave errada.
+  if ("pixBanco" in body) data.pixBanco = texto(body.pixBanco) || "Infinitepay";
 
   const mudouSensivel = CAMPOS_AUDITADOS.some((c) => c in data);
   const antes = mudouSensivel ? await prisma.config.findUnique({ where: { id: "singleton" } }) : null;
