@@ -188,6 +188,8 @@ model Contact {
   docPedido                  String?
   // true = as fotos/documentos que o cliente já tinha mandado antes do atendimento por etapas já foram lidas e marcadas.
   docHistoricoLido           Boolean @default(false)
+  // Comprovante de residência em nome de familiar: exige também um documento que comprove o vínculo.
+  comprovanteDeTerceiro      Boolean @default(false)
 
   // Agendamento da vídeo chamada com o cobrador (fluxo à parte, não é o
   // Agente vendas): quando o cliente escreve pro número do cobrador em
