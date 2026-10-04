@@ -17,7 +17,6 @@ const links = [
   { href: "/lancamentos", label: "Lançamentos", icon: "dinheiro", admin: true },
   { href: "/relatorios", label: "Relatórios", icon: "grafico", pagina: "relatorios" },
   { href: "/configuracoes", label: "Configurações", icon: "engrenagem", admin: true },
-  { href: "/aprender", label: "Aprender", icon: "formatura" },
 ];
 
 // Trilho de ícones fixo à esquerda — atalho rápido entre as seções

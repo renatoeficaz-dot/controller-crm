@@ -199,6 +199,7 @@ export default function KanbanBoard() {
   const [filtrosAbertos, setFiltrosAbertos] = useState(false); // modal com todos os filtros
   const [consultaCpfAberta, setConsultaCpfAberta] = useState(false);
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
+  const [etapaMulti, setEtapaMulti] = useState(false); // botão "Seleção múltipla" dos chips de etapa
   const [etapaFiltro, setEtapaFiltro] = useState([]); // stageIds selecionados; vazio = todas as colunas
   const [tempoFiltro, setTempoFiltro] = useState(""); // "" = todos; "3" | "7" | "15" | "30" = pelo menos N dias parado na etapa
   const [etapaDeFiltro, setEtapaDeFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = entrou na etapa atual a partir dessa data
@@ -709,6 +710,7 @@ export default function KanbanBoard() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
               <label className="block">
                 <span className="text-xs text-slate-400">Responsável</span>
                 <select
@@ -795,6 +797,7 @@ export default function KanbanBoard() {
                   <option value="nao">1º empréstimo</option>
                 </select>
               </label>
+              </div>
 
               <div>
                 <span className="text-xs text-slate-400">Data de criação</span>
@@ -860,7 +863,19 @@ export default function KanbanBoard() {
               </label>
 
               <div>
-                <span className="text-xs text-slate-400">Etapa</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Etapa</span>
+                  <button
+                    type="button"
+                    onClick={() => { setEtapaMulti((v) => !v); if (etapaMulti) setEtapaFiltro((prev) => prev.slice(0, 1)); }}
+                    className={`text-[11px] rounded-full px-2.5 py-0.5 border transition-colors ${
+                      etapaMulti ? "bg-emerald-50 text-emerald-700 border-emerald-300" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                    }`}
+                    title="Ligado: cada clique soma uma etapa. Desligado: cada clique escolhe só aquela etapa."
+                  >
+                    {etapaMulti ? "☑ Seleção múltipla" : "☐ Seleção múltipla"}
+                  </button>
+                </div>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   <button
                     onClick={() => setEtapaFiltro([])}
@@ -879,7 +894,9 @@ export default function KanbanBoard() {
                         key={s.id}
                         onClick={() =>
                           setEtapaFiltro((prev) =>
-                            prev.includes(s.id) ? prev.filter((id) => id !== s.id) : [...prev, s.id]
+                            etapaMulti
+                              ? (prev.includes(s.id) ? prev.filter((id) => id !== s.id) : [...prev, s.id])
+                              : (prev.length === 1 && prev[0] === s.id ? [] : [s.id])
                           )
                         }
                         className={`text-xs rounded-full px-3 py-1 border transition-colors ${
@@ -939,6 +956,7 @@ export default function KanbanBoard() {
                   <option value="antigas">Mais antigas</option>
                   <option value="inadimplencia">Mais tempo inadimplente</option>
                   <option value="tempo_etapa">Mais tempo parado na etapa</option>
+                  <option value="tempo_etapa_menos">Menos tempo parado na etapa</option>
                   <option value="etiqueta">Etiqueta (A-Z)</option>
                   <option value="regiao">Região / Estado (A-Z)</option>
                 </select>
@@ -955,6 +973,7 @@ export default function KanbanBoard() {
             const visiveis = stage.contacts.filter(passaFiltro).sort((a, b) => {
               if (ordem === "inadimplencia") return diasInadimplente(b) - diasInadimplente(a);
               if (ordem === "tempo_etapa") return diasNaEtapa(b) - diasNaEtapa(a);
+              if (ordem === "tempo_etapa_menos") return diasNaEtapa(a) - diasNaEtapa(b);
               // Sem etiqueta/estado vai pro fim da lista, não pro topo (string
               // vazia ordenaria antes de qualquer letra em localeCompare).
               if (ordem === "etiqueta") {
