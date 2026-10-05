@@ -181,6 +181,8 @@ export default function ChatInternoView() {
   const [encaminharMsg, setEncaminharMsg] = useState(null); // mensagem com mídia sendo encaminhada | null
   const [novaAberta, setNovaAberta] = useState(false);
   const [novoGrupo, setNovoGrupo] = useState(false);
+  const [editandoGrupo, setEditandoGrupo] = useState(false);
+  const [grupoAdicionar, setGrupoAdicionar] = useState([]);
   const [novoNome, setNovoNome] = useState("");
   const [novoMembros, setNovoMembros] = useState([]);
   const [erro, setErro] = useState("");
@@ -456,6 +458,23 @@ export default function ChatInternoView() {
     carregarConversas();
   }
 
+  async function editarGrupo(payload) {
+    const res = await fetch(`/api/chat-interno/${selecionada}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setErro(d.error || "Não foi possível editar o grupo.");
+      return false;
+    }
+    setGrupoAdicionar([]);
+    carregarDetalhe(selecionada);
+    carregarConversas();
+    return true;
+  }
+
   async function excluirConversa() {
     if (!confirm("Excluir esta conversa e todas as mensagens dela? Não dá pra desfazer.")) return;
     const res = await fetch(`/api/chat-interno/${selecionada}`, { method: "DELETE" });
@@ -678,6 +697,15 @@ export default function ChatInternoView() {
                   </button>
                 </>
               )}
+              {detalhe?.grupo && (
+                <button
+                  onClick={() => setEditandoGrupo(true)}
+                  title="Incluir ou remover pessoas do grupo"
+                  className="shrink-0 text-xs rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:text-emerald-700 hover:border-emerald-300"
+                >
+                  Membros
+                </button>
+              )}
               <button
                 onClick={excluirConversa}
                 title="Excluir esta conversa"
@@ -692,6 +720,57 @@ export default function ChatInternoView() {
                 Só pendentes
               </button>
             </div>
+
+            {editandoGrupo && detalhe?.grupo && (
+              <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEditandoGrupo(false)}>
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-slate-800 text-sm">Membros do grupo</h3>
+                    <button onClick={() => setEditandoGrupo(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+                  </div>
+                  <div className="space-y-1 max-h-48 overflow-y-auto thin-scroll">
+                    {(detalhe.membros || []).map((m) => (
+                      <div key={m.id} className="flex items-center justify-between text-sm text-slate-700 py-1">
+                        <span>{m.name}{m.id === eu?.id ? " (você)" : ""}</span>
+                        {m.id !== eu?.id && (
+                          <button
+                            onClick={() => { if (confirm(`Remover ${m.name} do grupo?`)) editarGrupo({ remover: [m.id] }); }}
+                            className="text-xs text-slate-400 hover:text-red-600"
+                          >
+                            remover
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">Incluir pessoas</p>
+                    <div className="space-y-1 max-h-40 overflow-y-auto thin-scroll">
+                      {usuarios.filter((u) => !(detalhe.membros || []).some((m) => m.id === u.id)).map((u) => (
+                        <label key={u.id} className="flex items-center gap-2 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={grupoAdicionar.includes(u.id)}
+                            onChange={(e) => setGrupoAdicionar((prev) => (e.target.checked ? [...prev, u.id] : prev.filter((x) => x !== u.id)))}
+                          />
+                          {u.name}
+                        </label>
+                      ))}
+                      {usuarios.filter((u) => !(detalhe.membros || []).some((m) => m.id === u.id)).length === 0 && (
+                        <p className="text-xs text-slate-400">Todos já estão no grupo.</p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    disabled={!grupoAdicionar.length}
+                    onClick={async () => { if (await editarGrupo({ adicionar: grupoAdicionar })) setEditandoGrupo(false); }}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-sm rounded-lg py-2"
+                  >
+                    Incluir selecionados
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-2">
               {!detalhe && <p className="text-center text-xs text-slate-400">Carregando…</p>}

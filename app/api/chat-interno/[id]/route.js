@@ -235,3 +235,42 @@ export async function DELETE(_req, { params }) {
   await prisma.conversaInterna.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
+
+// Edita o grupo: incluir pessoas (qualquer participante), remover e renomear (quem criou ou admin).
+export async function PATCH(req, { params }) {
+  const { id } = await params;
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  const membro = await membroOuNulo(id, user.id);
+  if (!membro) return NextResponse.json({ error: "Sem acesso a essa conversa." }, { status: 403 });
+  const conversa = await prisma.conversaInterna.findUnique({ where: { id }, select: { grupo: true, criadaPor: true } });
+  if (!conversa?.grupo) return NextResponse.json({ error: "Só grupos podem ser editados." }, { status: 400 });
+
+  const body = await lerCorpo(req);
+  const adicionar = Array.isArray(body.adicionar) ? body.adicionar.map(String) : [];
+  const remover = Array.isArray(body.remover) ? body.remover.map(String) : [];
+  const nome = texto(body.nome);
+  const podeGerir = conversa.criadaPor === user.name || isAdmin(user);
+  if ((remover.length || nome) && !podeGerir) {
+    return NextResponse.json({ error: "Só quem criou (ou um admin) pode remover pessoas ou renomear o grupo." }, { status: 403 });
+  }
+
+  if (adicionar.length) {
+    const existentes = await prisma.user.findMany({ where: { id: { in: adicionar } }, select: { id: true } });
+    for (const u of existentes) {
+      await prisma.conversaInternaMembro
+        .upsert({ where: { conversaId_userId: { conversaId: id, userId: u.id } }, update: {}, create: { conversaId: id, userId: u.id } })
+        .catch(() => {});
+    }
+  }
+  if (remover.length) {
+    await prisma.conversaInternaMembro.deleteMany({ where: { conversaId: id, userId: { in: remover.filter((r) => r !== user.id) } } });
+  }
+  if (nome) await prisma.conversaInterna.update({ where: { id }, data: { nome: nome.slice(0, 80) } });
+
+  const atual = await prisma.conversaInterna.findUnique({
+    where: { id },
+    include: { membros: { include: { user: { select: { id: true, name: true } } } } },
+  });
+  return NextResponse.json({ ok: true, nome: atual.nome, membros: atual.membros.map((m) => ({ id: m.user.id, name: m.user.name })) });
+}
