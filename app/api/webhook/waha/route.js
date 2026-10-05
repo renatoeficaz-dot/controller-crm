@@ -21,7 +21,11 @@ export async function POST(req) {
     if (status) await processMessageAck(waMessageId, status);
     return NextResponse.json({ ok: true });
   }
-  if (payload.event !== "message") return NextResponse.json({ ok: true });
+  // O WAHA assina "message.any" (mensagens dos dois lados) e, em versões novas, entrega o evento com esse nome
+  // exato. Aceitar só "message" fazia TODA mensagem recebida ser descartada em silêncio.
+  if (payload.event !== "message" && payload.event !== "message.any") {
+    return NextResponse.json({ ok: true });
+  }
 
   const instance = payload.session || "";
   let { fromMe, isGroup, number, numeroEhLid, lidJid, pushName, text, media, location, contacts, mediaKey } = extractIncomingFromWaha(payload);
