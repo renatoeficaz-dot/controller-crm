@@ -59,6 +59,7 @@ export async function POST(req) {
     contacts,
     downloadMedia: media && mediaUrl ? () => fetchIncomingMediaBase64Waha(mediaUrl, cfg?.wahaApiKey) : null,
     waMessageId: mediaKey || null,
+    backfill: payload.backfill === true ? { timestamp: payload?.payload?.timestamp } : null,
   });
 
   return NextResponse.json({ ok: true });
