@@ -633,10 +633,16 @@ export default function KanbanBoard() {
           <Icone nome="chat" className="w-3.5 h-3.5" /> Campanha ({leadsFiltrados.length})
         </button>
 
+        {filtrosAtivosCount > 0 && (
+          <span className="ml-auto text-xs font-medium text-slate-600 bg-slate-100 rounded-full px-3 py-1.5 shrink-0" title="Quantidade de clientes que aparecem com os filtros atuais">
+            {leadsFiltrados.length} {leadsFiltrados.length === 1 ? "cliente" : "clientes"}
+          </span>
+        )}
+
         <button
           onClick={() => setAdding(stages[0]?.id)}
           disabled={!stages[0]}
-          className="ml-auto flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 disabled:opacity-50 transition-colors shrink-0"
+          className={`${filtrosAtivosCount > 0 ? "" : "ml-auto "}flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg px-3.5 py-2 hover:bg-emerald-600 disabled:opacity-50 transition-colors shrink-0`}
         >
           + Novo contato
         </button>
