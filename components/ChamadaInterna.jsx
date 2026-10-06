@@ -190,14 +190,27 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
       const tela = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
       telaRef.current = tela;
       const faixa = tela.getVideoTracks()[0];
-      if (videoSenderRef.current) await videoSenderRef.current.replaceTrack(faixa);
-      else videoSenderRef.current = pcRef.current.addTrack(faixa, tela);
+      if (videoSenderRef.current) {
+        await videoSenderRef.current.replaceTrack(faixa);
+      } else {
+        // Chamada começou sem câmera (só áudio): não existe faixa de vídeo para trocar. Adicionar a faixa exige
+        // renegociar a conexão (nova oferta) — sem isso o outro lado nunca recebia a tela.
+        videoSenderRef.current = pcRef.current.addTrack(faixa, tela);
+        const oferta = await pcRef.current.createOffer();
+        await pcRef.current.setLocalDescription(oferta);
+        await enviarSinal("oferta", oferta);
+      }
       if (localRef.current) localRef.current.srcObject = tela;
       setCompartilhando(true);
       // Parar pelo botão do próprio navegador também tem que voltar a câmera.
       faixa.onended = () => pararTela();
-    } catch {
-      setErro("Não foi possível compartilhar a tela.");
+    } catch (err) {
+      const motivo =
+        err?.name === "NotAllowedError" ? "A permissão foi negada (ou a janela de seleção foi fechada)." :
+        err?.name === "NotFoundError" ? "Nenhuma tela ou janela foi encontrada para compartilhar." :
+        err?.name === "NotSupportedError" || !navigator.mediaDevices?.getDisplayMedia ? "Este navegador/aparelho não permite compartilhar a tela (no celular normalmente não funciona; use o computador)." :
+        (err?.message || "erro desconhecido");
+      setErro("Não foi possível compartilhar a tela. " + motivo);
     }
   }
 
