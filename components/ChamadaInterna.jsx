@@ -19,6 +19,7 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
   const [semCamera, setSemCamera] = useState(!chamada.video);
   const [compartilhando, setCompartilhando] = useState(false);
   const [erro, setErro] = useState("");
+  const [minimizado, setMinimizado] = useState(false); // janela pequena no canto: a chamada continua rodando
 
   const pcRef = useRef(null);
   const localRef = useRef(null);
@@ -224,8 +225,14 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[90] bg-slate-900 flex flex-col">
-      <div className="px-4 py-3 flex items-center gap-3 text-white border-b border-slate-700">
+    <div
+      className={
+        minimizado
+          ? "fixed bottom-4 right-4 z-[90] w-72 rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-slate-900 flex flex-col"
+          : "fixed inset-0 z-[90] bg-slate-900 flex flex-col"
+      }
+    >
+      <div className={`${minimizado ? "px-3 py-2" : "px-4 py-3"} flex items-center gap-3 text-white border-b border-slate-700`}>
         <span className="w-9 h-9 rounded-full bg-emerald-600 flex items-center justify-center text-sm font-semibold">
           {(outro?.name || "?").slice(0, 2).toUpperCase()}
         </span>
@@ -237,9 +244,16 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
             {status === "caiu" && "Conexão instável"}
           </p>
         </div>
+        <button
+          onClick={() => setMinimizado((v) => !v)}
+          title={minimizado ? "Voltar para tela cheia" : "Minimizar (a chamada continua)"}
+          className="shrink-0 w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center text-lg leading-none"
+        >
+          {minimizado ? "⤢" : "—"}
+        </button>
       </div>
 
-      <div className="flex-1 relative bg-black min-h-0">
+      <div className={`${minimizado ? "h-40" : "flex-1"} relative bg-black min-h-0`}>
         <video ref={remotoRef} autoPlay playsInline className="w-full h-full object-contain" />
         {status !== "falando" && (
           <p className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm">
@@ -251,13 +265,13 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
           autoPlay
           playsInline
           muted
-          className="absolute bottom-3 right-3 w-32 sm:w-44 rounded-lg border border-slate-700 bg-slate-800"
+          className={`absolute bottom-3 right-3 rounded-lg border border-slate-700 bg-slate-800 ${minimizado ? "hidden" : "w-32 sm:w-44"}`}
         />
       </div>
 
       {erro && <p className="px-4 py-2 text-xs text-red-300 bg-red-900/40">{erro}</p>}
 
-      <div className="px-4 py-4 flex items-center justify-center gap-3 border-t border-slate-700">
+      <div className={`${minimizado ? "px-3 py-2 gap-2" : "px-4 py-4 gap-3"} flex items-center justify-center border-t border-slate-700`}>
         <button
           onClick={alternarMudo}
           title={mudo ? "Ativar microfone" : "Silenciar microfone"}
@@ -267,6 +281,7 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
         </button>
         <button
           onClick={alternarCamera}
+          hidden={minimizado}
           title={semCamera ? "Ligar câmera" : "Desligar câmera"}
           className={`w-12 h-12 rounded-full flex items-center justify-center ${semCamera ? "bg-red-600 text-white" : "bg-slate-700 text-white hover:bg-slate-600"}`}
         >
@@ -274,6 +289,7 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
         </button>
         <button
           onClick={compartilharTela}
+          hidden={minimizado}
           title={compartilhando ? "Parar de compartilhar" : "Compartilhar a tela"}
           className={`w-12 h-12 rounded-full flex items-center justify-center ${compartilhando ? "bg-sky-600 text-white" : "bg-slate-700 text-white hover:bg-slate-600"}`}
         >
