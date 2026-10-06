@@ -46,6 +46,7 @@ export default function SideNav() {
   const pathname = usePathname();
   const [user, setUser] = useState(null);
   const [naoLidas, setNaoLidas] = useState(0);
+  const [naoLidasInterno, setNaoLidasInterno] = useState(0);
   const naoLidasAnterior = useRef(null);
 
   useEffect(() => {
@@ -68,8 +69,12 @@ export default function SideNav() {
       setNaoLidas(total);
     }).catch(() => {});
     carregar();
-    const t = setInterval(carregar, 20000);
-    return () => clearInterval(t);
+    const carregarInterno = () => fetch("/api/chat-interno/nao-lidas").then((r) => r.json()).then((d) => setNaoLidasInterno(d.total || 0)).catch(() => {});
+    carregarInterno();
+    const aoMudar = (e) => setNaoLidasInterno(Number(e.detail) || 0);
+    window.addEventListener("chat-interno:total", aoMudar);
+    const t = setInterval(() => { carregar(); carregarInterno(); }, 20000);
+    return () => { clearInterval(t); window.removeEventListener("chat-interno:total", aoMudar); };
   }, [pathname]);
 
   if (rotaPublica) return null;
@@ -101,6 +106,11 @@ export default function SideNav() {
             {l.href === "/chat" && naoLidas > 0 && (
               <span className="absolute top-1 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-medium">
                 {naoLidas > 99 ? "99+" : naoLidas}
+              </span>
+            )}
+            {l.href === "/chat-interno" && naoLidasInterno > 0 && (
+              <span className="absolute top-1 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-medium">
+                {naoLidasInterno > 99 ? "99+" : naoLidasInterno}
               </span>
             )}
             <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-slate-800 text-white text-xs px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">

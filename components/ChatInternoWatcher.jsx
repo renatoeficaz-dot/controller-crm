@@ -31,6 +31,8 @@ export default function ChatInternoWatcher() {
       if (!Array.isArray(lista) || cancelado) return;
 
       const agora = new Map(lista.map((c) => [c.id, c]));
+      // Total de não lidas para a bolinha do menu (TopNav/SideNav escutam este evento: atualiza na hora, sem esperar o relógio deles).
+      window.dispatchEvent(new CustomEvent("chat-interno:total", { detail: lista.reduce((n, c) => n + (c.naoLidas || 0), 0) }));
 
       // Primeira rodada: só guarda o retrato, sem avisar nada.
       if (anterior.current === null) {

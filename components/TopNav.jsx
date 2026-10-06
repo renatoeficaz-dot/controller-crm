@@ -50,6 +50,12 @@ export default function TopNav() {
     return () => clearInterval(t);
   }, [pathname, rotaPublica]);
 
+  useEffect(() => {
+    const aoMudar = (e) => setNaoLidasInterno(Number(e.detail) || 0);
+    window.addEventListener("chat-interno:total", aoMudar);
+    return () => window.removeEventListener("chat-interno:total", aoMudar);
+  }, []);
+
   if (rotaPublica) return null;
 
   const isAdmin = user?.role === "admin";
