@@ -23,6 +23,7 @@ export default function TopNav() {
   const [user, setUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [naoLidas, setNaoLidas] = useState(0);
+  const [naoLidasInterno, setNaoLidasInterno] = useState(0);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -40,7 +41,10 @@ export default function TopNav() {
   // menu de cima.
   useEffect(() => {
     if (rotaPublica) return;
-    const carregar = () => fetch("/api/chat/nao-lidas").then((r) => r.json()).then((d) => setNaoLidas(d.total || 0)).catch(() => {});
+    const carregar = () => {
+      fetch("/api/chat/nao-lidas").then((r) => r.json()).then((d) => setNaoLidas(d.total || 0)).catch(() => {});
+      fetch("/api/chat-interno/nao-lidas").then((r) => r.json()).then((d) => setNaoLidasInterno(d.total || 0)).catch(() => {});
+    };
     carregar();
     const t = setInterval(carregar, 20000);
     return () => clearInterval(t);
@@ -98,6 +102,11 @@ export default function TopNav() {
                     {naoLidas > 99 ? "99+" : naoLidas}
                   </span>
                 )}
+                {l.href === "/chat-interno" && naoLidasInterno > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-medium">
+                    {naoLidasInterno > 99 ? "99+" : naoLidasInterno}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -152,6 +161,11 @@ export default function TopNav() {
                 {l.href === "/chat" && naoLidas > 0 && (
                   <span className="ml-1.5 inline-block min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-medium align-middle">
                     {naoLidas > 99 ? "99+" : naoLidas}
+                  </span>
+                )}
+                {l.href === "/chat-interno" && naoLidasInterno > 0 && (
+                  <span className="ml-1.5 inline-block min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-medium align-middle">
+                    {naoLidasInterno > 99 ? "99+" : naoLidasInterno}
                   </span>
                 )}
               </Link>
