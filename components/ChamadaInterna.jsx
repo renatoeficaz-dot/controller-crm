@@ -281,17 +281,15 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
         </button>
         <button
           onClick={alternarCamera}
-          hidden={minimizado}
           title={semCamera ? "Ligar câmera" : "Desligar câmera"}
-          className={`w-12 h-12 rounded-full flex items-center justify-center ${semCamera ? "bg-red-600 text-white" : "bg-slate-700 text-white hover:bg-slate-600"}`}
+          className={`${minimizado ? "!hidden" : ""} w-12 h-12 rounded-full flex items-center justify-center ${semCamera ? "bg-red-600 text-white" : "bg-slate-700 text-white hover:bg-slate-600"}`}
         >
           <Icone nome="video" className="w-5 h-5" />
         </button>
         <button
           onClick={compartilharTela}
-          hidden={minimizado}
           title={compartilhando ? "Parar de compartilhar" : "Compartilhar a tela"}
-          className={`w-12 h-12 rounded-full flex items-center justify-center ${compartilhando ? "bg-sky-600 text-white" : "bg-slate-700 text-white hover:bg-slate-600"}`}
+          className={`${minimizado ? "!hidden" : ""} w-12 h-12 rounded-full flex items-center justify-center ${compartilhando ? "bg-sky-600 text-white" : "bg-slate-700 text-white hover:bg-slate-600"}`}
         >
           <Icone nome="monitor" className="w-5 h-5" />
         </button>
