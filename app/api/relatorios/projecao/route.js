@@ -62,11 +62,12 @@ export async function GET(req) {
         entrouRecebimentoEm: { gte: new Date(Date.now() - 90 * 86400000) },
         valorCapital: { gt: 0 },
         excluidoEm: null,
+        stage: { name: { not: "Venda perdida" } },
       },
       select: { valorCapital: true },
     }),
     prisma.contact.findMany({
-      where: { entrouRecebimentoEm: { not: null }, valorCapital: { gt: 0 }, excluidoEm: null },
+      where: { entrouRecebimentoEm: { not: null }, valorCapital: { gt: 0 }, excluidoEm: null, stage: { name: { not: "Venda perdida" } } },
       select: {
         valorCapital: true,
         deuCalote: true,
