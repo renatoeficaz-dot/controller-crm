@@ -1,5 +1,6 @@
 "use client";
 
+import { rolarAteOFim } from "@/lib/rolar";
 import { CHECKLIST_DOC } from "@/lib/checklistDoc";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { resumoCobranca, valorParcelaAtual, parcelaAtrasada, gerarParcelas, NUM_PARCELAS } from "@/lib/finance";
@@ -561,7 +562,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     const lastId = messages[messages.length - 1].id;
     if (hasScrolledRef.current && lastId === lastMsgIdRef.current) return; // polling sem mensagem nova — não mexe no scroll
     // Ao abrir o card, pula direto pro final (sem animação); mensagens novas rolam suave.
-    chatEnd.current?.scrollIntoView({ behavior: hasScrolledRef.current ? "smooth" : "auto" });
+    rolarAteOFim(chatEnd.current, hasScrolledRef.current);
     hasScrolledRef.current = true;
     lastMsgIdRef.current = lastId;
   }, [messages]);

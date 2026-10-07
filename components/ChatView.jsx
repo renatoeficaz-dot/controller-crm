@@ -1,5 +1,6 @@
 "use client";
 
+import { rolarAteOFim } from "@/lib/rolar";
 import { CHECKLIST_DOC } from "@/lib/checklistDoc";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import MediaBubble from "./MediaBubble";
@@ -493,7 +494,7 @@ export default function ChatView() {
     // Em mensagens novas na mesma conversa, rola suave.
     scrolledForRef.current = selectedId;
     lastMsgIdRef.current = lastId;
-    chatEnd.current?.scrollIntoView({ behavior: firstLoad ? "auto" : "smooth" });
+    rolarAteOFim(chatEnd.current, !firstLoad);
   }, [messages, selectedId]);
 
   async function apagarMensagem(id) {

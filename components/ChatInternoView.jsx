@@ -1,5 +1,6 @@
 "use client";
 
+import { rolarAteOFim } from "@/lib/rolar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icone from "@/components/Icones";
 import ContactModal from "@/components/ContactModal";
@@ -274,10 +275,10 @@ export default function ChatInternoView() {
     }
     const primeiraVez = conversaRoladaRef.current !== detalhe.id;
     conversaRoladaRef.current = detalhe.id;
-    fimRef.current?.scrollIntoView({ behavior: primeiraVez ? "auto" : "smooth" });
+    rolarAteOFim(fimRef.current, !primeiraVez);
     if (primeiraVez) {
       // imagens/anexos carregam depois e empurram o fim pra baixo
-      const t = setTimeout(() => fimRef.current?.scrollIntoView({ behavior: "auto" }), 250);
+      const t = setTimeout(() => rolarAteOFim(fimRef.current, false), 250);
       return () => clearTimeout(t);
     }
   }, [detalhe?.id, detalhe?.mensagens?.length, destacada]);
