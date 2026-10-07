@@ -88,7 +88,7 @@ export async function POST(req, { params }) {
   if (completaAgora) {
     await prisma.task.updateMany({ where: { parcelaId: id }, data: { done: true } });
     await atualizarScoreDoContato(parcela.contactId).catch(() => {});
-    await criarTarefaConferirPagamento(parcela.contactId).catch(() => {});
+    await criarTarefaConferirPagamento(parcela.contactId, { parcelaId: id, valor: aplicado, forma: formaPagamento }).catch(() => {});
   }
 
   registrarAuditoria({
@@ -138,7 +138,7 @@ export async function POST(req, { params }) {
       });
       if (completaProx) {
         await prisma.task.updateMany({ where: { parcelaId: prox.id }, data: { done: true } });
-        await criarTarefaConferirPagamento(parcela.contactId).catch(() => {});
+        await criarTarefaConferirPagamento(parcela.contactId, { parcelaId: prox.id, valor: aplicar, forma: formaPagamento }).catch(() => {});
       }
       registrarAuditoria({
         usuario: user?.name,

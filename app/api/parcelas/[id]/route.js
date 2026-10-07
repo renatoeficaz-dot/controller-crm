@@ -95,7 +95,7 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Essa parcela já foi baixada por outra pessoa — atualize a tela." }, { status: 409 });
     }
     parcela = await prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { id: true, name: true } } } });
-    await criarTarefaConferirPagamento(parcela.contactId).catch(() => {});
+    await criarTarefaConferirPagamento(parcela.contactId, { parcelaId: id, valor: amountPago, forma: parcela.formaPagamento }).catch(() => {});
   } else {
     parcela = await prisma.parcela.update({
       where: { id },
