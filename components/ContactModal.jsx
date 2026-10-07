@@ -9,6 +9,7 @@ import { UFS_BR } from "@/lib/ddd";
 import MediaBubble, { MediaLightbox } from "./MediaBubble";
 import CobrancaLead from "./CobrancaLead";
 import ReferenciasContato from "./ReferenciasContato";
+import CnpjCard from "./CnpjCard";
 import Icone from "@/components/Icones";
 import PixModal from "./PixModal";
 import DocumentosPopup from "./DocumentosPopup";
@@ -1273,6 +1274,17 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       />
                     </label>
                   </div>
+                )}
+                {form.tipoCliente === "comerciante" && (
+                  <CnpjCard
+                    key={`${contactId}-${form.cnpj || ""}`}
+                    contactId={contactId}
+                    cnpj={form.cnpj}
+                    dadosIniciais={contact?.cnpjDados}
+                    onPreencher={({ razaoSocial, enderecoComercial }) =>
+                      setForm((f) => ({ ...f, razaoSocial: f.razaoSocial || razaoSocial || "", enderecoComercial: f.enderecoComercial || enderecoComercial || "" }))
+                    }
+                  />
                 )}
                 {(form.tipoCliente === "uber" || form.tipoCliente === "motoboy") && (
                   <div className="grid grid-cols-2 gap-3">

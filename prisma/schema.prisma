@@ -56,6 +56,9 @@ model Contact {
   // ver a função save_cadastro em lib/ia.js.
   cnpj               String?
   razaoSocial        String?
+  // Resumo da consulta do CNPJ na CNPJá (lib/cnpja.js): situação, atividade, endereço, sócios.
+  cnpjDados          String?
+  cnpjConsultadoEm   DateTime?
   // Ficha cadastral (Uber/motoboy): placa do veículo, escrita pela IA a
   // partir do que o cliente conta.
   placaVeiculo       String?
@@ -645,6 +648,8 @@ model Config {
   // Catta API (dono do telefone dos contatos de referência) — chave só pelo painel; ligada/desligada aqui.
   cattaApiKey              String?
   cattaAtivo               Boolean @default(false)
+  // CNPJá (opcional): sem chave usa a API aberta (limite ~5/min).
+  cnpjaApiKey              String?
   // Rotina única: quando true, a IA responde (uma vez) todos os leads do funil que ficaram sem resposta e desliga sozinha.
   reprocessarPendentes     Boolean @default(false)
 

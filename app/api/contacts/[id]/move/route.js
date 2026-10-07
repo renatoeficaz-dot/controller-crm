@@ -259,6 +259,7 @@ export async function PATCH(req, { params }) {
       await criarTarefaPuxada(id).catch(() => {});
       // Catta: dono dos telefones de referência (em segundo plano).
       import("@/lib/catta").then((m) => m.consultarDonosDoContato(id)).catch(() => {});
+      import("@/lib/cnpja").then((m) => m.consultarCnpjDoContato(id)).catch(() => {});
     }
 
     // Cada motivo de perda pode ter sua própria mensagem automática
