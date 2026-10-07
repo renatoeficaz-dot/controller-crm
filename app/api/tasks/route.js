@@ -57,10 +57,23 @@ export async function POST(req) {
     if (!(passo >= 5 && passo <= 720) || isNaN(fim) || isNaN(inicio) || fim < inicio) {
       return NextResponse.json({ error: "Período inválido: o horário final precisa ser depois do inicial e o intervalo de 5 min a 12 h." }, { status: 400 });
     }
+    // Vários dias: repete o mesmo período todo dia até "ateData" (opcionalmente só segunda a sexta).
+    const ultimoDia = /^\d{4}-\d{2}-\d{2}$/.test(rep.ateData || "") ? rep.ateData : dia;
     const horarios = [];
-    for (let t = inicio.getTime(); t <= fim.getTime(); t += passo * 60000) horarios.push(new Date(t));
-    if (horarios.length > 60) {
-      return NextResponse.json({ error: `Isso criaria ${horarios.length} tarefas (máximo 60). Aumente o intervalo ou reduza o período.` }, { status: 400 });
+    const MS_DIA = 86400000;
+    for (let off = 0; off <= 400; off++) {
+      const ini = new Date(inicio.getTime() + off * MS_DIA);
+      const fimDia = new Date(fim.getTime() + off * MS_DIA);
+      const diaIso = `${ini.getFullYear()}-${String(ini.getMonth() + 1).padStart(2, "0")}-${String(ini.getDate()).padStart(2, "0")}`;
+      if (diaIso > ultimoDia) break;
+      if (rep.soDiasUteis && [0, 6].includes(ini.getDay())) continue;
+      for (let t = ini.getTime(); t <= fimDia.getTime(); t += passo * 60000) horarios.push(new Date(t));
+    }
+    if (horarios.length > 200) {
+      return NextResponse.json({ error: `Isso criaria ${horarios.length} tarefas (máximo 200). Aumente o intervalo ou reduza o período.` }, { status: 400 });
+    }
+    if (!horarios.length) {
+      return NextResponse.json({ error: "Nenhum dia útil no período escolhido." }, { status: 400 });
     }
     const dados = horarios.map((dueDate) => ({
       contactId,

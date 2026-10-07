@@ -839,7 +839,7 @@ export default function ChatView() {
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...taskForm, title, contactId: selectedId, dueDate: `${dia}T${hora}:00`, repetir: taskForm.repetir ? { ate: taskForm.ate || "17:00", cadaMin: Number(taskForm.cadaMin) || 60 } : undefined }),
+      body: JSON.stringify({ ...taskForm, title, contactId: selectedId, dueDate: `${dia}T${hora}:00`, repetir: taskForm.repetir ? { ate: taskForm.ate || "17:00", cadaMin: Number(taskForm.cadaMin) || 60, ateData: taskForm.ateData || undefined, soDiasUteis: !!taskForm.soDiasUteis } : undefined }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -1553,7 +1553,15 @@ export default function ChatView() {
                       {[10, 15, 20, 30, 45, 60, 90, 120].map((m) => (<option key={m} value={m}>{m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60} h` : `${m} min`}</option>))}
                     </select>
                   </div>
-                  <p className="text-[11px] text-slate-400">Cria uma tarefa para cada horário, do horário acima até o final, no mesmo dia.</p>
+                  <div className="flex items-center gap-2 text-sm text-slate-500 flex-wrap">
+                    <span>repetir nos dias até</span>
+                    <input type="date" value={taskForm.ateData || ""} onChange={(e) => setTaskForm((f) => ({ ...f, ateData: e.target.value }))} className="text-sm border border-slate-200 rounded px-2 py-1.5 bg-white" />
+                    <label className="flex items-center gap-1.5">
+                      <input type="checkbox" checked={!!taskForm.soDiasUteis} onChange={(e) => setTaskForm((f) => ({ ...f, soDiasUteis: e.target.checked }))} className="accent-emerald-500" />
+                      só dias úteis
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-400">Cria uma tarefa para cada horário, do horário acima até o final. Com a data preenchida, repete isso todos os dias até ela (máx. 200 tarefas).</p>
                 </div>
               )}
                       <button className="w-full bg-emerald-500 text-white rounded py-2 text-sm hover:bg-emerald-600">Criar tarefa</button>

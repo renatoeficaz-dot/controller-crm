@@ -79,7 +79,7 @@ export async function PATCH(req, { params }) {
     const data = {};
     for (const f of [
       "name", "phone", "notes", "responsavel", "estado", "genero", "tipoCliente", "cpf", "endereco",
-      "pixChave", "pixNomeCompleto", "horarioRecebimento", "cnpj", "razaoSocial", "placaVeiculo",
+      "pixChave", "pixNomeCompleto", "horarioRecebimento", "cnpj", "razaoSocial", "comercioDescricao", "placaVeiculo",
       "emailApp", "enderecoComercial", "telefoneParente", "nomeParente", "telefoneContato", "nomeContato", "telefoneContato3", "nomeContato3",
     ]) {
       // Todos estes são texto no banco. Repassar o valor cru deixava o Prisma

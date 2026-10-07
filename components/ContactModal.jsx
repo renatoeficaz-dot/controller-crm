@@ -361,6 +361,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       endereco: data.endereco || "",
       cnpj: data.cnpj || "",
       razaoSocial: data.razaoSocial || "",
+      comercioDescricao: data.comercioDescricao || "",
       placaVeiculo: data.placaVeiculo || "",
       emailApp: data.emailApp || "",
       enderecoComercial: data.enderecoComercial || "",
@@ -694,7 +695,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...taskForm, title, contactId, dueDate: `${dia}T${hora}:00`, repetir: taskForm.repetir ? { ate: taskForm.ate || "17:00", cadaMin: Number(taskForm.cadaMin) || 60 } : undefined }),
+      body: JSON.stringify({ ...taskForm, title, contactId, dueDate: `${dia}T${hora}:00`, repetir: taskForm.repetir ? { ate: taskForm.ate || "17:00", cadaMin: Number(taskForm.cadaMin) || 60, ateData: taskForm.ateData || undefined, soDiasUteis: !!taskForm.soDiasUteis } : undefined }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -1265,6 +1266,16 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     texto (manual ou pela IA via save_cadastro), Arthur confere aqui. */}
                 {form.tipoCliente === "comerciante" && (
                   <div className="grid grid-cols-2 gap-3">
+                    <label className="block col-span-2">
+                      <span className="text-[11px] text-slate-400">Nome e tipo do comércio</span>
+                      <input
+                        type="text"
+                        value={form.comercioDescricao || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, comercioDescricao: e.target.value }))}
+                        placeholder="Ex.: Bar do Mané — bar"
+                        className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                      />
+                    </label>
                     <label className="block col-span-2">
                       <span className="text-[11px] text-slate-400">Razão social</span>
                       <input
@@ -2550,7 +2561,15 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                       {[10, 15, 20, 30, 45, 60, 90, 120].map((m) => (<option key={m} value={m}>{m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60} h` : `${m} min`}</option>))}
                     </select>
                   </div>
-                  <p className="text-[11px] text-slate-400">Cria uma tarefa para cada horário, do horário acima até o final, no mesmo dia.</p>
+                  <div className="flex items-center gap-2 text-sm text-slate-500 flex-wrap">
+                    <span>repetir nos dias até</span>
+                    <input type="date" value={taskForm.ateData || ""} onChange={(e) => setTaskForm((f) => ({ ...f, ateData: e.target.value }))} className="text-sm border border-slate-200 rounded px-2 py-1.5 bg-white" />
+                    <label className="flex items-center gap-1.5">
+                      <input type="checkbox" checked={!!taskForm.soDiasUteis} onChange={(e) => setTaskForm((f) => ({ ...f, soDiasUteis: e.target.checked }))} className="accent-emerald-500" />
+                      só dias úteis
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-400">Cria uma tarefa para cada horário, do horário acima até o final. Com a data preenchida, repete isso todos os dias até ela (máx. 200 tarefas).</p>
                 </div>
               )}
               {taskFormErro && <p className="text-[11px] text-red-500">{taskFormErro}</p>}
