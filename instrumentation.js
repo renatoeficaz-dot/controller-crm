@@ -5,6 +5,7 @@ export async function register() {
 
   const { checarLembretesCobranca } = await import("@/lib/lembreteCobranca");
   const { checarFollowUp1h } = await import("@/lib/followUp");
+  const { varrerPuxadasPendentes } = await import("@/lib/puxadas");
   const { recalcularScoresComportamentais } = await import("@/lib/atualizarScoreComportamental");
   const { rodarBackup } = await import("@/lib/backup");
   const { checarResumoDiario, checarAlertasCriticos, checarCapitalOcioso, checarCravoParado } = await import("@/lib/alertas");
@@ -79,6 +80,8 @@ export async function register() {
     // cada checagem só processa um lote, nunca tudo de uma vez.
     await rodar("mensagensAgendadas", enviarMensagensAgendadas);
     await rodar("campanhasMassa", processarCampanhasMassa);
+    // Lotes pequenos; a reserva persistida impede cobrar outra vez após reinícios.
+    await rodar("puxadas", varrerPuxadasPendentes);
 
     const hoje = new Date().toLocaleDateString("en-CA");
     if (ultimoDiaScores !== hoje) {

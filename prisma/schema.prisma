@@ -49,6 +49,7 @@ model Contact {
   horarioRecebimento String?
   // CPF do lead — preenchido manualmente ou pela IA ao ler um documento (RG/CNH) recebido.
   cpf                String?
+  consultasDataApi   ConsultaDataApi[]
   // Endereço do lead — preenchido manualmente ou pela IA ao ler um comprovante de residência recebido.
   endereco           String?
   // Ficha cadastral (comerciante): preenchidos pela IA a partir do que o
@@ -597,6 +598,22 @@ model MessageTemplate {
   motivosPerda  MotivoPerda[]
 }
 
+// Cada CPF fica reservado antes da chamada paga, inclusive entre reinícios.
+model ConsultaDataApi {
+  id          String   @id @default(cuid())
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  cpf         String
+  status      String   @default("consultando")
+  dados       String?
+  erro        String?
+  tentativas  Int      @default(1)
+  criadoEm    DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@unique([contactId, cpf])
+}
+
 // Configurações globais do sistema (linha única)
 model Config {
   id                  String  @id @default("singleton")
@@ -652,6 +669,10 @@ model Config {
   cattaAtivo               Boolean @default(false)
   // CNPJá (opcional): sem chave usa a API aberta (limite ~5/min).
   cnpjaApiKey              String?
+  // DataAPI: consultas dos próprios clientes, autorizadas pelo titular.
+  dataApiKey              String?
+  dataApiAtivo            Boolean @default(false)
+  dataApiErro             String?
   // Rotina única: quando true, a IA responde (uma vez) todos os leads do funil que ficaram sem resposta e desliga sozinha.
   reprocessarPendentes     Boolean @default(false)
 

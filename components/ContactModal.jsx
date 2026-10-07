@@ -11,6 +11,7 @@ import MediaBubble, { MediaLightbox } from "./MediaBubble";
 import CobrancaLead from "./CobrancaLead";
 import ReferenciasContato from "./ReferenciasContato";
 import CnpjCard from "./CnpjCard";
+import PuxadasContato from "./PuxadasContato";
 import Icone from "@/components/Icones";
 import PixModal from "./PixModal";
 import DocumentosPopup from "./DocumentosPopup";
@@ -1029,6 +1030,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             </div>
           </div>
           <div className="p-5 flex flex-col gap-3 overflow-y-auto thin-scroll flex-1">
+            <PuxadasContato key={contactId} contactId={contactId} cpfSalvo={contact?.cpf} cpfDigitado={form.cpf} />
             {field("Nome", "name")}
             {field("WhatsApp (ex.: 5511999998888)", "phone")}
 
@@ -3052,4 +3054,3 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
     </div>
   );
 }
-

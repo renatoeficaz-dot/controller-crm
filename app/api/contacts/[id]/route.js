@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { consultarPuxadaDoContato } from "@/lib/puxadas";
 import { getCurrentUser, getSession, mensagensWhere } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
@@ -207,6 +208,10 @@ export async function PATCH(req, { params }) {
       caloteAviso = await contatoComCaloteMesmoCpf(contact.cpf, id);
     }
   
+    if ("cpf" in body && contact.cpf) after(async () => {
+      try { await consultarPuxadaDoContato(id); }
+      catch { console.error("[puxadas] Não foi possível processar o CPF salvo."); }
+    });
     return NextResponse.json({ ...contact, caloteAviso });
   } catch (err) {
     // Registro do `where` não existe (link velho, dois cliques, id

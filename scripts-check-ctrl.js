@@ -7,7 +7,7 @@ function varrer(dir) {
     if (f.name === "node_modules" || f.name === ".next" || f.name.startsWith(".")) continue;
     const p = path.join(dir, f.name);
     if (f.isDirectory()) varrer(p);
-    else if (/\.(js|jsx)$/.test(f.name)) {
+    else if (/\.(js|jsx|mjs)$/.test(f.name)) {
       const t = fs.readFileSync(p, "utf8");
       if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(t)) { console.error("caractere de controle em", p); ruim++; }
     }
