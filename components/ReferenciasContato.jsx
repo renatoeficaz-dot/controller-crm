@@ -11,6 +11,20 @@ const RELACAO_LABEL = {
   outro: "Outro",
 };
 
+// Dono do telefone segundo a Catta (preenchido sozinho quando o lead entra em Análise).
+const mascararDoc = (d) => {
+  const n = String(d || "").replace(/\D/g, "");
+  if (n.length === 11) return `***.${n.slice(3, 6)}.${n.slice(6, 9)}-**`;
+  if (n.length === 14) return `${n.slice(0, 2)}.${n.slice(2, 5)}.${n.slice(5, 8)}/${n.slice(8, 12)}-${n.slice(12)}`;
+  return n || "";
+};
+const semAcento = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+// "Confere" se o primeiro nome informado pelo cliente aparece no nome do dono do telefone.
+const confereNome = (informado, dono) => {
+  const p = semAcento(informado).split(/\s+/).find((x) => x.length >= 3);
+  return !!p && semAcento(dono).includes(p);
+};
+
 const linkWhatsapp = (telefone) => `https://wa.me/${(telefone || "").replace(/\D/g, "")}`;
 
 // Item 73: contatos de referência do lead (família, vizinho, amigo...) — quem
@@ -19,6 +33,18 @@ const linkWhatsapp = (telefone) => `https://wa.me/${(telefone || "").replace(/\D
 // nem passa pela IA. Cadastro/edição/remoção é só admin (dado sensível de
 // terceiro) — quem não é admin só vê e copia.
 export default function ReferenciasContato({ contactId, referencias, isAdmin, onChange }) {
+  const [consultando, setConsultando] = useState(false);
+  const [msgCatta, setMsgCatta] = useState("");
+  async function consultarCatta(forcar) {
+    setConsultando(true);
+    setMsgCatta("");
+    const res = await fetch(`/api/contacts/${contactId}/catta`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ forcar }) });
+    const d = await res.json().catch(() => ({}));
+    setConsultando(false);
+    if (!res.ok) { setMsgCatta(d.error || "Não foi possível consultar a Catta."); return; }
+    onChange(d.referencias || referencias);
+    setMsgCatta(d.feito ? `Consulta feita (${d.feito}).` : "Nada novo para consultar.");
+  }
   const [novo, setNovo] = useState(null); // { nome, telefone, relacao, dataNascimento } | null
   const [editando, setEditando] = useState(null); // id | null
   const [salvando, setSalvando] = useState(false);
@@ -66,12 +92,18 @@ export default function ReferenciasContato({ contactId, referencias, isAdmin, on
         <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
           <Icone nome="pessoas" className="w-4 h-4" /> Contatos de referência
         </h3>
+        {isAdmin && (referencias || []).length > 0 && (
+          <button disabled={consultando} onClick={() => consultarCatta(false)} title="Descobre o dono de cada telefone na Catta (gasta 1 crédito por número encontrado)" className="text-xs text-sky-600 hover:text-sky-700 font-medium disabled:opacity-50">
+            {consultando ? "Consultando…" : "Consultar donos (Catta)"}
+          </button>
+        )}
         {isAdmin && !novo && (
           <button onClick={() => setNovo({ nome: "", telefone: "", relacao: "familiar", dataNascimento: "" })} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
             + Adicionar
           </button>
         )}
       </div>
+      {msgCatta && <p className="text-[11px] text-sky-600 -mt-1">{msgCatta}</p>}
       <p className="text-[11px] text-slate-400 -mt-2">
         Família, vizinho, amigo... quem acionar quando o cliente some.{!isAdmin && " Só admin pode cadastrar ou editar."}
       </p>
@@ -99,6 +131,15 @@ export default function ReferenciasContato({ contactId, referencias, isAdmin, on
                   {r.relacao && <> · {RELACAO_LABEL[r.relacao] || r.relacao}</>}
                   {r.dataNascimento && <> · Nasc. {r.dataNascimento}</>}
                 </p>
+                {r.donoStatus === "encontrado" && (
+                  <p className={`text-[11px] mt-0.5 ${confereNome(r.nome, r.donoNome) ? "text-emerald-600" : "text-amber-600"}`} title="Dono do telefone segundo a Catta">
+                    {confereNome(r.nome, r.donoNome) ? "✔" : "⚠"} Dono: {r.donoNome || "sem nome"}{r.donoDocumento ? ` · ${mascararDoc(r.donoDocumento)}` : ""}
+                    {!confereNome(r.nome, r.donoNome) && " (diferente do informado)"}
+                  </p>
+                )}
+                {r.donoStatus === "nao_encontrado" && <p className="text-[11px] mt-0.5 text-slate-400">Catta: número não encontrado na base</p>}
+                {r.donoStatus === "removido_lgpd" && <p className="text-[11px] mt-0.5 text-slate-400">Catta: dado removido por solicitação (LGPD)</p>}
+                {r.donoStatus === "erro" && <p className="text-[11px] mt-0.5 text-red-400" title={(() => { try { return JSON.parse(r.donoDados || "{}").erro || ""; } catch { return ""; } })()}>Catta: não foi possível consultar (clique em "Consultar donos" para tentar de novo)</p>}
               </div>
               <a
                 href={linkWhatsapp(r.telefone)}

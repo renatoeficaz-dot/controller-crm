@@ -30,83 +30,83 @@ model Stage {
 
 // Contato / lead
 model Contact {
-  id          String    @id @default(cuid())
-  name        String
-  phone       String?
+  id                 String    @id @default(cuid())
+  name               String
+  phone              String?
   // Estado (UF) do lead identificado pela IA a partir do que ele conta na
   // conversa (ex.: "moro em Salvador") — complementa o DDD do telefone, que
   // nem sempre bate com onde a pessoa mora de fato.
-  estado      String?
+  estado             String?
   // Gênero do lead ("masculino" | "feminino"), identificado pela IA a partir
   // do nome (pushName do WhatsApp ou nome cadastrado) assim que o lead entra.
-  genero      String?
+  genero             String?
   // Tipo de cliente ("motoboy" | "uber" | "comerciante") — cadastrado manualmente.
-  tipoCliente String?
+  tipoCliente        String?
   // Horário de recebimento ("HH:MM") — só faz sentido pra quem NÃO é uber (o
   // uber usa o horário limite global de Config). O lembrete diário de cobrança
   // desse contato dispara 1h antes desse horário específico, em vez do horário
   // limite geral.
   horarioRecebimento String?
   // CPF do lead — preenchido manualmente ou pela IA ao ler um documento (RG/CNH) recebido.
-  cpf         String?
+  cpf                String?
   // Endereço do lead — preenchido manualmente ou pela IA ao ler um comprovante de residência recebido.
-  endereco    String?
+  endereco           String?
   // Ficha cadastral (comerciante): preenchidos pela IA a partir do que o
   // cliente escreve na conversa (texto puro, não é análise de documento) —
   // ver a função save_cadastro em lib/ia.js.
-  cnpj         String?
-  razaoSocial  String?
+  cnpj               String?
+  razaoSocial        String?
   // Ficha cadastral (Uber/motoboy): placa do veículo, escrita pela IA a
   // partir do que o cliente conta.
-  placaVeiculo String?
+  placaVeiculo       String?
   // Ficha cadastral: e-mail do app (motorista/motoboy) e endereço comercial
   // (comerciante) — mesma origem dos campos acima (save_cadastro).
-  emailApp          String?
-  enderecoComercial String?
+  emailApp           String?
+  enderecoComercial  String?
   // Ficha cadastral: telefone (+ nome) de um parente e de outro contato de
   // referência — parente é obrigatoriamente família (a IA pergunta o
   // parentesco); "contato" é qualquer outra referência que não mora com o
   // cliente. Nome junto do telefone porque sem ele o cobrador liga e não sabe
   // nem quem é nem o que dizer.
-  telefoneParente String?
-  nomeParente     String?
-  telefoneContato String?
-  nomeContato     String?
-  telefoneContato3 String?
-  nomeContato3     String?
+  telefoneParente    String?
+  nomeParente        String?
+  telefoneContato    String?
+  nomeContato        String?
+  telefoneContato3   String?
+  nomeContato3       String?
   // Lead vindo de um formulário instantâneo (Instant Form) da Meta (Facebook/
   // Instagram Lead Ads) — ver app/api/webhook/meta-leads. metaLeadId é único
   // pra não duplicar o card se a Meta reenviar o mesmo webhook (acontece).
-  metaLeadId     String? @unique
-  metaFormId     String?
-  metaAdId       String?
-  metaCampaignId String?
-  notes       String?
-  order       Int       @default(0)
-  stage       Stage     @relation(fields: [stageId], references: [id])
-  stageId     String
-  messages    Message[]
+  metaLeadId         String?   @unique
+  metaFormId         String?
+  metaAdId           String?
+  metaCampaignId     String?
+  notes              String?
+  order              Int       @default(0)
+  stage              Stage     @relation(fields: [stageId], references: [id])
+  stageId            String
+  messages           Message[]
 
   // Financeiro / cobrança
   // Dados pra liberar o pagamento do empréstimo — só fazem sentido a partir de
   // "Análise" (quando já se sabe que o capital vai sair), por isso só aparecem
   // no formulário nessa etapa e em "Liberação pagamento".
-  pixChave         String? // chave Pix de quem recebe a liberação
-  pixNomeCompleto  String? // nome completo do titular da chave Pix
-  valorCapital     Float? // valor do empréstimo (base do cálculo dos honorários)
-  pagamentoCapital DateTime? // data da entrega do capital; 1ª cobrança = +1 dia
-  responsavel      String? // usuário responsável pela lead
-  cicloAtual       Int                @default(1) // ciclo de empréstimo atual (renovações incrementam)
+  pixChave            String? // chave Pix de quem recebe a liberação
+  pixNomeCompleto     String? // nome completo do titular da chave Pix
+  valorCapital        Float? // valor do empréstimo (base do cálculo dos honorários)
+  pagamentoCapital    DateTime? // data da entrega do capital; 1ª cobrança = +1 dia
+  responsavel         String? // usuário responsável pela lead
+  cicloAtual          Int                  @default(1) // ciclo de empréstimo atual (renovações incrementam)
   // Quando a última renovação aconteceu — não existia nenhum jeito de contar
   // "quantas renovações no dia" (Metas só contava vendas NOVAS, via
   // entrouRecebimentoEm, que a renovação nunca toca). Ver app/api/contacts/[id]/renovar.
-  renovadoEm       DateTime?
-  tags             Tag[]              @relation("ContactTags")
-  parcelas         Parcela[]
-  tasks            Task[]
-  lancamentos      Lancamento[]
-  tentativas       TentativaContato[]
-  responsavelLogs  ResponsavelLog[]
+  renovadoEm          DateTime?
+  tags                Tag[]                @relation("ContactTags")
+  parcelas            Parcela[]
+  tasks               Task[]
+  lancamentos         Lancamento[]
+  tentativas          TentativaContato[]
+  responsavelLogs     ResponsavelLog[]
   videoChamadaSessoes VideoChamadaSessao[]
   mensagensInternas   MensagemInterna[] // leads encaminhados pro chat interno
 
@@ -167,31 +167,31 @@ model Contact {
   // pela IA quando o horário do print destoa em mais de 5min do horário real
   // de envio (ver detectarHorarioPrint em lib/ia.js) — nesse caso o lead já
   // vai direto pra "Venda perdida" por suspeita de fraude.
-  checklistTelefoneBate     Boolean @default(false)
-  checklistDivergenciaPrint Boolean @default(false)
-  checklistAntecedentes     Boolean @default(false)
+  checklistTelefoneBate        Boolean   @default(false)
+  checklistDivergenciaPrint    Boolean   @default(false)
+  checklistAntecedentes        Boolean   @default(false)
   // Antecedente criminal: marcado quando a consulta de antecedentes ACHOU
   // registro (diferente de checklistAntecedentes acima, que só diz que a
   // conferência foi feita, não o resultado dela).
-  checklistAntecedenteCriminal Boolean @default(false)
+  checklistAntecedenteCriminal Boolean   @default(false)
   // Confirmações "conferido/OK" de cada dado em "Dados pra conferência" —
   // telefone do cliente, CPF e endereço (os contatos de referência têm o
   // próprio campo `conferido` no model ContatoReferencia).
-  checklistTelefoneClienteOk Boolean @default(false)
-  checklistCpfOk             Boolean @default(false)
-  checklistEnderecoOk        Boolean @default(false)
+  checklistTelefoneClienteOk   Boolean   @default(false)
+  checklistCpfOk               Boolean   @default(false)
+  checklistEnderecoOk          Boolean   @default(false)
   // Checklist de documentação (itens variam por tipo de cliente): JSON { chave: true }.
-  checklistDocumentacao      String?
+  checklistDocumentacao        String?
   // Comerciante que trabalha em casa: o endereço residencial vale como comercial.
-  comercioNaResidencia       Boolean @default(false)
+  comercioNaResidencia         Boolean   @default(false)
   // Último documento que a IA pediu ao cliente (chave do passo em lib/checklistDoc.js) — evita pedir o mesmo duas vezes.
-  docPedido                  String?
+  docPedido                    String?
   // true = as fotos/documentos que o cliente já tinha mandado antes do atendimento por etapas já foram lidas e marcadas.
-  docHistoricoLido           Boolean @default(false)
+  docHistoricoLido             Boolean   @default(false)
   // Hora da última mensagem do cliente que a IA já tratou — a varredura de recuperação só pega o que passou dessa hora.
-  iaProcessouAte             DateTime?
+  iaProcessouAte               DateTime?
   // Comprovante de residência em nome de familiar: exige também um documento que comprove o vínculo.
-  comprovanteDeTerceiro      Boolean @default(false)
+  comprovanteDeTerceiro        Boolean   @default(false)
 
   // Agendamento da vídeo chamada com o cobrador (fluxo à parte, não é o
   // Agente vendas): quando o cliente escreve pro número do cobrador em
@@ -354,15 +354,15 @@ model LinkClique {
 
 // Parcela diária de cobrança (10 por empréstimo)
 model Parcela {
-  id             String           @id @default(cuid())
-  contact        Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  id             String                @id @default(cuid())
+  contact        Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
   contactId      String
   number         Int // 1..10
   dueDate        DateTime
   amount         Float
-  paid           Boolean          @default(false)
+  paid           Boolean               @default(false)
   paidAt         DateTime?
-  ciclo          Int              @default(1) // 1 = primeiro empréstimo, 2 = 1ª renovação, etc.
+  ciclo          Int                   @default(1) // 1 = primeiro empréstimo, 2 = 1ª renovação, etc.
   // Valor realmente cobrado na baixa (pode ser diferente de `amount` quando o
   // cobrador escolhe baixar SEM o juro de atraso, pra aliviar o cliente).
   // null = ainda não paga.
@@ -370,7 +370,7 @@ model Parcela {
   // Soma de baixas PARCIAIS já recebidas dessa parcela (item 93) — enquanto
   // for menor que o valor devido, a parcela continua `paid = false` mas já
   // tem dinheiro registrado. Vira lançamento de entrada a cada incremento.
-  valorPago      Float            @default(0)
+  valorPago      Float                 @default(0)
   // Quando o ultimo pagamento PARCIAL entrou. Sem isso o dinheiro de uma
   // parcela parcial nao tinha data nenhuma, e todo relatorio/meta/comissao
   // filtra por periodo usando paidAt (que so existe na baixa completa) —
@@ -386,17 +386,17 @@ model Parcela {
   // true = essa parcela foi substituída por um acordo parcelado (Negociacao) e
   // não deve mais contar como "em aberto" nem entrar em cobrança — o valor
   // dela virou as novas parcelas do acordo.
-  renegociada    Boolean          @default(false)
+  renegociada    Boolean               @default(false)
   // true = essa parcela foi GERADA por um acordo parcelado (em vez de fazer
   // parte do plano original de 10). Numeração própria (1000+) pra não colidir.
-  deAcordo       Boolean          @default(false)
+  deAcordo       Boolean               @default(false)
   // true = o valor foi travado manualmente (mudança de horário de
   // recebimento ou pedido de alteração de valor) — valorParcelaAtual() para
   // de recalcular multa em cima dele. Sem essa trava, qualquer valor "final"
   // que alguém tentasse fixar numa parcela ainda atrasada levava multa de
   // novo a cada vez que a tela recalculava, nunca estabilizando no número
   // combinado com o cliente.
-  valorFixado    Boolean          @default(false)
+  valorFixado    Boolean               @default(false)
   task           Task?
   alteracoes     AlteracaoBaixa[]
   ajustes        ParcelaAjuste[]
@@ -476,10 +476,10 @@ model SuporteIa {
 // plano (ver components/UsoAtivoTracker.jsx), pra não contar "deixei aberto
 // e fui embora" como uso.
 model UsoDiario {
-  id       String   @id @default(cuid())
+  id       String    @id @default(cuid())
   usuario  String
   dia      DateTime
-  segundos Int      @default(0)
+  segundos Int       @default(0)
   // Momento do último heartbeat aceito. Sem isso, chamar a API em laço
   // inflava o tempo de uso à vontade — e esse número serve pra avaliar
   // colaborador, então precisa ser difícil de forjar.
@@ -509,15 +509,22 @@ model ResponsavelLog {
 // ter vários; o telefone só precisa dar pra abrir o WhatsApp, não é um número
 // cadastrado no sistema (não gera Contact nem entra na IA).
 model ContatoReferencia {
-  id             String   @id @default(cuid())
-  contact        Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId      String
-  nome           String
-  telefone       String
-  relacao        String? // "familiar" | "vizinho" | "amigo" | "trabalho" | "outro"
-  dataNascimento String? // texto livre ("DD/MM/AAAA") — igual endereco/cpf do Contact, sem input de data
-  conferido      Boolean  @default(false) // "conferido/OK" marcado no card "Dados pra conferência"
-  createdAt      DateTime @default(now())
+  id               String    @id @default(cuid())
+  contact          Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId        String
+  nome             String
+  telefone         String
+  relacao          String? // "familiar" | "vizinho" | "amigo" | "trabalho" | "outro"
+  dataNascimento   String? // texto livre ("DD/MM/AAAA") — igual endereco/cpf do Contact, sem input de data
+  conferido        Boolean   @default(false) // "conferido/OK" marcado no card "Dados pra conferência"
+  // Dono do telefone segundo a Catta (lib/catta.js): preenchido automaticamente quando o lead entra em Análise.
+  donoStatus       String? // "encontrado" | "nao_encontrado" | "removido_lgpd" | "erro"
+  donoNome         String?
+  donoDocumento    String? // CPF/CNPJ devolvido pela Catta
+  donoTipo         String? // "F" | "J" (pessoa física/jurídica)
+  donoDados        String? // JSON com até 3 candidatos (ou o erro)
+  donoConsultadoEm DateTime?
+  createdAt        DateTime  @default(now())
 }
 
 model AlteracaoBaixa {
@@ -596,32 +603,32 @@ model Config {
   // aparece o login. null = desligado (login normal). E DISFARCE, nao
   // seguranca — quem protege os dados continua sendo o login; isso so evita
   // que a tela se anuncie como CRM pra quem olha o celular de lado.
-  codigoCalculadora   String?
-  evolutionUrl        String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
-  evolutionApiKey     String? // API Key global da Evolution
-  wahaUrl             String? // URL do servidor WAHA (ex.: http://ip:3001)
-  wahaApiKey          String? // API Key global do WAHA
+  codigoCalculadora String?
+  evolutionUrl      String? // URL do servidor Evolution (ex.: https://evo.exemplo.com)
+  evolutionApiKey   String? // API Key global da Evolution
+  wahaUrl           String? // URL do servidor WAHA (ex.: http://ip:3001)
+  wahaApiKey        String? // API Key global do WAHA
   // Token opcional do webhook: quando preenchido, /api/webhook/* passa a
   // exigir ?t=TOKEN. Fica VAZIO por padrao de proposito — o webhook recebe
   // mensagem real de cliente 24h, entao exigir token de cara derrubaria a
   // ingestao ate a Evolution/WAHA ser reconfigurada com a URL nova.
-  webhookToken        String?
+  webhookToken      String?
 
   // Integração Meta Ads (Facebook/Instagram Lead Ads — formulários instantâneos):
   // deixado pronto pra conectar depois, do lado de quem cria o App no Meta for
   // Developers. O CRM só precisa dessas 3 credenciais pra validar o webhook e
   // buscar o lead completo na Graph API assim que alguém preenche o formulário.
-  metaAdsAppSecret    String? // App Secret do App no Meta for Developers (valida a assinatura do webhook)
-  metaAdsPageId       String? // ID da Página do Facebook vinculada aos anúncios
-  metaAdsPageToken    String? // Token de acesso de Página com permissão leads_retrieval
+  metaAdsAppSecret   String? // App Secret do App no Meta for Developers (valida a assinatura do webhook)
+  metaAdsPageId      String? // ID da Página do Facebook vinculada aos anúncios
+  metaAdsPageToken   String? // Token de acesso de Página com permissão leads_retrieval
   // Gerado automaticamente na primeira vez que a tela é aberta — é o valor que
   // vai no campo "Verify Token" ao configurar o Webhook no Meta for Developers.
-  metaAdsVerifyToken  String?
+  metaAdsVerifyToken String?
   // Novo lead da Meta entra atribuído a este número (mesmo sem nenhuma
   // mensagem de WhatsApp ainda) — decide quem cobra, qual IA atende se o
   // cliente escrever depois, etc.
-  metaAdsNumero       WhatsappNumber? @relation(fields: [metaAdsNumeroId], references: [id], onDelete: SetNull)
-  metaAdsNumeroId     String?
+  metaAdsNumero      WhatsappNumber? @relation(fields: [metaAdsNumeroId], references: [id], onDelete: SetNull)
+  metaAdsNumeroId    String?
 
   // Interruptor geral: liga/desliga a IA pra TODOS os leads de uma vez (nem
   // responde, nem move etapa sozinha) — diferente de Contact.iaPausada, que é
@@ -635,6 +642,9 @@ model Config {
   mensagemInicialAtiva     Boolean @default(false)
   mensagemInicialTitulo    String  @default("1 - Mensagem inicial")
   mensagemInicialInstancia String?
+  // Catta API (dono do telefone dos contatos de referência) — chave só pelo painel; ligada/desligada aqui.
+  cattaApiKey              String?
+  cattaAtivo               Boolean @default(false)
   // Rotina única: quando true, a IA responde (uma vez) todos os leads do funil que ficaram sem resposta e desliga sozinha.
   reprocessarPendentes     Boolean @default(false)
 
@@ -787,9 +797,9 @@ model ComissaoConfig {
 // faixa, é "bateu a faixa, ganha o % dela inteiro" — mais fácil de explicar
 // pro cobrador do que uma conta em degraus).
 model ComissaoFaixa {
-  id        String @id @default(cuid())
-  minValor  Float
-  pctBonus  Float
+  id       String @id @default(cuid())
+  minValor Float
+  pctBonus Float
 }
 
 // Meta de comissão POR COLABORADOR, por métrica — além da meta global de
@@ -874,13 +884,13 @@ model User {
 
   // Chat interno (conversa entre usuários do sistema)
   conversasInternas   ConversaInternaMembro[]
-  chamadasFeitas      ChamadaInterna[]       @relation("ChamadaDe")
-  chamadasRecebidas   ChamadaInterna[]       @relation("ChamadaPara")
+  chamadasFeitas      ChamadaInterna[]          @relation("ChamadaDe")
+  chamadasRecebidas   ChamadaInterna[]          @relation("ChamadaPara")
   pagamentoCobrador   PagamentoCobradorConfig?
   comissaoPercentual  ComissaoPercentualConfig?
-  mensagensInternas   MensagemInterna[]      @relation("MensagemInternaAutor")
-  mensagensAtribuidas MensagemInterna[]      @relation("MensagemInternaAtribuida")
-  mencoesInternas     MensagemInterna[]      @relation("MensagemInternaMencoes")
+  mensagensInternas   MensagemInterna[]         @relation("MensagemInternaAutor")
+  mensagensAtribuidas MensagemInterna[]         @relation("MensagemInternaAtribuida")
+  mencoesInternas     MensagemInterna[]         @relation("MensagemInternaMencoes")
 
   // Permissões pontuais além do que o `role` já libera por padrão — CSV de
   // chaves (ver lib/permissoes.js). Só adiciona; nunca tira o que o role dá.
@@ -1040,12 +1050,12 @@ model VideoChamadaSessao {
   aceitoEm DateTime?
 
   // Captura (só depois do aceite)
-  fotoTrasUrl    String?
-  fotoFrenteUrl  String?
-  latitude       Float?
-  longitude      Float?
-  dispositivo    String? // navigator.userAgent resumido
-  capturadoEm    DateTime?
+  fotoTrasUrl   String?
+  fotoFrenteUrl String?
+  latitude      Float?
+  longitude     Float?
+  dispositivo   String? // navigator.userAgent resumido
+  capturadoEm   DateTime?
 
   // Sala de vídeo liberada só depois da captura — nome da sala = token, então
   // não precisa guardar URL nenhuma, mas o timestamp marca que ele chegou lá.
@@ -1061,13 +1071,13 @@ model VideoChamadaSessao {
 // só (nunca update), cada lado lê os sinais do OUTRO lado mais recentes que o
 // último id que já viu — evita corrida sem precisar de servidor à parte.
 model VideoChamadaSinal {
-  id        String   @id @default(cuid())
+  id        String             @id @default(cuid())
   sessao    VideoChamadaSessao @relation(fields: [sessaoId], references: [id], onDelete: Cascade)
   sessaoId  String
   de        String // "staff" | "cliente"
   tipo      String // "pronto" | "oferta" | "resposta" | "candidato" | "encerrar"
   payload   String? // JSON do SDP ou do ICE candidate — vazio pra "pronto"/"encerrar"
-  createdAt DateTime @default(now())
+  createdAt DateTime           @default(now())
 
   @@index([sessaoId, createdAt])
 }
@@ -1401,14 +1411,14 @@ model ComissaoFechamento {
 // Mensagem agendada pra sair numa data/hora futura — reaproveita uma mensagem
 // pronta (MessageTemplate) já existente em vez de duplicar corpo/mídia aqui.
 model MensagemAgendada {
-  id         String           @id @default(cuid())
-  contact    Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId  String
-  numero     WhatsappNumber   @relation(fields: [numeroId], references: [id], onDelete: Cascade)
-  numeroId   String
-  template   MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  templateId String?
-  corpo      String? // texto livre, quando não usa um template
+  id            String           @id @default(cuid())
+  contact       Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId     String
+  numero        WhatsappNumber   @relation(fields: [numeroId], references: [id], onDelete: Cascade)
+  numeroId      String
+  template      MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  templateId    String?
+  corpo         String? // texto livre, quando não usa um template
   // Mídia anexada direto neste agendamento (áudio gravado ou imagem escolhida
   // na hora) — diferente de usar um template pronto. Permite combinar com
   // `corpo`: as duas viram mensagens separadas, na ordem de `ordemMidia`.
@@ -1417,11 +1427,11 @@ model MensagemAgendada {
   midiaFileName String?
   midiaTipo     String? // "audio" | "image" | "document"
   ordemMidia    String           @default("depois") // "antes" | "depois" do texto
-  dataHora   DateTime
-  enviado    Boolean          @default(false)
-  enviadoEm  DateTime?
-  erro       String?
-  createdAt  DateTime         @default(now())
+  dataHora      DateTime
+  enviado       Boolean          @default(false)
+  enviadoEm     DateTime?
+  erro          String?
+  createdAt     DateTime         @default(now())
 }
 
 // Campanha de envio em massa segmentada: escolhe um filtro de contatos (o
@@ -1447,29 +1457,29 @@ model CampanhaMassa {
 
 // Mensagem trocada com o contato pelo WhatsApp (Evolution API)
 model Message {
-  id        String    @id @default(cuid())
-  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId String
-  body      String    @default("") // texto / legenda
-  kind      String    @default("text") // text | audio | image | document
-  mediaUrl  String? // caminho do arquivo (áudio/imagem/anexo)
-  mimeType  String?
-  fileName  String?
-  fromMe    Boolean   @default(true) // true = enviada por nós, false = recebida do cliente
+  id          String    @id @default(cuid())
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId   String
+  body        String    @default("") // texto / legenda
+  kind        String    @default("text") // text | audio | image | document
+  mediaUrl    String? // caminho do arquivo (áudio/imagem/anexo)
+  mimeType    String?
+  fileName    String?
+  fromMe      Boolean   @default(true) // true = enviada por nós, false = recebida do cliente
   // Quem enviou (só mensagens nossas): nome do usuário, "IA", "Automático", "Agendada" ou "Celular". null = histórico antigo.
-  enviadoPor String?
-  status    String    @default("sent")
-  instance  String? // instância da Evolution que originou/enviou (controle de visibilidade por usuário)
+  enviadoPor  String?
+  status      String    @default("sent")
+  instance    String? // instância da Evolution que originou/enviou (controle de visibilidade por usuário)
   // id da mensagem no provedor (Evolution: data.key.id / WAHA: payload.id).
   // Evolution/WAHA reentregam o mesmo webhook em retry de rede - sem isso o
   // sistema processava a mensagem de novo e a IA respondia duplicado.
-  waMessageId String? @unique
-  readAt    DateTime? // null = não visualizada pelo operador
+  waMessageId String?   @unique
+  readAt      DateTime? // null = não visualizada pelo operador
   // "Apagar" (item 88) só remove da NOSSA visualização — o WhatsApp não tem
   // uma API confiável pra apagar "dos dois lados" sem risco de request
   // malformado num provedor ao vivo, então isso fica só do nosso lado.
-  apagada   Boolean   @default(false)
-  createdAt DateTime  @default(now())
+  apagada     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
 
   // A lista de conversas do Chat roda a cada 5s e, sem indice, varria as
   // 13 mil mensagens inteiras a cada vez: 353ms de CPU, 12x por minuto, por
@@ -1487,16 +1497,16 @@ model Message {
 // ---------------------------------------------------------------------------
 
 model ConversaInterna {
-  id        String   @id @default(cuid())
+  id        String                  @id @default(cuid())
   // Só em grupo. Na conversa direta o título é o nome do outro participante,
   // resolvido na hora de listar (senão cada lado veria o próprio nome).
   nome      String?
-  grupo     Boolean  @default(false)
+  grupo     Boolean                 @default(false)
   criadaPor String? // nome de quem criou, só pra histórico
   membros   ConversaInternaMembro[]
   mensagens MensagemInterna[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
 }
 
 model ConversaInternaMembro {
@@ -1523,10 +1533,10 @@ model MensagemInterna {
   // Anexo (print colado, arquivo escolhido ou audio gravado). Mesmo esquema
   // do chat do WhatsApp: o arquivo vai pro disco (/uploads) e aqui fica so o
   // caminho — guardar base64 no SQLite inchava o banco.
-  mediaUrl   String?
-  mediaKind  String? // "image" | "audio" | "document"
-  mediaMime  String?
-  mediaNome  String?
+  mediaUrl  String?
+  mediaKind String? // "image" | "audio" | "document"
+  mediaMime String?
+  mediaNome String?
 
   // "Pedido de resolução": marca uma pessoa numa mensagem e cobra uma ação
   // dela. Enquanto resolvido=false a mensagem aparece como pendente pra quem
@@ -1558,8 +1568,8 @@ model MensagemInterna {
   // Apagar e SOFT (igual o chat do WhatsApp): a linha fica e o balao mostra
   // "Mensagem apagada". Sumir com o registro quebraria as respostas que
   // citam essa mensagem e apagaria a prova de um pedido ja resolvido.
-  apagada   Boolean   @default(false)
-  apagadaEm DateTime?
+  apagada    Boolean   @default(false)
+  apagadaEm  DateTime?
   apagadaPor String?
 
   createdAt DateTime @default(now())
@@ -1604,7 +1614,7 @@ model ChamadaInternaSinal {
   deId      String // userId de quem mandou — o outro lado le so o que nao e dele
   tipo      String // "pronto" | "oferta" | "resposta" | "candidato" | "encerrar"
   payload   String?
-  createdAt DateTime @default(now())
+  createdAt DateTime       @default(now())
 
   @@index([chamadaId, createdAt])
 }
@@ -1654,15 +1664,15 @@ model PagamentoCobradorSemana {
   inicio DateTime // segunda
   fim    DateTime // sabado
 
-  fixo         Float @default(0)
-  bonusTotal   Float @default(0)
-  total        Float @default(0)
-  diasBatidos  Int   @default(0)
-  detalhe      String // JSON: por dia, o nivel batido e o bonus
+  fixo        Float  @default(0)
+  bonusTotal  Float  @default(0)
+  total       Float  @default(0)
+  diasBatidos Int    @default(0)
+  detalhe     String // JSON: por dia, o nivel batido e o bonus
 
-  pago    Boolean   @default(false)
-  pagoEm  DateTime?
-  criadoEm DateTime @default(now())
+  pago     Boolean   @default(false)
+  pagoEm   DateTime?
+  criadoEm DateTime  @default(now())
 
   @@unique([userId, inicio])
 }

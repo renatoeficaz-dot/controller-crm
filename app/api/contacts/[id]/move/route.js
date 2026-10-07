@@ -257,6 +257,8 @@ export async function PATCH(req, { params }) {
     }
     if (stage.name === "Análise" && trocandoDeEtapa) {
       await criarTarefaPuxada(id).catch(() => {});
+      // Catta: dono dos telefones de referência (em segundo plano).
+      import("@/lib/catta").then((m) => m.consultarDonosDoContato(id)).catch(() => {});
     }
 
     // Cada motivo de perda pode ter sua própria mensagem automática

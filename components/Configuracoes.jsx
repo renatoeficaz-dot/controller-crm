@@ -4618,7 +4618,8 @@ function MetaAdsConfig() {
 // Tokens dos provedores de IA (texto/transcrição na DeepInfra; voz opcionalmente
 // em Fish Audio ou ElevenLabs — cada agente escolhe qual usar).
 function TokenDeepInfra() {
-  const [tokens, setTokens] = useState({ deepinfraApiKey: "", fishAudioApiKey: "", elevenLabsApiKey: "" });
+  const [tokens, setTokens] = useState({ deepinfraApiKey: "", fishAudioApiKey: "", elevenLabsApiKey: "", cattaApiKey: "", cattaAtivo: false });
+  const [catta, setCatta] = useState(null); // { ok, creditos, podeBuscar, situacao } | { ok:false, erro }
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saldo, setSaldo] = useState(null); // { ok, saldo, usoRecente } | { ok:false, error }
@@ -4629,6 +4630,8 @@ function TokenDeepInfra() {
         deepinfraApiKey: d?.deepinfraApiKey || "",
         fishAudioApiKey: d?.fishAudioApiKey || "",
         elevenLabsApiKey: d?.elevenLabsApiKey || "",
+        cattaApiKey: d?.cattaApiKey || "",
+        cattaAtivo: !!d?.cattaAtivo,
       });
     }).catch(() => {});
   }, []);
@@ -4637,6 +4640,10 @@ function TokenDeepInfra() {
     fetch("/api/config/deepinfra-saldo").then((r) => r.json()).then(setSaldo).catch(() => setSaldo({ ok: false, error: "Falha ao consultar." }));
   }, []);
   useEffect(() => { loadSaldo(); }, [loadSaldo]);
+  const testarCatta = useCallback(() => {
+    setCatta({ carregando: true });
+    fetch("/api/catta/status").then((r) => r.json()).then(setCatta).catch(() => setCatta({ ok: false, erro: "Falha ao consultar." }));
+  }, []);
 
   async function save(e) {
     e.preventDefault();
@@ -4675,6 +4682,25 @@ function TokenDeepInfra() {
       <Field label="API Key — texto/transcrição" value={tokens.deepinfraApiKey} onChange={(v) => setTokens((t) => ({ ...t, deepinfraApiKey: v }))} placeholder="di_..." />
       <Field label="API Key — Fish Audio (voz, opcional)" value={tokens.fishAudioApiKey} onChange={(v) => setTokens((t) => ({ ...t, fishAudioApiKey: v }))} placeholder="fa-..." />
       <Field label="API Key — ElevenLabs (voz, opcional)" value={tokens.elevenLabsApiKey} onChange={(v) => setTokens((t) => ({ ...t, elevenLabsApiKey: v }))} placeholder="sk_..." />
+      <div className="border-t border-slate-100 pt-3 space-y-2">
+        <p className="text-xs font-medium text-slate-600">Catta — dono do telefone dos contatos de referência</p>
+        <p className="text-[11px] text-slate-400">
+          Quando o lead entra em <strong>Análise</strong>, o sistema consulta cada telefone de referência na Catta e mostra o nome do dono (e CPF/CNPJ) na ficha.
+          Cada número encontrado gasta 1 crédito; número não encontrado não gasta.
+        </p>
+        <Field label="API Key — Catta" value={tokens.cattaApiKey} onChange={(v) => setTokens((t) => ({ ...t, cattaApiKey: v }))} placeholder="chave da Catta" />
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={tokens.cattaAtivo} onChange={(e) => setTokens((t) => ({ ...t, cattaAtivo: e.target.checked }))} />
+          Consultar automaticamente quando o lead entrar em Análise
+        </label>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={testarCatta} className="text-xs rounded-full px-3 py-1 border border-sky-300 text-sky-700 hover:bg-sky-50">Testar conexão</button>
+          {catta?.carregando && <span className="text-xs text-slate-400">Consultando…</span>}
+          {catta && !catta.carregando && (catta.ok
+            ? <span className="text-xs text-emerald-600">Conectado · {catta.creditos} crédito(s) · {catta.podeBuscar ? "pode buscar" : "busca indisponível (" + catta.situacao + ")"}</span>
+            : <span className="text-xs text-amber-600">{catta.erro}</span>)}
+        </div>
+      </div>
       <button
         disabled={saving}
         className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-50"
