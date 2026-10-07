@@ -8,9 +8,11 @@ export async function GET(req) {
   const user = await getCurrentUser();
   if (!isAdmin(user)) return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
 
-  const acao = new URL(req.url).searchParams.get("acao");
+  const params = new URL(req.url).searchParams;
+  const acao = params.get("acao");
+  const entidadeId = params.get("entidadeId"); // histórico completo de um cliente/entidade
   const logs = await prisma.auditLog.findMany({
-    where: acao ? { acao } : undefined,
+    where: { ...(acao ? { acao } : {}), ...(entidadeId ? { entidadeId } : {}) },
     orderBy: { createdAt: "desc" },
     take: 200,
   });

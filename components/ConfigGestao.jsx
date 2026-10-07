@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Icone from "@/components/Icones";
+import ContactModal from "@/components/ContactModal";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1134,6 +1135,14 @@ export function AuditoriaLog() {
   const [logs, setLogs] = useState([]);
   const [acao, setAcao] = useState("");
   const [loading, setLoading] = useState(true);
+  const [historico, setHistorico] = useState(null); // { id, nome, itens, carregando } — histórico de um cliente
+  const [fichaId, setFichaId] = useState(null);
+
+  async function abrirHistorico(entidadeId, nome) {
+    setHistorico({ id: entidadeId, nome, itens: [], carregando: true });
+    const d = await fetch(`/api/auditoria?entidadeId=${encodeURIComponent(entidadeId)}`).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+    setHistorico({ id: entidadeId, nome, itens: Array.isArray(d) ? d : [], carregando: false });
+  }
 
   const load = useCallback(async () => {
     const qs = acao ? `?acao=${encodeURIComponent(acao)}` : "";
@@ -1174,7 +1183,21 @@ export function AuditoriaLog() {
                 {ACAO_LABEL[l.acao] || l.acao}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-slate-700 break-words">{l.detalhe || "—"}</p>
+                {l.entidade === "Contact" && l.entidadeId && l.detalhe && l.detalhe.includes(":") ? (
+                  <p className="text-sm text-slate-700 break-words">
+                    <button
+                      type="button"
+                      onClick={() => abrirHistorico(l.entidadeId, l.detalhe.split(":")[0])}
+                      className="font-medium text-emerald-700 hover:underline"
+                      title="Ver tudo o que aconteceu com este cliente"
+                    >
+                      {l.detalhe.split(":")[0]}
+                    </button>
+                    {l.detalhe.slice(l.detalhe.indexOf(":"))}
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-700 break-words">{l.detalhe || "—"}</p>
+                )}
                 <p className="text-[11px] text-slate-400">
                   {l.usuario || "sistema"} · {new Date(l.createdAt).toLocaleString("pt-BR")}
                 </p>
@@ -1183,6 +1206,42 @@ export function AuditoriaLog() {
           ))}
         </ul>
       )}
+
+      {historico && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setHistorico(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-slate-800 truncate">{historico.nome}</h3>
+                <p className="text-xs text-slate-400">O que aconteceu com este cliente</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => { setFichaId(historico.id); setHistorico(null); }}
+                  className="text-xs rounded-full px-3 py-1 border border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                >
+                  Abrir ficha
+                </button>
+                <button onClick={() => setHistorico(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              </div>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-2">
+              {historico.carregando && <p className="text-sm text-slate-400 text-center">Carregando…</p>}
+              {!historico.carregando && historico.itens.length === 0 && <p className="text-sm text-slate-400 text-center">Nenhum registro de auditoria para este cliente.</p>}
+              {historico.itens.map((h) => (
+                <div key={h.id} className="rounded-lg border border-slate-100 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] rounded-full px-2 py-0.5 ${ACAO_COR[h.acao] || "bg-slate-100 text-slate-500"}`}>{ACAO_LABEL[h.acao] || h.acao}</span>
+                    <span className="text-[11px] text-slate-400">{h.usuario || "sistema"} · {new Date(h.createdAt).toLocaleString("pt-BR")}</span>
+                  </div>
+                  <p className="text-sm text-slate-700 mt-1 break-words">{h.detalhe || "—"}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {fichaId && <ContactModal contactId={fichaId} onClose={() => setFichaId(null)} onChanged={() => {}} />}
     </div>
   );
 }

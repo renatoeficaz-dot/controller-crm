@@ -1264,12 +1264,13 @@ export default function Relatorios() {
       </div>
 
       {filtrosAbertos && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setFiltrosAbertos(false)}>
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-end sm:items-center justify-center sm:p-4" onClick={() => setFiltrosAbertos(false)}>
+          {/* Celular: folha que sobe de baixo, cabeçalho e botão "Ver resultados" sempre visíveis; só o miolo rola. */}
           <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto thin-scroll"
+            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-lg max-h-[92vh] sm:max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+            <div className="shrink-0 flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100 bg-white">
               <h3 className="font-semibold text-slate-800">Filtros</h3>
               <div className="flex items-center gap-3">
                 {filtrosAtivosCount > 0 && (
@@ -1283,11 +1284,11 @@ export default function Relatorios() {
                     Limpar tudo
                   </button>
                 )}
-                <button onClick={() => setFiltrosAbertos(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+                <button onClick={() => setFiltrosAbertos(false)} aria-label="Fechar filtros" className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 hover:text-slate-700 text-2xl leading-none flex items-center justify-center">×</button>
               </div>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto thin-scroll p-5 space-y-4">
               <div>
                 <span className="text-xs text-slate-400">Estado</span>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -1421,6 +1422,15 @@ export default function Relatorios() {
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="shrink-0 border-t border-slate-100 bg-white px-5 py-3">
+              <button
+                onClick={() => setFiltrosAbertos(false)}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg py-2.5"
+              >
+                Ver resultados
+              </button>
             </div>
           </div>
         </div>
