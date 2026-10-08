@@ -604,6 +604,7 @@ model ConsultaDataApi {
   contactId   String
   contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
   cpf         String
+  versao      String   @default("cpf_v1")
   status      String   @default("consultando")
   dados       String?
   erro        String?
@@ -611,7 +612,7 @@ model ConsultaDataApi {
   criadoEm    DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
-  @@unique([contactId, cpf])
+  @@unique([contactId, cpf, versao])
 }
 
 // Configurações globais do sistema (linha única)

@@ -22,7 +22,7 @@ test("reserva persistente, concorrência, repetição e troca de CPF em SQLite i
   const servico = criarServicoPuxadas({ prisma, auditar: async (e) => auditoria.push(e), consultar: async (cpf) => {
     chamadas++;
     await new Promise((ok) => setTimeout(ok, 50));
-    return falhar ? { status: "erro", erro: "Falha simulada", suspender } : { status: "concluida", dados: { cpf, nome: "Teste fictício" } };
+    return falhar ? { status: "erro", erro: "Falha simulada", suspender } : { status: "concluida", dados: { telefones: ["5511900000000"] } };
   } });
   try {
     await prisma.config.create({ data: { dataApiAtivo: false, dataApiKey: "chave-ficticia" } });
@@ -31,9 +31,10 @@ test("reserva persistente, concorrência, repetição e troca de CPF em SQLite i
     assert.equal((await servico.consultarContato(c.id)).http, 409);
     assert.equal(chamadas, 0);
     await prisma.config.update({ where: { id: "singleton" }, data: { dataApiAtivo: true } });
+    await prisma.consultaDataApi.create({ data: { contactId: c.id, cpf: "52998224725", status: "concluida", dados: "{}" } });
     await Promise.all([servico.consultarContato(c.id), servico.consultarContato(c.id)]);
     assert.equal(chamadas, 1, "dois cliques só podem consumir uma consulta");
-    assert.equal(await prisma.consultaDataApi.count(), 1);
+    assert.equal(await prisma.consultaDataApi.count(), 2, "v1 não deve impedir nova consulta v2");
     await servico.consultarContato(c.id, { repetir: true });
     assert.equal(chamadas, 1, "resultado concluído não deve ser cobrado de novo");
 
@@ -48,7 +49,7 @@ test("reserva persistente, concorrência, repetição e troca de CPF em SQLite i
     falhar = false;
     await Promise.all([servico.consultarContato(c.id, { repetir: true }), servico.consultarContato(c.id, { repetir: true })]);
     assert.equal(chamadas, 3, "repetição concorrente também precisa de reserva");
-    assert.equal(await prisma.consultaDataApi.count(), 2, "CPF corrigido mantém histórico separado");
+    assert.equal(await prisma.consultaDataApi.count(), 3, "CPF corrigido mantém histórico separado");
 
     await prisma.consultaDataApi.updateMany({ where: { cpf: "11144477735" }, data: { status: "consultando", dados: null, atualizadoEm: new Date(Date.now() - 180000) } });
     const interrompida = await servico.consultarContato(c.id);

@@ -57,7 +57,7 @@ export default function PuxadasContato({ contactId, cpfSalvo, cpfDigitado }) {
       <span>Puxadas</span><span aria-hidden="true">{aberto ? "−" : "+"}</span>
     </button>
     {aberto && <div id={painelId} className="border-t border-slate-200 p-3 space-y-3">
-      <p className="text-[11px] text-slate-500">Consultas do cliente · Fonte: DataAPI</p>
+      <p className="text-[11px] text-slate-500">Telefones vinculados ao CPF · DataAPI v2</p>
       {!estado && !erro && <p className="text-xs text-slate-400">Carregando…</p>}
       {estado && !estado.ativo && <p className="text-xs text-amber-700">Ative a DataAPI em Configurações → IA para consultar.</p>}
       {estado?.suspensao && <p role="status" className="text-xs text-amber-700">{estado.suspensao}</p>}
@@ -65,12 +65,12 @@ export default function PuxadasContato({ contactId, cpfSalvo, cpfDigitado }) {
       {!validarCPF(cpf) && <p className="text-xs text-slate-500">Preencha e salve um CPF válido na ficha.</p>}
       {erro && <p role="alert" className="text-xs text-red-600">{erro}</p>}
       {estado?.ativo && !estado.suspensao && atual?.status !== "concluida" && <button type="button" disabled={ocupado || alterado || !validarCPF(cpf) || (atual?.status === "consultando" && Date.now() - new Date(atual.atualizadoEm).getTime() < 120000)} onClick={consultar} className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs text-emerald-700 disabled:opacity-50">
-        {ocupado ? "Consultando…" : atual?.status === "erro" ? "Tentar novamente (nova consulta)" : "Consultar CPF salvo"}
+        {ocupado ? "Consultando…" : atual?.status === "erro" ? "Tentar novamente (nova consulta)" : "Buscar telefones vinculados"}
       </button>}
       {estado && !estado.consultas.length && <p className="text-xs text-slate-400">Nenhuma puxada registrada.</p>}
       {estado?.consultas?.map((consulta) => <div key={consulta.id} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
         <p className="text-xs font-medium text-slate-700">CPF {formatarCPF(consulta.cpf)}{consulta.cpf !== cpf && <span className="ml-1 text-amber-700">· CPF anterior</span>}</p>
-        <p className="text-[11px] text-slate-400">DataAPI · {new Date(consulta.atualizadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
+        <p className="text-[11px] text-slate-400">DataAPI v2 · {new Date(consulta.atualizadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
         {consulta.status === "consultando" && <p role="status" className="text-xs text-slate-500">{Date.now() - new Date(consulta.atualizadoEm).getTime() > 120000 ? "Consulta interrompida. Clique em consultar para conferir o estado." : "Consulta em andamento…"}</p>}
         {consulta.erro && <p className="text-xs text-amber-700">{consulta.erro}</p>}
         {consulta.dados && <Dados valor={consulta.dados} />}

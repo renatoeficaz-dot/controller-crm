@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consultarCpfDataApi } from "../lib/dataApiCliente.mjs";
+import { consultarCpfDataApi, extrairTelefones } from "../lib/dataApiCliente.mjs";
 
 // CPFs sintéticos somente em fetch simulado; estes testes nunca acessam a API.
 const cpf = "52998224725";
@@ -13,20 +13,23 @@ test("não gasta consulta com CPF inválido ou sem chave", async () => {
   assert.match((await consultarCpfDataApi(cpf, "", nunca)).erro, /chave/);
 });
 
-test("usa endpoint documentado, sem cache/redirecionamento, e separa dados de terceiros", async () => {
+test("usa CPF v2 e salva exclusivamente telefones do titular", async () => {
   const r = await consultarCpfDataApi("529.982.247-25", chave, async (url, opcoes) => {
-    assert.equal(url.origin + url.pathname, "https://www.data-api.click/api/consulta.php");
+    assert.equal(url.origin + url.pathname, "https://www.data-api.click/api/consulta2.php");
     assert.equal(url.searchParams.get("cpf"), cpf);
     assert.equal(url.searchParams.get("key"), chave);
     assert.equal(opcoes.cache, "no-store");
     assert.equal(opcoes.redirect, "error");
-    return resposta({ cpf, nome: "Cliente fictício", telefones: ["telefone fictício"], nome_mae: "Terceiro", parentes: [{ nome: "Terceiro" }], extra: { token: "segredo", campo: "valor" } });
+    return resposta({ cpf, nome: "Cliente fictício", telefones: ["(11) 90000-0000"], nome_mae: "Terceiro", parentes: [{ nome: "Terceiro", telefones: ["(21) 90000-0000"] }], renda: 999, extra: { token: "segredo", campo: "valor" } });
   });
   assert.equal(r.status, "concluida");
-  assert.equal(r.dados.nome, "Cliente fictício");
-  assert.equal(r.dados.nome_mae, undefined);
-  assert.equal(r.dados.parentes, undefined);
-  assert.deepEqual(r.dados.extra, { campo: "valor" });
+  assert.deepEqual(r.dados, { telefones: ["5511900000000"] });
+});
+
+test("normaliza DDD, retira duplicados e não procura telefones em parentes", () => {
+  assert.deepEqual(extrairTelefones({ TELEFONES: [{ DDD: "11", NUMERO: "900000000" }, "+55 (11) 90000-0000", { ddd: "21", telefone: "20000000" }], parentes: [{ telefone: "31900000000" }] }), ["5511900000000", "552120000000"]);
+  assert.equal(extrairTelefones({ parentes: [{ telefone: "31900000000" }] }), null);
+  assert.deepEqual(extrairTelefones({ telefones: [] }), []);
 });
 
 test("recusa CPF divergente ou ausente na resposta", async () => {
@@ -47,8 +50,8 @@ test("suspende a integração em falhas de credencial, crédito ou limite", asyn
 test("não repassa segredo nem mensagem técnica do fornecedor", async () => {
   const falha = await consultarCpfDataApi(cpf, chave, async () => { throw new Error(`URL secreta?key=${chave}`); });
   assert.equal(JSON.stringify(falha).includes(chave), false);
-  const eco = await consultarCpfDataApi(cpf, chave, async () => resposta({ cpf, mensagem: chave }));
-  assert.equal(eco.status, "erro");
+  const eco = await consultarCpfDataApi(cpf, chave, async () => resposta({ cpf, telefones: [], mensagem: chave }));
+  assert.equal(eco.status, "concluida");
   assert.equal(JSON.stringify(eco).includes(chave), false);
 });
 
