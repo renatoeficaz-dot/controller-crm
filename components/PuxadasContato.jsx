@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { formatarCPF, validarCPF } from "@/lib/cpf";
 
 const rotulo = (chave) => ({ cpf: "CPF", rg: "RG", nome: "Nome", data_nascimento: "Nascimento", enderecos: "Endereços", telefones: "Telefones", emails: "E-mails", renda: "Renda", empregos: "Empregos" }[chave.toLowerCase()] || chave.replace(/_/g, " "));
@@ -19,6 +19,7 @@ export default function PuxadasContato({ contactId, cpfSalvo, cpfDigitado }) {
   const [estado, setEstado] = useState(null);
   const [erro, setErro] = useState("");
   const [ocupado, setOcupado] = useState(false);
+  const emExecucao = useRef(false);
   const normalizar = (v) => String(v || "").replace(/\D/g, "");
   const cpf = normalizar(estado?.cpf ?? cpfSalvo);
   const alterado = normalizar(cpfDigitado) !== normalizar(cpfSalvo);
@@ -32,6 +33,7 @@ export default function PuxadasContato({ contactId, cpfSalvo, cpfDigitado }) {
     const dados = await res.json();
     if (!res.ok) throw new Error(dados.error || "Não foi possível carregar as puxadas.");
     setEstado(dados);
+    return dados;
   }, [contactId]);
 
   useEffect(() => {
@@ -43,31 +45,46 @@ export default function PuxadasContato({ contactId, cpfSalvo, cpfDigitado }) {
     return () => { controle.abort(); clearInterval(timer); };
   }, [aberto, carregar, cpfSalvo]);
 
-  async function consultar() {
+  async function consultar(repetir = false) {
+    if (emExecucao.current) return;
+    emExecucao.current = true;
     setOcupado(true);
     setErro("");
     try {
-      const res = await fetch(`/api/contacts/${contactId}/puxadas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repetir: temErro }) });
+      const atualizado = await carregar();
+      const documento = normalizar(atualizado.cpf);
+      if (alterado || documento !== normalizar(cpfSalvo) || !validarCPF(documento) || !atualizado.ativo || atualizado.suspensao) return;
+      const registros = atualizado.consultas.filter((c) => c.cpf === documento);
+      const finalizadas = ["cadastro", "telefones"].every((tipo) => registros.some((c) => c.tipo === tipo && ["concluida", "nao_encontrado"].includes(c.status)));
+      // Reabrir usa os resultados salvos; falhas só são repetidas pelo botão explícito.
+      if (finalizadas || registros.some((c) => c.status === "consultando" && Date.now() - new Date(c.atualizadoEm).getTime() < 120000)) return;
+      const res = await fetch(`/api/contacts/${contactId}/puxadas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repetir }) });
       const dados = await res.json();
       await carregar();
       if (!res.ok) throw new Error(dados.error || "Falha ao consultar.");
     } catch (e) { setErro(e.message); }
-    finally { setOcupado(false); }
+    finally { emExecucao.current = false; setOcupado(false); }
+  }
+
+  function alternar() {
+    setAberto(!aberto);
+    if (!aberto) void consultar();
   }
 
   return <section className="rounded-xl border border-slate-200 bg-slate-50/60">
-    <button type="button" aria-expanded={aberto} aria-controls={painelId} onClick={() => setAberto(!aberto)} className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-semibold text-slate-700">
-      <span>Puxadas</span><span aria-hidden="true">{aberto ? "−" : "+"}</span>
+    <button type="button" aria-expanded={aberto} aria-controls={painelId} aria-busy={ocupado} onClick={alternar} className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-semibold text-slate-700">
+      <span>{ocupado ? "Puxadas · consultando…" : "Puxadas"}</span><span aria-hidden="true">{aberto ? "−" : "+"}</span>
     </button>
     {aberto && <div id={painelId} className="border-t border-slate-200 p-3 space-y-3">
       <p className="text-[11px] text-slate-500">Cadastro e telefones vinculados · SnoopIntelligence</p>
+      <p className="text-[11px] text-slate-500">Ao abrir, consulta os dados do cliente pelo CPF salvo. Resultados já consultados são reaproveitados.</p>
       {!estado && !erro && <p className="text-xs text-slate-400">Carregando…</p>}
       {estado && !estado.ativo && <p className="text-xs text-amber-700">Cadastre a chave do SnoopIntelligence em Configurações → IA para consultar.</p>}
       {estado?.suspensao && <p role="status" className="text-xs text-amber-700">{estado.suspensao}</p>}
       {alterado && <p className="text-xs text-amber-700">Salve o CPF alterado antes de consultar.</p>}
       {!validarCPF(cpf) && <p className="text-xs text-slate-500">Preencha e salve um CPF válido na ficha.</p>}
       {erro && <p role="alert" className="text-xs text-red-600">{erro}</p>}
-      {estado?.ativo && !estado.suspensao && !completas && <button type="button" disabled={ocupado || alterado || !validarCPF(cpf) || consultando} onClick={consultar} className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs text-emerald-700 disabled:opacity-50">
+      {estado?.ativo && !estado.suspensao && !completas && <button type="button" disabled={ocupado || alterado || !validarCPF(cpf) || consultando} onClick={() => consultar(temErro)} className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs text-emerald-700 disabled:opacity-50">
         {ocupado ? "Consultando…" : temErro ? "Repetir consultas com erro" : "Consultar cadastro e telefones"}
       </button>}
       {estado && !estado.consultas.length && <p className="text-xs text-slate-400">Nenhuma puxada registrada.</p>}
