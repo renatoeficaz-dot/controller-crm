@@ -11,6 +11,7 @@ import MediaBubble, { MediaLightbox } from "./MediaBubble";
 import CobrancaLead from "./CobrancaLead";
 import ReferenciasContato from "./ReferenciasContato";
 import CnpjCard from "./CnpjCard";
+import MarcadorConferencia from "./MarcadorConferencia";
 import PuxadasContato from "./PuxadasContato";
 import Icone from "@/components/Icones";
 import PixModal from "./PixModal";
@@ -268,6 +269,15 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [enderecoCopiado, setEnderecoCopiado] = useState(false);
   const [cpfAnaliseCopiado, setCpfAnaliseCopiado] = useState(false);
   const [telefoneCopiadoId, setTelefoneCopiadoId] = useState(null);
+
+  // Marcador OK/divergente de cada dado em "Dados pra conferência". "ok" também liga a caixa antiga (telefone do cliente, CPF, endereço).
+  function marcarConferencia(chave, valor, boolKey) {
+    setForm((f) => {
+      const conf = { ...(f.conferencia || {}) };
+      if (valor) conf[chave] = valor; else delete conf[chave];
+      return { ...f, conferencia: conf, ...(boolKey ? { [boolKey]: valor === "ok" } : {}) };
+    });
+  }
   const [allTags, setAllTags] = useState([]);
   const [novaTag, setNovaTag] = useState("");
   const [encaminharLeadAberto, setEncaminharLeadAberto] = useState(false);
@@ -351,6 +361,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       checklistTelefoneClienteOk: !!data.checklistTelefoneClienteOk,
       checklistCpfOk: !!data.checklistCpfOk,
       checklistEnderecoOk: !!data.checklistEnderecoOk,
+      conferencia: (() => { try { return data.conferencia ? JSON.parse(data.conferencia) : {}; } catch { return {}; } })(),
       comercioNaResidencia: !!data.comercioNaResidencia,
       checklistDocumentacao: (() => { try { return data.checklistDocumentacao ? JSON.parse(data.checklistDocumentacao) : {}; } catch { return {}; } })(),
       responsavel: data.responsavel || "",
@@ -1083,14 +1094,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                     </span>
                     {form.phone && (
                       <>
-                        <label className="shrink-0 flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer" title="Confirmar que esse dado está OK">
-                          <input
-                            type="checkbox"
-                            checked={!!form.checklistTelefoneClienteOk}
-                            onChange={(e) => setForm((f) => ({ ...f, checklistTelefoneClienteOk: e.target.checked }))}
-                          />
-                          OK
-                        </label>
+                        <MarcadorConferencia valor={form.conferencia?.telefoneCliente || (form.checklistTelefoneClienteOk ? "ok" : null)} onChange={(v) => marcarConferencia("telefoneCliente", v, "checklistTelefoneClienteOk")} />
                         <button
                           type="button"
                           onClick={async () => {
@@ -1131,6 +1135,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                           className="min-w-0 text-slate-400 placeholder:text-slate-300 placeholder:italic outline-none"
                         />
                       </div>
+                      {form[t.chave] && <MarcadorConferencia valor={form.conferencia?.[t.chave] || null} onChange={(v) => marcarConferencia(t.chave, v)} />}
                       {form[t.chave] && (
                         <button
                           type="button"
@@ -1176,14 +1181,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         <Icone nome={cpfAnaliseCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    <label className="shrink-0 flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer" title="Confirmar que esse dado está OK">
-                      <input
-                        type="checkbox"
-                        checked={!!form.checklistCpfOk}
-                        onChange={(e) => setForm((f) => ({ ...f, checklistCpfOk: e.target.checked }))}
-                      />
-                      OK
-                    </label>
+                    <MarcadorConferencia valor={form.conferencia?.cpf || (form.checklistCpfOk ? "ok" : null)} onChange={(v) => marcarConferencia("cpf", v, "checklistCpfOk")} />
                   </div>
                 </label>
 
@@ -1234,14 +1232,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         <Icone nome={enderecoCopiado ? "check" : "copiar"} className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    <label className="shrink-0 flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer" title="Confirmar que esse dado está OK">
-                      <input
-                        type="checkbox"
-                        checked={!!form.checklistEnderecoOk}
-                        onChange={(e) => setForm((f) => ({ ...f, checklistEnderecoOk: e.target.checked }))}
-                      />
-                      OK
-                    </label>
+                    <MarcadorConferencia valor={form.conferencia?.endereco || (form.checklistEnderecoOk ? "ok" : null)} onChange={(v) => marcarConferencia("endereco", v, "checklistEnderecoOk")} />
                   </div>
                 </label>
 

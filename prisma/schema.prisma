@@ -186,6 +186,8 @@ model Contact {
   checklistTelefoneClienteOk   Boolean   @default(false)
   checklistCpfOk               Boolean   @default(false)
   checklistEnderecoOk          Boolean   @default(false)
+  // Marcação por dado em "Dados pra conferência": JSON { chave: "ok" | "divergente" } (telefoneCliente, telefoneParente, telefoneContato, telefoneContato3, cpf, endereco).
+  conferencia                  String?
   // Checklist de documentação (itens variam por tipo de cliente): JSON { chave: true }.
   checklistDocumentacao        String?
   // Comerciante que trabalha em casa: o endereço residencial vale como comercial.
