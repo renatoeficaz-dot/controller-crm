@@ -190,6 +190,15 @@ export async function PATCH(req, { params }) {
       : null;
   
     const updated = await prisma.contact.update({ where: { id }, data });
+
+    // Lead que vai para "Venda perdida" sem ter pago nada: as parcelas em aberto saem da cobrança (some "atrasada",
+    // lembretes e a receber) — senão o cliente que desistiu continua aparecendo como inadimplente.
+    if (stage.name === "Venda perdida" && trocandoDeEtapa) {
+      await prisma.parcela.updateMany({
+        where: { contactId: id, paid: false, renegociada: false, OR: [{ valorPago: null }, { valorPago: 0 }] },
+        data: { renegociada: true },
+      }).catch(() => {});
+    }
   
     if (trocandoDeEtapa) {
       await prisma.etapaLog.create({
