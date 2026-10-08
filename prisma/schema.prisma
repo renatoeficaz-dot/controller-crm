@@ -674,6 +674,10 @@ model Config {
   dataApiKey              String?
   dataApiAtivo            Boolean @default(false)
   dataApiErro             String?
+  // Provedor atual das puxadas. Credenciais antigas não são reutilizadas.
+  snoopApiKey             String?
+  snoopAtivo              Boolean @default(false)
+  snoopErro               String?
   // Rotina única: quando true, a IA responde (uma vez) todos os leads do funil que ficaram sem resposta e desliga sozinha.
   reprocessarPendentes     Boolean @default(false)
 

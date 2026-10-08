@@ -19,7 +19,7 @@ async function getConfig() {
 // entregava a API key da Evolution pra qualquer usuário logado.
 const CAMPOS_SECRETOS = [
   "evolutionApiKey", "wahaApiKey", "deepinfraApiKey",
-  "fishAudioApiKey", "elevenLabsApiKey", "cattaApiKey", "cnpjaApiKey", "dataApiKey",
+  "fishAudioApiKey", "elevenLabsApiKey", "cattaApiKey", "cnpjaApiKey", "dataApiKey", "snoopApiKey",
   // O token do webhook entra aqui também: se vazasse pra qualquer usuário
   // logado, a trava do webhook viraria enfeite — bastaria ler o token e
   // continuar injetando mensagem falsa.
@@ -40,7 +40,7 @@ const CAMPOS_SECRETOS = [
 // integração — mesmo só admin conseguindo (o middleware já trava isso),
 // não tinha NENHUM registro de quem mudou o quê. Com 2+ admins, "os
 // honorários foram de 30% pra 1%" ficava sem rastro nenhum de autoria.
-const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", "iaGlobalPausada", "dataApiAtivo", ...CAMPOS_SECRETOS];
+const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", "iaGlobalPausada", "dataApiAtivo", "snoopAtivo", ...CAMPOS_SECRETOS];
 
 export async function GET() {
   let cfg = await getConfig();
@@ -53,7 +53,7 @@ export async function GET() {
     });
   }
   const user = await getCurrentUser().catch(() => null);
-  if (isAdmin(user)) return NextResponse.json({ ...cfg, dataApiKey: cfg.dataApiKey ? "***" : null });
+  if (isAdmin(user)) return NextResponse.json({ ...cfg, dataApiKey: cfg.dataApiKey ? "***" : null, snoopApiKey: cfg.snoopApiKey ? "***" : null });
 
   const seguro = { ...cfg };
   for (const campo of CAMPOS_SECRETOS) {
@@ -105,6 +105,17 @@ export async function PATCH(req) {
   if ("mensagemInicialInstancia" in body) data.mensagemInicialInstancia = texto(body.mensagemInicialInstancia) || null;
   if ("deepinfraApiKey" in body) data.deepinfraApiKey = texto(body.deepinfraApiKey) || null;
   if ("cnpjaApiKey" in body) data.cnpjaApiKey = texto(body.cnpjaApiKey) || null;
+  if ("snoopApiKey" in body && body.snoopApiKey !== "***") {
+    const chave = texto(body.snoopApiKey).trim();
+    if (chave.length > 512 || /[\r\n]/.test(chave)) return NextResponse.json({ error: "Chave SnoopIntelligence inválida." }, { status: 400 });
+    data.snoopApiKey = chave || null;
+    data.snoopErro = null;
+  }
+  if ("snoopAtivo" in body) {
+    if (typeof body.snoopAtivo !== "boolean") return NextResponse.json({ error: "Ativação SnoopIntelligence inválida." }, { status: 400 });
+    data.snoopAtivo = body.snoopAtivo;
+    data.snoopErro = null;
+  }
   if ("dataApiKey" in body && body.dataApiKey !== "***") {
     const chave = texto(body.dataApiKey).trim();
     if (chave.length > 512) return NextResponse.json({ error: "Chave DataAPI muito longa." }, { status: 400 });
@@ -228,5 +239,5 @@ export async function PATCH(req) {
     }
   }
 
-  return NextResponse.json({ ...config, dataApiKey: config.dataApiKey ? "***" : null });
+  return NextResponse.json({ ...config, dataApiKey: config.dataApiKey ? "***" : null, snoopApiKey: config.snoopApiKey ? "***" : null });
 }

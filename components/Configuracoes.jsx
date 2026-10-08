@@ -10,7 +10,7 @@ import Icone from "@/components/Icones";
 import { ComissaoConfig, RiscoConfig, AuditoriaLog, IntegridadeConfig, SolicitacoesDesconto, UsoSistemaConfig, SaudeSistema } from "@/components/ConfigGestao";
 import { MotivosPerdaConfig, OperacaoConfig, LinksUteisConfig } from "@/components/ConfigOperacao";
 import ConfigEquipe from "@/components/ConfigEquipe";
-import DataApiConfiguracao from "@/components/DataApiConfiguracao";
+import SnoopConfiguracao from "@/components/SnoopConfiguracao";
 
 // Posição (fixed, em relação à viewport) do EmojiPicker a partir do botão que
 // o abriu — mantém dentro da tela em qualquer largura (nada de calcular
@@ -304,7 +304,7 @@ export default function Configuracoes() {
                 <InterruptorGlobalIa />
                 <MensagemInicialAuto />
                 <TokenDeepInfra />
-                <DataApiConfiguracao />
+                <SnoopConfiguracao />
                 <SuporteIaConfig />
                 <AgentesIa />
               </div>

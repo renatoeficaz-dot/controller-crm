@@ -25,16 +25,16 @@ test("reserva persistente, concorrência, repetição e troca de CPF em SQLite i
     return falhar ? { status: "erro", erro: "Falha simulada", suspender } : { status: "concluida", dados: { telefones: ["5511900000000"] } };
   } });
   try {
-    await prisma.config.create({ data: { dataApiAtivo: false, dataApiKey: "chave-ficticia" } });
+    await prisma.config.create({ data: { snoopAtivo: false, snoopApiKey: "chave-ficticia" } });
     const etapa = await prisma.stage.create({ data: { name: "Teste" } });
     const c = await prisma.contact.create({ data: { name: "Fictício", cpf: "529.982.247-25", stageId: etapa.id } });
     assert.equal((await servico.consultarContato(c.id)).http, 409);
     assert.equal(chamadas, 0);
-    await prisma.config.update({ where: { id: "singleton" }, data: { dataApiAtivo: true } });
+    await prisma.config.update({ where: { id: "singleton" }, data: { snoopAtivo: true } });
     await prisma.consultaDataApi.create({ data: { contactId: c.id, cpf: "52998224725", status: "concluida", dados: "{}" } });
     await Promise.all([servico.consultarContato(c.id), servico.consultarContato(c.id)]);
     assert.equal(chamadas, 1, "dois cliques só podem consumir uma consulta");
-    assert.equal(await prisma.consultaDataApi.count(), 2, "v1 não deve impedir nova consulta v2");
+    assert.equal(await prisma.consultaDataApi.count(), 2, "DataAPI antiga não deve impedir consulta Snoop");
     await servico.consultarContato(c.id, { repetir: true });
     assert.equal(chamadas, 1, "resultado concluído não deve ser cobrado de novo");
 
@@ -60,11 +60,21 @@ test("reserva persistente, concorrência, repetição e troca de CPF em SQLite i
     falhar = true; suspender = true;
     await servico.consultarContato(c.id, { repetir: true });
     assert.equal(chamadas, 4);
-    assert.equal((await prisma.config.findUnique({ where: { id: "singleton" } })).dataApiErro, "Falha simulada");
+    assert.equal((await prisma.config.findUnique({ where: { id: "singleton" } })).snoopErro, "Falha simulada");
     await servico.consultarContato(c.id);
     assert.equal(chamadas, 4, "suspensão deve impedir novas cobranças");
     assert.equal(JSON.stringify(auditoria).includes("52998224725"), false);
     assert.equal(JSON.stringify(auditoria).includes("chave-ficticia"), false);
+    await prisma.config.update({ where: { id: "singleton" }, data: { snoopAtivo: false, snoopErro: null } });
+    const c2 = await prisma.contact.create({ data: { name: "Segundo fictício", cpf: "52998224725", stageId: etapa.id } });
+    falhar = false; suspender = false;
+    const ambas = await servico.consultarTodas(c2.id, { automatico: false });
+    assert.equal(ambas.resultados.length, 2, "consulta manual funciona mesmo com o automático desligado");
+    assert.equal(chamadas, 6, "cadastro e telefones têm chamadas separadas");
+    await prisma.consultaDataApi.updateMany({ where: { contactId: c2.id, versao: "snoop_telefones_v1" }, data: { status: "erro", dados: null, atualizadoEm: new Date(Date.now() - 65000) } });
+    await servico.consultarTodas(c2.id, { automatico: false, repetir: true });
+    assert.equal(chamadas, 7, "falha em telefones não repete o cadastro concluído");
+    await prisma.contact.delete({ where: { id: c2.id } });
     await prisma.contact.delete({ where: { id: c.id } });
     assert.equal(await prisma.consultaDataApi.count(), 0, "exclusão definitiva apaga as puxadas");
   } finally {
