@@ -104,6 +104,7 @@ const COR_NIVEL = {
   media: "bg-sky-400 text-white",
   minima: "bg-amber-400 text-white",
   abaixo: "bg-red-400 text-white",
+  zero: "bg-red-700 text-white",
   sem: "bg-slate-100 text-slate-400",
   folga: "bg-slate-50 text-slate-300",
 };
@@ -116,13 +117,13 @@ function nivelDoDia(d, metrica) {
     if (d.vendas >= d.metaVendasDia) return "meta";
     if (d.vendas >= d.metaVendasMedia) return "media";
     if (d.vendas >= d.metaVendasMinima) return "minima";
-    return "abaixo";
+    return d.vendas > 0 ? "abaixo" : "zero";
   }
   if (d.metaRecebimentosDia == null) return "sem";
   if (d.recebimentos >= d.metaRecebimentosDia) return "meta";
   if (d.recebimentos >= d.metaRecebimentosMedia) return "media";
   if (d.recebimentos >= d.metaRecebimentosMinima) return "minima";
-  return "abaixo";
+  return d.recebimentos > 0 ? "abaixo" : "zero";
 }
 
 export function CalendarioMes({ serie, diaAtual, onDia }) {
@@ -137,7 +138,7 @@ export function CalendarioMes({ serie, diaAtual, onDia }) {
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-slate-800">Calendário do mês</h2>
-          <p className="text-[11px] text-slate-400">A cor é o nível que bateu no dia. Clique pra abrir.</p>
+          <p className="text-[11px] text-slate-400">A cor é o nível que bateu no dia; o número pequeno é feito/mínima. Clique pra abrir.</p>
         </div>
         <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
           {[
@@ -167,6 +168,8 @@ export function CalendarioMes({ serie, diaAtual, onDia }) {
           const atual = d.dia === diaAtual;
           const valor = metrica === "vendas" ? d.vendas : d.recebimentos;
           const meta = metrica === "vendas" ? d.metaVendasDia : d.metaRecebimentosDia;
+          const minima = metrica === "vendas" ? d.metaVendasMinima : d.metaRecebimentosMinima;
+          const NOME_NIVEL = { meta: "meta cheia batida", media: "bateu a média", minima: "bateu só a mínima", abaixo: "abaixo da mínima", zero: "zerado (abaixo da mínima)" };
           return (
             <button
               key={d.dia}
@@ -177,13 +180,16 @@ export function CalendarioMes({ serie, diaAtual, onDia }) {
                   ? `${fmtDiaCurto(d.dia)} — domingo (folga)`
                   : nv === "sem"
                   ? `${fmtDiaCurto(d.dia)} — ${valor} (sem meta registrada nesse dia)`
-                  : `${fmtDiaCurto(d.dia)} — ${valor} de ${meta}`
+                  : `${fmtDiaCurto(d.dia)} — ${valor} de ${meta} (mínima ${minima}): ${NOME_NIVEL[nv]}`
               }
               className={`aspect-square rounded-md text-[10px] font-medium flex items-center justify-center transition-transform hover:scale-105 ${COR_NIVEL[nv]} ${
                 atual ? "ring-2 ring-slate-800 ring-offset-1" : ""
               }`}
             >
-              {diaDoMes(d.dia)}
+              <span className="flex flex-col items-center leading-tight">
+                <span>{diaDoMes(d.dia)}</span>
+                {nv !== "folga" && nv !== "sem" && <span className="text-[8px] font-normal opacity-90">{valor}/{minima}</span>}
+              </span>
             </button>
           );
         })}
@@ -191,8 +197,8 @@ export function CalendarioMes({ serie, diaAtual, onDia }) {
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-[10px] text-slate-500">
         {[
-          ["meta", "Meta cheia"], ["media", "Média"], ["minima", "Mínima"],
-          ["abaixo", "Abaixo"], ["sem", "Sem meta"], ["folga", "Folga"],
+          ["meta", "Meta cheia"], ["media", "Média"], ["minima", "Só a mínima"],
+          ["abaixo", "Abaixo da mínima"], ["zero", "Zerado"], ["sem", "Sem meta"], ["folga", "Folga"],
         ].map(([k, label]) => (
           <span key={k} className="flex items-center gap-1">
             <span className={`w-2.5 h-2.5 rounded ${COR_NIVEL[k]}`} /> {label}
