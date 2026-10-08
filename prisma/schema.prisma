@@ -59,6 +59,8 @@ model Contact {
   razaoSocial        String?
   // Nome e tipo do comércio, nas palavras do cliente (ex.: "Bar do Mané — bar"). A IA pergunta ao comerciante.
   comercioDescricao  String?
+  // Entregador de bicicleta / a pé: sem veículo. Pula placa, documento e foto do veículo e pede o extrato de onde recebe as corridas.
+  semVeiculo         Boolean   @default(false)
   // Resumo da consulta do CNPJ na CNPJá (lib/cnpja.js): situação, atividade, endereço, sócios.
   cnpjDados          String?
   cnpjConsultadoEm   DateTime?

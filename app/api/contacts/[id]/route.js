@@ -124,6 +124,7 @@ export async function PATCH(req, { params }) {
       const c = body.conferencia && typeof body.conferencia === "object" ? Object.fromEntries(Object.entries(body.conferencia).filter(([k, v]) => (v === "ok" || v === "divergente") && typeof k === "string" && k.length < 40)) : {};
       data.conferencia = Object.keys(c).length ? JSON.stringify(c) : null;
     }
+    if ("semVeiculo" in body) data.semVeiculo = !!body.semVeiculo;
     if ("comercioNaResidencia" in body) data.comercioNaResidencia = !!body.comercioNaResidencia;
     if ("checklistDocumentacao" in body) {
       const marcados = body.checklistDocumentacao && typeof body.checklistDocumentacao === "object" ? Object.fromEntries(Object.entries(body.checklistDocumentacao).filter(([k, v]) => v === true && typeof k === "string" && k.length < 40)) : {};

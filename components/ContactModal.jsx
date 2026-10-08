@@ -374,6 +374,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       cnpj: data.cnpj || "",
       razaoSocial: data.razaoSocial || "",
       comercioDescricao: data.comercioDescricao || "",
+      semVeiculo: !!data.semVeiculo,
       placaVeiculo: data.placaVeiculo || "",
       emailApp: data.emailApp || "",
       enderecoComercial: data.enderecoComercial || "",
@@ -1301,6 +1302,10 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
                         onChange={(e) => setForm((f) => ({ ...f, placaVeiculo: e.target.value }))}
                         className="mt-0.5 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
                       />
+                    </label>
+                    <label className="col-span-2 flex items-center gap-2 text-xs text-slate-600">
+                      <input type="checkbox" checked={!!form.semVeiculo} onChange={(e) => setForm((f) => ({ ...f, semVeiculo: e.target.checked }))} className="accent-emerald-500" />
+                      Sem veículo (bike / a pé) — pede o extrato de onde recebe as corridas
                     </label>
                     <label className="block">
                       <span className="text-[11px] text-slate-400">E-mail do app</span>
