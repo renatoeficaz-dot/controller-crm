@@ -4,6 +4,7 @@ import { getCurrentUser, isAdmin } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { lerCorpo, texto } from "@/lib/corpo";
 import crypto from "crypto";
+import { validarOpcoesSnoop } from "@/lib/snoopOpcoes.mjs";
 
 // Garante que a linha única de config exista
 async function getConfig() {
@@ -40,7 +41,7 @@ const CAMPOS_SECRETOS = [
 // integração — mesmo só admin conseguindo (o middleware já trava isso),
 // não tinha NENHUM registro de quem mudou o quê. Com 2+ admins, "os
 // honorários foram de 30% pra 1%" ficava sem rastro nenhum de autoria.
-const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", "iaGlobalPausada", "dataApiAtivo", "snoopAtivo", ...CAMPOS_SECRETOS];
+const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", "iaGlobalPausada", "dataApiAtivo", "snoopAtivo", "snoopOpcoes", ...CAMPOS_SECRETOS];
 
 export async function GET() {
   let cfg = await getConfig();
@@ -115,6 +116,10 @@ export async function PATCH(req) {
     if (typeof body.snoopAtivo !== "boolean") return NextResponse.json({ error: "Ativação SnoopIntelligence inválida." }, { status: 400 });
     data.snoopAtivo = body.snoopAtivo;
     data.snoopErro = null;
+  }
+  if ("snoopOpcoes" in body) {
+    if (!validarOpcoesSnoop(body.snoopOpcoes)) return NextResponse.json({ error: "Seleção de consultas ou campos inválida." }, { status: 400 });
+    data.snoopOpcoes = JSON.stringify(body.snoopOpcoes);
   }
   if ("dataApiKey" in body && body.dataApiKey !== "***") {
     const chave = texto(body.dataApiKey).trim();

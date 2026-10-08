@@ -24,7 +24,7 @@ export default function PuxadasContato({ contactId, cpfSalvo, cpfDigitado }) {
   const cpf = normalizar(estado?.cpf ?? cpfSalvo);
   const alterado = normalizar(cpfDigitado) !== normalizar(cpfSalvo);
   const atuais = estado?.consultas?.filter((c) => c.cpf === cpf) || [];
-  const completas = ["cadastro", "telefones"].every((tipo) => atuais.some((c) => c.tipo === tipo && ["concluida", "nao_encontrado"].includes(c.status)));
+  const completas = (estado?.tipos || []).every((tipo) => atuais.some((c) => c.tipo === tipo && ["concluida", "nao_encontrado"].includes(c.status)));
   const temErro = atuais.some((c) => c.status === "erro");
   const consultando = atuais.some((c) => c.status === "consultando" && Date.now() - new Date(c.atualizadoEm).getTime() < 120000);
 
@@ -55,7 +55,7 @@ export default function PuxadasContato({ contactId, cpfSalvo, cpfDigitado }) {
       const documento = normalizar(atualizado.cpf);
       if (alterado || documento !== normalizar(cpfSalvo) || !validarCPF(documento) || !atualizado.ativo || atualizado.suspensao) return;
       const registros = atualizado.consultas.filter((c) => c.cpf === documento);
-      const finalizadas = ["cadastro", "telefones"].every((tipo) => registros.some((c) => c.tipo === tipo && ["concluida", "nao_encontrado"].includes(c.status)));
+      const finalizadas = (atualizado.tipos || []).every((tipo) => registros.some((c) => c.tipo === tipo && ["concluida", "nao_encontrado"].includes(c.status)));
       // Reabrir usa os resultados salvos; falhas só são repetidas pelo botão explícito.
       if (finalizadas || registros.some((c) => c.status === "consultando" && Date.now() - new Date(c.atualizadoEm).getTime() < 120000)) return;
       const res = await fetch(`/api/contacts/${contactId}/puxadas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repetir }) });
@@ -76,16 +76,17 @@ export default function PuxadasContato({ contactId, cpfSalvo, cpfDigitado }) {
       <span>{ocupado ? "Puxadas · consultando…" : "Puxadas"}</span><span aria-hidden="true">{aberto ? "−" : "+"}</span>
     </button>
     {aberto && <div id={painelId} className="border-t border-slate-200 p-3 space-y-3">
-      <p className="text-[11px] text-slate-500">Cadastro e telefones vinculados · SnoopIntelligence</p>
-      <p className="text-[11px] text-slate-500">Ao abrir, consulta os dados do cliente pelo CPF salvo. Resultados já consultados são reaproveitados.</p>
+      <p className="text-[11px] text-slate-500">Consultas do cliente · SnoopIntelligence</p>
+      <p className="text-[11px] text-slate-500">Ao abrir, executa as consultas selecionadas em Configurações → Integrações. Resultados já consultados são reaproveitados.</p>
       {!estado && !erro && <p className="text-xs text-slate-400">Carregando…</p>}
-      {estado && !estado.ativo && <p className="text-xs text-amber-700">Cadastre a chave do SnoopIntelligence em Configurações → IA para consultar.</p>}
+      {estado && !estado.ativo && <p className="text-xs text-amber-700">Cadastre a chave do SnoopIntelligence em Configurações → Integrações para consultar.</p>}
+      {estado && !estado.tipos?.length && <p className="text-xs text-amber-700">Nenhuma consulta habilitada em Configurações → Integrações.</p>}
       {estado?.suspensao && <p role="status" className="text-xs text-amber-700">{estado.suspensao}</p>}
       {alterado && <p className="text-xs text-amber-700">Salve o CPF alterado antes de consultar.</p>}
       {!validarCPF(cpf) && <p className="text-xs text-slate-500">Preencha e salve um CPF válido na ficha.</p>}
       {erro && <p role="alert" className="text-xs text-red-600">{erro}</p>}
       {estado?.ativo && !estado.suspensao && !completas && <button type="button" disabled={ocupado || alterado || !validarCPF(cpf) || consultando} onClick={() => consultar(temErro)} className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs text-emerald-700 disabled:opacity-50">
-        {ocupado ? "Consultando…" : temErro ? "Repetir consultas com erro" : "Consultar cadastro e telefones"}
+        {ocupado ? "Consultando…" : temErro ? "Repetir consultas com erro" : "Executar consultas selecionadas"}
       </button>}
       {estado && !estado.consultas.length && <p className="text-xs text-slate-400">Nenhuma puxada registrada.</p>}
       {estado?.consultas?.map((consulta) => <div key={consulta.id} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
@@ -95,7 +96,7 @@ export default function PuxadasContato({ contactId, cpfSalvo, cpfDigitado }) {
         {consulta.status === "nao_encontrado" && <p className="text-xs text-slate-500">Nenhum registro encontrado nesta consulta.</p>}
         {consulta.status === "consultando" && <p role="status" className="text-xs text-slate-500">{Date.now() - new Date(consulta.atualizadoEm).getTime() > 120000 ? "Consulta interrompida. Clique em consultar para conferir o estado." : "Consulta em andamento…"}</p>}
         {consulta.erro && <p className="text-xs text-amber-700">{consulta.erro}</p>}
-        {consulta.dados && <Dados valor={consulta.dados} />}
+        {consulta.dados && (Object.keys(consulta.dados).length ? <Dados valor={consulta.dados} /> : <p className="text-xs text-slate-500">Nenhum campo disponível entre os selecionados para exibição.</p>)}
       </div>)}
     </div>}
   </section>;

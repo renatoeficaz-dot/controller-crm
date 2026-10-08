@@ -682,6 +682,7 @@ model Config {
   snoopApiKey             String?
   snoopAtivo              Boolean @default(false)
   snoopErro               String?
+  snoopOpcoes             String?
   // Rotina única: quando true, a IA responde (uma vez) todos os leads do funil que ficaram sem resposta e desliga sozinha.
   reprocessarPendentes     Boolean @default(false)
 

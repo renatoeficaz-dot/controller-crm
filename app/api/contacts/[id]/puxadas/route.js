@@ -4,6 +4,7 @@ import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { getCurrentUser } from "@/lib/session";
 import { consultarPuxadaDoContato } from "@/lib/puxadas";
 import { VERSOES_SNOOP } from "@/lib/snoopCliente.mjs";
+import { lerOpcoesSnoop, filtrarDadosSnoop } from "@/lib/snoopOpcoes.mjs";
 
 const responder = (corpo, status = 200) => NextResponse.json(corpo, { status, headers: { "Cache-Control": "private, no-store" } });
 
@@ -15,9 +16,10 @@ export async function GET(_req, { params }) {
   if (!contato || contato.excluidoEm) return responder({ error: "Contato não encontrado." }, 404);
   const [consultas, cfg] = await Promise.all([
     prisma.consultaDataApi.findMany({ where: { contactId: id, versao: { in: Object.values(VERSOES_SNOOP) } }, orderBy: { atualizadoEm: "desc" } }),
-    prisma.config.findUnique({ where: { id: "singleton" }, select: { snoopAtivo: true, snoopApiKey: true, snoopErro: true } }),
+    prisma.config.findUnique({ where: { id: "singleton" }, select: { snoopAtivo: true, snoopApiKey: true, snoopErro: true, snoopOpcoes: true } }),
   ]);
-  return responder({ cpf: contato.cpf, ativo: !!cfg?.snoopApiKey, automatico: !!cfg?.snoopAtivo, suspensao: cfg?.snoopErro || null, consultas: consultas.map((c) => ({ ...c, tipo: c.versao === VERSOES_SNOOP.cadastro ? "cadastro" : "telefones", dados: c.dados ? JSON.parse(c.dados) : null })) });
+  const opcoes = lerOpcoesSnoop(cfg?.snoopOpcoes);
+  return responder({ cpf: contato.cpf, ativo: !!cfg?.snoopApiKey, automatico: !!cfg?.snoopAtivo, tipos: opcoes.consultas, suspensao: cfg?.snoopErro || null, consultas: consultas.filter((c) => opcoes.consultas.some((tipo) => VERSOES_SNOOP[tipo] === c.versao)).map((c) => ({ ...c, tipo: c.versao === VERSOES_SNOOP.cadastro ? "cadastro" : "telefones", dados: c.dados ? filtrarDadosSnoop(JSON.parse(c.dados), opcoes.campos) : null })) });
 }
 
 export async function POST(req, { params }) {

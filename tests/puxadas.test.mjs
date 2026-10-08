@@ -74,6 +74,15 @@ test("reserva persistente, concorrência, repetição e troca de CPF em SQLite i
     await prisma.consultaDataApi.updateMany({ where: { contactId: c2.id, versao: "snoop_telefones_v1" }, data: { status: "erro", dados: null, atualizadoEm: new Date(Date.now() - 65000) } });
     await servico.consultarTodas(c2.id, { automatico: false, repetir: true });
     assert.equal(chamadas, 7, "falha em telefones não repete o cadastro concluído");
+    await prisma.config.update({ where: { id: "singleton" }, data: { snoopOpcoes: JSON.stringify({ consultas: [], campos: [] }) } });
+    await servico.consultarTodas(c2.id, { automatico: false, repetir: true });
+    assert.equal(chamadas, 7, "desabilitar todas impede chamadas mesmo ao repetir");
+    const c3 = await prisma.contact.create({ data: { name: "Seleção fictícia", cpf: "52998224725", stageId: etapa.id } });
+    await prisma.config.update({ where: { id: "singleton" }, data: { snoopOpcoes: JSON.stringify({ consultas: ["telefones"], campos: ["telefones"] }) } });
+    await servico.consultarTodas(c3.id, { automatico: false });
+    assert.equal(chamadas, 8, "consulta apenas o tipo habilitado");
+    assert.deepEqual((await prisma.consultaDataApi.findMany({ where: { contactId: c3.id } })).map((r) => r.versao), ["snoop_telefones_v1"]);
+    await prisma.contact.delete({ where: { id: c3.id } });
     await prisma.contact.delete({ where: { id: c2.id } });
     await prisma.contact.delete({ where: { id: c.id } });
     assert.equal(await prisma.consultaDataApi.count(), 0, "exclusão definitiva apaga as puxadas");

@@ -64,6 +64,7 @@ const UF_LIST = [
 
 // Ícones de linha, minimalistas (sem depender de lib externa) — 20x20, stroke atual.
 const ICONS = {
+  integracoes: <><path d="M8 3v5m8-5v5M6 8h12v3a6 6 0 0 1-12 0V8Z" /><path d="M12 17v4" /></>,
   honorarios: (
     <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" strokeLinecap="round" strokeLinejoin="round" />
   ),
@@ -169,6 +170,7 @@ const TABS = [
   { key: "mensagens", label: "Mensagens prontas", desc: "Modelos de texto, mídia e contato" },
   { key: "automacao", label: "Automação", desc: "Responsáveis automáticos por etapa" },
   { key: "ia", label: "IA", desc: "Agentes, modelos e chaves de API" },
+  { key: "integracoes", label: "Integrações", desc: "Puxadas: consultas, campos e chave da API" },
   { key: "regua", label: "Régua de cobrança", desc: "Mensagem por faixa de atraso" },
   { key: "desconto", label: "Quitação à vista", desc: "Oferta de desconto pra quem está atrasado" },
   { key: "alteracoes", label: "Alterações", desc: "Log de mudanças em baixas já registradas" },
@@ -299,12 +301,13 @@ export default function Configuracoes() {
             )}
             {tab === "mensagens" && <MensagensProntas />}
             {tab === "automacao" && <AutomacaoFunil />}
+            {tab === "integracoes" && <SnoopConfiguracao />}
             {tab === "ia" && (
               <div className="space-y-6">
                 <InterruptorGlobalIa />
                 <MensagemInicialAuto />
                 <TokenDeepInfra />
-                <SnoopConfiguracao />
+                <button type="button" onClick={() => setTab("integracoes")} className="text-sm text-emerald-700 underline">Configurar SnoopIntelligence em Integrações</button>
                 <SuporteIaConfig />
                 <AgentesIa />
               </div>
