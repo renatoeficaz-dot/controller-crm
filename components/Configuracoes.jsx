@@ -1,5 +1,6 @@
 "use client";
 
+import { CartaoWabaApp, PainelWabaNumero } from "@/components/WabaPaineis";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
@@ -997,7 +998,7 @@ function Numeros() {
   const [numeros, setNumeros] = useState([]);
   const [users, setUsers] = useState([]);
   const [agents, setAgents] = useState([]);
-  const [form, setForm] = useState({ ddi: "55", label: "", number: "", instance: "", userId: "", provider: "evolution" });
+  const [form, setForm] = useState({ ddi: "55", label: "", number: "", instance: "", userId: "", provider: "evolution", wabaPhoneNumberId: "", wabaBusinessAccountId: "", wabaAccessToken: "", wabaCoexistence: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [evo, setEvo] = useState({ evolutionUrl: "", evolutionApiKey: "" });
@@ -1119,7 +1120,7 @@ function Numeros() {
       return;
     }
     const novo = await res.json();
-    setForm({ ddi: "55", label: "", number: "", instance: "", userId: "", provider: "evolution" });
+    setForm({ ddi: "55", label: "", number: "", instance: "", userId: "", provider: "evolution", wabaPhoneNumberId: "", wabaBusinessAccountId: "", wabaAccessToken: "", wabaCoexistence: false });
     setConnectModalOpen(false);
     load();
     conectar(novo); // já tenta gerar o QR do número recém-criado
@@ -1350,6 +1351,8 @@ function Numeros() {
         )}
       </div>
 
+      <CartaoWabaApp />
+
       <div>
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1414,7 +1417,7 @@ function Numeros() {
                       className="absolute right-10 top-14 z-10 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-44 text-sm"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button onClick={() => { setMenuId(null); conectar(n); }} className="w-full text-left px-3 py-2 text-emerald-600 hover:bg-slate-50">Conectar (QR)</button>
+                      <button onClick={() => { setMenuId(null); conectar(n); }} className="w-full text-left px-3 py-2 text-emerald-600 hover:bg-slate-50">{n.provider === "waba" ? "Verificar conexão" : "Conectar (QR)"}</button>
                       <button
                         onClick={async () => {
                           setMenuId(null);
@@ -1495,6 +1498,7 @@ function Numeros() {
               >
                 <option value="evolution">Evolution API</option>
                 <option value="waha">WAHA</option>
+                <option value="waba">WABA — API oficial da Meta</option>
               </select>
             </label>
             <div>
@@ -1520,7 +1524,7 @@ function Numeros() {
             </div>
             <div>
               <Field
-                label={form.provider === "waha" ? "Nome da sessão (WAHA)" : "Instância (Evolution)"}
+                label={form.provider === "waha" ? "Nome da sessão (WAHA)" : form.provider === "waba" ? "Apelido interno (WABA)" : "Instância (Evolution)"}
                 value={form.instance}
                 onChange={(v) => setForm((f) => ({ ...f, instance: v }))}
                 placeholder={form.provider === "waha" ? "ex.: comercial1" : "ex.: comercial1"}
@@ -1528,9 +1532,26 @@ function Numeros() {
               <p className="text-[11px] text-slate-400 mt-1">
                 {form.provider === "waha"
                   ? "Escolha um nome único para a sessão — será criada automaticamente no servidor WAHA."
+                  : form.provider === "waba"
+                  ? "Só um apelido para o sistema (ex.: vendas-oficial). As mensagens chegam pelo Phone Number ID."
                   : "Informe a instância criada no servidor Evolution."}
               </p>
             </div>
+            {form.provider === "waba" && (
+              <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+                <Field label="Phone Number ID (Meta)" value={form.wabaPhoneNumberId} onChange={(v) => setForm((f) => ({ ...f, wabaPhoneNumberId: v }))} placeholder="ex.: 109876543210987" />
+                <Field label="WABA ID (opcional)" value={form.wabaBusinessAccountId} onChange={(v) => setForm((f) => ({ ...f, wabaBusinessAccountId: v }))} placeholder="ex.: 102938475610293" />
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-500">Token de acesso</span>
+                  <input type="password" value={form.wabaAccessToken} onChange={(e) => setForm((f) => ({ ...f, wabaAccessToken: e.target.value }))} placeholder="token permanente" className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow" />
+                </label>
+                <label className="flex items-start gap-2 text-xs text-slate-600">
+                  <input type="checkbox" checked={form.wabaCoexistence} onChange={(e) => setForm((f) => ({ ...f, wabaCoexistence: e.target.checked }))} className="mt-0.5" />
+                  <span>Coexistência: manter o número também no app WhatsApp Business do celular.</span>
+                </label>
+                <p className="text-[11px] text-slate-400">Prefere conectar pela Meta? Cadastre só o nome e o apelido; depois abra o número e use “Conectar pela Meta (Cadastro Integrado)”.</p>
+              </div>
+            )}
             <label className="block">
               <span className="text-xs text-slate-400">Atribuir a um usuário</span>
               <select
@@ -1587,7 +1608,7 @@ function Numeros() {
               <div className="p-5 space-y-5">
                 <div className="flex items-center gap-4 text-xs">
                   <button onClick={() => conectar(n)} className="text-emerald-600 hover:text-emerald-700 font-medium">
-                    Conectar (QR)
+                    {n.provider === "waba" ? "Verificar conexão" : "Conectar (QR)"}
                   </button>
                   <button
                     onClick={async () => {
@@ -1627,11 +1648,13 @@ function Numeros() {
                     >
                       <option value="evolution">Evolution API</option>
                       <option value="waha">WAHA</option>
+                      <option value="waba">WABA — API oficial da Meta</option>
                     </select>
                     <p className="text-[11px] text-slate-400 mt-1">
-                      Ao trocar, use "Conectar (QR)" acima para gerar um novo QR Code no provedor escolhido.
+                      Ao trocar, use "Conectar (QR)" acima para gerar um novo QR Code no provedor escolhido (na API oficial não há QR: use os dados abaixo ou o Cadastro Integrado).
                     </p>
                   </label>
+                  {n.provider === "waba" && <PainelWabaNumero key={n.id} n={n} onSalvo={() => { load(); loadStatus(); }} />}
                   <label className="block">
                     <span className="text-xs text-slate-400">Usuário responsável</span>
                     <select

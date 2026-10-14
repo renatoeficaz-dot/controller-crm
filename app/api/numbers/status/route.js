@@ -15,12 +15,14 @@ export async function GET() {
   const wahaApikey = cfg?.wahaApiKey || "";
 
   const numeros = await prisma.whatsappNumber.findMany({
-    select: { id: true, label: true, number: true, instance: true, ultimoEstado: true, provider: true },
+    select: { id: true, label: true, number: true, instance: true, ultimoEstado: true, provider: true, wabaPhoneNumberId: true, wabaAccessToken: true },
   });
 
   const status = await Promise.all(
     numeros.map(async (n) => {
-      const state = n.provider === "waha"
+      const state = n.provider === "waba"
+        ? await (await import("@/lib/waba")).stateWaba(n)
+        : n.provider === "waha"
         ? await sessionStateWaha(wahaBase, wahaApikey, n.instance)
         : await instanceState(base, apikey, n.instance);
       if (state !== "unknown" && state !== n.ultimoEstado) {

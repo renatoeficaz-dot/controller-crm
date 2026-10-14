@@ -32,6 +32,14 @@ export async function POST(req, { params }) {
   const webhookUrl = appWebhookUrl(req, num.provider);
   const proxy = num.proxyServer ? { server: num.proxyServer, username: num.proxyUsername, password: num.proxyPassword } : null;
 
+  if (num.provider === "waba") {
+    // API oficial: não tem QR Code. "Conectar" confere o Phone Number ID + token na Meta e devolve o estado.
+    const { infoNumeroWaba } = await import("@/lib/waba");
+    const info = await infoNumeroWaba(num, { forcar: true });
+    if (info.state === "open") return NextResponse.json({ connected: true, waba: true, info: { numero: info.display, nome: info.nome, qualidade: info.qualidade, plataforma: info.plataforma } });
+    return NextResponse.json({ error: "WABA não conectado: " + (info.error || "a Meta não confirmou o número.") + " Confira o Phone Number ID e o token, ou use o Cadastro Integrado." }, { status: 502 });
+  }
+
   if (num.provider === "waha") {
     // O WAHA só aceita [a-zA-Z0-9_-] no nome da sessão — `instance` é texto
     // livre digitado ao cadastrar o número (ex.: "Cobrança SC", com cedilha e

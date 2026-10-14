@@ -14,7 +14,13 @@ export async function PATCH(req, { params }) {
     }
     if ("userId" in body) data.userId = body.userId || null;
     if ("agentId" in body) data.agentId = body.agentId || null;
-    if ("provider" in body) data.provider = body.provider === "waha" ? "waha" : "evolution";
+    if ("provider" in body) data.provider = body.provider === "waha" ? "waha" : body.provider === "waba" ? "waba" : "evolution";
+    // WABA (API oficial da Meta): credenciais do número. O token só muda se vier um valor novo (nunca o "***" da listagem).
+    if ("wabaPhoneNumberId" in body) data.wabaPhoneNumberId = texto(body.wabaPhoneNumberId).replace(/\D/g, "") || null;
+    if ("wabaBusinessAccountId" in body) data.wabaBusinessAccountId = texto(body.wabaBusinessAccountId).replace(/\D/g, "") || null;
+    if ("wabaAccessToken" in body && body.wabaAccessToken !== "***") data.wabaAccessToken = texto(body.wabaAccessToken).trim() || null;
+    if ("wabaCoexistence" in body) data.wabaCoexistence = !!body.wabaCoexistence;
+    if ("wabaTemplateForaJanela" in body) data.wabaTemplateForaJanela = texto(body.wabaTemplateForaJanela).trim() || null;
     if ("estadosCobranca" in body) data.estadosCobranca = texto(body.estadosCobranca) || null;
     if ("mensagemCobranca" in body) data.mensagemCobranca = texto(body.mensagemCobranca) || null;
     if ("aquecimentoAtivo" in body) {
@@ -59,7 +65,7 @@ export async function PATCH(req, { params }) {
         user: { select: { id: true, name: true } },
       },
     });
-    return NextResponse.json(updated);
+    return NextResponse.json({ ...updated, wabaAccessToken: updated.wabaAccessToken ? "***" : null });
   } catch (err) {
     // Registro do `where` não existe (link velho, dois cliques, id
     // chutado): é "não achei", não erro de servidor.

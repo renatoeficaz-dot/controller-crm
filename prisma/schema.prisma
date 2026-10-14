@@ -637,6 +637,15 @@ model Config {
   evolutionApiKey   String? // API Key global da Evolution
   wahaUrl           String? // URL do servidor WAHA (ex.: http://ip:3001)
   wahaApiKey        String? // API Key global do WAHA
+
+  // WABA (API oficial da Meta / WhatsApp Cloud API) — credenciais do app na Meta.
+  wabaAppId              String?
+  wabaAppSecret          String? // também valida a assinatura (X-Hub-Signature-256) do webhook
+  wabaVerifyToken        String? // "Verify token" do webhook no painel da Meta
+  wabaConfigId           String? // ID da configuração do Cadastro Integrado (Embedded Signup / coexistência)
+  wabaGraphVersion       String? @default("v23.0")
+  wabaTemplateForaJanela String? // nome do template aprovado usado fora da janela de 24h
+  wabaTemplateIdioma     String? @default("pt_BR")
   // Token opcional do webhook: quando preenchido, /api/webhook/* passa a
   // exigir ?t=TOKEN. Fica VAZIO por padrao de proposito — o webhook recebe
   // mensagem real de cliente 24h, entao exigir token de cara derrubaria a
@@ -973,7 +982,17 @@ model WhatsappNumber {
   label              String // nome amigável (ex.: "Comercial 1")
   number             String // número (ex.: 5511999998888)
   instance           String // nome da instância (Evolution) ou sessão (WAHA)
-  provider           String   @default("evolution") // "evolution" | "waha" — qual API atende este número
+  provider           String   @default("evolution") // "evolution" | "waha" | "waba" — qual API atende este número
+
+  // WABA = API oficial da Meta (WhatsApp Cloud API). Para provider="waba", `instance` é só um apelido interno
+  // (as mensagens chegam pelo phone_number_id). Coexistência = o mesmo número continua no app WhatsApp Business
+  // do celular enquanto a API atende — mensagens enviadas pelo app chegam como "ecos" (smb_message_echoes).
+  wabaPhoneNumberId       String?
+  wabaBusinessAccountId   String?
+  wabaAccessToken         String?
+  wabaCoexistence         Boolean @default(false)
+  wabaTemplateForaJanela  String? // template usado fora da janela de 24h (se vazio, usa o da Configuração)
+  wabaQualidade           String? // última qualidade informada pela Meta (GREEN/YELLOW/RED)
   user               User?    @relation("NumeroResponsavel", fields: [userId], references: [id], onDelete: SetNull)
   userId             String?
   usuariosVisualizam User[]   @relation("NumeroVisibilidade") // usuários que podem ver as mensagens deste número

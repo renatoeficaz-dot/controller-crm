@@ -11,7 +11,10 @@ export async function GET(_req, { params }) {
 
   const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
   let state;
-  if (num.provider === "waha") {
+  if (num.provider === "waba") {
+    const { stateWaba } = await import("@/lib/waba");
+    state = await stateWaba(num);
+  } else if (num.provider === "waha") {
     state = await sessionStateWaha(cfg?.wahaUrl || "", cfg?.wahaApiKey || "", num.instance);
   } else {
     const base = cfg?.evolutionUrl || process.env.EVOLUTION_API_URL || "";

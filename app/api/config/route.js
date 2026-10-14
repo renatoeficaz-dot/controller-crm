@@ -29,6 +29,8 @@ const CAMPOS_SECRETOS = [
   // porta sem TLS. Entregar isso pra qualquer usuário logado é dar o endereço
   // de um serviço interno que não fica atrás do mesmo login do CRM.
   "evolutionUrl", "wahaUrl",
+  // WABA (API oficial da Meta): segredo do app e token de verificação do webhook.
+  "wabaAppSecret", "wabaVerifyToken",
   // O código da calculadora é disfarce, não senha — mas entregá-lo pra
   // qualquer usuário logado tornaria o disfarce inútil dentro da própria
   // equipe, que é justamente de quem ele às vezes precisa esconder a tela.
@@ -53,8 +55,11 @@ export async function GET() {
       data: { metaAdsVerifyToken: crypto.randomBytes(24).toString("hex") },
     });
   }
+  if (!cfg.wabaVerifyToken) {
+    cfg = await prisma.config.update({ where: { id: "singleton" }, data: { wabaVerifyToken: crypto.randomBytes(24).toString("hex") } });
+  }
   const user = await getCurrentUser().catch(() => null);
-  if (isAdmin(user)) return NextResponse.json({ ...cfg, dataApiKey: cfg.dataApiKey ? "***" : null, snoopApiKey: cfg.snoopApiKey ? "***" : null });
+  if (isAdmin(user)) return NextResponse.json({ ...cfg, dataApiKey: cfg.dataApiKey ? "***" : null, snoopApiKey: cfg.snoopApiKey ? "***" : null, wabaAppSecret: cfg.wabaAppSecret ? "***" : null });
 
   const seguro = { ...cfg };
   for (const campo of CAMPOS_SECRETOS) {
@@ -96,6 +101,13 @@ export async function PATCH(req) {
   if ("wahaUrl" in body) data.wahaUrl = texto(body.wahaUrl) || null;
   if ("wahaApiKey" in body) data.wahaApiKey = texto(body.wahaApiKey) || null;
   if ("webhookToken" in body) data.webhookToken = texto(body.webhookToken) || null;
+  if ("wabaAppId" in body) data.wabaAppId = texto(body.wabaAppId).replace(/\D/g, "") || null;
+  if ("wabaAppSecret" in body && body.wabaAppSecret !== "***") data.wabaAppSecret = texto(body.wabaAppSecret).trim() || null;
+  if ("wabaVerifyToken" in body && body.wabaVerifyToken) data.wabaVerifyToken = texto(body.wabaVerifyToken).trim().slice(0, 200);
+  if ("wabaConfigId" in body) data.wabaConfigId = texto(body.wabaConfigId).replace(/\D/g, "") || null;
+  if ("wabaGraphVersion" in body) data.wabaGraphVersion = /^v\d{1,2}\.\d$/.test(texto(body.wabaGraphVersion).trim()) ? texto(body.wabaGraphVersion).trim() : "v23.0";
+  if ("wabaTemplateForaJanela" in body) data.wabaTemplateForaJanela = texto(body.wabaTemplateForaJanela).trim().replace(/[^a-z0-9_]/gi, "").toLowerCase() || null;
+  if ("wabaTemplateIdioma" in body) data.wabaTemplateIdioma = texto(body.wabaTemplateIdioma).trim() || "pt_BR";
   if ("metaAdsAppSecret" in body) data.metaAdsAppSecret = texto(body.metaAdsAppSecret) || null;
   if ("metaAdsPageId" in body) data.metaAdsPageId = texto(body.metaAdsPageId) || null;
   if ("metaAdsPageToken" in body) data.metaAdsPageToken = texto(body.metaAdsPageToken) || null;

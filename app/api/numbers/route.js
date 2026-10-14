@@ -17,9 +17,10 @@ export async function GET() {
     },
   });
   const user = await getCurrentUser().catch(() => null);
-  if (isAdmin(user)) return NextResponse.json(numbers);
+  const semToken = numbers.map((n) => ({ ...n, wabaAccessToken: n.wabaAccessToken ? "***" : null }));
+  if (isAdmin(user)) return NextResponse.json(semToken);
 
-  const seguro = numbers.map(({ proxyUsername, proxyPassword, ...n }) => n);
+  const seguro = semToken.map(({ proxyUsername, proxyPassword, ...n }) => n);
   return NextResponse.json(seguro);
 }
 
@@ -32,13 +33,23 @@ export async function POST(req) {
   if (!label || !number || !instance) {
     return NextResponse.json({ error: "Preencha nome, número e instância." }, { status: 400 });
   }
-  const provider = body.provider === "waha" ? "waha" : "evolution";
+  const provider = body.provider === "waha" ? "waha" : body.provider === "waba" ? "waba" : "evolution";
   // WAHA só aceita [a-zA-Z0-9_-] no nome da sessão — sem isso, "Cobrança SC"
   // (cedilha/espaço) salvava certinho aqui mas dava erro só depois, ao tentar
   // conectar de verdade.
   if (provider === "waha") instance = wahaSessionSlug(instance);
   const created = await prisma.whatsappNumber.create({
-    data: { label, number, instance, provider, userId: body.userId || null },
+    data: {
+      label, number, instance, provider, userId: body.userId || null,
+      ...(provider === "waba"
+        ? {
+            wabaPhoneNumberId: texto(body.wabaPhoneNumberId).replace(/\D/g, "") || null,
+            wabaBusinessAccountId: texto(body.wabaBusinessAccountId).replace(/\D/g, "") || null,
+            wabaAccessToken: texto(body.wabaAccessToken).trim() || null,
+            wabaCoexistence: !!body.wabaCoexistence,
+          }
+        : {}),
+    },
     include: {
       user: { select: { id: true, name: true } },
       agent: { select: { id: true, name: true } },

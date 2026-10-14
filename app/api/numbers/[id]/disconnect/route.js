@@ -20,6 +20,9 @@ export async function POST(_req, { params }) {
   const num = await prisma.whatsappNumber.findUnique({ where: { id } });
   if (!num) return NextResponse.json({ error: "Número não encontrado" }, { status: 404 });
 
+  if (num.provider === "waba") {
+    return NextResponse.json({ error: "Número da API oficial não tem sessão para encerrar aqui. Para desvincular, remova o número no WhatsApp Manager (Meta) ou use \"Remover\" para tirar só do CRM." }, { status: 400 });
+  }
   const { base, apikey, wahaBase, wahaApikey } = await creds();
   const result = num.provider === "waha"
     ? await disconnectSessionWaha(wahaBase, wahaApikey, num.instance)
