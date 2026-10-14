@@ -9,6 +9,7 @@ import Icone from "@/components/Icones";
 import RelatoriosGestao from "@/components/RelatoriosGestao";
 import RelatoriosOperacao from "@/components/RelatoriosOperacao";
 import RelatoriosAvancado from "@/components/RelatoriosAvancado";
+import CacEtiquetas from "@/components/CacEtiquetas";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2781,6 +2782,8 @@ export default function Relatorios() {
           </div>
         </div>
       )}
+
+      <CacEtiquetas ini={ini} fim={fim} />
 
       {openContactId && (
         <ContactModal

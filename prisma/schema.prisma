@@ -1196,6 +1196,8 @@ model Tag {
   name      String        @unique
   color     String        @default("#6366f1") // cor do badge
   contacts  Contact[]     @relation("ContactTags")
+  // Custo por lead desta etiqueta (R$) — base do CAC por etiqueta nos Relatórios.
+  custoPorLead Float?
   rules     AutoTagRule[]
   createdAt DateTime      @default(now())
 }
