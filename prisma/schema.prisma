@@ -194,6 +194,8 @@ model Contact {
   checklistDocumentacao        String?
   // Comerciante que trabalha em casa: o endereço residencial vale como comercial.
   comercioNaResidencia         Boolean   @default(false)
+  // Comprovante em nome dos PAIS: o nome deles aparece na filiação do RG/CNH do cliente, então não pede certidão — só confere o documento.
+  comprovanteDosPais           Boolean   @default(false)
   // Último documento que a IA pediu ao cliente (chave do passo em lib/checklistDoc.js) — evita pedir o mesmo duas vezes.
   docPedido                    String?
   // true = as fotos/documentos que o cliente já tinha mandado antes do atendimento por etapas já foram lidas e marcadas.
