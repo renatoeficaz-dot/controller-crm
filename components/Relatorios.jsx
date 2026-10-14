@@ -10,6 +10,7 @@ import RelatoriosGestao from "@/components/RelatoriosGestao";
 import RelatoriosOperacao from "@/components/RelatoriosOperacao";
 import RelatoriosAvancado from "@/components/RelatoriosAvancado";
 import CacEtiquetas from "@/components/CacEtiquetas";
+import HorarioCriacao from "@/components/HorarioCriacao";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2782,6 +2783,11 @@ export default function Relatorios() {
           </div>
         </div>
       )}
+
+      <HorarioCriacao
+        ini={preset === "tudo" ? (criacaoIni || ini) : ini}
+        fim={preset === "tudo" ? (criacaoFim || fim) : fim}
+      />
 
       <CacEtiquetas
         ini={ini}
