@@ -14,14 +14,21 @@ export async function GET(req) {
   const de = new Date(`${ini}T00:00:00-03:00`);
   const ate = new Date(new Date(`${fim}T00:00:00-03:00`).getTime() + 86400e3);
   if (isNaN(de) || isNaN(ate) || ate <= de) return NextResponse.json({ error: "Período inválido." }, { status: 400 });
+  // Janela de criação dos leads (pode ser outra, quando o filtro usado é o de "Data de criação da lead"). coorte=1: as vendas
+  // contadas são só dos leads criados nessa janela (quando o período de vendas é "todo período").
+  const leadIni = diaValido(searchParams.get("leadIni")) ? searchParams.get("leadIni") : ini;
+  const leadFim = diaValido(searchParams.get("leadFim")) ? searchParams.get("leadFim") : fim;
+  const leadDe = new Date(`${leadIni}T00:00:00-03:00`);
+  const leadAte = new Date(new Date(`${leadFim}T00:00:00-03:00`).getTime() + 86400e3);
+  const coorte = searchParams.get("coorte") === "1";
 
   const tags = await prisma.tag.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true, custoPorLead: true } });
   const linhas = [];
   for (const t of tags) {
     const [leads, vendas] = await Promise.all([
-      prisma.contact.count({ where: { excluidoEm: null, createdAt: { gte: de, lt: ate }, tags: { some: { id: t.id } } } }),
+      prisma.contact.count({ where: { excluidoEm: null, createdAt: { gte: leadDe, lt: leadAte }, tags: { some: { id: t.id } } } }),
       prisma.contact.count({
-        where: { excluidoEm: null, valorCapital: { gt: 0 }, entrouRecebimentoEm: { gte: de, lt: ate }, stage: { name: { not: "Venda perdida" } }, tags: { some: { id: t.id } } },
+        where: { excluidoEm: null, valorCapital: { gt: 0 }, entrouRecebimentoEm: { gte: de, lt: ate }, ...(coorte ? { createdAt: { gte: leadDe, lt: leadAte } } : {}), stage: { name: { not: "Venda perdida" } }, tags: { some: { id: t.id } } },
       }),
     ]);
     const cpl = t.custoPorLead ?? null;

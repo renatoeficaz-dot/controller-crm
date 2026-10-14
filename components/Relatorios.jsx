@@ -2783,7 +2783,13 @@ export default function Relatorios() {
         </div>
       )}
 
-      <CacEtiquetas ini={ini} fim={fim} />
+      <CacEtiquetas
+        ini={ini}
+        fim={fim}
+        leadIni={preset === "tudo" ? (criacaoIni || ini) : ini}
+        leadFim={preset === "tudo" ? (criacaoFim || fim) : fim}
+        coorte={preset === "tudo" && !!(criacaoIni || criacaoFim)}
+      />
 
       {openContactId && (
         <ContactModal

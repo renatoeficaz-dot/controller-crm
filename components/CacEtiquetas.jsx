@@ -6,20 +6,24 @@ const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFra
 
 // CAC por etiqueta no período do filtro: o custo por lead de cada etiqueta é digitado aqui (fica salvo na etiqueta);
 // venda = lead que foi para Recebimento no período.
-export default function CacEtiquetas({ ini, fim }) {
+export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
   const [dados, setDados] = useState(null);
   const [erro, setErro] = useState("");
   const [rascunho, setRascunho] = useState({});
   const [salvando, setSalvando] = useState(null);
 
   async function carregar() {
-    const res = await fetch(`/api/relatorios/cac-etiquetas?ini=${ini}&fim=${fim}`);
+    const qs = new URLSearchParams({ ini, fim });
+    if (leadIni) qs.set("leadIni", leadIni);
+    if (leadFim) qs.set("leadFim", leadFim);
+    if (coorte) qs.set("coorte", "1");
+    const res = await fetch(`/api/relatorios/cac-etiquetas?${qs}`);
     const d = await res.json().catch(() => null);
     if (!res.ok) { setErro(d?.error || "Não foi possível calcular."); return; }
     setErro("");
     setDados(d);
   }
-  useEffect(() => { carregar(); }, [ini, fim]);
+  useEffect(() => { carregar(); }, [ini, fim, leadIni, leadFim, coorte]);
 
   async function salvarCusto(l) {
     const txt = rascunho[l.id];
@@ -39,7 +43,7 @@ export default function CacEtiquetas({ ini, fim }) {
     <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 mt-4">
       <h2 className="text-sm font-semibold text-slate-800">CAC por etiqueta</h2>
       <p className="text-[11px] text-slate-400 mb-3">
-        Digite o custo por lead de cada etiqueta. No período filtrado ({ini.split("-").reverse().join("/")} a {fim.split("-").reverse().join("/")}): custo = custo por lead × leads criados com a etiqueta; venda = lead que foi para Recebimento; CAC = custo ÷ vendas.
+        Digite o custo por lead de cada etiqueta. Leads criados de {(leadIni || ini).split("-").reverse().join("/")} a {(leadFim || fim).split("-").reverse().join("/")}; vendas = leads que foram para Recebimento de {ini.split("-").reverse().join("/")} a {fim.split("-").reverse().join("/")}{coorte ? " (só dos leads criados nessa janela)" : ""}. Custo = custo por lead × leads; CAC = custo ÷ vendas.
       </p>
       {erro && <p className="text-xs text-red-500 mb-2">{erro}</p>}
       <div className="overflow-x-auto">
