@@ -65,12 +65,13 @@ export async function GET(_req, { params }) {
       where: { id },
       include: { membros: { include: { user: { select: { id: true, name: true } } } } },
     }),
+    // As 300 MAIS RECENTES (antes eram as 300 mais antigas: conversa longa parava de mostrar mensagem e print novos).
     prisma.mensagemInterna.findMany({
       where: { conversaId: id },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       take: 300,
       include: INCLUI_MENSAGEM,
-    }),
+    }).then((lista) => lista.reverse()),
   ]);
 
   // Só grava "lido até" quando há mesmo mensagem nova. Gravar em toda consulta
