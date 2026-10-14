@@ -11,6 +11,7 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
   const [erro, setErro] = useState("");
   const [rascunho, setRascunho] = useState({});
   const [salvando, setSalvando] = useState(null);
+  const [rascunhoTotal, setRascunhoTotal] = useState({});
 
   async function carregar() {
     const qs = new URLSearchParams({ ini, fim });
@@ -38,12 +39,29 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
     carregar();
   }
 
+  // Digitou o CUSTO TOTAL da etiqueta no período: o custo por lead sai de total ÷ leads do período e fica salvo na etiqueta.
+  async function salvarTotal(l) {
+    const txt = rascunhoTotal[l.id];
+    if (txt === undefined) return;
+    const limpo = txt.replace(/\./g, "").replace(",", ".").trim();
+    const total = limpo === "" ? null : Number(limpo);
+    if (total != null && (!Number.isFinite(total) || total < 0)) { setErro("Custo total inválido."); return; }
+    if (total != null && l.leads === 0) { setErro("Essa etiqueta não tem leads no período — não dá para calcular o custo por lead."); return; }
+    const porLead = total == null ? null : Math.round((total / l.leads) * 100) / 100;
+    setSalvando(l.id);
+    await fetch(`/api/tags/${l.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ custoPorLead: porLead }) });
+    setSalvando(null);
+    setRascunhoTotal((r) => { const n = { ...r }; delete n[l.id]; return n; });
+    setErro("");
+    carregar();
+  }
+
   const linhas = dados?.linhas || [];
   return (
     <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 mt-4">
       <h2 className="text-sm font-semibold text-slate-800">CAC por etiqueta</h2>
       <p className="text-[11px] text-slate-400 mb-3">
-        Digite o custo por lead de cada etiqueta. Leads criados de {(leadIni || ini).split("-").reverse().join("/")} a {(leadFim || fim).split("-").reverse().join("/")}; vendas = leads que foram para Recebimento de {ini.split("-").reverse().join("/")} a {fim.split("-").reverse().join("/")}{coorte ? " (só dos leads criados nessa janela)" : ""}. Custo = custo por lead × leads; CAC = custo ÷ vendas.
+        Digite o custo por lead de cada etiqueta — ou o custo total do período, que o sistema divide pelos leads para achar o custo por lead. Leads criados de {(leadIni || ini).split("-").reverse().join("/")} a {(leadFim || fim).split("-").reverse().join("/")}; vendas = leads que foram para Recebimento de {ini.split("-").reverse().join("/")} a {fim.split("-").reverse().join("/")}{coorte ? " (só dos leads criados nessa janela)" : ""}. Custo = custo por lead × leads; CAC = custo ÷ vendas.
       </p>
       {erro && <p className="text-xs text-red-500 mb-2">{erro}</p>}
       <div className="overflow-x-auto">
@@ -86,7 +104,18 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.docs}{l.leads > 0 && <span className="text-[10px] text-slate-400"> ({Math.round((l.docs / l.leads) * 100)}%)</span>}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.analise}{l.leads > 0 && <span className="text-[10px] text-slate-400"> ({Math.round((l.analise / l.leads) * 100)}%)</span>}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.video}{l.leads > 0 && <span className="text-[10px] text-slate-400"> ({Math.round((l.video / l.leads) * 100)}%)</span>}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{l.custo != null ? money(l.custo) : "—"}</td>
+                <td className="px-3 py-1.5 text-right">
+                  <input
+                    inputMode="decimal"
+                    value={rascunhoTotal[l.id] ?? (l.custo != null ? l.custo.toFixed(2).replace(".", ",") : "")}
+                    onChange={(e) => setRascunhoTotal((r) => ({ ...r, [l.id]: e.target.value }))}
+                    onBlur={() => salvarTotal(l)}
+                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                    placeholder="R$ total"
+                    title="Digite o custo total da etiqueta no período: o custo por lead é calculado (total ÷ leads)"
+                    className={`w-28 text-right text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400 ${salvando === l.id ? "opacity-50" : ""}`}
+                  />
+                </td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.vendas}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.conversao != null ? (l.conversao * 100).toFixed(1) + "%" : "—"}</td>
                 <td className="pl-3 py-1.5 text-right tabular-nums font-medium">{l.cac != null ? money(l.cac) : l.custo != null ? "sem vendas" : "—"}</td>
