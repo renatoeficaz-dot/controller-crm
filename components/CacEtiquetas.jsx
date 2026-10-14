@@ -53,6 +53,9 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
               <th className="text-left font-medium py-2 pr-3">Etiqueta</th>
               <th className="text-right font-medium px-3 py-2">Custo por lead</th>
               <th className="text-right font-medium px-3 py-2">Leads</th>
+              <th className="text-right font-medium px-3 py-2" title="Leads que passaram pela etapa Documentação">Documentação</th>
+              <th className="text-right font-medium px-3 py-2" title="Leads que passaram pela etapa Análise">Análise</th>
+              <th className="text-right font-medium px-3 py-2" title="Leads que passaram pela etapa Vídeo chamada">Vídeo chamada</th>
               <th className="text-right font-medium px-3 py-2">Custo total</th>
               <th className="text-right font-medium px-3 py-2">Vendas</th>
               <th className="text-right font-medium px-3 py-2">Conversão</th>
@@ -80,6 +83,9 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
                   />
                 </td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.leads}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{l.docs}{l.leads > 0 && <span className="text-[10px] text-slate-400"> ({Math.round((l.docs / l.leads) * 100)}%)</span>}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{l.analise}{l.leads > 0 && <span className="text-[10px] text-slate-400"> ({Math.round((l.analise / l.leads) * 100)}%)</span>}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{l.video}{l.leads > 0 && <span className="text-[10px] text-slate-400"> ({Math.round((l.video / l.leads) * 100)}%)</span>}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.custo != null ? money(l.custo) : "—"}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.vendas}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.conversao != null ? (l.conversao * 100).toFixed(1) + "%" : "—"}</td>
@@ -87,13 +93,16 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
               </tr>
             ))}
             {linhas.length === 0 && (
-              <tr><td colSpan={7} className="py-4 text-center text-xs text-slate-400">Nenhuma etiqueta cadastrada.</td></tr>
+              <tr><td colSpan={10} className="py-4 text-center text-xs text-slate-400">Nenhuma etiqueta cadastrada.</td></tr>
             )}
           </tbody>
           {dados?.total && linhas.some((l) => l.custo != null) && (
             <tfoot>
               <tr className="text-xs font-semibold text-slate-700">
                 <td className="pt-2 pr-3">Total (etiquetas com custo)</td>
+                <td />
+                <td />
+                <td />
                 <td />
                 <td />
                 <td className="pt-2 px-3 text-right tabular-nums">{money(dados.total.custo)}</td>

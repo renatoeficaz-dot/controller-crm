@@ -25,15 +25,21 @@ export async function GET(req) {
   const tags = await prisma.tag.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true, custoPorLead: true } });
   const linhas = [];
   for (const t of tags) {
-    const [leads, vendas] = await Promise.all([
-      prisma.contact.count({ where: { excluidoEm: null, createdAt: { gte: leadDe, lt: leadAte }, tags: { some: { id: t.id } } } }),
+    const baseLeads = { excluidoEm: null, createdAt: { gte: leadDe, lt: leadAte }, tags: { some: { id: t.id } } };
+    // Quantos dos leads da etiqueta já passaram por cada etapa do funil (qualquer momento, pelo histórico de etapas).
+    const passou = (etapa) => prisma.contact.count({ where: { ...baseLeads, etapaLogs: { some: { paraEtapa: etapa } } } });
+    const [leads, docs, analise, video, vendas] = await Promise.all([
+      prisma.contact.count({ where: baseLeads }),
+      passou("Documentação"),
+      passou("Análise"),
+      passou("Vídeo chamada"),
       prisma.contact.count({
         where: { excluidoEm: null, valorCapital: { gt: 0 }, entrouRecebimentoEm: { gte: de, lt: ate }, ...(coorte ? { createdAt: { gte: leadDe, lt: leadAte } } : {}), stage: { name: { not: "Venda perdida" } }, tags: { some: { id: t.id } } },
       }),
     ]);
     const cpl = t.custoPorLead ?? null;
     const custo = cpl != null ? cpl * leads : null;
-    linhas.push({ id: t.id, nome: t.name, cor: t.color, custoPorLead: cpl, leads, custo, vendas, cac: custo != null && vendas > 0 ? custo / vendas : null, conversao: leads > 0 ? vendas / leads : null });
+    linhas.push({ id: t.id, nome: t.name, cor: t.color, custoPorLead: cpl, leads, docs, analise, video, custo, vendas, cac: custo != null && vendas > 0 ? custo / vendas : null, conversao: leads > 0 ? vendas / leads : null });
   }
   const comCusto = linhas.filter((l) => l.custo != null);
   const custoTotal = comCusto.reduce((s, l) => s + l.custo, 0);
