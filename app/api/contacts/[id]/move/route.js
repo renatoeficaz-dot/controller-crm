@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { regenerarParcelas, lancarLiberacaoCapital } from "@/lib/cobranca";
 import { sendRecebimentoNotice, sendTemplateByTitle } from "@/lib/ia";
 import { resolveInstanceForContact } from "@/lib/evolution";
@@ -189,6 +189,12 @@ export async function PATCH(req, { params }) {
       ? await prisma.stage.findUnique({ where: { id: contact.stageId }, select: { name: true } })
       : null;
   
+    // Cliente que estava em "Pago" e volta para Liberação pagamento/Recebimento com capital novo é renovação, mesmo sem passar pelo botão
+    // Renovar (o gestor só mexeu no capital e arrastou o card): sem marcar renovadoEm, a renovação não aparecia nas Metas nem nos relatórios.
+    if (trocandoDeEtapa && stageAnterior?.name === "Pago" && (stage.name === "Liberação pagamento" || stage.name === "Recebimento")) {
+      data.renovadoEm = new Date();
+    }
+
     const updated = await prisma.contact.update({ where: { id }, data });
 
     // Lead que vai para "Venda perdida" sem ter pago nada: as parcelas em aberto saem da cobrança (some "atrasada",
@@ -241,7 +247,8 @@ export async function PATCH(req, { params }) {
       // chamada disparando em renovação, corrigida ontem em
       // lib/videoChamadaCobrador.js).
       if ((updated.cicloAtual || 1) <= 1) {
-        await sendRecebimentoNotice(updated).catch(() => {});
+        // Envio no WhatsApp em segundo plano: o gestor não fica travado esperando o provedor responder.
+        after(async () => { await sendRecebimentoNotice(updated).catch(() => {}); });
       }
       await lancarLiberacaoCapital(updated).catch(() => {});
     }
@@ -256,7 +263,7 @@ export async function PATCH(req, { params }) {
     if (stage.name === "Análise" && trocandoDeEtapa) {
       const { avisarAnaliseForaDoHorario } = await import("@/lib/fluxoDuvida");
       const inst = await resolveInstanceForContact(id).catch(() => null);
-      if (inst) await avisarAnaliseForaDoHorario(updated, inst).catch(() => {});
+      if (inst) after(async () => { await avisarAnaliseForaDoHorario(updated, inst).catch(() => {}); });
     }
 
     // Ao ENTRAR em "Vídeo chamada" / "Análise": cria sozinho o lembrete da
@@ -277,8 +284,11 @@ export async function PATCH(req, { params }) {
     if (stage.name === "Venda perdida" && trocandoDeEtapa && motivoPerda) {
       const motivo = await prisma.motivoPerda.findUnique({ where: { nome: motivoPerda }, include: { template: true } });
       if (motivo?.template) {
-        const instance = await resolveInstanceForContact(id);
-        await sendTemplateByTitle(motivo.template.title, updated, instance).catch(() => {});
+        const tituloMsg = motivo.template.title;
+        after(async () => {
+          const instance = await resolveInstanceForContact(id).catch(() => null);
+          if (instance) await sendTemplateByTitle(tituloMsg, updated, instance).catch(() => {});
+        });
       }
     }
 
