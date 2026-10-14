@@ -480,7 +480,8 @@ export default function ChatView() {
     if (!selectedId || instanceDefaultedForRef.current === selectedId) return;
     const lastWithInstance = [...messages].reverse().find((m) => m.instance);
     setSelectedInstance(lastWithInstance?.instance || numbers[0]?.instance || "");
-    if (messages.length > 0 || numbers.length > 0) instanceDefaultedForRef.current = selectedId;
+    // Só trava depois que as mensagens carregaram: travar com a lista ainda vazia deixava sempre o 1º número, mesmo a conversa sendo de outro.
+    if (messages.length > 0) instanceDefaultedForRef.current = selectedId;
   }, [messages, selectedId, numbers]);
 
   const scrolledForRef = useRef(null);
