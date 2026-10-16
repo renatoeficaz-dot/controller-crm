@@ -178,6 +178,10 @@ export default function KanbanBoard() {
   const [moveSubmenuId, setMoveSubmenuId] = useState(null); // contato com o submenu "Mover para" aberto
   const [adding, setAdding] = useState(null); // stageId onde estou adicionando
   const [newName, setNewName] = useState("");
+  const [souGestor, setSouGestor] = useState(false); // só o usuário "gestor" pode excluir clientes
+  useEffect(() => {
+    fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then((u) => setSouGestor(String(u?.login || "").toLowerCase() === "gestor")).catch(() => {});
+  }, []);
   const [newPhone, setNewPhone] = useState("");
   const [notify, setNotify] = useState("");
   const [filtros, setFiltros] = useState([]); // situações selecionadas; vazio = todos
@@ -354,6 +358,7 @@ export default function KanbanBoard() {
       if (!d.temParcelasAbertas || !confirm(`${d.error}\n\nExcluir mesmo assim?`)) return;
       res = await fetch(`/api/contacts/${contactId}?force=1`, { method: "DELETE" });
     }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); flash(d.error || "Não foi possível excluir."); return; }
     load();
   }
 
@@ -586,7 +591,7 @@ export default function KanbanBoard() {
           <option value="">Em massa: escolher ação</option>
           <option value="stage">Mover de coluna</option>
           <option value="responsavel">Trocar responsável</option>
-          <option value="delete">Excluir</option>
+          {souGestor && <option value="delete">Excluir</option>}
         </select>
         {bulkAction === "stage" && (
           <select
@@ -1212,9 +1217,11 @@ export default function KanbanBoard() {
                                   Possível duplicado ({duplicadosCount[c.id]})
                                 </button>
                               )}
-                              <button onClick={() => removeContact(c.id)} className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-slate-50">
-                                Excluir
-                              </button>
+                              {souGestor && (
+                                <button onClick={() => removeContact(c.id)} className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-slate-50">
+                                  Excluir
+                                </button>
+                              )}
                             </div>
                           </>,
                           document.body

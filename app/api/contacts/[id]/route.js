@@ -1,3 +1,4 @@
+import { podeExcluirContato } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import { NextResponse, after } from "next/server";
 import { consultarPuxadaDoContato } from "@/lib/puxadas";
@@ -234,6 +235,8 @@ export async function PATCH(req, { params }) {
 export async function DELETE(req, { params }) {
   try {
     const { id } = await params;
+    const quem = await getCurrentUser().catch(() => null);
+    if (!podeExcluirContato(quem)) return NextResponse.json({ error: "Só o usuário gestor pode excluir clientes." }, { status: 403 });
     const negado = await negarSeNaoPodeVerContato(id);
     if (negado) return negado;
     const force = new URL(req.url).searchParams.get("force") === "1";

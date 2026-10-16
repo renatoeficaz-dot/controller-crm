@@ -1,3 +1,5 @@
+import { podeExcluirContato } from "@/lib/permissoes";
+import { registrarAuditoria } from "@/lib/auditoria";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { lerCorpo } from "@/lib/corpo";
@@ -46,10 +48,13 @@ export async function POST(req) {
     // Isto é deleteMany DEFINITIVO — não passa pelo excluidoEm (a exclusão com
     // 24h de desfazer). Sem trava, qualquer usuário logado (vendedor, cobrador)
     // apagava a carteira inteira mandando a lista de ids, sem volta.
-    if (!isAdmin(user)) {
-      return NextResponse.json({ error: "Só o administrador pode excluir leads em massa." }, { status: 403 });
+    if (!podeExcluirContato(user)) {
+      return NextResponse.json({ error: "Só o usuário gestor pode excluir clientes." }, { status: 403 });
     }
-    const r = await prisma.contact.deleteMany({ where });
+    // Exclusão reversível (como a individual) e com registro de quem excluiu — antes era apagar de vez, sem rastro.
+    const alvo = await prisma.contact.findMany({ where: { ...where, excluidoEm: null }, select: { id: true, name: true } });
+    const r = await prisma.contact.updateMany({ where: { id: { in: alvo.map((c) => c.id) } }, data: { excluidoEm: new Date() } });
+    for (const c of alvo) registrarAuditoria({ usuario: user.name, acao: "excluir_contato", entidade: "Contact", entidadeId: c.id, detalhe: c.name + " (exclusão em massa)" });
     return NextResponse.json({ ok: true, deleted: r.count });
   }
 

@@ -924,6 +924,11 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
       if (!d.temParcelasAbertas || !confirm(`${d.error}\n\nExcluir mesmo assim?`)) return;
       res = await fetch(`/api/contacts/${contactId}?force=1`, { method: "DELETE" });
     }
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || "Não foi possível excluir.");
+      return;
+    }
     onChanged?.();
     onClose();
   }
@@ -2258,12 +2263,14 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             >
               {savedFlash ? "Salvo ✓" : "Salvar"}
             </button>
-            <button
-              onClick={removeContact}
-              className="text-sm text-red-400 hover:text-red-600 px-3"
-            >
-              Excluir
-            </button>
+            {String(usuarioAtual?.login || "").toLowerCase() === "gestor" && (
+              <button
+                onClick={removeContact}
+                className="text-sm text-red-400 hover:text-red-600 px-3"
+              >
+                Excluir
+              </button>
+            )}
           </div>
         </div>
 
