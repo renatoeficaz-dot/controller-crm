@@ -24,7 +24,7 @@ const PUBLIC_PREFIXES = ["/api/auth/login", "/api/auth/logout", "/api/auth/calcu
 const JANELA_MS = 60_000;
 const LIMITE_POR_JANELA = 400;
 const contadorPorIp = new Map();
-function acimaDoLimite(ip) {
+function acimaDoLimite(ip, limite = LIMITE_POR_JANELA) {
   const agora = Date.now();
   const entrada = contadorPorIp.get(ip);
   if (!entrada || agora - entrada.inicio > JANELA_MS) {
@@ -32,8 +32,12 @@ function acimaDoLimite(ip) {
     return false;
   }
   entrada.contagem += 1;
-  return entrada.contagem > LIMITE_POR_JANELA;
+  return entrada.contagem > limite;
 }
+// Usuário LOGADO conta por usuário (não por IP) e com teto maior: a equipe inteira sai pelo MESMO IP do escritório e cada aba
+// faz polling (chat a cada 4s, lista a cada 15s, menu a cada 20s...). Com o teto único de 400/min por IP, 5 pessoas com 2 abas
+// estouravam o limite e TODAS as telas ficavam vazias (chat "0 conversas", valores R$ 0,00).
+const LIMITE_USUARIO_LOGADO = 1500;
 // Evita crescer pra sempre num processo de longa duração.
 setInterval(() => {
   const agora = Date.now();
@@ -132,7 +136,11 @@ export async function middleware(req) {
     }
   } else if (pathname.startsWith("/api/")) {
     const ip = ipDoCliente(req);
-    if (acimaDoLimite(ip)) {
+    const tokenSessao = req.cookies.get(SESSION_COOKIE)?.value;
+    const sessao = tokenSessao ? await verifySession(tokenSessao) : null;
+    const estourou = sessao?.uid ? acimaDoLimite("u:" + sessao.uid, LIMITE_USUARIO_LOGADO) : acimaDoLimite(ip);
+    if (estourou) {
+      console.error("[rate-limit] 429 para", sessao?.uid ? "usuário " + sessao.uid : "ip " + ip, pathname);
       return NextResponse.json({ error: "Muitas requisições. Tente novamente em instantes." }, { status: 429 });
     }
   }
