@@ -201,7 +201,7 @@ export async function PATCH(req, { params }) {
     // lembretes e a receber) — senão o cliente que desistiu continua aparecendo como inadimplente.
     if (stage.name === "Venda perdida" && trocandoDeEtapa) {
       await prisma.parcela.updateMany({
-        where: { contactId: id, paid: false, renegociada: false, OR: [{ valorPago: null }, { valorPago: 0 }] },
+        where: { contactId: id, paid: false, renegociada: false, valorPago: 0 },
         data: { renegociada: true },
       }).catch(() => {});
     }
