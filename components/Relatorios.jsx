@@ -261,6 +261,8 @@ export default function Relatorios() {
   // mudava nada aqui, só na tabela por estado e no donut geral de Adimplência.
   const adimplenciaPorGenero = useMemo(() => agruparAdimplencia(stagesFiltrados, "genero", GENERO_LABEL), [stagesFiltrados]);
   const adimplenciaPorTipoCliente = useMemo(() => agruparAdimplencia(stagesFiltrados, "tipoCliente", TIPO_CLIENTE_LABEL), [stagesFiltrados]);
+  // Por estado (UF do cliente): mesmo critério dos outros donuts — só quem tem empréstimo ativo; quem não tem estado cai em "Sem estado".
+  const adimplenciaPorEstado = useMemo(() => agruparAdimplencia(stagesFiltrados, "estado", { outros: "Sem estado" }), [stagesFiltrados]);
 
   // Lucro real por perfil: recebido - emprestado, não só % de inadimplência —
   // um perfil que atrasa mas recupera o capital é mais lucrativo que um que
@@ -1719,8 +1721,9 @@ export default function Relatorios() {
       {/* Os 3 donuts de adimplência ficam lado a lado — sozinhos em largura
           total sobra muito espaço branco em volta do gráfico. */}
       <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
-      {/* Adimplência vs inadimplência */}
-      <section>
+      {/* Adimplência vs inadimplência (+ por estado, no espaço que sobrava embaixo) */}
+      <section className="flex flex-col gap-4">
+        <div>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência</h2>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           {adimplentes + inadimplentes === 0 ? (
@@ -1734,6 +1737,38 @@ export default function Relatorios() {
               onSegmentClick={(d) => d.value > 0 && setAdimplenciaDetalheAberto(d.label)}
             />
           )}
+        </div>
+        </div>
+
+        <div>
+          <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência por estado</h2>
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            {adimplenciaPorEstado.length === 0 ? (
+              <p className="text-sm text-slate-400 py-4">Nenhum cliente com empréstimo ativo.</p>
+            ) : (
+              <div className="flex flex-wrap gap-x-6 gap-y-5 justify-center">
+                {adimplenciaPorEstado.map((g) => {
+                  const total = g.adimplentes + g.inadimplentes;
+                  const pct = total ? Math.round((g.inadimplentes / total) * 100) : 0;
+                  return (
+                    <div key={g.chave}>
+                      <p className="text-xs font-medium text-slate-500 mb-2 text-center">
+                        {g.label} <span className="text-slate-400">· {pct}% inadimpl.</span>
+                      </p>
+                      <DonutChart
+                        size={96}
+                        strokeWidth={16}
+                        data={[
+                          { label: "Adimplentes", value: g.adimplentes, color: "#059669" },
+                          { label: "Inadimplentes", value: g.inadimplentes, color: "#ef4444" },
+                        ]}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
