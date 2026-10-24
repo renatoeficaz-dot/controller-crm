@@ -211,6 +211,7 @@ export default function ChatView() {
   const [resumindo, setResumindo] = useState(false);
 
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false);
+  const [menuConversaId, setMenuConversaId] = useState(null); // menu ⋮ da lista (Fechar conversa)
 
   const loadConversations = useCallback(async () => {
     const data = await fetch(`/api/chat${mostrarArquivadas ? "?arquivadas=1" : ""}`).then((r) => r.json()).catch(() => []);
@@ -950,7 +951,7 @@ export default function ChatView() {
             </button>
             <button
               type="button"
-              title={mostrarArquivadas ? "Ver conversas normais" : "Ver conversas arquivadas"}
+              title={mostrarArquivadas ? "Voltar às conversas abertas" : "Ver conversas fechadas"}
               onClick={() => setMostrarArquivadas((v) => !v)}
               className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-full border transition-colors ${
                 mostrarArquivadas ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
@@ -959,6 +960,7 @@ export default function ChatView() {
               <Icone nome="documento" className="w-3.5 h-3.5" />
             </button>
           </div>
+          {mostrarArquivadas && <p className="text-[11px] text-slate-500 mt-1.5">Conversas fechadas — voltam para a lista quando o cliente escreve.</p>}
         </div>
 
         {filtrosAbertos && (
@@ -1152,7 +1154,7 @@ export default function ChatView() {
                 </div>
               </button>
               {/* Fixar/arquivar (itens 81/82) — só aparece no hover, não rouba clique do item */}
-              <span className="absolute top-2.5 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className={`absolute top-2.5 right-2 flex items-center gap-0.5 transition-opacity ${menuConversaId === c.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
                 <button
                   type="button"
                   title={c.chatFixado ? "Desafixar" : "Fixar no topo"}
@@ -1161,14 +1163,30 @@ export default function ChatView() {
                 >
                   <Icone nome="local" className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  type="button"
-                  title={c.chatArquivado ? "Desarquivar" : "Arquivar"}
-                  onClick={(e) => { e.stopPropagation(); toggleChatArquivado(c); }}
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-slate-300 hover:text-slate-600"
-                >
-                  <Icone nome="documento" className="w-3.5 h-3.5" />
-                </button>
+                <span className="relative">
+                  <button
+                    type="button"
+                    title="Mais opções"
+                    onClick={(e) => { e.stopPropagation(); setMenuConversaId((v) => (v === c.id ? null : c.id)); }}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-base leading-none"
+                  >
+                    ⋮
+                  </button>
+                  {menuConversaId === c.id && (
+                    <>
+                      <span className="fixed inset-0 z-30" onClick={(e) => { e.stopPropagation(); setMenuConversaId(null); }} />
+                      <span className="absolute right-0 top-7 z-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[150px]">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setMenuConversaId(null); toggleChatArquivado(c); }}
+                          className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          {c.chatArquivado ? "Reabrir conversa" : "Fechar conversa"}
+                        </button>
+                      </span>
+                    </>
+                  )}
+                </span>
               </span>
             </div>
           ))}
