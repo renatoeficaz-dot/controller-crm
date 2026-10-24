@@ -35,6 +35,8 @@ Cobertura: todas as conversas de leads de 08/10 a 22/10, os 51 leads ativos (rel
 | 15 | IA dizia que o contato do comércio "precisa ser outro número", mas o código aceita o próprio número | Base de conhecimento alinhada ao código (Silvestre Gonzaga) |
 | 18 | Lead perdido que volta pelo formulário/anúncio ficava sem resposta (Viviane Corrêa: 5h sem resposta) | Reabertura em "Novo" no webhook (motivos: Não respondeu, Sem documento, cancelou, Sem CNPJ, Sem ponto fixo, Não diário; fraude/CLT não reabrem). 10 leads reabertos e atendidos |
 | 19 | Cliente respondia "Meu CNPJ" + "Não tá ativo mais" e recebia duas mensagens contraditórias (IA pedindo Motorista/Comerciante e, 15 s depois, "perfil não aprovado") | Juliana Amaral | `lib/fluxoIa.js`: "não tá ativo / inativo / baixado" no passo do CNPJ passa a valer como CNPJ inativo (regra única). No ar na VPS; teste e2e: "Meu CNPJ" + "Não tá ativo mais" → Venda perdida (Sem CNPJ) sem a mensagem contraditória; "Meu CNPJ está ativo" segue normal |
+| 20 | "Tenho cnpj não mano" lido como "tem CNPJ": a IA insistiu em pedir o número e o lead só foi perdido na 2ª vez (13h depois) | Gabriel nascimento | `lib/fluxoIa.js`: frases "tenho cnpj não", "não tenho/possuo cnpj" valem como Sem CNPJ na hora |
+| 21 | Cliente pagando parcela com o cobrador mandou o comprovante e a IA o moveu para Documentação e perguntou "Motorista ou comerciante?" | Kauane Antunes | `lib/webhookCommon.js`: foto/documento não move para Documentação se houve 2+ mensagens humanas em 24h; `lib/fluxoIa.js`: a guarda de conversa humana vale também em Documentação sem funil iniciado. Lead voltou para Novo com IA pausada |
 
 ## Decisões que ficaram com você
 
