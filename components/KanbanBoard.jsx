@@ -173,6 +173,7 @@ export default function KanbanBoard() {
   const [dragging, setDragging] = useState(null); // { contactId, fromStageId }
   const [overStage, setOverStage] = useState(null);
   const [openId, setOpenId] = useState(null); // contato aberto no modal
+  const [abrirTarefa, setAbrirTarefa] = useState(false); // abre o modal já com o formulário de nova tarefa
   const [cardMenuId, setCardMenuId] = useState(null); // contato com o menu (⋮) do card aberto
   const [cardMenuPos, setCardMenuPos] = useState(null); // { top, left } do menu — calculado do botão, renderizado via portal (evita ser cortado pelo scroll da coluna)
   const [moveSubmenuId, setMoveSubmenuId] = useState(null); // contato com o submenu "Mover para" aberto
@@ -1170,7 +1171,7 @@ export default function KanbanBoard() {
                               style={{ top: cardMenuPos.top, left: cardMenuPos.left }}
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <button onClick={() => { setCardMenuId(null); setOpenId(c.id); }} className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50">
+                              <button onClick={() => { setCardMenuId(null); setAbrirTarefa(false); setOpenId(c.id); }} className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50">
                                 Abrir
                               </button>
                               <button
@@ -1192,6 +1193,12 @@ export default function KanbanBoard() {
                                   ))}
                                 </div>
                               )}
+                              <button
+                                onClick={() => { setCardMenuId(null); setAbrirTarefa(true); setOpenId(c.id); }}
+                                className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+                              >
+                                Criar tarefa
+                              </button>
                               <button
                                 onClick={() => { setCardMenuId(null); toggleFixado(c); }}
                                 className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50"
@@ -1416,7 +1423,8 @@ export default function KanbanBoard() {
       {openId && (
         <ContactModal
           contactId={openId}
-          onClose={() => setOpenId(null)}
+          abrirNovaTarefa={abrirTarefa}
+          onClose={() => { setOpenId(null); setAbrirTarefa(false); }}
           onChanged={load}
         />
       )}

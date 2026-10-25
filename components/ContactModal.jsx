@@ -62,7 +62,7 @@ function numberLabel(instance, numbers) {
 // DateTime ISO -> "YYYY-MM-DD" (para <input type=date>)
 const toDateInput = (iso) => (iso ? new Date(iso).toISOString().slice(0, 10) : "");
 
-export default function ContactModal({ contactId, onClose, onChanged }) {
+export default function ContactModal({ contactId, onClose, onChanged, abrirNovaTarefa = false }) {
   const [contact, setContact] = useState(null);
   const [minim, setMinim] = useState({}); // bloco -> minimizado (sem chave = padrão pela etapa)
   // Contatos de referência (item 73) só podem ser editados por admin — quem
@@ -311,7 +311,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00", responsavel: "" });
   const [taskFormErro, setTaskFormErro] = useState("");
-  const [tarefaModalAberta, setTarefaModalAberta] = useState(false);
+  const [tarefaModalAberta, setTarefaModalAberta] = useState(!!abrirNovaTarefa); // vindo de "Criar tarefa" no menu do card
   const chatEnd = useRef(null);
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
