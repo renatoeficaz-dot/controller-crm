@@ -2422,7 +2422,12 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
           {(() => {
             // Tarefa pendente do lead logo acima do envio: a mais urgente (atrasada primeiro, depois a mais próxima).
             const pend = tasks.filter((t) => !t.done).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-            if (pend.length === 0) return null;
+            if (pend.length === 0) return (
+              <div className="mx-3 mt-2 px-2.5 py-1 rounded-lg border border-dashed border-slate-200 bg-slate-50 text-[11px] text-slate-400 flex items-center justify-between">
+                <span>Sem tarefa pendente</span>
+                <button type="button" onClick={() => setTarefaModalAberta(true)} className="text-emerald-600 hover:text-emerald-700 font-medium">+ Tarefa</button>
+              </div>
+            );
             const t = pend[0];
             const dt = new Date(t.dueDate);
             const agora = new Date();
