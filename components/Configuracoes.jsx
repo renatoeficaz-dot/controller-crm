@@ -76,6 +76,9 @@ const ICONS = {
       <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" />
     </>
   ),
+  chips: (
+    <><rect x="5" y="2" width="14" height="20" rx="2" /><path d="M9 7h6M9 12h6M9 17h6" strokeLinecap="round" /></>
+  ),
   numeros: (
     <path
       d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"
@@ -162,6 +165,7 @@ const TABS = [
   { key: "metaads", label: "Meta Ads", desc: "Conectar formulários de anúncio (Facebook/Instagram) ao CRM" },
   { key: "tags", label: "Tags / Auto-tag", desc: "Etiquetas e regras automáticas" },
   { key: "tarefas", label: "Tipos de Tarefa", desc: "Categorias das tarefas dos leads" },
+  { key: "chips", label: "Chips", desc: "Chips usados, última recarga e roteador" },
   { key: "metas", label: "Metas", desc: "Regra da meta diária de recebimento" },
   { key: "comissao", label: "Comissão", desc: "Bônus dos cobradores por meta batida" },
   { key: "equipe", label: "Equipe / Fechamento", desc: "Espécie, prestação de contas e comissão fechada" },
@@ -272,6 +276,7 @@ export default function Configuracoes() {
             {tab === "campanhas" && <Campanhas />}
             {tab === "tags" && <TagsConfig />}
             {tab === "tarefas" && <TiposTarefaConfig />}
+            {tab === "chips" && <ChipsConfig />}
             {tab === "metas" && (
               <div className="space-y-4 max-w-md">
                 <MetasConfig />
@@ -3256,6 +3261,142 @@ function MetaVendasDataConfig() {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+const CHIP_VAZIO = { numero: "", apelido: "", operadora: "", aparelho: "", ultimaRecargaEm: "", ultimaRecargaValor: "", roteador: false, observacao: "" };
+
+function ChipsConfig() {
+  const [chips, setChips] = useState([]);
+  const [form, setForm] = useState(CHIP_VAZIO);
+  const [editId, setEditId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [erro, setErro] = useState("");
+  const editando = editId !== null;
+
+  const load = useCallback(async () => {
+    const d = await fetch("/api/chips").then((r) => r.json()).catch(() => []);
+    setChips(Array.isArray(d) ? d : []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  function iniciarEdicao(c) {
+    setEditId(c.id);
+    setErro("");
+    setForm({
+      numero: c.numero || "", apelido: c.apelido || "", operadora: c.operadora || "", aparelho: c.aparelho || "",
+      ultimaRecargaEm: c.ultimaRecargaEm ? c.ultimaRecargaEm.slice(0, 10) : "",
+      ultimaRecargaValor: c.ultimaRecargaValor ?? "", roteador: !!c.roteador, observacao: c.observacao || "",
+    });
+  }
+  function cancelar() { setEditId(null); setErro(""); setForm(CHIP_VAZIO); }
+
+  async function salvar(e) {
+    e.preventDefault();
+    if (!form.numero.trim()) return;
+    setSaving(true);
+    setErro("");
+    const res = await fetch(editando ? `/api/chips/${editId}` : "/api/chips", {
+      method: editando ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    setSaving(false);
+    if (!res.ok) { setErro((await res.json().catch(() => ({}))).error || "Não foi possível salvar."); return; }
+    cancelar();
+    load();
+  }
+
+  async function remove(id) {
+    if (!confirm("Excluir este chip?")) return;
+    if (id === editId) cancelar();
+    await fetch(`/api/chips/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  const dataBr = (iso) => (iso ? new Date(iso).toLocaleDateString("pt-BR") : "—");
+  const moeda = (v) => (v == null ? "—" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
+  const diasDesde = (iso) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null);
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <form onSubmit={salvar} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3 h-fit">
+        <SectionHeader
+          icon="numeros"
+          title={editando ? "Editar chip" : "Novo chip"}
+          subtitle="Organize os chips que a operação usa: última recarga e se está no roteador."
+        />
+        <Field label="Número do chip" value={form.numero} onChange={(v) => setForm((f) => ({ ...f, numero: v }))} placeholder="Ex.: (11) 91234-5678" />
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Apelido (opcional)" value={form.apelido} onChange={(v) => setForm((f) => ({ ...f, apelido: v }))} placeholder="Ex.: Chip 3" />
+          <Field label="Operadora (opcional)" value={form.operadora} onChange={(v) => setForm((f) => ({ ...f, operadora: v }))} placeholder="Ex.: Vivo" />
+        </div>
+        <Field label="Aparelho (qual aparelho está conectado)" value={form.aparelho} onChange={(v) => setForm((f) => ({ ...f, aparelho: v }))} placeholder="Ex.: Samsung A15 da mesa 2" />
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="text-xs font-medium text-slate-500">Data da última recarga</span>
+            <input
+              type="date"
+              value={form.ultimaRecargaEm}
+              onChange={(e) => setForm((f) => ({ ...f, ultimaRecargaEm: e.target.value }))}
+              className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium text-slate-500">Valor da última recarga (R$)</span>
+            <input
+              type="number" min="0" step="0.01"
+              value={form.ultimaRecargaValor}
+              onChange={(e) => setForm((f) => ({ ...f, ultimaRecargaValor: e.target.value }))}
+              placeholder="0,00"
+              className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            />
+          </label>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+          <input type="checkbox" checked={form.roteador} onChange={(e) => setForm((f) => ({ ...f, roteador: e.target.checked }))} className="w-4 h-4 accent-emerald-500" />
+          Roteador
+        </label>
+        <Field label="Observação (opcional)" value={form.observacao} onChange={(v) => setForm((f) => ({ ...f, observacao: v }))} placeholder="Ex.: plano, em qual aparelho está" />
+        {erro && <p className="text-xs text-red-500">{erro}</p>}
+        <div className="flex gap-2">
+          <button disabled={saving} className="flex-1 bg-emerald-500 text-white rounded-lg py-2 text-sm hover:bg-emerald-600 disabled:opacity-50">
+            {saving ? "Salvando…" : editando ? "Salvar alterações" : "Adicionar chip"}
+          </button>
+          {editando && (
+            <button type="button" onClick={cancelar} className="px-3 text-sm text-slate-500 hover:text-slate-700">Cancelar</button>
+          )}
+        </div>
+      </form>
+
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+        <h2 className="font-medium text-slate-800 mb-3">Chips cadastrados ({chips.length})</h2>
+        <ul className="divide-y divide-slate-100">
+          {chips.map((c) => {
+            const dias = diasDesde(c.ultimaRecargaEm);
+            return (
+              <li key={c.id} className={`flex items-start justify-between gap-2 py-2.5 ${editId === c.id ? "bg-emerald-50/60 -mx-2 px-2 rounded" : ""}`}>
+                <button type="button" onClick={() => iniciarEdicao(c)} title="Clique para editar" className="text-left hover:opacity-70 min-w-0">
+                  <p className="text-sm text-slate-800 font-medium truncate">
+                    {c.numero}
+                    {c.apelido && <span className="text-slate-400 font-normal"> · {c.apelido}</span>}
+                    {c.roteador && <span className="ml-2 text-[10px] font-medium uppercase tracking-wide bg-sky-100 text-sky-700 rounded-full px-2 py-0.5">Roteador</span>}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {c.operadora ? `${c.operadora} · ` : ""}Última recarga: {dataBr(c.ultimaRecargaEm)} · {moeda(c.ultimaRecargaValor)}
+                    {dias !== null && <span className="text-slate-400"> ({dias === 0 ? "hoje" : `há ${dias} dia${dias === 1 ? "" : "s"}`})</span>}
+                  </p>
+                  {c.aparelho && <p className="text-xs text-slate-500 mt-0.5">Aparelho: {c.aparelho}</p>}
+                  {c.observacao && <p className="text-xs text-slate-400 mt-0.5 truncate">{c.observacao}</p>}
+                </button>
+                <button onClick={() => remove(c.id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">Excluir</button>
+              </li>
+            );
+          })}
+          {chips.length === 0 && <li className="py-4 text-sm text-slate-400">Nenhum chip cadastrado ainda.</li>}
+        </ul>
+      </div>
     </div>
   );
 }

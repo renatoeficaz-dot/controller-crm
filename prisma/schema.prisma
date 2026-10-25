@@ -1780,3 +1780,17 @@ model ComissaoPercentualSemana {
 
   @@unique([userId, inicio])
 }
+
+// Chips (linhas de celular) usados pela operação: controle de recarga e se ficam no roteador.
+model Chip {
+  id                 String    @id @default(cuid())
+  numero             String // telefone do chip
+  apelido            String?
+  operadora          String?
+  aparelho           String? // qual aparelho está com o chip conectado
+  ultimaRecargaEm    DateTime?
+  ultimaRecargaValor Float?
+  roteador           Boolean   @default(false)
+  observacao         String?
+  createdAt          DateTime  @default(now())
+}
