@@ -3330,7 +3330,19 @@ function ChipsConfig() {
         <Field label="Número do chip" value={form.numero} onChange={(v) => setForm((f) => ({ ...f, numero: v }))} placeholder="Ex.: (11) 91234-5678" />
         <div className="grid grid-cols-2 gap-2">
           <Field label="Apelido (opcional)" value={form.apelido} onChange={(v) => setForm((f) => ({ ...f, apelido: v }))} placeholder="Ex.: Chip 3" />
-          <Field label="Operadora (opcional)" value={form.operadora} onChange={(v) => setForm((f) => ({ ...f, operadora: v }))} placeholder="Ex.: Vivo" />
+          <label className="block">
+            <span className="text-xs font-medium text-slate-500">Operadora</span>
+            <select
+              value={form.operadora}
+              onChange={(e) => setForm((f) => ({ ...f, operadora: e.target.value }))}
+              className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            >
+              <option value="">Selecione…</option>
+              <option value="Vivo">Vivo</option>
+              <option value="TIM">TIM</option>
+              <option value="Claro">Claro</option>
+            </select>
+          </label>
         </div>
         <Field label="Aparelho (qual aparelho está conectado)" value={form.aparelho} onChange={(v) => setForm((f) => ({ ...f, aparelho: v }))} placeholder="Ex.: Samsung A15 da mesa 2" />
         <div className="grid grid-cols-2 gap-2">
