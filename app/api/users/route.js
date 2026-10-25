@@ -20,6 +20,7 @@ const USER_SELECT = {
   permissoesExtras: true,
   somenteLeitura: true,
   ultimoAcessoEm: true,
+  suspensoAte: true,
   equipeId: true,
   createdAt: true,
 };
@@ -42,7 +43,7 @@ const metaOuNull = (v) => {
 // parada de admin é o alvo ideal.
 const CAMPOS_SO_ADMIN = [
   "login", "permissoesExtras", "paginasVisiveis", "somenteLeitura",
-  "verTodosLeads", "ultimoAcessoEm",
+  "verTodosLeads", "ultimoAcessoEm", "suspensoAte",
   "metaVendasMinimaPropria", "metaVendasMediaPropria", "metaVendasDiaPropria",
 ];
 

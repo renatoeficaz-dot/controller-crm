@@ -920,6 +920,8 @@ model User {
   // vírgula — ex.: "contatos,chat"). Vazio/null = todas. Não cobre Lançamentos/
   // Configurações, que continuam exclusivas de admin independente disso.
   paginasVisiveis String?
+  // Acesso suspenso até esta data/hora (null = não suspenso). Vencido o prazo, volta sozinho.
+  suspensoAte DateTime?
 
   // Meta de vendas individual (vendedor) — null em qualquer um dos 3 campos
   // significa "usa a meta global" (Config.metaVendas*).

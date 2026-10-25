@@ -108,9 +108,9 @@ async function permissoesAtuais(uid) {
     const { prisma } = await import("@/lib/prisma");
     const u = await prisma.user.findUnique({
       where: { id: uid },
-      select: { role: true, somenteLeitura: true, paginasVisiveis: true },
+      select: { role: true, somenteLeitura: true, paginasVisiveis: true, suspensoAte: true },
     });
-    valor = u ? { role: u.role, somenteLeitura: !!u.somenteLeitura, paginas: u.paginasVisiveis || null } : null;
+    valor = u ? { role: u.role, somenteLeitura: !!u.somenteLeitura, paginas: u.paginasVisiveis || null, suspensoAte: u.suspensoAte ? u.suspensoAte.getTime() : null } : null;
   } catch {
     // Banco fora do ar não pode derrubar o sistema inteiro: mantém o que o
     // token diz (é o comportamento antigo) em vez de bloquear todo mundo.
@@ -171,6 +171,14 @@ export async function middleware(req) {
       // usuário não existe mais: derruba a sessão
       const resposta = pathname.startsWith("/api/")
         ? NextResponse.json({ error: "Sessão inválida." }, { status: 401 })
+        : NextResponse.redirect(new URL("/login", req.url));
+      resposta.cookies.delete(SESSION_COOKIE);
+      return resposta;
+    }
+    // Suspenso por tempo: derruba a sessão (some sozinho quando o prazo vence, porque a data é conferida a cada request).
+    if (atual?.suspensoAte && atual.suspensoAte > Date.now()) {
+      const resposta = pathname.startsWith("/api/")
+        ? NextResponse.json({ error: "Acesso suspenso." }, { status: 401 })
         : NextResponse.redirect(new URL("/login", req.url));
       resposta.cookies.delete(SESSION_COOKIE);
       return resposta;

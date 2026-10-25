@@ -50,6 +50,17 @@ export async function PATCH(req, { params }) {
     }
     if ("permissoesExtras" in body) data.permissoesExtras = (body.permissoesExtras || []).join(",") || null;
     if ("somenteLeitura" in body) data.somenteLeitura = !!body.somenteLeitura;
+    // Suspensão por tempo: data/hora ISO até quando o acesso fica bloqueado; vazio/null reativa na hora.
+    if ("suspensoAte" in body) {
+      if (body.suspensoAte) {
+        const ate = new Date(body.suspensoAte);
+        if (isNaN(ate.getTime()) || ate.getTime() <= Date.now()) return NextResponse.json({ error: "Data de suspensão inválida." }, { status: 400 });
+        if ((await getSession())?.uid === id) return NextResponse.json({ error: "Você não pode suspender a si mesmo." }, { status: 400 });
+        data.suspensoAte = ate;
+      } else {
+        data.suspensoAte = null;
+      }
+    }
     if ("equipeId" in body) data.equipeId = body.equipeId || null;
     if ("kanbansVisiveis" in body) {
       data.kanbansVisiveis = { set: (body.kanbansVisiveis || []).map((kid) => ({ id: kid })) };
@@ -87,6 +98,7 @@ export async function PATCH(req, { params }) {
         role: true,
         verTodosLeads: true,
         paginasVisiveis: true,
+        suspensoAte: true,
         kanbansVisiveis: { select: { id: true } },
         numerosVisiveis: { select: { id: true } },
         metaVendasMinimaPropria: true,

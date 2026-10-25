@@ -628,6 +628,15 @@ function Usuarios() {
     load();
   }
 
+  const [suspenderId, setSuspenderId] = useState(null); // usuário com o menu de duração aberto
+  async function suspender(u, horas) {
+    setSuspenderId(null);
+    const ate = horas ? new Date(Date.now() + horas * 3600e3).toISOString() : null;
+    const res = await fetch(`/api/users/${u.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ suspensoAte: ate }) });
+    if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Não foi possível alterar a suspensão.");
+    load();
+  }
+
   async function remove(id) {
     if (!confirm("Excluir este usuário?")) return;
     if (editId === id) closePanel();
@@ -722,6 +731,11 @@ function Usuarios() {
                       <div className="min-w-0">
                         <p className="font-medium text-slate-700 truncate">{u.name}</p>
                         <span className="text-[10px] uppercase tracking-wide text-slate-400">{ROLE_LABEL[u.role] || u.role}</span>
+                        {u.suspensoAte && new Date(u.suspensoAte) > new Date() && (
+                          <span className="ml-2 text-[10px] font-medium bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
+                            Suspenso até {new Date(u.suspensoAte).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -735,6 +749,30 @@ function Usuarios() {
                     <button onClick={() => startEdit(u)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium mr-3">
                       Editar
                     </button>
+                    {u.suspensoAte && new Date(u.suspensoAte) > new Date() ? (
+                      <button onClick={() => suspender(u, 0)} className="text-xs text-sky-600 hover:text-sky-700 font-medium mr-3">
+                        Reativar
+                      </button>
+                    ) : (
+                      <span className="relative inline-block mr-3">
+                        <button onClick={() => setSuspenderId((v) => (v === u.id ? null : u.id))} className="text-xs text-amber-600 hover:text-amber-700 font-medium">
+                          Suspender
+                        </button>
+                        {suspenderId === u.id && (
+                          <>
+                            <span className="fixed inset-0 z-30" onClick={() => setSuspenderId(null)} />
+                            <span className="absolute right-0 top-5 z-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[140px] text-left">
+                              <span className="block px-3 py-1 text-[10px] uppercase tracking-wide text-slate-400">Suspender por</span>
+                              {[["1 hora", 1], ["4 horas", 4], ["1 dia", 24], ["3 dias", 72], ["7 dias", 168], ["30 dias", 720]].map(([rot, h]) => (
+                                <button key={h} type="button" onClick={() => suspender(u, h)} className="block w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+                                  {rot}
+                                </button>
+                              ))}
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    )}
                     <button onClick={() => remove(u.id)} className="text-xs text-red-400 hover:text-red-600">
                       Excluir
                     </button>

@@ -66,6 +66,12 @@ export async function POST(req) {
   // Acertou: zera o contador desse login pra não punir quem só errou antes.
   prisma.loginTentativa.deleteMany({ where: { login: loginLimpo } }).catch(() => {});
 
+  // Acesso suspenso por tempo (Configurações → Usuários): só diz depois de acertar a senha.
+  if (user.suspensoAte && user.suspensoAte.getTime() > Date.now()) {
+    const ate = user.suspensoAte.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    return NextResponse.json({ error: `Acesso suspenso até ${ate}.` }, { status: 403 });
+  }
+
   const exp = Date.now() + SESSION_MAX_AGE * 1000;
   // somenteLeitura vai dentro do token (igual role/name) pra o middleware
   // conseguir barrar escrita sem precisar consultar o banco a cada request
