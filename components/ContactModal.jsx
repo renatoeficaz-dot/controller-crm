@@ -64,6 +64,7 @@ const toDateInput = (iso) => (iso ? new Date(iso).toISOString().slice(0, 10) : "
 
 export default function ContactModal({ contactId, onClose, onChanged }) {
   const [contact, setContact] = useState(null);
+  const [minim, setMinim] = useState({}); // bloco -> minimizado (sem chave = padrão pela etapa)
   // Contatos de referência (item 73) só podem ser editados por admin — quem
   // não é admin só vê/copia, não cadastra nem apaga (decisão consciente do
   // Renato: são dados sensíveis de terceiros, não do próprio lead).
@@ -112,7 +113,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
   // Campos do lead que fazem sentido receber o texto de uma mensagem — igual
   // ao menu de "..." de cada mensagem no chat da aba de conversas.
   const CAMPOS_ENVIAR = [
-    { chave: "notes", label: "Observações" },
+    { chave: "notes", label: "Resumo do cliente" },
     { chave: "endereco", label: "Endereço" },
     { chave: "cpf", label: "CPF" },
     { chave: "pixChave", label: "Chave Pix" },
@@ -947,6 +948,10 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
 
   // "Renovação" é cobrança de verdade igual a Recebimento (parcelas reais, com baixa).
   const isRecebimento = contact?.stage?.name === "Recebimento" || contact?.stage?.name === "Renovação";
+  const emRecebimentoMin = isRecebimento;
+  // Blocos que podem ser minimizados (Dados pra conferência, checklists, tarefas). Em Recebimento/Renovação começam minimizados.
+  const estaMin = (k) => (k in minim ? minim[k] : emRecebimentoMin);
+  const alternarMin = (k) => setMinim((m) => ({ ...m, [k]: !estaMin(k) }));
   // Painel de Cobrança (parcelas + renovação) também precisa aparecer em
   // "Pago": é exatamente aí que o ciclo já está quitado e o botão "Renovar
   // empréstimo" (com o limite de escalonamento do PRÓXIMO ciclo) deveria
@@ -1077,8 +1082,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             </label>
 
             {mostraChecklistAnalise && (
-              <div className="border border-slate-200 bg-slate-50/60 rounded-lg p-2.5 space-y-2">
-                <span className="text-xs font-semibold text-slate-600">Dados pra conferência</span>
+              <div className={`border border-slate-200 bg-slate-50/60 rounded-lg p-2.5 space-y-2 ${estaMin("conf") ? "[&>*:not(:first-child)]:hidden" : ""}`}>
+                <button type="button" onClick={() => alternarMin("conf")} className="flex items-center gap-1 text-left text-xs font-semibold text-slate-600" title={estaMin("conf") ? "Expandir" : "Minimizar"}><span className="text-[9px] w-2.5">{estaMin("conf") ? "▸" : "▾"}</span>Dados pra conferência</button>
 
                 <div className="space-y-1">
                   <span className="text-[11px] text-slate-400">Telefones</span>
@@ -1408,10 +1413,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
               const itens = CHECKLIST_DOC[tipo];
               const marcados = form.checklistDocumentacao || {};
               return (
-                <div className="border border-sky-200 bg-sky-50/50 rounded-lg p-2.5 space-y-1.5">
-                  <span className="text-xs font-semibold text-sky-700">
-                    Checklist de documentação{tipo === "comerciante" ? " — comerciante" : tipo === "uber" ? " — motorista de app" : ""}
-                  </span>
+                <div className={`border border-sky-200 bg-sky-50/50 rounded-lg p-2.5 space-y-1.5 ${estaMin("checkdoc") ? "[&>*:not(:first-child)]:hidden" : ""}`}>
+                  <button type="button" onClick={() => alternarMin("checkdoc")} className="flex items-center gap-1 text-left text-xs font-semibold text-sky-700" title={estaMin("checkdoc") ? "Expandir" : "Minimizar"}><span className="text-[9px] w-2.5">{estaMin("checkdoc") ? "▸" : "▾"}</span>Checklist de documentação{tipo === "comerciante" ? " — comerciante" : tipo === "uber" ? " — motorista de app" : ""}</button>
                   {itens ? itens.map(([chave, rotulo]) => (
                     <label key={chave} className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
                       <input
@@ -1430,8 +1433,8 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             })()}
 
             {mostraChecklistAnalise && (
-              <div className="border border-amber-200 bg-amber-50/50 rounded-lg p-2.5 space-y-1.5">
-                <span className="text-xs font-semibold text-amber-700">Checklist da análise</span>
+              <div className={`border border-amber-200 bg-amber-50/50 rounded-lg p-2.5 space-y-1.5 ${estaMin("checkanalise") ? "[&>*:not(:first-child)]:hidden" : ""}`}>
+                <button type="button" onClick={() => alternarMin("checkanalise")} className="flex items-center gap-1 text-left text-xs font-semibold text-amber-700" title={estaMin("checkanalise") ? "Expandir" : "Minimizar"}><span className="text-[9px] w-2.5">{estaMin("checkanalise") ? "▸" : "▾"}</span>Checklist da análise</button>
                 <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1466,7 +1469,7 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             )}
 
             <label className="block">
-              <span className="text-xs text-slate-400">Observações</span>
+              <span className="text-xs text-slate-400">Resumo do cliente</span>
               <textarea
                 value={form.notes || ""}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
@@ -1730,9 +1733,9 @@ export default function ContactModal({ contactId, onClose, onChanged }) {
             )}
 
             {/* Tarefas do lead */}
-            <div className="border border-slate-200 rounded-lg p-2.5">
+            <div className={`border border-slate-200 rounded-lg p-2.5 ${estaMin("tarefas") ? "[&>*:not(:first-child)]:hidden" : ""}`}>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-600">Tarefas ({tasks.filter((t) => !t.done).length} pendentes)</span>
+                <button type="button" onClick={() => alternarMin("tarefas")} className="flex items-center gap-1 text-left text-xs font-medium text-slate-600" title={estaMin("tarefas") ? "Expandir" : "Minimizar"}><span className="text-[9px] w-2.5">{estaMin("tarefas") ? "▸" : "▾"}</span>Tarefas ({tasks.filter((t) => !t.done).length} pendentes)</button>
                 <button type="button" onClick={() => { setShowTaskForm((v) => !v); setTaskFormErro(""); }} className="text-xs text-emerald-600 hover:text-emerald-700">
                   {showTaskForm ? "Cancelar" : "+ Tarefa"}
                 </button>

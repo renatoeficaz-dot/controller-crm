@@ -182,6 +182,7 @@ export default function ChatView() {
   const [multaPct, setMultaPct] = useState(50);
   const [cfgGlobal, setCfgGlobal] = useState(null); // Config inteiro — usado pra interpolar {{chave_pix}} nos envios manuais
   const [tasks, setTasks] = useState([]);
+  const [minim, setMinim] = useState({}); // bloco -> minimizado (sem chave = padrão pela etapa)
   const [atividade, setAtividade] = useState([]);
   const [atividadeAberta, setAtividadeAberta] = useState(false);
   const [taskTypes, setTaskTypes] = useState([]);
@@ -524,7 +525,7 @@ export default function ChatView() {
   // Campos do lead que fazem sentido receber o texto de uma mensagem —
   // aparecem no menu de "..." de cada mensagem do chat.
   const CAMPOS_ENVIAR = [
-    { chave: "notes", label: "Observações" },
+    { chave: "notes", label: "Resumo do cliente" },
     { chave: "endereco", label: "Endereço" },
     { chave: "cpf", label: "CPF" },
     { chave: "pixChave", label: "Chave Pix" },
@@ -870,6 +871,10 @@ export default function ChatView() {
   }
 
   const selected = conversations.find((c) => c.id === selectedId);
+  const emRecebimentoMin = selected?.stage?.name === "Recebimento" || selected?.stage?.name === "Renovação";
+  // Blocos que podem ser minimizados (Dados pra conferência, checklists, tarefas). Em Recebimento/Renovação começam minimizados.
+  const estaMin = (k) => (k in minim ? minim[k] : emRecebimentoMin);
+  const alternarMin = (k) => setMinim((m) => ({ ...m, [k]: !estaMin(k) }));
   const parcelas = contact?.parcelas || [];
   const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === (contact?.cicloAtual || 1));
   const pagas = parcelasAtuais.filter((p) => p.paid).length;
@@ -1791,10 +1796,8 @@ export default function ChatView() {
               const itens = CHECKLIST_DOC[tipo];
               const marcados = form.checklistDocumentacao || {};
               return (
-                <div className="border border-sky-200 bg-sky-50/50 rounded-lg p-2.5 space-y-1.5">
-                  <span className="text-xs font-semibold text-sky-700">
-                    Checklist de documentação{tipo === "comerciante" ? " — comerciante" : tipo === "uber" ? " — motorista de app" : ""}
-                  </span>
+                <div className={`border border-sky-200 bg-sky-50/50 rounded-lg p-2.5 space-y-1.5 ${estaMin("checkdoc") ? "[&>*:not(:first-child)]:hidden" : ""}`}>
+                  <button type="button" onClick={() => alternarMin("checkdoc")} className="flex items-center gap-1 text-left text-xs font-semibold text-sky-700" title={estaMin("checkdoc") ? "Expandir" : "Minimizar"}><span className="text-[9px] w-2.5">{estaMin("checkdoc") ? "▸" : "▾"}</span>Checklist de documentação{tipo === "comerciante" ? " — comerciante" : tipo === "uber" ? " — motorista de app" : ""}</button>
                   {itens ? itens.map(([chave, rotulo]) => (
                     <label key={chave} className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
                       <input
@@ -1812,8 +1815,8 @@ export default function ChatView() {
               );
             })()}
 
-            <div className="border border-amber-200 bg-amber-50/50 rounded-lg p-2.5 space-y-1.5">
-              <span className="text-xs font-semibold text-amber-700">Checklist da análise</span>
+            <div className={`border border-amber-200 bg-amber-50/50 rounded-lg p-2.5 space-y-1.5 ${estaMin("checkanalise") ? "[&>*:not(:first-child)]:hidden" : ""}`}>
+              <button type="button" onClick={() => alternarMin("checkanalise")} className="flex items-center gap-1 text-left text-xs font-semibold text-amber-700" title={estaMin("checkanalise") ? "Expandir" : "Minimizar"}><span className="text-[9px] w-2.5">{estaMin("checkanalise") ? "▸" : "▾"}</span>Checklist da análise</button>
               {[
                 ["checklistTelefoneBate", "Telefone precisa bater o do cliente ou 2 pelo menos"],
                 ["checklistDivergenciaPrint", "Divergência de print"],
@@ -1878,9 +1881,9 @@ export default function ChatView() {
             </div>
 
             {/* Tarefas do lead */}
-            <div className="border border-slate-200 rounded-lg p-2.5">
+            <div className={`border border-slate-200 rounded-lg p-2.5 ${estaMin("tarefas") ? "[&>*:not(:first-child)]:hidden" : ""}`}>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-slate-600">Tarefas ({tasks.filter((t) => !t.done).length} pendentes)</span>
+                <button type="button" onClick={() => alternarMin("tarefas")} className="flex items-center gap-1 text-left text-[11px] font-medium text-slate-600" title={estaMin("tarefas") ? "Expandir" : "Minimizar"}><span className="text-[9px] w-2.5">{estaMin("tarefas") ? "▸" : "▾"}</span>Tarefas ({tasks.filter((t) => !t.done).length} pendentes)</button>
                 <button type="button" onClick={() => setShowTaskForm((v) => !v)} className="text-[11px] text-emerald-600 hover:text-emerald-700">
                   {showTaskForm ? "Cancelar" : "+ Tarefa"}
                 </button>
