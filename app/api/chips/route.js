@@ -4,7 +4,7 @@ import { lerCorpo } from "@/lib/corpo";
 import { dadosChip } from "@/lib/chips";
 
 export async function GET() {
-  const chips = await prisma.chip.findMany({ orderBy: { createdAt: "asc" } });
+  const chips = await prisma.chip.findMany({ orderBy: { createdAt: "asc" }, include: { recargas: { orderBy: { data: "desc" } } } });
   return NextResponse.json(chips);
 }
 

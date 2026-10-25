@@ -1788,9 +1788,23 @@ model Chip {
   apelido            String?
   operadora          String?
   aparelho           String? // qual aparelho está com o chip conectado
+  whatsappAi         String? // qual WhatsApp (AI) está conectado neste chip, opcional
   ultimaRecargaEm    DateTime?
   ultimaRecargaValor Float?
   roteador           Boolean   @default(false)
   observacao         String?
+  recargas           ChipRecarga[]
   createdAt          DateTime  @default(now())
+}
+
+// Histórico de recargas de um chip; a mais recente também fica em Chip.ultimaRecarga*.
+model ChipRecarga {
+  id     String   @id @default(cuid())
+  chipId String
+  chip   Chip     @relation(fields: [chipId], references: [id], onDelete: Cascade)
+  data   DateTime
+  valor  Float
+  createdAt DateTime @default(now())
+
+  @@index([chipId])
 }

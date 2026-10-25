@@ -158,6 +158,7 @@ function Icon({ name, className }) {
 }
 
 const TABS = [
+  { key: "chips", label: "Chips", desc: "Chips usados, última recarga e roteador" },
   { key: "honorarios", label: "Honorários / Multa", desc: "Percentuais e regras de cobrança" },
   { key: "usuarios", label: "Usuários", desc: "Acessos e permissões da equipe" },
   { key: "numeros", label: "Números", desc: "WhatsApp conectados e cobrança automática" },
@@ -165,7 +166,6 @@ const TABS = [
   { key: "metaads", label: "Meta Ads", desc: "Conectar formulários de anúncio (Facebook/Instagram) ao CRM" },
   { key: "tags", label: "Tags / Auto-tag", desc: "Etiquetas e regras automáticas" },
   { key: "tarefas", label: "Tipos de Tarefa", desc: "Categorias das tarefas dos leads" },
-  { key: "chips", label: "Chips", desc: "Chips usados, última recarga e roteador" },
   { key: "metas", label: "Metas", desc: "Regra da meta diária de recebimento" },
   { key: "comissao", label: "Comissão", desc: "Bônus dos cobradores por meta batida" },
   { key: "equipe", label: "Equipe / Fechamento", desc: "Espécie, prestação de contas e comissão fechada" },
@@ -3265,7 +3265,7 @@ function MetaVendasDataConfig() {
   );
 }
 
-const CHIP_VAZIO = { numero: "", apelido: "", operadora: "", aparelho: "", ultimaRecargaEm: "", ultimaRecargaValor: "", roteador: false, observacao: "" };
+const CHIP_VAZIO = { numero: "", apelido: "", operadora: "", aparelho: "", whatsappAi: "", ultimaRecargaEm: "", ultimaRecargaValor: "", roteador: false, observacao: "" };
 
 function ChipsConfig() {
   const [chips, setChips] = useState([]);
@@ -3273,6 +3273,9 @@ function ChipsConfig() {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState("");
+  const [recargaChip, setRecargaChip] = useState(null); // chip com o formulário de recarga aberto
+  const [recarga, setRecarga] = useState({ data: "", valor: "" });
+  const [verHist, setVerHist] = useState({}); // chipId -> histórico aberto
   const editando = editId !== null;
 
   const load = useCallback(async () => {
@@ -3285,7 +3288,7 @@ function ChipsConfig() {
     setEditId(c.id);
     setErro("");
     setForm({
-      numero: c.numero || "", apelido: c.apelido || "", operadora: c.operadora || "", aparelho: c.aparelho || "",
+      numero: c.numero || "", apelido: c.apelido || "", operadora: c.operadora || "", aparelho: c.aparelho || "", whatsappAi: c.whatsappAi || "",
       ultimaRecargaEm: c.ultimaRecargaEm ? c.ultimaRecargaEm.slice(0, 10) : "",
       ultimaRecargaValor: c.ultimaRecargaValor ?? "", roteador: !!c.roteador, observacao: c.observacao || "",
     });
@@ -3305,6 +3308,32 @@ function ChipsConfig() {
     setSaving(false);
     if (!res.ok) { setErro((await res.json().catch(() => ({}))).error || "Não foi possível salvar."); return; }
     cancelar();
+    load();
+  }
+
+  async function alternarRoteador(c) {
+    setChips((prev) => prev.map((x) => (x.id === c.id ? { ...x, roteador: !x.roteador } : x)));
+    await fetch(`/api/chips/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roteador: !c.roteador }) });
+    load();
+  }
+
+  function abrirRecarga(c) {
+    setRecargaChip(c.id);
+    setRecarga({ data: new Date().toLocaleDateString("sv-SE"), valor: "" });
+  }
+
+  async function salvarRecarga(e, c) {
+    e.preventDefault();
+    if (!recarga.data || recarga.valor === "") return;
+    await fetch(`/api/chips/${c.id}/recargas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(recarga) });
+    setRecargaChip(null);
+    setVerHist((v) => ({ ...v, [c.id]: true }));
+    load();
+  }
+
+  async function removerRecarga(c, r) {
+    if (!confirm("Remover esta recarga do histórico?")) return;
+    await fetch(`/api/chips/${c.id}/recargas/${r.id}`, { method: "DELETE" });
     load();
   }
 
@@ -3345,6 +3374,7 @@ function ChipsConfig() {
           </label>
         </div>
         <Field label="Aparelho (qual aparelho está conectado)" value={form.aparelho} onChange={(v) => setForm((f) => ({ ...f, aparelho: v }))} placeholder="Ex.: Samsung A15 da mesa 2" />
+        <Field label="WhatsApp AI (opcional — qual WhatsApp está conectado)" value={form.whatsappAi} onChange={(v) => setForm((f) => ({ ...f, whatsappAi: v }))} placeholder="Ex.: Vendas-cap / (11) 94852-8114" />
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
             <span className="text-xs font-medium text-slate-500">Data da última recarga</span>
@@ -3388,21 +3418,60 @@ function ChipsConfig() {
           {chips.map((c) => {
             const dias = diasDesde(c.ultimaRecargaEm);
             return (
-              <li key={c.id} className={`flex items-start justify-between gap-2 py-2.5 ${editId === c.id ? "bg-emerald-50/60 -mx-2 px-2 rounded" : ""}`}>
-                <button type="button" onClick={() => iniciarEdicao(c)} title="Clique para editar" className="text-left hover:opacity-70 min-w-0">
-                  <p className="text-sm text-slate-800 font-medium truncate">
-                    {c.numero}
-                    {c.apelido && <span className="text-slate-400 font-normal"> · {c.apelido}</span>}
-                    {c.roteador && <span className="ml-2 text-[10px] font-medium uppercase tracking-wide bg-sky-100 text-sky-700 rounded-full px-2 py-0.5">Roteador</span>}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {c.operadora ? `${c.operadora} · ` : ""}Última recarga: {dataBr(c.ultimaRecargaEm)} · {moeda(c.ultimaRecargaValor)}
-                    {dias !== null && <span className="text-slate-400"> ({dias === 0 ? "hoje" : `há ${dias} dia${dias === 1 ? "" : "s"}`})</span>}
-                  </p>
-                  {c.aparelho && <p className="text-xs text-slate-500 mt-0.5">Aparelho: {c.aparelho}</p>}
-                  {c.observacao && <p className="text-xs text-slate-400 mt-0.5 truncate">{c.observacao}</p>}
-                </button>
-                <button onClick={() => remove(c.id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">Excluir</button>
+              <li key={c.id} className={`py-2.5 ${editId === c.id ? "bg-emerald-50/60 -mx-2 px-2 rounded" : ""}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <button type="button" onClick={() => iniciarEdicao(c)} title="Clique para editar" className="text-left hover:opacity-70 min-w-0">
+                    <p className="text-sm text-slate-800 font-medium truncate">
+                      {c.numero}
+                      {c.apelido && <span className="text-slate-400 font-normal"> · {c.apelido}</span>}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {c.operadora ? `${c.operadora} · ` : ""}Última recarga: {dataBr(c.ultimaRecargaEm)} · {moeda(c.ultimaRecargaValor)}
+                      {dias !== null && <span className="text-slate-400"> ({dias === 0 ? "hoje" : `há ${dias} dia${dias === 1 ? "" : "s"}`})</span>}
+                    </p>
+                    {c.aparelho && <p className="text-xs text-slate-500 mt-0.5">Aparelho: {c.aparelho}</p>}
+                    {c.whatsappAi && <p className="text-xs text-slate-500 mt-0.5">WhatsApp AI: {c.whatsappAi}</p>}
+                    {c.observacao && <p className="text-xs text-slate-400 mt-0.5 truncate">{c.observacao}</p>}
+                  </button>
+                  <button onClick={() => remove(c.id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">Excluir</button>
+                </div>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
+                    <input type="checkbox" checked={!!c.roteador} onChange={() => alternarRoteador(c)} className="w-3.5 h-3.5 accent-emerald-500" />
+                    Roteador
+                  </label>
+                  <button type="button" onClick={() => (recargaChip === c.id ? setRecargaChip(null) : abrirRecarga(c))} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                    + Nova recarga
+                  </button>
+                  {(c.recargas || []).length > 0 && (
+                    <button type="button" onClick={() => setVerHist((v) => ({ ...v, [c.id]: !v[c.id] }))} className="text-xs text-slate-400 hover:text-slate-600">
+                      {verHist[c.id] ? "Ocultar histórico" : `Histórico (${c.recargas.length})`}
+                    </button>
+                  )}
+                </div>
+                {recargaChip === c.id && (
+                  <form onSubmit={(e) => salvarRecarga(e, c)} className="flex items-end gap-2 mt-2">
+                    <label className="block">
+                      <span className="text-[11px] text-slate-400">Data</span>
+                      <input type="date" value={recarga.data} onChange={(e) => setRecarga((r) => ({ ...r, data: e.target.value }))} className="mt-0.5 block text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400" />
+                    </label>
+                    <label className="block w-24">
+                      <span className="text-[11px] text-slate-400">Valor (R$)</span>
+                      <input type="number" min="0" step="0.01" autoFocus value={recarga.valor} onChange={(e) => setRecarga((r) => ({ ...r, valor: e.target.value }))} placeholder="0,00" className="mt-0.5 block w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400" />
+                    </label>
+                    <button className="bg-emerald-500 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-emerald-600">Salvar</button>
+                  </form>
+                )}
+                {verHist[c.id] && (c.recargas || []).length > 0 && (
+                  <ul className="mt-2 space-y-0.5 border-l-2 border-slate-100 pl-3">
+                    {c.recargas.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between text-xs text-slate-500">
+                        <span>{dataBr(r.data)} · {moeda(r.valor)}</span>
+                        <button type="button" onClick={() => removerRecarga(c, r)} className="text-red-300 hover:text-red-500">remover</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           })}
