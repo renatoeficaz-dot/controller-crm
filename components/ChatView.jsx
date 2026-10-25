@@ -75,6 +75,23 @@ function fmtAtividade(iso) {
 //  "hoje"     = tem parcela que vence hoje e não baixada
 //  "emdia"    = tem plano de parcelas, sem atraso nem vencimento hoje
 //  "sem"      = não tem plano de parcelas (ainda não está em cobrança)
+// Situação das tarefas pendentes (mesma lógica do Kanban): sem | atrasada | hoje | futura
+function statusTarefas(c) {
+  const tarefas = c.tarefasPendentes || [];
+  if (tarefas.length === 0) return "sem";
+  const hoje = todayStr();
+  let atrasada = false;
+  let hojeVence = false;
+  for (const t of tarefas) {
+    const d = new Date(t.dueDate).toISOString().slice(0, 10);
+    if (d < hoje) atrasada = true;
+    else if (d === hoje) hojeVence = true;
+  }
+  if (atrasada) return "atrasada";
+  if (hojeVence) return "hoje";
+  return "futura";
+}
+
 function situacaoContato(c) {
   const ciclo = c.cicloAtual || 1;
   // renegociada = substituída por acordo, não é mais dívida em aberto. Sem
@@ -199,6 +216,7 @@ export default function ChatView() {
   const [busca, setBusca] = useState(""); // nome ou telefone
   const [statusFiltro, setStatusFiltro] = useState(""); // "" = todos
   const [tagFiltro, setTagFiltro] = useState("");
+  const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" | "com" | "sem" | "atrasada" | "hoje" | "futura"
   const [stageFiltro, setStageFiltro] = useState("");
   // "" = todas | "naolidas" | "semresposta" | "ambas" (notificadas E sem resposta)
   const [filtroMsgs, setFiltroMsgs] = useState("");
@@ -332,7 +350,7 @@ export default function ChatView() {
   }
 
   const chatFiltrosAtivosCount =
-    (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0);
+    (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0) + (tarefaFiltro ? 1 : 0);
 
   const conversasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -344,6 +362,10 @@ export default function ChatView() {
         if (!bateNome && !batePhone) return false;
       }
       if (statusFiltro && situacaoContato(c) !== statusFiltro) return false;
+      if (tarefaFiltro) {
+        const st = statusTarefas(c);
+        if (tarefaFiltro === "com" ? st === "sem" : st !== tarefaFiltro) return false;
+      }
       if (tagFiltro && !(c.tags || []).some((t) => t.id === tagFiltro)) return false;
       if (stageFiltro && c.stageId !== stageFiltro) return false;
       if (instanceFiltro && c.instance !== instanceFiltro) return false;
@@ -365,7 +387,7 @@ export default function ChatView() {
       });
     }
     return out;
-  }, [conversations, busca, statusFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, ordem]);
+  }, [conversations, busca, statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, ordem]);
 
   const loadTasks = useCallback(async () => {
     if (!selectedId) return;
@@ -979,7 +1001,7 @@ export default function ChatView() {
                 <div className="flex items-center gap-3">
                   {chatFiltrosAtivosCount > 0 && (
                     <button
-                      onClick={() => { setStatusFiltro(""); setStageFiltro(""); setTagFiltro(""); setInstanceFiltro(""); setFiltroMsgs(""); }}
+                      onClick={() => { setStatusFiltro(""); setStageFiltro(""); setTagFiltro(""); setInstanceFiltro(""); setFiltroMsgs(""); setTarefaFiltro(""); }}
                       className="text-xs text-red-400 hover:text-red-600"
                     >
                       Limpar tudo
@@ -1026,6 +1048,25 @@ export default function ChatView() {
                         }`}
                       >
                         {s ? STATUS_LABEL[s] : "Todos"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-xs text-slate-400">Tarefas</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {[["", "Todas"], ["com", "Com tarefa"], ["sem", "Sem tarefa"], ["atrasada", "Atrasadas"], ["hoje", "De hoje"], ["futura", "A vencer"]].map(([v, rot]) => (
+                      <button
+                        key={v || "todas"}
+                        onClick={() => setTarefaFiltro(v)}
+                        className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                          tarefaFiltro === v
+                            ? "bg-slate-800 text-white border-slate-800"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        {rot}
                       </button>
                     ))}
                   </div>

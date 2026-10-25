@@ -30,6 +30,7 @@ export async function GET(req) {
       cicloAtual: true,
       chatFixado: true,
       chatArquivado: true,
+      tasks: { where: { done: false }, select: { dueDate: true } }, // só as datas, pro filtro de tarefas
       _count: {
         select: { messages: { where: { fromMe: false, readAt: null, ...(msgWhere || {}) } } },
       },
@@ -71,6 +72,7 @@ export async function GET(req) {
       cicloAtual: c.cicloAtual,
       chatFixado: c.chatFixado,
       chatArquivado: c.chatArquivado,
+      tarefasPendentes: c.tasks || [],
       instance: ultimaPorContato.get(c.id)?.instance || null,
       lastMessage: ultimaPorContato.get(c.id) || null,
       unreadCount: c._count?.messages || 0,
