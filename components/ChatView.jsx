@@ -1356,6 +1356,26 @@ export default function ChatView() {
               <div ref={chatEnd} />
             </div>
             <div className="px-4 pt-2 pb-0 bg-white border-t border-slate-200 shrink-0">
+              {(() => {
+                // Tarefa atrelada ao lead, em uma linha baixa acima do envio: a mais urgente (vencida primeiro, depois a mais próxima).
+                const pend = tasks.filter((t) => !t.done).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+                if (pend.length === 0) return null;
+                const t = pend[0];
+                const hoje = new Date().toLocaleDateString("sv-SE");
+                const d = new Date(t.dueDate).toISOString().slice(0, 10);
+                const cor = d < hoje ? "bg-red-50 text-red-700 border-red-200" : d === hoje ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-50 text-slate-600 border-slate-200";
+                const rot = d < hoje ? "Atrasada" : d === hoje ? "Hoje" : "A vencer";
+                return (
+                  <div className={`flex items-center gap-2 mb-2 px-2 h-6 rounded border text-[11px] leading-none ${cor}`} title={t.notes || t.title}>
+                    <input type="checkbox" checked={false} onChange={() => toggleTaskDone(t)} title="Concluir tarefa" className="w-3 h-3 accent-emerald-500 shrink-0 cursor-pointer" />
+                    <span className="font-semibold shrink-0">{rot}</span>
+                    {t.tipo?.emoji && <span className="shrink-0">{t.tipo.emoji}</span>}
+                    <span className="truncate">{t.title}</span>
+                    <span className="shrink-0 opacity-70">· {new Date(t.dueDate).toLocaleDateString("pt-BR", { timeZone: "UTC", day: "2-digit", month: "2-digit" })}</span>
+                    {pend.length > 1 && <span className="shrink-0 ml-auto opacity-70">+{pend.length - 1}</span>}
+                  </div>
+                );
+              })()}
               {numbers.length > 1 && (
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs text-slate-400 shrink-0">Enviar por:</span>
