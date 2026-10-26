@@ -484,6 +484,24 @@ export default function ChatView() {
     }
   }, [selectedId]);
 
+  // Parcelas, ciclo, etapa e tarefas mudam em outras telas (ficha do contato, kanban): recarrega só isso a cada 15s e ao voltar pra aba,
+  // sem mexer no que a pessoa está digitando no formulário.
+  const atualizarFinanceiro = useCallback(async () => {
+    if (!selectedId) return;
+    const id = selectedId;
+    const ct = await fetch(`/api/contacts/${id}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (!ct || id !== selectedIdRef.current) return;
+    setContact((c) => (c && c.id === id ? { ...c, parcelas: ct.parcelas, cicloAtual: ct.cicloAtual, stage: ct.stage ?? c.stage, stageId: ct.stageId ?? c.stageId } : c));
+    loadTasks();
+  }, [selectedId, loadTasks]);
+  useEffect(() => {
+    if (!selectedId) return;
+    const t = setInterval(atualizarFinanceiro, 15000);
+    const onFocus = () => atualizarFinanceiro();
+    window.addEventListener("focus", onFocus);
+    return () => { clearInterval(t); window.removeEventListener("focus", onFocus); };
+  }, [selectedId, atualizarFinanceiro]);
+
   useEffect(() => {
     loadContact();
     loadAtividade();
@@ -905,7 +923,8 @@ export default function ChatView() {
   const estaMin = (k) => (k in minim ? minim[k] : emRecebimentoMin);
   const alternarMin = (k) => setMinim((m) => ({ ...m, [k]: !estaMin(k) }));
   const parcelas = contact?.parcelas || [];
-  const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === (contact?.cicloAtual || 1));
+  // Parcela renegociada foi substituída por acordo: não conta (nem aparece), igual à ficha do contato.
+  const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === (contact?.cicloAtual || 1) && !p.renegociada);
   const pagas = parcelasAtuais.filter((p) => p.paid).length;
   const totalParcelas = parcelasAtuais.length;
   const faltaQuitar = parcelasAtuais.filter((p) => !p.paid && !p.renegociada).reduce((s, p) => s + Math.max(0, p.amount - (p.valorPago || 0)), 0);
