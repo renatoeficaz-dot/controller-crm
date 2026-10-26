@@ -15,6 +15,7 @@ import AgendarMensagemModal from "./AgendarMensagemModal";
 import VideoChamadaCall from "./VideoChamadaCall";
 import TarefaBarra from "./TarefaBarra";
 import RenovacaoRapida from "./RenovacaoRapida";
+import AcordoModal from "./AcordoModal";
 
 // Data de hoje (local) como "YYYY-MM-DD"
 function todayStr() {
@@ -220,6 +221,7 @@ export default function ChatView() {
   const [tagFiltro, setTagFiltro] = useState("");
   const [renovandoRapido, setRenovandoRapido] = useState(false);
   // "Juntar parcelas": marca várias parcelas em aberto e dá baixa num valor só (aplicado a partir da 1ª marcada, nas seguintes em aberto).
+  const [acordoAberto, setAcordoAberto] = useState(false); // negociação (acordo parcelado) do que está em aberto
   const [juntando, setJuntando] = useState(false);
   const [juntarSel, setJuntarSel] = useState([]); // ids das parcelas marcadas
   const [juntarModal, setJuntarModal] = useState(null); // { valor, dinheiro } | null
@@ -2246,7 +2248,13 @@ export default function ChatView() {
                       >
                         {juntando ? "Cancelar" : "Juntar parcelas e dar baixa"}
                       </button>
-                      {juntando && <span className="text-slate-400">marque as parcelas em aberto</span>}
+                      {juntando ? (
+                        <span className="text-slate-400">marque as parcelas em aberto</span>
+                      ) : (
+                        <button type="button" onClick={() => setAcordoAberto(true)} className="text-amber-600 hover:text-amber-700 font-medium" title="Negociar: acordo parcelado do que está em aberto">
+                          Negociação
+                        </button>
+                      )}
                     </div>
                   )}
                   {faltaQuitar > 0 && (
@@ -2396,6 +2404,16 @@ export default function ChatView() {
             </div>
           </div>
         </div>
+      )}
+
+      {acordoAberto && selected && (
+        <AcordoModal
+          contactId={selected.id}
+          contactName={selected.name}
+          valorAberto={Math.round(parcelasAtuais.filter((x) => !x.paid).reduce((sum, x) => sum + Math.max(0, valorParcelaAtual(x, undefined, multaOpts) - (x.valorPago || 0)), 0) * 100) / 100}
+          onClose={() => setAcordoAberto(false)}
+          onSalvou={() => { setAcordoAberto(false); atualizarFinanceiro(); loadConversations(); }}
+        />
       )}
 
       {pagarParcela && (
