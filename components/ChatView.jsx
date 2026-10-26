@@ -229,7 +229,7 @@ export default function ChatView() {
   // A lista tem milhares de conversas: desenhar todas travava a tela (cada tecla digitada redesenhava tudo). Mostra em lotes.
   const [limiteLista, setLimiteLista] = useState(80);
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" | "com" | "sem" | "atrasada" | "hoje" | "futura"
-  const [stageFiltro, setStageFiltro] = useState("");
+  const [stageFiltro, setStageFiltro] = useState([]); // várias etapas ao mesmo tempo (lista de ids; vazia = todas)
   // "" = todas | "naolidas" | "semresposta" | "ambas" (notificadas E sem resposta)
   const [filtroMsgs, setFiltroMsgs] = useState("");
   const [instanceFiltro, setInstanceFiltro] = useState(""); // número/instância que está conversando
@@ -362,7 +362,7 @@ export default function ChatView() {
   }
 
   const chatFiltrosAtivosCount =
-    (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0) + (tarefaFiltro ? 1 : 0);
+    (statusFiltro ? 1 : 0) + (stageFiltro.length ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0) + (tarefaFiltro ? 1 : 0);
 
   // Filtros da lista lembrados no navegador: o chat abre sempre com o último filtro escolhido (busca e "arquivadas" não entram).
   const [filtrosCarregados, setFiltrosCarregados] = useState(false);
@@ -373,7 +373,8 @@ export default function ChatView() {
         if (typeof f.statusFiltro === "string") setStatusFiltro(f.statusFiltro);
         if (typeof f.tarefaFiltro === "string") setTarefaFiltro(f.tarefaFiltro);
         if (typeof f.tagFiltro === "string") setTagFiltro(f.tagFiltro);
-        if (typeof f.stageFiltro === "string") setStageFiltro(f.stageFiltro);
+        if (Array.isArray(f.stageFiltro)) setStageFiltro(f.stageFiltro.filter((x) => typeof x === "string"));
+        else if (typeof f.stageFiltro === "string" && f.stageFiltro) setStageFiltro([f.stageFiltro]); // formato antigo (uma etapa só)
         if (typeof f.filtroMsgs === "string") setFiltroMsgs(f.filtroMsgs);
         if (typeof f.instanceFiltro === "string") setInstanceFiltro(f.instanceFiltro);
         if (typeof f.ordem === "string") setOrdem(f.ordem);
@@ -405,7 +406,7 @@ export default function ChatView() {
         if (tarefaFiltro === "com" ? st === "sem" : st !== tarefaFiltro) return false;
       }
       if (tagFiltro && !(c.tags || []).some((t) => t.id === tagFiltro)) return false;
-      if (stageFiltro && c.stageId !== stageFiltro) return false;
+      if (stageFiltro.length && !stageFiltro.includes(c.stageId)) return false;
       if (instanceFiltro && c.instance !== instanceFiltro) return false;
       // Sem resposta = a última mensagem da conversa é do cliente (ainda não respondemos).
       const naoLida = c.unreadCount > 0;
@@ -1142,7 +1143,7 @@ export default function ChatView() {
                 <div className="flex items-center gap-3">
                   {chatFiltrosAtivosCount > 0 && (
                     <button
-                      onClick={() => { setStatusFiltro(""); setStageFiltro(""); setTagFiltro(""); setInstanceFiltro(""); setFiltroMsgs(""); setTarefaFiltro(""); }}
+                      onClick={() => { setStatusFiltro(""); setStageFiltro([]); setTagFiltro(""); setInstanceFiltro(""); setFiltroMsgs(""); setTarefaFiltro(""); }}
                       className="text-xs text-red-400 hover:text-red-600"
                     >
                       Limpar tudo
@@ -1213,19 +1214,31 @@ export default function ChatView() {
                   </div>
                 </div>
 
-                <label className="block">
-                  <span className="text-xs text-slate-400">Etapa</span>
-                  <select
-                    value={stageFiltro}
-                    onChange={(e) => setStageFiltro(e.target.value)}
-                    className="mt-1 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400"
-                  >
-                    <option value="">Todas etapas</option>
-                    {stagesList.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </label>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">Etapa (pode marcar várias)</span>
+                    {stageFiltro.length > 0 && (
+                      <button type="button" onClick={() => setStageFiltro([])} className="text-[11px] text-slate-400 hover:text-slate-600">limpar</button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {stagesList.map((st) => {
+                      const ativo = stageFiltro.includes(st.id);
+                      return (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => setStageFiltro((sel) => (sel.includes(st.id) ? sel.filter((i) => i !== st.id) : [...sel, st.id]))}
+                          className={`text-xs rounded-full px-3 py-1 border transition-colors ${
+                            ativo ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                          }`}
+                        >
+                          {st.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <label className="block">
                   <span className="text-xs text-slate-400">Etiqueta</span>
