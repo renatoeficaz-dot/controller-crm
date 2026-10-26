@@ -778,24 +778,47 @@ export default function ChatView() {
   // modal "Dados do contato" — sem isso, um bloqueio (limite de escalonamento,
   // CPF com calote, motivo de perda) fazia essa tela mostrar "Salvo ✓" mesmo
   // com a etapa NUNCA tendo mudado de verdade (e o capital nunca liberado).
-  async function moveStageChat(stageId, forcar = false) {
+  async function moveStageChat(stageId, forcar = false, motivoPerda = null) {
     const res = await fetch(`/api/contacts/${selectedId}/move`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stageId, forcar }),
+      body: JSON.stringify({ stageId, forcar, motivoPerda }),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       if ((data?.bloqueioCpf || data?.escalonamentoExcedido) && !forcar) {
         if (confirm(`${data.error}\n\nForçar mesmo assim? (só administrador consegue)`)) {
-          return moveStageChat(stageId, true);
+          return moveStageChat(stageId, true, motivoPerda);
         }
+        return false;
+      }
+      if (data?.precisaMotivoPerda) {
+        setMotivoPerdaChat({ stageId, motivo: "" });
         return false;
       }
       alert(data?.error || "Não foi possível mover o contato.");
       return false;
     }
     return true;
+  }
+
+  async function confirmarMotivoPerdaChat() {
+    const mp = motivoPerdaChat;
+    if (!mp?.motivo) return;
+    setMotivoPerdaChat(null);
+    const ok = await moveStageChat(mp.stageId, false, mp.motivo);
+    if (ok) {
+      loadContact();
+      loadAtividade();
+      loadConversations();
+    } else {
+      setForm((f) => ({ ...f, stageId: contact?.stageId || f.stageId }));
+    }
+  }
+
+  function cancelarMotivoPerdaChat() {
+    setMotivoPerdaChat(null);
+    setForm((f) => ({ ...f, stageId: contact?.stageId || f.stageId }));
   }
 
   async function saveContact() {
@@ -888,6 +911,12 @@ export default function ChatView() {
 
   // Marca/desmarca uma parcela como paga direto pelo painel do chat.
   // Dar baixa: abre a tela "Valor pago" (valor já preenchido, editável) em vez de baixar direto. Desmarcar uma baixa segue direto como antes.
+  // Venda perdida exige motivo (catálogo de Configurações → Motivos de perda): pergunta antes de mover, igual ao Kanban e à ficha.
+  const [motivosPerda, setMotivosPerda] = useState([]);
+  const [motivoPerdaChat, setMotivoPerdaChat] = useState(null); // { stageId, motivo } | null
+  useEffect(() => {
+    fetch("/api/motivos-perda").then((r) => r.json()).then((m) => setMotivosPerda(Array.isArray(m) ? m : [])).catch(() => {});
+  }, []);
   const [pagarParcela, setPagarParcela] = useState(null); // { parcela, valor, dinheiro, atrasada }
   async function togglePaid(p) {
     const vaiPagar = !p.paid;
@@ -1847,7 +1876,20 @@ export default function ChatView() {
             {/* Etapa */}
             <label className="block">
               <span className="text-[11px] text-slate-400">Etapa</span>
-              <select value={form.stageId || ""} onChange={set("stageId")} className={selectCls}>
+              <select
+                value={form.stageId || ""}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const alvo = stagesList.find((x) => x.id === id);
+                  if (alvo?.name === "Venda perdida" && id !== contact?.stageId) {
+                    setForm((f) => ({ ...f, stageId: id }));
+                    setMotivoPerdaChat({ stageId: id, motivo: "" });
+                  } else {
+                    set("stageId")(e);
+                  }
+                }}
+                className={selectCls}
+              >
                 {stagesList.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
@@ -2271,6 +2313,36 @@ export default function ChatView() {
             >
               {saved ? "Salvo ✓" : saving ? "Salvando…" : "Salvar alterações"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {motivoPerdaChat && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/40 flex items-center justify-center p-4" onClick={cancelarMotivoPerdaChat}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800 mb-1">Por que essa venda foi perdida?</h3>
+            <p className="text-xs text-slate-400 mb-3">Ajuda a entender o padrão de quem não fecha.</p>
+            {motivosPerda.length === 0 ? (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2.5 mb-3">
+                Nenhum motivo cadastrado ainda — cadastre em Configurações → Motivos de perda.
+              </p>
+            ) : (
+              <select
+                autoFocus
+                value={motivoPerdaChat.motivo}
+                onChange={(e) => setMotivoPerdaChat((m) => ({ ...m, motivo: e.target.value }))}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 mb-3"
+              >
+                <option value="">— Escolha o motivo —</option>
+                {motivosPerda.map((m) => (<option key={m.id} value={m.nome}>{m.nome}</option>))}
+              </select>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button onClick={cancelarMotivoPerdaChat} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
+              <button disabled={!motivoPerdaChat.motivo} onClick={confirmarMotivoPerdaChat} className="text-sm bg-slate-800 text-white rounded-lg px-3.5 py-1.5 disabled:opacity-40">
+                Confirmar
+              </button>
+            </div>
           </div>
         </div>
       )}
