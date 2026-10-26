@@ -93,46 +93,114 @@ export function MotivosPerdaConfig() {
 }
 
 /* ---------------- Links úteis ---------------- */
+const LINK_VAZIO = { titulo: "", url: "", login: "", senha: "", observacao: "" };
+
 export function LinksUteisConfig() {
   const [lista, setLista] = useState([]);
-  const [titulo, setTitulo] = useState("");
-  const [url, setUrl] = useState("");
+  const [form, setForm] = useState(LINK_VAZIO);
+  const [editId, setEditId] = useState(null);
+  const [verSenhaForm, setVerSenhaForm] = useState(false);
+  const [senhasVisiveis, setSenhasVisiveis] = useState({}); // id -> mostrando a senha na lista
+  const [copiado, setCopiado] = useState("");
+  const [erro, setErro] = useState("");
+  const editando = editId !== null;
 
   const load = useCallback(() => {
-    fetch("/api/links-uteis").then((r) => r.json()).then(setLista).catch(() => {});
+    fetch("/api/links-uteis").then((r) => r.json()).then((d) => setLista(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
   useEffect(load, [load]);
 
-  async function adicionar(e) {
+  function cancelar() { setEditId(null); setForm(LINK_VAZIO); setVerSenhaForm(false); setErro(""); }
+  function iniciarEdicao(l) {
+    setEditId(l.id);
+    setErro("");
+    setForm({ titulo: l.titulo || "", url: l.url || "", login: l.login || "", senha: l.senha || "", observacao: l.observacao || "" });
+  }
+
+  async function salvar(e) {
     e.preventDefault();
-    if (!titulo.trim() || !url.trim()) return;
-    const res = await fetch("/api/links-uteis", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ titulo: titulo.trim(), url: url.trim() }),
+    if (!form.titulo.trim() || !form.url.trim()) return;
+    setErro("");
+    const res = await fetch(editando ? `/api/links-uteis/${editId}` : "/api/links-uteis", {
+      method: editando ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
     });
-    if (res.ok) { setTitulo(""); setUrl(""); load(); }
+    if (!res.ok) { setErro((await res.json().catch(() => ({}))).error || "Não foi possível salvar."); return; }
+    cancelar();
+    load();
   }
   async function remover(id) {
+    if (!confirm("Remover este link?")) return;
+    if (id === editId) cancelar();
     await fetch(`/api/links-uteis/${id}`, { method: "DELETE" });
     load();
   }
+  async function copiar(chave, valor) {
+    try { await navigator.clipboard.writeText(valor); setCopiado(chave); setTimeout(() => setCopiado(""), 1200); } catch {}
+  }
+
+  const input = "text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400";
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4 max-w-lg">
-      <Cabecalho icone="link" titulo="Links úteis" subtitulo="Atalhos que a equipe usa no dia a dia — painel da Evolution, planilha, banco etc." />
-      <form onSubmit={adicionar} className="flex flex-col gap-2">
-        <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título (ex.: Painel Evolution)" className="text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+      <Cabecalho icone="link" titulo="Links úteis" subtitulo="Atalhos que a equipe usa no dia a dia — painel da Evolution, planilha, banco etc. Pode guardar login, senha e observação de cada um." />
+      <form onSubmit={salvar} className="flex flex-col gap-2">
+        <input value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))} placeholder="Título (ex.: Painel Evolution)" className={input} />
+        <input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://..." className={input} />
+        <div className="grid grid-cols-2 gap-2">
+          <input value={form.login} onChange={(e) => setForm((f) => ({ ...f, login: e.target.value }))} placeholder="Login (opcional)" autoComplete="off" className={input} />
+          <div className="relative">
+            <input
+              type={verSenhaForm ? "text" : "password"}
+              value={form.senha}
+              onChange={(e) => setForm((f) => ({ ...f, senha: e.target.value }))}
+              placeholder="Senha (opcional)"
+              autoComplete="new-password"
+              className={`${input} w-full pr-9`}
+            />
+            <button type="button" onClick={() => setVerSenhaForm((v) => !v)} title={verSenhaForm ? "Ocultar senha" : "Mostrar senha"} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <Icone nome={verSenhaForm ? "olho-fechado" : "olho"} className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+        <textarea value={form.observacao} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} rows={2} placeholder="Observação (opcional)" className={`${input} resize-none`} />
+        {erro && <p className="text-xs text-red-500">{erro}</p>}
         <div className="flex gap-2">
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." className="flex-1 text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
-          <button className="text-sm bg-emerald-500 text-white rounded-lg px-3.5 hover:bg-emerald-600">+</button>
+          <button className="flex-1 text-sm bg-emerald-500 text-white rounded-lg py-2 hover:bg-emerald-600">{editando ? "Salvar alterações" : "Adicionar link"}</button>
+          {editando && <button type="button" onClick={cancelar} className="px-3 text-sm text-slate-500 hover:text-slate-700">Cancelar</button>}
         </div>
       </form>
       <ul className="divide-y divide-slate-50">
         {lista.map((l) => (
-          <li key={l.id} className="flex items-center justify-between py-2 text-sm gap-2">
-            <a href={l.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline truncate">
-              {l.titulo}
-            </a>
-            <button onClick={() => remover(l.id)} className="text-slate-300 hover:text-red-500 text-xs shrink-0">Remover</button>
+          <li key={l.id} className={`py-2 text-sm ${editId === l.id ? "bg-emerald-50/60 -mx-2 px-2 rounded" : ""}`}>
+            <div className="flex items-center justify-between gap-2">
+              <a href={l.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline truncate">
+                {l.titulo}
+              </a>
+              <span className="shrink-0 flex items-center gap-3">
+                <button onClick={() => iniciarEdicao(l)} className="text-slate-400 hover:text-emerald-600 text-xs">Editar</button>
+                <button onClick={() => remover(l.id)} className="text-slate-300 hover:text-red-500 text-xs">Remover</button>
+              </span>
+            </div>
+            {(l.login || l.senha) && (
+              <div className="mt-1 text-xs text-slate-500 space-y-0.5">
+                {l.login && (
+                  <p className="flex items-center gap-2">
+                    <span className="text-slate-400 w-10 shrink-0">Login</span>
+                    <span className="truncate">{l.login}</span>
+                    <button type="button" onClick={() => copiar(`l${l.id}`, l.login)} className="text-[10px] text-emerald-600 hover:text-emerald-700 shrink-0">{copiado === `l${l.id}` ? "copiado ✓" : "copiar"}</button>
+                  </p>
+                )}
+                {l.senha && (
+                  <p className="flex items-center gap-2">
+                    <span className="text-slate-400 w-10 shrink-0">Senha</span>
+                    <span className="truncate font-mono">{senhasVisiveis[l.id] ? l.senha : "••••••••"}</span>
+                    <button type="button" onClick={() => setSenhasVisiveis((v) => ({ ...v, [l.id]: !v[l.id] }))} className="text-[10px] text-slate-400 hover:text-slate-600 shrink-0">{senhasVisiveis[l.id] ? "ocultar" : "mostrar"}</button>
+                    <button type="button" onClick={() => copiar(`s${l.id}`, l.senha)} className="text-[10px] text-emerald-600 hover:text-emerald-700 shrink-0">{copiado === `s${l.id}` ? "copiado ✓" : "copiar"}</button>
+                  </p>
+                )}
+              </div>
+            )}
+            {l.observacao && <p className="mt-1 text-xs text-slate-400 whitespace-pre-wrap">{l.observacao}</p>}
           </li>
         ))}
         {lista.length === 0 && <li className="text-xs text-slate-400 py-2">Nenhum link cadastrado ainda.</li>}

@@ -1086,6 +1086,9 @@ model LinkUtil {
   id        String   @id @default(cuid())
   titulo    String
   url       String
+  login     String? // acesso salvo do link (só admin vê e grava)
+  senha     String?
+  observacao String?
   ordem     Int      @default(0)
   createdAt DateTime @default(now())
 }
