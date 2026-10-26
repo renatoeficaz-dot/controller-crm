@@ -1,5 +1,6 @@
 "use client";
 
+import RenovacaoRapida from "./RenovacaoRapida";
 import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import ContactModal from "./ContactModal";
@@ -173,6 +174,7 @@ export default function KanbanBoard() {
   const [dragging, setDragging] = useState(null); // { contactId, fromStageId }
   const [overStage, setOverStage] = useState(null);
   const [openId, setOpenId] = useState(null); // contato aberto no modal
+  const [renovRapido, setRenovRapido] = useState(null); // {id, name} do card com a renovação rápida aberta
   const [abrirTarefa, setAbrirTarefa] = useState(false); // abre o modal já com o formulário de nova tarefa
   const [cardMenuId, setCardMenuId] = useState(null); // contato com o menu (⋮) do card aberto
   const [cardMenuPos, setCardMenuPos] = useState(null); // { top, left } do menu — calculado do botão, renderizado via portal (evita ser cortado pelo scroll da coluna)
@@ -1200,6 +1202,12 @@ export default function KanbanBoard() {
                                 Criar tarefa
                               </button>
                               <button
+                                onClick={() => { setCardMenuId(null); setRenovRapido({ id: c.id, name: c.name }); }}
+                                className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+                              >
+                                Renovação rápida
+                              </button>
+                              <button
                                 onClick={() => { setCardMenuId(null); toggleFixado(c); }}
                                 className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50"
                               >
@@ -1418,6 +1426,10 @@ export default function KanbanBoard() {
             </div>
           </div>
         </div>
+      )}
+
+      {renovRapido && (
+        <RenovacaoRapida contactId={renovRapido.id} nome={renovRapido.name} onClose={() => setRenovRapido(null)} onDone={load} />
       )}
 
       {openId && (

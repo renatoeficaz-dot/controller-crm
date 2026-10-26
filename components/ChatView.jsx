@@ -14,6 +14,7 @@ import Icone from "@/components/Icones";
 import AgendarMensagemModal from "./AgendarMensagemModal";
 import VideoChamadaCall from "./VideoChamadaCall";
 import TarefaBarra from "./TarefaBarra";
+import RenovacaoRapida from "./RenovacaoRapida";
 
 // Data de hoje (local) como "YYYY-MM-DD"
 function todayStr() {
@@ -217,6 +218,9 @@ export default function ChatView() {
   const [busca, setBusca] = useState(""); // nome ou telefone
   const [statusFiltro, setStatusFiltro] = useState(""); // "" = todos
   const [tagFiltro, setTagFiltro] = useState("");
+  const [renovandoRapido, setRenovandoRapido] = useState(false);
+  // A lista tem milhares de conversas: desenhar todas travava a tela (cada tecla digitada redesenhava tudo). Mostra em lotes.
+  const [limiteLista, setLimiteLista] = useState(80);
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" | "com" | "sem" | "atrasada" | "hoje" | "futura"
   const [stageFiltro, setStageFiltro] = useState("");
   // "" = todas | "naolidas" | "semresposta" | "ambas" (notificadas E sem resposta)
@@ -352,6 +356,8 @@ export default function ChatView() {
 
   const chatFiltrosAtivosCount =
     (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0) + (tarefaFiltro ? 1 : 0);
+
+  useEffect(() => { setLimiteLista(80); }, [busca, statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, ordem, mostrarArquivadas, modoBusca]);
 
   const conversasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -1164,7 +1170,7 @@ export default function ChatView() {
           </div>
         ) : (
         <div className="flex-1 overflow-y-auto thin-scroll">
-          {conversasFiltradas.map((c) => (
+          {conversasFiltradas.slice(0, limiteLista).map((c) => (
             <div key={c.id} className="group relative">
               <button
                 onClick={() => { setSelectedId(c.id); setContact(null); setMessages([]); setShowInfo(false); }}
@@ -1237,6 +1243,11 @@ export default function ChatView() {
               </span>
             </div>
           ))}
+          {conversasFiltradas.length > limiteLista && (
+            <button type="button" onClick={() => setLimiteLista((n) => n + 80)} className="w-full text-xs text-emerald-600 hover:bg-slate-50 py-3">
+              Mostrar mais ({conversasFiltradas.length - limiteLista} restantes)
+            </button>
+          )}
           {conversasFiltradas.length === 0 && (
             <p className="text-sm text-slate-400 text-center py-8">Nenhuma conversa encontrada.</p>
           )}
@@ -1315,6 +1326,16 @@ export default function ChatView() {
                   className="hidden md:flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-700 transition-colors"
                 >
                   + Tarefa
+                </button>
+              )}
+              {contact && (
+                <button
+                  type="button"
+                  onClick={() => setRenovandoRapido(true)}
+                  title="Renovação rápida: informe o valor e gere o novo ciclo com as parcelas"
+                  className="hidden md:flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-700 transition-colors"
+                >
+                  Renovar
                 </button>
               )}
               {contact && (
@@ -1424,6 +1445,9 @@ export default function ChatView() {
             </div>
             <div className="px-4 pt-2 pb-0 bg-white border-t border-slate-200 shrink-0">
               <TarefaBarra tasks={tasks} onChanged={loadTasks} onCriar={() => setTarefaModalAberta(true)} />
+              {renovandoRapido && selected && (
+                <RenovacaoRapida contactId={selected.id} nome={selected.name} onClose={() => setRenovandoRapido(false)} onDone={() => { loadConversations(); loadContact(); }} />
+              )}
               {numbers.length > 1 && (
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs text-slate-400 shrink-0">Enviar por:</span>
