@@ -651,8 +651,10 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
 
   // Roda depois que a pessoa escolhe (no modal) juros e forma de pagamento —
   // antes disso vinha de dois window.confirm() em sequência.
-  async function confirmarBaixaComPagamento(p, comJuros, formaPagamento) {
-    const amountPago = comJuros == null ? undefined : comJuros ? p.amount * (1 + Number(multaPct) / 100) : p.amount;
+  async function confirmarBaixaComPagamento(p, comJuros, formaPagamento, valorDigitado) {
+    // O valor da baixa é o que a pessoa confirmou na tela (já vem preenchido com o valor da parcela); sem isso, o cálculo antigo.
+    const digitado = valorDigitado != null && valorDigitado !== "" ? Number(valorDigitado) : null;
+    const amountPago = digitado && digitado > 0 ? digitado : comJuros == null ? undefined : comJuros ? p.amount * (1 + Number(multaPct) / 100) : p.amount;
     setConfirmarPagamento(null);
     setParcelas((prev) => prev.map((x) => (x.id === p.id ? { ...x, paid: true, amountPago: amountPago ?? p.amount } : x)));
     const res = await fetch(`/api/parcelas/${p.id}`, {
@@ -2912,33 +2914,49 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
               </>
             ) : (
               <>
-                <h3 className="font-semibold text-slate-800 mb-1">Como foi pago?</h3>
-                <p className="text-sm text-slate-500 mb-4">
-                  Item 32: dinheiro em espécie precisa ser rastreado até o depósito.
-                </p>
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => confirmarBaixaComPagamento(confirmarPagamento.parcela, confirmarPagamento.comJuros, "pix")}
-                    className="w-full bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600"
-                  >
-                    Pix / transferência
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => confirmarBaixaComPagamento(confirmarPagamento.parcela, confirmarPagamento.comJuros, "dinheiro")}
-                    className="w-full border border-slate-200 text-slate-600 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50"
-                  >
-                    Dinheiro em espécie
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmarPagamento(null)}
-                    className="w-full text-slate-400 text-xs py-1 hover:text-slate-600"
-                  >
-                    Cancelar
-                  </button>
-                </div>
+                {(() => {
+                  const cp = confirmarPagamento;
+                  const padrao = cp.comJuros ? cp.parcela.amount * (1 + Number(multaPct) / 100) : cp.parcela.amount;
+                  const valor = cp.valor ?? padrao.toFixed(2);
+                  const dinheiro = !!cp.dinheiro;
+                  return (
+                    <>
+                      <h3 className="font-semibold text-slate-800 mb-1">Valor pago</h3>
+                      <p className="text-sm text-slate-500 mb-3">
+                        {cp.parcela.number}ª parcela · {money(padrao)}. Confira o valor para dar a baixa exata.
+                      </p>
+                      <label className="block mb-2">
+                        <span className="text-xs text-slate-400">Valor recebido (R$)</span>
+                        <input
+                          type="number" min="0" step="0.01" autoFocus value={valor}
+                          onChange={(e) => setConfirmarPagamento((c) => ({ ...c, valor: e.target.value }))}
+                          className="mt-0.5 w-full text-lg font-semibold border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-slate-500 mb-3 cursor-pointer select-none">
+                        <input type="checkbox" checked={dinheiro} onChange={(e) => setConfirmarPagamento((c) => ({ ...c, dinheiro: e.target.checked }))} className="accent-emerald-500" />
+                        Foi em dinheiro (espécie) — precisa ser rastreado até o depósito
+                      </label>
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          disabled={!(Number(valor) > 0)}
+                          onClick={() => confirmarBaixaComPagamento(cp.parcela, cp.comJuros, dinheiro ? "dinheiro" : "pix", valor)}
+                          className="w-full bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50"
+                        >
+                          Dar baixa · {money(Number(valor) || 0)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmarPagamento(null)}
+                          className="w-full text-slate-400 text-xs py-1 hover:text-slate-600"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
               </>
             )}
           </div>
