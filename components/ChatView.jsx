@@ -219,6 +219,11 @@ export default function ChatView() {
   const [statusFiltro, setStatusFiltro] = useState(""); // "" = todos
   const [tagFiltro, setTagFiltro] = useState("");
   const [renovandoRapido, setRenovandoRapido] = useState(false);
+  // "Juntar parcelas": marca várias parcelas em aberto e dá baixa num valor só (aplicado a partir da 1ª marcada, nas seguintes em aberto).
+  const [juntando, setJuntando] = useState(false);
+  const [juntarSel, setJuntarSel] = useState([]); // ids das parcelas marcadas
+  const [juntarModal, setJuntarModal] = useState(null); // { valor, dinheiro } | null
+  const [enviandoJunto, setEnviandoJunto] = useState(false);
   const [editVenc, setEditVenc] = useState(null); // { parcela, novo, motivo } — mudar o vencimento de uma parcela pelo chat
   const [salvandoVenc, setSalvandoVenc] = useState(false);
   // A lista tem milhares de conversas: desenhar todas travava a tela (cada tecla digitada redesenhava tudo). Mostra em lotes.
@@ -926,6 +931,38 @@ export default function ChatView() {
     setShowTaskForm(false);
     setTarefaModalAberta(false);
     loadTasks();
+  }
+
+  async function confirmarBaixaJunta() {
+    const marcadas = (contact?.parcelas || [])
+      .filter((x) => juntarSel.includes(x.id) && !x.paid && !x.renegociada)
+      .sort((a, b) => a.number - b.number);
+    const v = Number(juntarModal?.valor);
+    if (!marcadas.length || !(v > 0)) return;
+    setEnviandoJunto(true);
+    const res = await fetch(`/api/parcelas/${marcadas[0].id}/baixa-parcial`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ valor: v, formaPagamento: juntarModal.dinheiro ? "dinheiro" : "pix" }),
+    });
+    setEnviandoJunto(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d.error || "Erro ao registrar a baixa."); return; }
+    const linhas = [];
+    if (d.parcela) linhas.push(`${d.parcela.number}ª parcela: ${d.parcela.paid ? "quitada" : `recebido ${money(d.parcela.valorPago)}`}`);
+    for (const q of d.quitadasAdiantado || []) linhas.push(`${q.number}ª parcela: R$ ${q.valor}${q.completou ? " (quitada)" : " (parcial)"}`);
+    const aviso = d.sobrouSemAplicar > 0 ? `
+
+ATENÇÃO: sobraram R$ ${d.sobrouSemAplicar} sem parcela em aberto. Esse valor NÃO foi lançado no caixa.` : "";
+    if (linhas.length) alert(`Baixa registrada:
+
+${linhas.join("
+")}${aviso}`);
+    else if (aviso) alert(aviso.trim());
+    setJuntarModal(null);
+    setJuntando(false);
+    setJuntarSel([]);
+    atualizarFinanceiro();
+    loadConversations();
   }
 
   async function salvarVencimento() {
@@ -2133,6 +2170,18 @@ export default function ChatView() {
                     <span className="text-slate-400">Parcelas</span>
                     <span className="text-slate-700">{pagas}/{totalParcelas} pagas</span>
                   </div>
+                  {parcelasAtuais.some((x) => !x.paid) && (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => { setJuntando((v) => !v); setJuntarSel([]); }}
+                        className={juntando ? "text-slate-500 hover:text-slate-700" : "text-emerald-600 hover:text-emerald-700 font-medium"}
+                      >
+                        {juntando ? "Cancelar" : "Juntar parcelas e dar baixa"}
+                      </button>
+                      {juntando && <span className="text-slate-400">marque as parcelas em aberto</span>}
+                    </div>
+                  )}
                   {faltaQuitar > 0 && (
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-400">Falta quitar</span>
@@ -2151,8 +2200,9 @@ export default function ChatView() {
                         <label className="flex items-center gap-1.5 cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={p.paid}
-                            onChange={() => togglePaid(p)}
+                            checked={juntando ? juntarSel.includes(p.id) : p.paid}
+                            disabled={juntando && p.paid}
+                            onChange={() => (juntando ? setJuntarSel((sel) => (sel.includes(p.id) ? sel.filter((i) => i !== p.id) : [...sel, p.id])) : togglePaid(p))}
                             className="accent-emerald-500"
                           />
                           <span className={p.paid ? "line-through text-slate-400" : "text-slate-600"}>
@@ -2177,6 +2227,19 @@ export default function ChatView() {
                       </li>
                     ))}
                   </ul>
+                  {juntando && juntarSel.length > 0 && (() => {
+                    const marcadas = parcelasAtuais.filter((x) => juntarSel.includes(x.id) && !x.paid);
+                    const total = marcadas.reduce((sum, x) => sum + Math.max(0, x.amount - (x.valorPago || 0)), 0);
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setJuntarModal({ valor: total.toFixed(2), dinheiro: false })}
+                        className="w-full text-xs bg-emerald-500 text-white rounded-lg py-1.5 hover:bg-emerald-600"
+                      >
+                        Dar baixa em valor único · {marcadas.length} parcela{marcadas.length > 1 ? "s" : ""} · {money(total)}
+                      </button>
+                    );
+                  })()}
                 </>
               )}
             </div>
@@ -2200,6 +2263,35 @@ export default function ChatView() {
             >
               {saved ? "Salvo ✓" : saving ? "Salvando…" : "Salvar alterações"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {juntarModal && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setJuntarModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Baixa em valor único</h3>
+            <p className="text-sm text-slate-500">
+              O valor é aplicado a partir da {Math.min(...(contact?.parcelas || []).filter((x) => juntarSel.includes(x.id)).map((x) => x.number))}ª parcela e segue nas próximas em aberto, na ordem.
+            </p>
+            <label className="block">
+              <span className="text-xs text-slate-400">Valor recebido (R$)</span>
+              <input
+                type="number" min="0" step="0.01" autoFocus value={juntarModal.valor}
+                onChange={(e) => setJuntarModal((m) => ({ ...m, valor: e.target.value }))}
+                className="mt-0.5 w-full text-lg font-semibold border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
+              <input type="checkbox" checked={juntarModal.dinheiro} onChange={(e) => setJuntarModal((m) => ({ ...m, dinheiro: e.target.checked }))} className="accent-emerald-500" />
+              Foi em dinheiro (espécie)
+            </label>
+            <div className="flex gap-2">
+              <button disabled={enviandoJunto || !(Number(juntarModal.valor) > 0)} onClick={confirmarBaixaJunta} className="flex-1 text-sm bg-emerald-500 text-white rounded-lg py-2 hover:bg-emerald-600 disabled:opacity-50">
+                {enviandoJunto ? "Registrando…" : `Dar baixa · ${money(Number(juntarModal.valor) || 0)}`}
+              </button>
+              <button onClick={() => setJuntarModal(null)} className="px-3 text-sm text-slate-500 hover:text-slate-700">Cancelar</button>
+            </div>
           </div>
         </div>
       )}
