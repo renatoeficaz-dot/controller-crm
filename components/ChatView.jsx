@@ -8,7 +8,7 @@ import PuxadaAnexo from "./PuxadaAnexo";
 import CobrancaLead from "./CobrancaLead";
 import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
 import { interpolarVariaveis } from "@/lib/variaveis";
-import { parcelaAtrasada } from "@/lib/finance";
+import { parcelaAtrasada, valorParcelaAtual } from "@/lib/finance";
 import { UFS_BR } from "@/lib/ddd";
 import Icone from "@/components/Icones";
 import AgendarMensagemModal from "./AgendarMensagemModal";
@@ -922,8 +922,8 @@ export default function ChatView() {
   async function togglePaid(p) {
     const vaiPagar = !p.paid;
     if (vaiPagar) {
-      const atrasada = parcelaAtrasada(p, undefined, { multaPct, horaLimite });
-      const base = atrasada ? p.amount * (1 + Number(multaPct) / 100) : p.amount;
+      const atrasada = parcelaAtrasada(p, undefined, multaOpts);
+      const base = valorParcelaAtual(p, undefined, multaOpts); // já considera multa, valor travado e desconto
       setPagarParcela({ parcela: p, valor: base.toFixed(2), dinheiro: false, atrasada });
       return;
     }
@@ -1041,6 +1041,10 @@ export default function ChatView() {
   const parcelas = contact?.parcelas || [];
   // Parcela renegociada foi substituída por acordo: não conta (nem aparece), igual à ficha do contato.
   const parcelasAtuais = parcelas.filter((p) => (p.ciclo || 1) === (contact?.cicloAtual || 1) && !p.renegociada);
+  // Mesma regra da ficha do contato: cliente não-uber com horário de recebimento próprio usa ESSE horário pra decidir atraso/multa.
+  const horaLimiteEfetiva = (contact?.tipoCliente && contact.tipoCliente !== "uber" ? contact.horarioRecebimento : null) || horaLimite;
+  const multaOpts = { multaPct, horaLimite: horaLimiteEfetiva };
+  const totalRecebido = parcelasAtuais.reduce((sum, p) => sum + (p.paid ? (p.amountPago != null ? p.amountPago : p.amount) : (p.valorPago || 0)), 0);
   const pagas = parcelasAtuais.filter((p) => p.paid).length;
   const totalParcelas = parcelasAtuais.length;
   const faltaQuitar = parcelasAtuais.filter((p) => !p.paid && !p.renegociada).reduce((s, p) => s + Math.max(0, p.amount - (p.valorPago || 0)), 0);
@@ -2257,39 +2261,61 @@ export default function ChatView() {
                       style={{ width: `${(pagas / totalParcelas) * 100}%` }}
                     />
                   </div>
-                  <ul className="space-y-0.5 max-h-32 overflow-y-auto text-xs">
-                    {parcelasAtuais.map((p) => (
-                      <li key={p.id} className="flex items-center justify-between py-0.5">
-                        <label className="flex items-center gap-1.5 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={juntando ? juntarSel.includes(p.id) : p.paid}
-                            disabled={juntando && p.paid}
-                            onChange={() => (juntando ? setJuntarSel((sel) => (sel.includes(p.id) ? sel.filter((i) => i !== p.id) : [...sel, p.id])) : togglePaid(p))}
-                            className="accent-emerald-500"
-                          />
-                          <span className={p.paid ? "line-through text-slate-400" : "text-slate-600"}>
-                            {p.number}ª · {fmtDate(p.dueDate)}
-                          </span>
-                        </label>
-                        <span className="flex items-center gap-1.5">
-                          {!p.paid && (
-                            <button
-                              type="button"
-                              onClick={() => setEditVenc({ parcela: p, novo: String(p.dueDate).slice(0, 10), motivo: "" })}
-                              title="Mudar a data de vencimento (pede motivo)"
-                              className="text-slate-300 hover:text-emerald-600"
-                            >
-                              <Icone nome="calendario" className="w-3 h-3" />
-                            </button>
+                  <ul className="space-y-0.5 max-h-64 overflow-y-auto text-xs">
+                    {parcelasAtuais.map((p) => {
+                      const atrasadaP = !p.paid && parcelaAtrasada(p, undefined, multaOpts);
+                      const valorAtual = p.paid ? (p.amountPago != null ? p.amountPago : p.amount) : valorParcelaAtual(p, undefined, multaOpts);
+                      return (
+                        <li key={p.id} className="py-0.5">
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-1.5 cursor-pointer min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={juntando ? juntarSel.includes(p.id) : p.paid}
+                                disabled={juntando && p.paid}
+                                onChange={() => (juntando ? setJuntarSel((sel) => (sel.includes(p.id) ? sel.filter((i) => i !== p.id) : [...sel, p.id])) : togglePaid(p))}
+                                className="accent-emerald-500"
+                              />
+                              <span className={p.paid ? "line-through text-slate-400" : "text-slate-600"}>
+                                {p.number}ª · {fmtDate(p.dueDate)}
+                              </span>
+                              {p.paid && p.paidAt && (
+                                <span className="text-[10px] text-emerald-600 bg-emerald-50 rounded-full px-1.5 py-0.5 shrink-0" title="Data em que a baixa foi registrada">
+                                  pago {new Date(p.paidAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                                </span>
+                              )}
+                              {atrasadaP && (
+                                <span className="text-[10px] font-semibold bg-red-500 text-white rounded-full px-1.5 py-0.5 shrink-0">+{multaPct}%</span>
+                              )}
+                            </label>
+                            <span className="flex items-center gap-1.5 shrink-0">
+                              {!p.paid && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditVenc({ parcela: p, novo: String(p.dueDate).slice(0, 10), motivo: "" })}
+                                  title="Mudar a data de vencimento (pede motivo)"
+                                  className="text-slate-300 hover:text-emerald-600"
+                                >
+                                  <Icone nome="calendario" className="w-3 h-3" />
+                                </button>
+                              )}
+                              <span className={`font-medium ${p.paid ? "text-emerald-600" : atrasadaP ? "text-red-600" : "text-slate-700"}`}>
+                                {money(valorAtual)} {p.paid ? "✓" : ""}
+                              </span>
+                            </span>
+                          </div>
+                          {!p.paid && p.valorPago > 0 && (
+                            <p className="text-[10px] text-amber-600 text-right">
+                              {money(p.valorPago)} pago{p.valorPagoEm ? ` em ${new Date(p.valorPagoEm).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}` : ""} · falta {money(Math.max(0, valorAtual - p.valorPago))}
+                            </p>
                           )}
-                          <span className={p.paid ? "text-emerald-600" : "text-slate-700"}>
-                            {money(p.amount)} {p.paid ? "✓" : ""}
-                          </span>
-                        </span>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
+                  <p className="text-[11px] text-slate-500 text-right">
+                    Recebido: <span className="font-semibold text-emerald-700">{money(totalRecebido)}</span>
+                  </p>
                   {parcelasAtuais.length > 0 && parcelasAtuais.every((x) => x.paid) && (
                     <div className="mt-1 rounded-lg border border-emerald-200 bg-emerald-50/60 p-2 space-y-1.5">
                       <p className="text-xs font-medium text-emerald-700">Ciclo {contact?.cicloAtual || 1} quitado — cliente pronto pra renovar</p>
@@ -2304,7 +2330,7 @@ export default function ChatView() {
                   )}
                   {juntando && juntarSel.length > 0 && (() => {
                     const marcadas = parcelasAtuais.filter((x) => juntarSel.includes(x.id) && !x.paid);
-                    const total = marcadas.reduce((sum, x) => sum + Math.max(0, x.amount - (x.valorPago || 0)), 0);
+                    const total = marcadas.reduce((sum, x) => sum + Math.max(0, valorParcelaAtual(x, undefined, multaOpts) - (x.valorPago || 0)), 0);
                     return (
                       <button
                         type="button"
