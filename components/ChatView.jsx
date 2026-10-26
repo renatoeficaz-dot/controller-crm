@@ -219,6 +219,8 @@ export default function ChatView() {
   const [statusFiltro, setStatusFiltro] = useState(""); // "" = todos
   const [tagFiltro, setTagFiltro] = useState("");
   const [renovandoRapido, setRenovandoRapido] = useState(false);
+  const [editVenc, setEditVenc] = useState(null); // { parcela, novo, motivo } — mudar o vencimento de uma parcela pelo chat
+  const [salvandoVenc, setSalvandoVenc] = useState(false);
   // A lista tem milhares de conversas: desenhar todas travava a tela (cada tecla digitada redesenhava tudo). Mostra em lotes.
   const [limiteLista, setLimiteLista] = useState(80);
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" | "com" | "sem" | "atrasada" | "hoje" | "futura"
@@ -924,6 +926,21 @@ export default function ChatView() {
     setShowTaskForm(false);
     setTarefaModalAberta(false);
     loadTasks();
+  }
+
+  async function salvarVencimento() {
+    if (!editVenc?.novo || !editVenc?.motivo?.trim()) return;
+    setSalvandoVenc(true);
+    const res = await fetch(`/api/parcelas/${editVenc.parcela.id}/vencimento`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ novoVencimento: editVenc.novo, motivo: editVenc.motivo }),
+    });
+    setSalvandoVenc(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d.error || "Erro ao alterar vencimento."); return; }
+    setContact((c) => (c ? { ...c, parcelas: (c.parcelas || []).map((x) => (x.id === d.id ? { ...x, ...d } : x)) } : c));
+    setEditVenc(null);
+    loadConversations();
   }
 
   async function toggleTaskDone(t) {
@@ -2142,8 +2159,20 @@ export default function ChatView() {
                             {p.number}ª · {fmtDate(p.dueDate)}
                           </span>
                         </label>
-                        <span className={p.paid ? "text-emerald-600" : "text-slate-700"}>
-                          {money(p.amount)} {p.paid ? "✓" : ""}
+                        <span className="flex items-center gap-1.5">
+                          {!p.paid && (
+                            <button
+                              type="button"
+                              onClick={() => setEditVenc({ parcela: p, novo: String(p.dueDate).slice(0, 10), motivo: "" })}
+                              title="Mudar a data de vencimento (pede motivo)"
+                              className="text-slate-300 hover:text-emerald-600"
+                            >
+                              <Icone nome="calendario" className="w-3 h-3" />
+                            </button>
+                          )}
+                          <span className={p.paid ? "text-emerald-600" : "text-slate-700"}>
+                            {money(p.amount)} {p.paid ? "✓" : ""}
+                          </span>
                         </span>
                       </li>
                     ))}
@@ -2171,6 +2200,28 @@ export default function ChatView() {
             >
               {saved ? "Salvo ✓" : saving ? "Salvando…" : "Salvar alterações"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {editVenc && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setEditVenc(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Mudar vencimento — {editVenc.parcela.number}ª parcela</h3>
+            <label className="block">
+              <span className="text-xs text-slate-400">Nova data</span>
+              <input type="date" autoFocus value={editVenc.novo} onChange={(e) => setEditVenc((f) => ({ ...f, novo: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-400">Motivo (obrigatório)</span>
+              <input value={editVenc.motivo} onChange={(e) => setEditVenc((f) => ({ ...f, motivo: e.target.value }))} placeholder="Ex.: cliente pediu pra adiar" className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+            </label>
+            <div className="flex gap-2">
+              <button disabled={salvandoVenc || !editVenc.novo || !editVenc.motivo.trim()} onClick={salvarVencimento} className="flex-1 text-sm bg-emerald-500 text-white rounded-lg py-2 hover:bg-emerald-600 disabled:opacity-50">
+                {salvandoVenc ? "Salvando…" : "Salvar"}
+              </button>
+              <button onClick={() => setEditVenc(null)} className="px-3 text-sm text-slate-500 hover:text-slate-700">Cancelar</button>
+            </div>
           </div>
         </div>
       )}
