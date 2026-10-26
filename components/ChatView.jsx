@@ -357,6 +357,30 @@ export default function ChatView() {
   const chatFiltrosAtivosCount =
     (statusFiltro ? 1 : 0) + (stageFiltro ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0) + (tarefaFiltro ? 1 : 0);
 
+  // Filtros da lista lembrados no navegador: o chat abre sempre com o último filtro escolhido (busca e "arquivadas" não entram).
+  const [filtrosCarregados, setFiltrosCarregados] = useState(false);
+  useEffect(() => {
+    try {
+      const f = JSON.parse(localStorage.getItem("chat:filtros") || "null");
+      if (f && typeof f === "object") {
+        if (typeof f.statusFiltro === "string") setStatusFiltro(f.statusFiltro);
+        if (typeof f.tarefaFiltro === "string") setTarefaFiltro(f.tarefaFiltro);
+        if (typeof f.tagFiltro === "string") setTagFiltro(f.tagFiltro);
+        if (typeof f.stageFiltro === "string") setStageFiltro(f.stageFiltro);
+        if (typeof f.filtroMsgs === "string") setFiltroMsgs(f.filtroMsgs);
+        if (typeof f.instanceFiltro === "string") setInstanceFiltro(f.instanceFiltro);
+        if (typeof f.ordem === "string") setOrdem(f.ordem);
+      }
+    } catch {}
+    setFiltrosCarregados(true); // só depois disso (já com os valores lidos aplicados) o efeito abaixo passa a gravar
+  }, []);
+  useEffect(() => {
+    if (!filtrosCarregados) return;
+    try {
+      localStorage.setItem("chat:filtros", JSON.stringify({ statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, filtroMsgs, instanceFiltro, ordem }));
+    } catch {}
+  }, [filtrosCarregados, statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, filtroMsgs, instanceFiltro, ordem]);
+
   useEffect(() => { setLimiteLista(80); }, [busca, statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, ordem, mostrarArquivadas, modoBusca]);
 
   const conversasFiltradas = useMemo(() => {
