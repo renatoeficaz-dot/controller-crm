@@ -1267,7 +1267,17 @@ export default function ChatView() {
                 {initials(selected.name)}
               </button>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-800 truncate">{selected.name}</p>
+                <p className="text-sm font-medium text-slate-800 truncate flex items-center gap-2">
+                  <span className="truncate">{selected.name}</span>
+                  {selected.stageName && (() => {
+                    const cor = stagesList.find((x) => x.id === selected.stageId)?.color || "#64748b";
+                    return (
+                      <span title="Etapa do funil" className="shrink-0 text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ backgroundColor: `${cor}22`, color: cor }}>
+                        {selected.stageName}
+                      </span>
+                    );
+                  })()}
+                </p>
                 {selected.phone && <p className="text-xs text-slate-400">{selected.phone}</p>}
               </div>
               <button
