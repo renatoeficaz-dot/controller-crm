@@ -5,6 +5,7 @@ import { CHECKLIST_DOC } from "@/lib/checklistDoc";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import MediaBubble from "./MediaBubble";
 import PuxadaAnexo from "./PuxadaAnexo";
+import CnpjCard from "./CnpjCard";
 import CobrancaLead from "./CobrancaLead";
 import { aReceber, inadimplenciaCravo } from "@/lib/relatorios";
 import { interpolarVariaveis } from "@/lib/variaveis";
@@ -1993,6 +1994,18 @@ export default function ChatView() {
               <span className="text-[11px] text-slate-400">Razão social</span>
               <input value={form.razaoSocial || ""} onChange={set("razaoSocial")} className={inputCls} />
             </label>
+            {/* Consulta do CNPJ (CNPJá): situação cadastral, atividade, endereço e sócios — a mesma da ficha do contato. */}
+            {form.tipoCliente === "comerciante" && selectedId && (
+              <CnpjCard
+                key={`${selectedId}-${form.cnpj || ""}`}
+                contactId={selectedId}
+                cnpj={form.cnpj}
+                dadosIniciais={contact?.cnpjDados}
+                onPreencher={({ razaoSocial, enderecoComercial }) =>
+                  setForm((f) => ({ ...f, razaoSocial: f.razaoSocial || razaoSocial || "", enderecoComercial: f.enderecoComercial || enderecoComercial || "" }))
+                }
+              />
+            )}
             <label className="block">
               <span className="text-[11px] text-slate-400">Endereço residencial</span>
               <input
