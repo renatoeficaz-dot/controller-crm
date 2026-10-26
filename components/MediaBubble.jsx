@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Icone from "@/components/Icones";
+import AudioPlayer from "@/components/AudioPlayer";
 
 // Mensagens antigas ainda guardam o arquivo como "data:mime;base64,..." em vez
 // de um link /uploads/xxx (ver lib/mediaStorage.js). Um <a href="data:..."
@@ -173,7 +174,7 @@ export default function MediaBubble({ message }) {
 
   if (message.kind === "audio") {
     return url ? (
-      <audio controls src={url} className="max-w-[220px] h-9" />
+      <AudioPlayer src={url} nome={message.fileName || "audio"} />
     ) : (
       <p className="text-xs text-slate-400">{loading ? "Carregando áudio…" : "Áudio"}</p>
     );

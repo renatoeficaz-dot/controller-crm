@@ -1,5 +1,6 @@
 "use client";
 
+import AudioPlayer from "@/components/AudioPlayer";
 import { rolarAteOFim } from "@/lib/rolar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icone from "@/components/Icones";
@@ -150,7 +151,7 @@ function Anexo({ m }) {
     );
   }
   if (m.mediaKind === "audio") {
-    return <audio controls src={m.mediaUrl} className="mt-1 max-w-full" />;
+    return <AudioPlayer src={m.mediaUrl} nome={m.mediaNome || "audio"} className="mt-1" />;
   }
   return (
     <a
