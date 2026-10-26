@@ -1,5 +1,6 @@
 "use client";
 
+import TarefaBarra from "./TarefaBarra";
 import { rolarAteOFim } from "@/lib/rolar";
 import { CHECKLIST_DOC } from "@/lib/checklistDoc";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
@@ -2419,44 +2420,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
             <p className="px-4 text-xs text-red-500 pb-1">{error}</p>
           )}
 
-          {(() => {
-            // Tarefa pendente do lead logo acima do envio: a mais urgente (atrasada primeiro, depois a mais próxima).
-            const pend = tasks.filter((t) => !t.done).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-            if (pend.length === 0) return (
-              <div className="mx-3 mt-2 px-2.5 py-1 rounded-lg border border-dashed border-slate-200 bg-slate-50 text-[11px] text-slate-400 flex items-center justify-between">
-                <span>Sem tarefa pendente</span>
-                <button type="button" onClick={() => setTarefaModalAberta(true)} className="text-emerald-600 hover:text-emerald-700 font-medium">+ Tarefa</button>
-              </div>
-            );
-            const t = pend[0];
-            const dt = new Date(t.dueDate);
-            const agora = new Date();
-            const mesmoDia = dt.toDateString() === agora.toDateString();
-            const atrasada = dt < agora && !mesmoDia;
-            const situacao = atrasada ? "Atrasadas" : mesmoDia ? "Hoje" : "A vencer";
-            const cor = atrasada ? "text-red-600" : mesmoDia ? "text-amber-600" : "text-slate-500";
-            const quando = dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", "");
-            return (
-              <div className="mx-3 mt-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs">
-                <div className="flex items-center justify-between gap-2 text-[11px]">
-                  <span className={`truncate ${cor}`}>
-                    <span className="font-semibold">{situacao}</span> · {quando}{t.responsavel ? ` para ${t.responsavel}` : ""}
-                    {pend.length > 1 && <span className="text-slate-400"> · +{pend.length - 1} pendente{pend.length > 2 ? "s" : ""}</span>}
-                  </span>
-                  <button type="button" onClick={() => removeTask(t.id)} title="Excluir tarefa" className="text-slate-300 hover:text-red-500 shrink-0">🗑</button>
-                </div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <button type="button" onClick={() => toggleTaskDone(t)} title="Concluir tarefa" className="w-4 h-4 rounded-full border border-emerald-400 text-emerald-500 flex items-center justify-center text-[9px] hover:bg-emerald-50 shrink-0">✓</button>
-                  {t.tipo && (
-                    <span className="text-[10px] font-medium rounded px-1.5 py-0.5 shrink-0" style={{ backgroundColor: `${t.tipo.color}22`, color: t.tipo.color }}>
-                      {t.tipo.emoji ? `${t.tipo.emoji} ` : ""}{t.tipo.name}
-                    </span>
-                  )}
-                  <span className="font-medium text-slate-800 truncate" title={t.notes || t.title}>{t.title}</span>
-                </div>
-              </div>
-            );
-          })()}
+          <TarefaBarra tasks={tasks} onChanged={loadTasks} onCriar={() => setTarefaModalAberta(true)} />
 
           {numbers.length > 1 && (
             <div className="px-3 pt-2 bg-white flex items-center gap-2">
