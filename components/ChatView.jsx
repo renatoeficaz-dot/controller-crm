@@ -2290,6 +2290,18 @@ export default function ChatView() {
                       </li>
                     ))}
                   </ul>
+                  {parcelasAtuais.length > 0 && parcelasAtuais.every((x) => x.paid) && (
+                    <div className="mt-1 rounded-lg border border-emerald-200 bg-emerald-50/60 p-2 space-y-1.5">
+                      <p className="text-xs font-medium text-emerald-700">Ciclo {contact?.cicloAtual || 1} quitado — cliente pronto pra renovar</p>
+                      <button
+                        type="button"
+                        onClick={() => setRenovandoRapido(true)}
+                        className="w-full text-xs bg-emerald-600 text-white rounded-lg py-1.5 hover:bg-emerald-700"
+                      >
+                        Renovar empréstimo
+                      </button>
+                    </div>
+                  )}
                   {juntando && juntarSel.length > 0 && (() => {
                     const marcadas = parcelasAtuais.filter((x) => juntarSel.includes(x.id) && !x.paid);
                     const total = marcadas.reduce((sum, x) => sum + Math.max(0, x.amount - (x.valorPago || 0)), 0);
