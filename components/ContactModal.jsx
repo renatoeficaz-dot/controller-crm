@@ -2096,14 +2096,6 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => setPixAberto(p)}
-                                  title="Gerar Pix desta parcela"
-                                  className="text-sky-400 hover:text-sky-600"
-                                >
-                                  <Icone nome="dinheiro" className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
                                   onClick={() => { setDescontoAberto({ parcela: p, valorPedido: "", motivo: "" }); setDescontoMsg(""); }}
                                   title="Mudar valor desta parcela — menor ou maior, aplica na hora"
                                   className="text-violet-400 hover:text-violet-600"
