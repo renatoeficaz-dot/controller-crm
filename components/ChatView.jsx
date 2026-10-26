@@ -887,16 +887,28 @@ export default function ChatView() {
   }
 
   // Marca/desmarca uma parcela como paga direto pelo painel do chat.
+  // Dar baixa: abre a tela "Valor pago" (valor já preenchido, editável) em vez de baixar direto. Desmarcar uma baixa segue direto como antes.
+  const [pagarParcela, setPagarParcela] = useState(null); // { parcela, valor, dinheiro, atrasada }
   async function togglePaid(p) {
     const vaiPagar = !p.paid;
-    let amountPago;
-    if (vaiPagar && parcelaAtrasada(p, undefined, { multaPct, horaLimite })) {
-      const comMulta = p.amount * (1 + Number(multaPct) / 100);
-      const cobrarComJuros = confirm(
-        `Essa parcela está atrasada.\n\nOK = cobrar COM juros (${money(comMulta)})\nCancelar = cobrar SEM juros (${money(p.amount)})`
-      );
-      amountPago = cobrarComJuros ? comMulta : p.amount;
+    if (vaiPagar) {
+      const atrasada = parcelaAtrasada(p, undefined, { multaPct, horaLimite });
+      const base = atrasada ? p.amount * (1 + Number(multaPct) / 100) : p.amount;
+      setPagarParcela({ parcela: p, valor: base.toFixed(2), dinheiro: false, atrasada });
+      return;
     }
+    await aplicarBaixa(p, false, undefined, undefined);
+  }
+
+  async function confirmarPagarParcela() {
+    const pp = pagarParcela;
+    const v = Number(pp?.valor);
+    if (!pp || !(v > 0)) return;
+    setPagarParcela(null);
+    await aplicarBaixa(pp.parcela, true, v, pp.dinheiro ? "dinheiro" : "pix");
+  }
+
+  async function aplicarBaixa(p, vaiPagar, amountPago, formaPagamento) {
     setContact((c) => ({
       ...c,
       parcelas: (c.parcelas || []).map((x) => (x.id === p.id ? { ...x, paid: vaiPagar, amountPago: vaiPagar ? (amountPago ?? p.amount) : null } : x)),
@@ -904,8 +916,9 @@ export default function ChatView() {
     await fetch(`/api/parcelas/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paid: vaiPagar, amountPago }),
+      body: JSON.stringify({ paid: vaiPagar, amountPago, formaPagamento }),
     });
+    atualizarFinanceiro();
   }
 
   async function createTask(e) {
@@ -2258,6 +2271,46 @@ export default function ChatView() {
             >
               {saved ? "Salvo ✓" : saving ? "Salvando…" : "Salvar alterações"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {pagarParcela && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setPagarParcela(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Valor pago</h3>
+            <p className="text-sm text-slate-500">
+              {pagarParcela.parcela.number}ª parcela · {money(pagarParcela.parcela.amount)}
+              {pagarParcela.atrasada ? " (atrasada)" : ""}. Confira o valor para dar a baixa exata.
+            </p>
+            <label className="block">
+              <span className="text-xs text-slate-400">Valor recebido (R$)</span>
+              <input
+                type="number" min="0" step="0.01" autoFocus value={pagarParcela.valor}
+                onChange={(e) => setPagarParcela((m) => ({ ...m, valor: e.target.value }))}
+                className="mt-0.5 w-full text-lg font-semibold border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
+              />
+            </label>
+            {pagarParcela.atrasada && (
+              <div className="flex gap-2 text-xs">
+                <button type="button" onClick={() => setPagarParcela((m) => ({ ...m, valor: (m.parcela.amount * (1 + Number(multaPct) / 100)).toFixed(2) }))} className="flex-1 border border-slate-200 rounded-lg py-1.5 text-slate-600 hover:bg-slate-50">
+                  Com juros ({money(pagarParcela.parcela.amount * (1 + Number(multaPct) / 100))})
+                </button>
+                <button type="button" onClick={() => setPagarParcela((m) => ({ ...m, valor: m.parcela.amount.toFixed(2) }))} className="flex-1 border border-slate-200 rounded-lg py-1.5 text-slate-600 hover:bg-slate-50">
+                  Sem juros ({money(pagarParcela.parcela.amount)})
+                </button>
+              </div>
+            )}
+            <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
+              <input type="checkbox" checked={pagarParcela.dinheiro} onChange={(e) => setPagarParcela((m) => ({ ...m, dinheiro: e.target.checked }))} className="accent-emerald-500" />
+              Foi em dinheiro (espécie)
+            </label>
+            <div className="flex gap-2">
+              <button disabled={!(Number(pagarParcela.valor) > 0)} onClick={confirmarPagarParcela} className="flex-1 text-sm bg-emerald-500 text-white rounded-lg py-2 hover:bg-emerald-600 disabled:opacity-50">
+                Dar baixa · {money(Number(pagarParcela.valor) || 0)}
+              </button>
+              <button onClick={() => setPagarParcela(null)} className="px-3 text-sm text-slate-500 hover:text-slate-700">Cancelar</button>
+            </div>
           </div>
         </div>
       )}
