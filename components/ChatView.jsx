@@ -950,13 +950,8 @@ export default function ChatView() {
     const linhas = [];
     if (d.parcela) linhas.push(`${d.parcela.number}ª parcela: ${d.parcela.paid ? "quitada" : `recebido ${money(d.parcela.valorPago)}`}`);
     for (const q of d.quitadasAdiantado || []) linhas.push(`${q.number}ª parcela: R$ ${q.valor}${q.completou ? " (quitada)" : " (parcial)"}`);
-    const aviso = d.sobrouSemAplicar > 0 ? `
-
-ATENÇÃO: sobraram R$ ${d.sobrouSemAplicar} sem parcela em aberto. Esse valor NÃO foi lançado no caixa.` : "";
-    if (linhas.length) alert(`Baixa registrada:
-
-${linhas.join("
-")}${aviso}`);
+    const aviso = d.sobrouSemAplicar > 0 ? "\n\nATENÇÃO: sobraram R$ " + d.sobrouSemAplicar + " sem parcela em aberto. Esse valor NÃO foi lançado no caixa." : "";
+    if (linhas.length) alert("Baixa registrada:\n\n" + linhas.join("\n") + aviso);
     else if (aviso) alert(aviso.trim());
     setJuntarModal(null);
     setJuntando(false);
