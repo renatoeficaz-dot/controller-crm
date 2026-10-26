@@ -1791,7 +1791,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                     <li key={t.id} className="flex items-center gap-2 py-1.5">
                       <input type="checkbox" checked={t.done} onChange={() => toggleTaskDone(t)} className="accent-emerald-500 shrink-0" />
                       <span className="text-[10px] text-slate-400 shrink-0">
-                        {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+                        {new Date(t.dueDate).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).replace(",", "")}
                       </span>
                       <span className={`text-xs flex-1 min-w-0 truncate ${t.done ? "text-slate-400 line-through" : "text-slate-600"}`}>{t.title}</span>
                       {t.tipo && (
