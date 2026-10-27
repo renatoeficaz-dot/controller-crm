@@ -586,11 +586,14 @@ export default function TarefasView() {
       )}
 
       {openContactId && (
-        <ContactModal
-          contactId={openContactId}
-          onClose={() => setOpenContactId(null)}
-          onChanged={load}
-        />
+        // z acima do modal de detalhes da tarefa, pra o card do lead abrir por cima dele
+        <div className="relative z-[60]">
+          <ContactModal
+            contactId={openContactId}
+            onClose={() => setOpenContactId(null)}
+            onChanged={load}
+          />
+        </div>
       )}
 
       {/* Modal de detalhes/edição da tarefa — abre ao clicar num card */}
@@ -611,7 +614,19 @@ export default function TarefasView() {
             </label>
             {detailTask.contactName && (
               <p className="text-xs text-slate-400">
-                Lead: <span className="font-medium text-slate-600">{detailTask.contactName}</span>
+                Lead:{" "}
+                {detailTask.contactId ? (
+                  <button
+                    type="button"
+                    onClick={() => setOpenContactId(detailTask.contactId)}
+                    title="Abrir o card do lead"
+                    className="font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                  >
+                    {detailTask.contactName}
+                  </button>
+                ) : (
+                  <span className="font-medium text-slate-600">{detailTask.contactName}</span>
+                )}
               </p>
             )}
             <label className="block">
