@@ -568,6 +568,7 @@ export default function ChatView() {
     if (messages.length > 0) instanceDefaultedForRef.current = selectedId;
   }, [messages, selectedId, numbers]);
 
+  const userRolouRef = useRef(false);
   const scrolledForRef = useRef(null);
   const lastMsgIdRef = useRef(null);
   useEffect(() => {
@@ -580,7 +581,19 @@ export default function ChatView() {
     scrolledForRef.current = selectedId;
     lastMsgIdRef.current = lastId;
     rolarAteOFim(chatEnd.current, !firstLoad);
+    if (firstLoad) {
+      // Ao abrir a conversa o conteúdo ainda cresce (histórico de alterações, imagens, áudios): repete a rolagem por alguns segundos,
+      // até a pessoa mexer na lista — no celular a conversa abria no meio/início por causa disso.
+      userRolouRef.current = false;
+      const ts = [120, 400, 900, 1800, 3500].map((ms) => setTimeout(() => { if (!userRolouRef.current) rolarAteOFim(chatEnd.current, false); }, ms));
+      return () => ts.forEach(clearTimeout);
+    }
   }, [messages, selectedId]);
+
+  // Quando o histórico de alterações (atividade) chega depois das mensagens, volta pro fim se a pessoa ainda não rolou.
+  useEffect(() => {
+    if (!userRolouRef.current) rolarAteOFim(chatEnd.current, false);
+  }, [atividade]);
 
   async function apagarMensagem(id) {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, apagada: true } : m)));
@@ -1521,7 +1534,7 @@ export default function ChatView() {
                 <p className="text-xs text-slate-600 mt-1.5 whitespace-pre-line">{resumoIa}</p>
               </div>
             )}
-            <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-2">
+            <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-2" onWheel={() => { userRolouRef.current = true; }} onTouchMove={() => { userRolouRef.current = true; }}>
               {timeline.map((item) => item.tipo === "atividade" ? (
                 <div key={`ativ-${item.ativ.createdAt}-${item.ativ.detalhe}`} className="flex justify-center">
                   <p className="max-w-[85%] text-center text-[11px] text-slate-500 bg-slate-200/70 rounded-full px-3 py-1">
@@ -1597,7 +1610,7 @@ export default function ChatView() {
               ))}
               <div ref={chatEnd} />
             </div>
-            <div className="px-4 pt-2 pb-0 bg-white border-t border-slate-200 shrink-0">
+            <div className="px-4 pt-2 pb-0 bg-white border-t border-slate-200 shrink-0 min-w-0 max-w-full">
               <TarefaBarra tasks={tasks} onChanged={loadTasks} onCriar={() => setTarefaModalAberta(true)} />
               {renovandoRapido && selected && (
                 <RenovacaoRapida contactId={selected.id} nome={selected.name} onClose={() => setRenovandoRapido(false)} onDone={() => { loadConversations(); loadContact(); }} />
@@ -1609,7 +1622,7 @@ export default function ChatView() {
                     value={selectedInstance}
                     onChange={(e) => setSelectedInstance(e.target.value)}
                     disabled={sending || uploading}
-                    className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400 disabled:opacity-50"
+                    className="flex-1 min-w-0 w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400 disabled:opacity-50"
                   >
                     {numbers.map((n) => (
                       <option key={n.id} value={n.instance}>{n.label} ({n.number})</option>

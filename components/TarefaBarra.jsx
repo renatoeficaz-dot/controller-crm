@@ -103,7 +103,7 @@ export default function TarefaBarra({ tasks, onChanged, onCriar }) {
       </div>
 
       {modo === null && (
-        <div className="flex items-center gap-1 mt-1 relative">
+        <div className="flex flex-wrap items-center gap-1 mt-1 relative">
           <button type="button" disabled={salvando} onClick={() => patch({ done: true })} className={`${btn} text-emerald-700 border-emerald-200`}>Finalizar</button>
           <span className="relative">
             <button type="button" disabled={salvando} onClick={() => setAdiarAberto((v) => !v)} className={btn}>Adiar ▾</button>
