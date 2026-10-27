@@ -175,6 +175,8 @@ export default function KanbanBoard() {
   const [overStage, setOverStage] = useState(null);
   const [openId, setOpenId] = useState(null); // contato aberto no modal
   const [renovRapido, setRenovRapido] = useState(null); // {id, name} do card com a renovação rápida aberta
+  // Colunas enormes (ex.: Venda perdida com milhares) travavam a tela: desenha em lotes (stageId -> quantos mostrar).
+  const [limiteColuna, setLimiteColuna] = useState({});
   const [abrirTarefa, setAbrirTarefa] = useState(false); // abre o modal já com o formulário de nova tarefa
   const [cardMenuId, setCardMenuId] = useState(null); // contato com o menu (⋮) do card aberto
   const [cardMenuPos, setCardMenuPos] = useState(null); // { top, left } do menu — calculado do botão, renderizado via portal (evita ser cortado pelo scroll da coluna)
@@ -1079,7 +1081,7 @@ export default function KanbanBoard() {
 
                 {/* Cartões */}
                 <div className="p-2 flex flex-col gap-2 min-h-[60px] max-h-[calc(100vh-220px)] overflow-y-auto thin-scroll">
-                  {visiveis.map((c) => {
+                  {visiveis.slice(0, limiteColuna[stage.id] || 60).map((c) => {
                     const sit = situacaoContato(c);
                     const style = CARD_STYLE[sit] || CARD_STYLE.base;
                     // Lead em Recebimento sem nenhuma tarefa cadastrada — provavelmente
@@ -1300,6 +1302,15 @@ export default function KanbanBoard() {
                       </div>
                     );
                   })}
+                  {visiveis.length > (limiteColuna[stage.id] || 60) && (
+                    <button
+                      type="button"
+                      onClick={() => setLimiteColuna((l) => ({ ...l, [stage.id]: (l[stage.id] || 60) + 60 }))}
+                      className="text-xs text-emerald-600 hover:bg-white rounded-lg py-2 border border-dashed border-slate-200"
+                    >
+                      Mostrar mais ({visiveis.length - (limiteColuna[stage.id] || 60)} restantes)
+                    </button>
+                  )}
 
                   {/* Form rápido de novo contato */}
                   {adding === stage.id ? (
