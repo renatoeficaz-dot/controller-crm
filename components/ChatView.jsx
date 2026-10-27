@@ -1361,7 +1361,7 @@ export default function ChatView() {
                 </div>
               </button>
               {/* Fixar/arquivar (itens 81/82) — só aparece no hover, não rouba clique do item */}
-              <span className={`absolute top-2.5 right-2 flex items-center gap-0.5 transition-opacity ${menuConversaId === c.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+              <span className={`absolute top-2.5 right-2 flex items-center gap-0.5 transition-opacity ${menuConversaId === c.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 max-md:opacity-100 pointer-coarse:opacity-100"}`}>
                 <button
                   type="button"
                   title={c.chatFixado ? "Desafixar" : "Fixar no topo"}
