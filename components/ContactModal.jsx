@@ -724,6 +724,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
     setShowTaskForm(false);
     setTarefaModalAberta(false);
     loadTasks();
+    onChanged?.();
   }
 
   async function toggleTaskDone(t) {
@@ -733,12 +734,14 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ done: !t.done }),
     });
+    onChanged?.();
   }
 
   async function removeTask(id) {
     if (!confirm("Excluir esta tarefa?")) return;
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
     loadTasks();
+    onChanged?.();
   }
 
   async function send() {
@@ -2414,7 +2417,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
             <p className="px-4 text-xs text-red-500 pb-1">{error}</p>
           )}
 
-          <TarefaBarra tasks={tasks} onChanged={loadTasks} onCriar={() => setTarefaModalAberta(true)} />
+          <TarefaBarra tasks={tasks} onChanged={() => { loadTasks(); onChanged?.(); }} onCriar={() => setTarefaModalAberta(true)} />
 
           {numbers.length > 1 && (
             <div className="px-3 pt-2 bg-white flex items-center gap-2">
