@@ -27,6 +27,7 @@ export default function TarefasView() {
   const [fStatus, setFStatus] = useState("pendentes"); // pendentes | todas | concluidas
   const [fTipo, setFTipo] = useState("");
   const [fResponsavel, setFResponsavel] = useState(""); // "" = todos; nome do usuário = só as tarefas dele
+  const [fPrazo, setFPrazo] = useState(""); // "" | atrasadas | hoje | avencer
   const [fEtapas, setFEtapas] = useState([]); // ids das etapas do funil do lead (vazio = todas)
   const [stagesList, setStagesList] = useState([]);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -49,9 +50,19 @@ export default function TarefasView() {
     if (fTipo) q.set("tipoId", fTipo);
     if (fResponsavel) q.set("responsavel", fResponsavel);
     const data = await fetch(`/api/tasks?${q}`).then((r) => r.json()).catch(() => []);
-    const lista = Array.isArray(data) ? data : [];
-    setTasks(fEtapas.length ? lista.filter((t) => fEtapas.includes(t.contact?.stage?.id)) : lista);
-  }, [fStatus, fTipo, fResponsavel, fEtapas]);
+    let lista = Array.isArray(data) ? data : [];
+    if (fEtapas.length) lista = lista.filter((t) => fEtapas.includes(t.contact?.stage?.id));
+    if (fPrazo) {
+      const h = hojeStr();
+      lista = lista.filter((t) => {
+        const d = t.dueDate.slice(0, 10);
+        if (fPrazo === "atrasadas") return !t.done && d < h;
+        if (fPrazo === "hoje") return d === h;
+        return d > h; // a vencer
+      });
+    }
+    setTasks(lista);
+  }, [fStatus, fTipo, fResponsavel, fEtapas, fPrazo]);
 
   const [users, setUsers] = useState([]);
   const [modoFoco, setModoFoco] = useState(false);
@@ -260,7 +271,7 @@ export default function TarefasView() {
     else { setFocoTaskId(null); setOpenContactId(null); }
   }, [filaFoco, focoTaskId, modoFoco, openContactId, indiceFoco, hoje]);
 
-  const filtrosAtivos = (fStatus !== "pendentes" ? 1 : 0) + (fTipo ? 1 : 0) + (fResponsavel ? 1 : 0) + (fEtapas.length ? 1 : 0);
+  const filtrosAtivos = (fStatus !== "pendentes" ? 1 : 0) + (fTipo ? 1 : 0) + (fResponsavel ? 1 : 0) + (fEtapas.length ? 1 : 0) + (fPrazo ? 1 : 0);
 
   // Modo foco: uma tarefa pendente por vez (as mais antigas primeiro), com ações grandes — mesmo jeito do modo foco das cobranças.
   if (modoFoco) {
@@ -491,7 +502,7 @@ export default function TarefasView() {
           )}
         </button>
         <span className="text-xs text-slate-400">
-          {fStatus === "pendentes" ? "Pendentes" : fStatus === "concluidas" ? "Concluídas" : "Todas"}
+          {fStatus === "pendentes" ? "Pendentes" : fStatus === "concluidas" ? "Finalizadas" : "Todas"}
         </span>
         <button
           onClick={() => { setIndiceFoco(0); setModoFoco(true); }}
@@ -519,7 +530,7 @@ export default function TarefasView() {
               <h3 className="font-semibold text-slate-800">Filtros</h3>
               <div className="flex items-center gap-3">
                 {filtrosAtivos > 0 && (
-                  <button onClick={() => { setFStatus("pendentes"); setFTipo(""); setFResponsavel(""); setFEtapas([]); }} className="text-xs text-red-400 hover:text-red-600">Limpar tudo</button>
+                  <button onClick={() => { setFStatus("pendentes"); setFTipo(""); setFResponsavel(""); setFEtapas([]); setFPrazo(""); }} className="text-xs text-red-400 hover:text-red-600">Limpar tudo</button>
                 )}
                 <button onClick={() => setFiltrosAbertos(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
               </div>
@@ -528,8 +539,16 @@ export default function TarefasView() {
               <div>
                 <span className="text-xs text-slate-400">Situação</span>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {[["pendentes", "Pendentes"], ["concluidas", "Concluídas"], ["todas", "Todas"]].map(([k, l]) => (
+                  {[["pendentes", "Pendentes"], ["concluidas", "Finalizadas"], ["todas", "Todas"]].map(([k, l]) => (
                     <button key={k} onClick={() => setFStatus(k)} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${fStatus === k ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-slate-400">Prazo</span>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {[["", "Todos"], ["atrasadas", "Atrasadas"], ["hoje", "De hoje"], ["avencer", "A vencer"]].map(([k, l]) => (
+                    <button key={k || "todos"} onClick={() => setFPrazo(k)} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${fPrazo === k ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}>{l}</button>
                   ))}
                 </div>
               </div>
