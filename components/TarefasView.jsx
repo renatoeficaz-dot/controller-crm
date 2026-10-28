@@ -50,6 +50,8 @@ export default function TarefasView() {
   }, [fStatus, fTipo, fResponsavel]);
 
   const [users, setUsers] = useState([]);
+  const [modoFoco, setModoFoco] = useState(false);
+  const [indiceFoco, setIndiceFoco] = useState(0);
 
   const loadMeta = useCallback(async () => {
     const [tp, stages, us] = await Promise.all([
@@ -235,6 +237,88 @@ export default function TarefasView() {
     return m;
   }, [tasks]);
 
+  // Modo foco: uma tarefa pendente por vez (as mais antigas primeiro), com ações grandes — mesmo jeito do modo foco das cobranças.
+  if (modoFoco) {
+    const fila = tasks.filter((t) => !t.done).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    const t = fila[Math.min(indiceFoco, fila.length - 1)];
+    if (!t) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
+          <p className="text-sm text-slate-400">Nenhuma tarefa pendente. 🎉</p>
+          <button onClick={() => setModoFoco(false)} className="text-sm text-emerald-600">Voltar para a lista</button>
+        </div>
+      );
+    }
+    const tel = String(t.contact?.phone || "").replace(/\D/g, "");
+    const dia = t.dueDate.slice(0, 10);
+    const atr = dia < hoje;
+    const adiar = async (dias) => {
+      const horario = new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+      const novaData = `${addDaysStr(atr ? hoje : dia, dias)}T${horario}:00`;
+      setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, dueDate: novaData } : x)));
+      await fetch(`/api/tasks/${t.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dueDate: novaData }) });
+      load();
+    };
+    return (
+      <div className="flex-1 overflow-y-auto thin-scroll p-4 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <button onClick={() => setModoFoco(false)} className="text-sm text-slate-500">← Lista</button>
+          <span className="text-xs text-slate-400">{Math.min(indiceFoco + 1, fila.length)} de {fila.length}</span>
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
+          {t.tipo && (
+            <span className="inline-block text-[11px] font-medium rounded-full px-2 py-0.5 text-white mb-2" style={{ backgroundColor: t.tipo.color }}>
+              {t.tipo.emoji ? `${t.tipo.emoji} ` : ""}{t.tipo.name}
+            </span>
+          )}
+          <p className="text-xl font-semibold text-slate-800">{t.title}</p>
+          <p className="text-sm text-slate-500 mt-1">{t.contact?.name || "Sem lead"}{t.contact?.phone ? ` · ${t.contact.phone}` : ""}</p>
+          <p className={`text-sm font-semibold mt-3 ${atr ? "text-red-600" : dia === hoje ? "text-amber-600" : "text-slate-500"}`}>
+            {atr ? "Atrasada · " : dia === hoje ? "Hoje · " : ""}{new Date(t.dueDate).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+          </p>
+          {(t.responsavel || t.contact?.responsavel) && <p className="text-xs text-slate-400 mt-1">Responsável: {t.responsavel || t.contact?.responsavel}</p>}
+          {t.notes && <p className="text-sm text-slate-600 mt-3 whitespace-pre-wrap text-left bg-slate-50 rounded-lg p-3">{t.notes}</p>}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => toggleDone(t)} className="col-span-2 bg-emerald-500 text-white rounded-xl py-4 font-medium hover:bg-emerald-600 transition-colors">Concluir tarefa</button>
+          {tel ? (
+            <a href={`https://wa.me/${tel}`} target="_blank" rel="noreferrer" className="border border-slate-200 text-slate-600 rounded-xl py-4 text-center font-medium hover:bg-slate-50 transition-colors">WhatsApp</a>
+          ) : <span className="border border-slate-100 text-slate-300 rounded-xl py-4 text-center font-medium">WhatsApp</span>}
+          {tel ? (
+            <a href={`tel:${tel}`} className="border border-slate-200 text-slate-600 rounded-xl py-4 text-center font-medium hover:bg-slate-50 transition-colors">Ligar</a>
+          ) : <span className="border border-slate-100 text-slate-300 rounded-xl py-4 text-center font-medium">Ligar</span>}
+          <button onClick={() => adiar(1)} className="border border-slate-200 text-slate-600 rounded-xl py-4 font-medium hover:bg-slate-50 transition-colors">Adiar 1 dia</button>
+          <button onClick={() => adiar(2)} className="border border-slate-200 text-slate-600 rounded-xl py-4 font-medium hover:bg-slate-50 transition-colors">Adiar 2 dias</button>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <button onClick={() => setIndiceFoco((i) => Math.max(0, i - 1))} disabled={indiceFoco === 0} className="text-sm text-slate-500 disabled:opacity-40">← Anterior</button>
+          <span className="flex gap-4">
+            {t.contact && <button onClick={() => setOpenContactId(t.contact.id)} className="text-sm text-sky-600">Abrir ficha</button>}
+            <button onClick={() => openDetail(t)} className="text-sm text-sky-600">Editar</button>
+          </span>
+          <button onClick={() => setIndiceFoco((i) => Math.min(i + 1, Math.max(0, fila.length - 1)))} className="text-sm text-slate-600 font-medium">Pular →</button>
+        </div>
+        {openContactId && <ContactModal contactId={openContactId} onClose={() => setOpenContactId(null)} onChanged={load} />}
+        {detailTask && (
+          <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setDetailTask(null)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+              <input value={detailTask.title} onChange={(e) => setDetailTask((d) => ({ ...d, title: e.target.value }))} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              <div className="flex gap-2">
+                <input type="date" value={detailTask.dueDate} onChange={(e) => setDetailTask((d) => ({ ...d, dueDate: e.target.value }))} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-sm" />
+                <input type="time" value={detailTask.dueTime} onChange={(e) => setDetailTask((d) => ({ ...d, dueTime: e.target.value }))} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm" />
+              </div>
+              <textarea value={detailTask.notes} onChange={(e) => setDetailTask((d) => ({ ...d, notes: e.target.value }))} rows={3} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setDetailTask(null)} className="text-sm text-slate-500 px-3">Cancelar</button>
+                <button disabled={saving} onClick={saveDetailTask} className="text-sm bg-emerald-500 text-white rounded-lg px-4 py-1.5 disabled:opacity-50">Salvar</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 space-y-4 md:space-y-6">
       <div className="flex items-start justify-between gap-3">
@@ -383,7 +467,13 @@ export default function TarefasView() {
           <option value="">Todos os responsáveis</option>
           {users.map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
         </select>
-        <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5 ml-auto">
+        <button
+          onClick={() => { setIndiceFoco(0); setModoFoco(true); }}
+          className="ml-auto text-xs rounded-full px-3.5 py-1.5 bg-slate-800 text-white hover:bg-slate-700 transition-colors shrink-0"
+        >
+          Modo foco
+        </button>
+        <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
           {[{ k: "pipeline", l: "Pipeline" }, { k: "calendario", l: "Calendário" }].map((o) => (
             <button
               key={o.k}
