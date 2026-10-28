@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Icone from "@/components/Icones";
 import AudioPlayer from "@/components/AudioPlayer";
 
@@ -60,8 +61,11 @@ export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
     });
   }
   function resetZoom() { setZoom(1); setPos({ x: 0, y: 0 }); }
-  return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+  // Portal no <body>: dentro da lista de mensagens o "fixed" ficava preso ao painel do chat (a imagem aparecia só no meio da tela, com o
+  // cabeçalho e o envio por fora), e no celular o toque no ← do cabeçalho brigava com a imagem.
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[90] bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
       <div
         className={`${expandido ? "max-w-none w-[98vw] h-[95vh]" : "max-w-3xl max-h-[85vh] w-full"} flex flex-col items-center`}
         onClick={(e) => e.stopPropagation()}
@@ -88,16 +92,18 @@ export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
         {isImagem && (
           <div
             className="w-full flex-1 min-h-0 overflow-hidden flex items-center justify-center select-none"
-            style={{ maxHeight: "80vh", cursor: zoom > 1 ? (arrasto.current ? "grabbing" : "grab") : "zoom-in" }}
+            style={{ maxHeight: "80vh", touchAction: "pinch-zoom", cursor: zoom > 1 ? (arrasto.current ? "grabbing" : "grab") : "zoom-in" }}
             onWheel={(e) => mudarZoom(e.deltaY < 0 ? 0.25 : -0.25)}
-            onMouseDown={(e) => { arrasto.current = { x: e.clientX - pos.x, y: e.clientY - pos.y, moveu: false }; }}
-            onMouseMove={(e) => {
-              if (!arrasto.current || zoom <= 1) return;
+            // Só mouse: no celular o toque gera mousedown/mouseup "de mentirinha" e o toque alternava o zoom sem parar (a imagem
+            // crescia e diminuía). No toque, o zoom é pelos botões − / + / 100% e o pinça do próprio navegador.
+            onPointerDown={(e) => { if (e.pointerType !== "mouse") return; arrasto.current = { x: e.clientX - pos.x, y: e.clientY - pos.y, moveu: false }; }}
+            onPointerMove={(e) => {
+              if (e.pointerType !== "mouse" || !arrasto.current || zoom <= 1) return;
               arrasto.current.moveu = true;
               setPos({ x: e.clientX - arrasto.current.x, y: e.clientY - arrasto.current.y });
             }}
-            onMouseUp={() => { const moveu = arrasto.current?.moveu; arrasto.current = null; if (!moveu) { zoom > 1 ? resetZoom() : mudarZoom(1); } }}
-            onMouseLeave={() => { arrasto.current = null; }}
+            onPointerUp={(e) => { if (e.pointerType !== "mouse") return; const moveu = arrasto.current?.moveu; arrasto.current = null; if (!moveu) { zoom > 1 ? resetZoom() : mudarZoom(1); } }}
+            onPointerLeave={() => { arrasto.current = null; }}
           >
             <img
               src={url}
@@ -122,7 +128,8 @@ export function MediaLightbox({ url, mimetype, fileName, kind, onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
