@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const TECLAS = [
@@ -61,6 +61,37 @@ export default function CalculadoraRapida({ onClose, onUsar }) {
   const [copiado, setCopiado] = useState(false);
   useEffect(() => setMontado(true), []);
 
+  // Janela flutuante: arraste pelo título para mover; a posição fica lembrada no navegador.
+  const [pos, setPos] = useState(null); // { x, y } em px (canto superior esquerdo) | null = posição padrão
+  const caixaRef = useRef(null);
+  const arrasto = useRef(null);
+  useEffect(() => {
+    try {
+      const salvo = JSON.parse(localStorage.getItem("calculadora:pos") || "null");
+      if (salvo && Number.isFinite(salvo.x) && Number.isFinite(salvo.y)) setPos({ x: Math.min(salvo.x, window.innerWidth - 80), y: Math.min(salvo.y, window.innerHeight - 60) });
+    } catch {}
+  }, []);
+  function iniciarArrasto(e) {
+    if (e.target.closest("button")) return;
+    const r = caixaRef.current.getBoundingClientRect();
+    arrasto.current = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function moverArrasto(e) {
+    if (!arrasto.current) return;
+    const w = caixaRef.current.offsetWidth;
+    const h = caixaRef.current.offsetHeight;
+    setPos({
+      x: Math.max(0, Math.min(window.innerWidth - w, e.clientX - arrasto.current.dx)),
+      y: Math.max(0, Math.min(window.innerHeight - h, e.clientY - arrasto.current.dy)),
+    });
+  }
+  function fimArrasto() {
+    if (!arrasto.current) return;
+    arrasto.current = null;
+    try { if (pos) localStorage.setItem("calculadora:pos", JSON.stringify(pos)); } catch {}
+  }
+
   const mostrar = (e) => e.replace(/\*/g, "×").replace(/\//g, "÷").replace(/-/g, "−").replace(/\./g, ",");
 
   const apertar = useCallback((t) => {
@@ -101,6 +132,9 @@ export default function CalculadoraRapida({ onClose, onUsar }) {
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") { onClose?.(); return; }
+      // Sem tela escurecida atrás, quem digita na caixa de mensagem ou em campos da página não pode acionar a calculadora.
+      const alvo = e.target;
+      if (alvo && (alvo.tagName === "INPUT" || alvo.tagName === "TEXTAREA" || alvo.tagName === "SELECT" || alvo.isContentEditable)) return;
       if (/^\d$/.test(e.key)) apertar(e.key);
       else if (e.key === "+") apertar("+");
       else if (e.key === "-") apertar("−");
@@ -127,10 +161,21 @@ export default function CalculadoraRapida({ onClose, onUsar }) {
 
   if (!montado) return null;
   return createPortal(
-    <div className="fixed inset-0 z-[80] bg-black/30 flex items-end sm:items-center justify-center p-3" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[300px] p-3 space-y-2" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-700">Calculadora</span>
+    <div
+      ref={caixaRef}
+      className="fixed z-[80] w-[300px] max-w-[calc(100vw-16px)]"
+      style={pos ? { left: pos.x, top: pos.y } : { right: 16, bottom: 16 }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 space-y-2">
+        <div
+          className="flex items-center justify-between cursor-move select-none touch-none"
+          onPointerDown={iniciarArrasto}
+          onPointerMove={moverArrasto}
+          onPointerUp={fimArrasto}
+          onPointerCancel={fimArrasto}
+          title="Arraste para mover"
+        >
+          <span className="text-sm font-semibold text-slate-700">Calculadora <span className="text-[10px] font-normal text-slate-400">· arraste para mover</span></span>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
         </div>
         <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-right min-h-[64px] flex flex-col justify-end">
