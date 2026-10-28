@@ -27,6 +27,9 @@ export default function TarefasView() {
   const [fStatus, setFStatus] = useState("pendentes"); // pendentes | todas | concluidas
   const [fTipo, setFTipo] = useState("");
   const [fResponsavel, setFResponsavel] = useState(""); // "" = todos; nome do usuário = só as tarefas dele
+  const [fEtapas, setFEtapas] = useState([]); // ids das etapas do funil do lead (vazio = todas)
+  const [stagesList, setStagesList] = useState([]);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [openContactId, setOpenContactId] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [overCol, setOverCol] = useState(null);
@@ -46,8 +49,9 @@ export default function TarefasView() {
     if (fTipo) q.set("tipoId", fTipo);
     if (fResponsavel) q.set("responsavel", fResponsavel);
     const data = await fetch(`/api/tasks?${q}`).then((r) => r.json()).catch(() => []);
-    setTasks(Array.isArray(data) ? data : []);
-  }, [fStatus, fTipo, fResponsavel]);
+    const lista = Array.isArray(data) ? data : [];
+    setTasks(fEtapas.length ? lista.filter((t) => fEtapas.includes(t.contact?.stage?.id)) : lista);
+  }, [fStatus, fTipo, fResponsavel, fEtapas]);
 
   const [users, setUsers] = useState([]);
   const [modoFoco, setModoFoco] = useState(false);
@@ -61,6 +65,7 @@ export default function TarefasView() {
       fetch("/api/users").then((r) => r.json()).catch(() => []),
     ]);
     setTipos(Array.isArray(tp) ? tp : []);
+    setStagesList((Array.isArray(stages) ? stages : []).map((s) => ({ id: s.id, name: s.name, color: s.color })));
     const allContacts = (Array.isArray(stages) ? stages : []).flatMap((s) => s.contacts || []);
     setContacts(allContacts.map((c) => ({ id: c.id, name: c.name })));
     setUsers(Array.isArray(us) ? us : []);
@@ -254,6 +259,8 @@ export default function TarefasView() {
     if (prox?.contact?.id) { setFocoTaskId(prox.id); setOpenContactId(prox.contact.id); }
     else { setFocoTaskId(null); setOpenContactId(null); }
   }, [filaFoco, focoTaskId, modoFoco, openContactId, indiceFoco, hoje]);
+
+  const filtrosAtivos = (fStatus !== "pendentes" ? 1 : 0) + (fTipo ? 1 : 0) + (fResponsavel ? 1 : 0) + (fEtapas.length ? 1 : 0);
 
   // Modo foco: uma tarefa pendente por vez (as mais antigas primeiro), com ações grandes — mesmo jeito do modo foco das cobranças.
   if (modoFoco) {
@@ -469,39 +476,23 @@ export default function TarefasView() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {[
-          { key: "pendentes", label: "Pendentes" },
-          { key: "concluidas", label: "Concluídas" },
-          { key: "todas", label: "Todas" },
-        ].map((o) => (
-          <button
-            key={o.key}
-            onClick={() => setFStatus(o.key)}
-            className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${
-              fStatus === o.key ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
-        <select
-          value={fTipo}
-          onChange={(e) => setFTipo(e.target.value)}
-          className="text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white outline-none"
+        <button
+          onClick={() => setFiltrosAbertos(true)}
+          className={`flex items-center gap-1 text-xs rounded-full px-3.5 py-1.5 border transition-colors ${
+            filtrosAtivos > 0 ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+          }`}
         >
-          <option value="">Todos os tipos</option>
-          {tipos.map((t) => (
-            <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
-          ))}
-        </select>
-        <select
-          value={fResponsavel}
-          onChange={(e) => setFResponsavel(e.target.value)}
-          className="text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white outline-none"
-        >
-          <option value="">Todos os responsáveis</option>
-          {users.map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
-        </select>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+            <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
+          </svg>
+          Filtros
+          {filtrosAtivos > 0 && (
+            <span className="bg-white/20 rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none">{filtrosAtivos}</span>
+          )}
+        </button>
+        <span className="text-xs text-slate-400">
+          {fStatus === "pendentes" ? "Pendentes" : fStatus === "concluidas" ? "Concluídas" : "Todas"}
+        </span>
         <button
           onClick={() => { setIndiceFoco(0); setModoFoco(true); }}
           className="ml-auto text-xs rounded-full px-3.5 py-1.5 bg-slate-800 text-white hover:bg-slate-700 transition-colors shrink-0"
@@ -520,6 +511,64 @@ export default function TarefasView() {
           ))}
         </div>
       </div>
+
+      {filtrosAbertos && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setFiltrosAbertos(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[85vh] overflow-y-auto thin-scroll" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-semibold text-slate-800">Filtros</h3>
+              <div className="flex items-center gap-3">
+                {filtrosAtivos > 0 && (
+                  <button onClick={() => { setFStatus("pendentes"); setFTipo(""); setFResponsavel(""); setFEtapas([]); }} className="text-xs text-red-400 hover:text-red-600">Limpar tudo</button>
+                )}
+                <button onClick={() => setFiltrosAbertos(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <span className="text-xs text-slate-400">Situação</span>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {[["pendentes", "Pendentes"], ["concluidas", "Concluídas"], ["todas", "Todas"]].map(([k, l]) => (
+                    <button key={k} onClick={() => setFStatus(k)} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${fStatus === k ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <label className="block">
+                <span className="text-xs text-slate-400">Tipo de tarefa</span>
+                <select value={fTipo} onChange={(e) => setFTipo(e.target.value)} className="mt-1.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                  <option value="">Todos os tipos</option>
+                  {tipos.map((t) => (<option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs text-slate-400">Responsável</span>
+                <select value={fResponsavel} onChange={(e) => setFResponsavel(e.target.value)} className="mt-1.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
+                  <option value="">Todos os responsáveis</option>
+                  {users.map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
+                </select>
+              </label>
+              <div>
+                <span className="text-xs text-slate-400">Etapa do funil do lead</span>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {stagesList.map((st) => {
+                    const on = fEtapas.includes(st.id);
+                    return (
+                      <button
+                        key={st.id}
+                        onClick={() => setFEtapas((l) => (on ? l.filter((i) => i !== st.id) : [...l, st.id]))}
+                        className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${on ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}
+                      >
+                        {st.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <button onClick={() => setFiltrosAbertos(false)} className="w-full text-sm bg-emerald-500 text-white rounded-lg py-2 hover:bg-emerald-600">Ver tarefas</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {visao === "calendario" && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
