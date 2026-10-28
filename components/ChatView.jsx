@@ -151,6 +151,16 @@ function initials(name) {
   return (name || "?").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
 }
 
+// Dia seguinte ao vencimento da última parcela do ciclo (pula domingo, que não tem cobrança) — "jogar para depois da última".
+function depoisDaUltima(parcelas, ignorarId) {
+  const datas = (parcelas || []).filter((p) => p.id !== ignorarId).map((p) => String(p.dueDate).slice(0, 10)).sort();
+  if (!datas.length) return null;
+  const d = new Date(datas[datas.length - 1] + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 1);
+  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function ChatView() {
   const [conversations, setConversations] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -2545,6 +2555,28 @@ export default function ChatView() {
             <label className="block">
               <span className="text-xs text-slate-400">Nova data</span>
               <input type="date" autoFocus value={editVenc.novo} onChange={(e) => setEditVenc((f) => ({ ...f, novo: e.target.value }))} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400" />
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {[{ label: "Amanhã", dias: 1 }, { label: "1 semana", dias: 7 }, { label: "1 mês", dias: 30 }].map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    onClick={() => { const d = new Date(); d.setDate(d.getDate() + a.dias); setEditVenc((f) => ({ ...f, novo: d.toLocaleDateString("en-CA") })); }}
+                    className="text-xs rounded-full px-3 py-1 border bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
+                  >
+                    {a.label}
+                  </button>
+                ))}
+                {depoisDaUltima(parcelasAtuais, editVenc.parcela.id) && (
+                  <button
+                    type="button"
+                    title="Joga esta parcela para o dia seguinte à última parcela do ciclo"
+                    onClick={() => setEditVenc((f) => ({ ...f, novo: depoisDaUltima(parcelasAtuais, f.parcela.id) }))}
+                    className="text-xs rounded-full px-3 py-1 border bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
+                  >
+                    Depois da última
+                  </button>
+                )}
+              </div>
             </label>
             <label className="block">
               <span className="text-xs text-slate-400">Motivo (obrigatório)</span>

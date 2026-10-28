@@ -67,6 +67,16 @@ const toDateInput = (iso) => (iso ? new Date(iso).toISOString().slice(0, 10) : "
 // Telefone para copiar sem o 55 do Brasil (só DDD + número).
 const semDdi = (v) => { const d = String(v || "").replace(/\D/g, ""); return d.length > 11 && d.startsWith("55") ? d.slice(2) : d; };
 
+// Dia seguinte ao vencimento da última parcela do ciclo (pula domingo, que não tem cobrança) — "jogar para depois da última".
+function depoisDaUltima(parcelas, ignorarId) {
+  const datas = (parcelas || []).filter((p) => p.id !== ignorarId).map((p) => String(p.dueDate).slice(0, 10)).sort();
+  if (!datas.length) return null;
+  const d = new Date(datas[datas.length - 1] + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 1);
+  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function ContactModal({ contactId, onClose, onChanged, abrirNovaTarefa = false }) {
   const [contact, setContact] = useState(null);
   const [minim, setMinim] = useState({}); // bloco -> minimizado (sem chave = padrão pela etapa)
@@ -2768,6 +2778,16 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                     {a.label}
                   </button>
                 ))}
+                {depoisDaUltima(parcelasAtuais, editandoVencimento.parcela.id) && (
+                  <button
+                    type="button"
+                    title="Joga esta parcela para o dia seguinte à última parcela do ciclo"
+                    onClick={() => setEditandoVencimento((f) => ({ ...f, novoVencimento: depoisDaUltima(parcelasAtuais, f.parcela.id) }))}
+                    className="text-xs rounded-full px-3 py-1 border bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
+                  >
+                    Depois da última
+                  </button>
+                )}
               </div>
             </label>
             <label className="block">
