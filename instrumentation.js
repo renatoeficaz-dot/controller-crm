@@ -65,7 +65,8 @@ export async function register() {
     await rodar("lembreteCobranca", checarLembretesCobranca);
     // Pix pra quem está em dia (item novo) — atrasado nunca entra aqui, isso é
     // trabalho do cobrador via fila de cobrança/régua.
-    await rodar("pixAdimplentes", enviarPixAdimplentes);
+    // Sem await: o envio leva a manhã toda (1 min entre mensagens) e travaria o resto do tick (follow-up, lembretes...). Tem trava própria contra rodada dupla.
+    rodar("pixAdimplentes", enviarPixAdimplentes);
     await rodar("followUp1h", checarFollowUp1h);
     // Varredura que retoma leads que a IA deixou sem resposta (reinício do servidor, falha de webhook...).
     // Fora da fila do tick: leva minutos e não pode atrasar as outras tarefas.
