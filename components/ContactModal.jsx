@@ -1,6 +1,7 @@
 "use client";
 
 import TarefaBarra from "./TarefaBarra";
+import CalculadoraRapida from "./CalculadoraRapida";
 import { rolarAteOFim } from "@/lib/rolar";
 import { CHECKLIST_DOC } from "@/lib/checklistDoc";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
@@ -244,6 +245,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   const [timelineAberta, setTimelineAberta] = useState(false);
   const [camposDef, setCamposDef] = useState([]);
   const [agendarAberto, setAgendarAberto] = useState(false);
+  const [calcAberta, setCalcAberta] = useState(false); // calculadora rápida (botão ao lado do envio)
   const [honorariosPct, setHonorariosPct] = useState(30);
   const [multaPct, setMultaPct] = useState(50);
   const [escalonamentoCfg, setEscalonamentoCfg] = useState(null);
@@ -2482,6 +2484,14 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
             </button>
             <button
               type="button"
+              onClick={() => setCalcAberta(true)}
+              title="Calculadora rápida"
+              className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center text-base"
+            >
+              🧮
+            </button>
+            <button
+              type="button"
               onClick={() => setAgendarAberto(true)}
               title="Agendar esta mensagem pra outro momento"
               className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
@@ -2616,6 +2626,8 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
           </div>
         </div>
       )}
+
+      {calcAberta && <CalculadoraRapida onClose={() => setCalcAberta(false)} onUsar={(v) => setText((t) => (t ? t + " " : "") + v)} />}
 
       {motivoPerdaAberto && (
         <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => { setMotivoPerdaAberto(null); setMotivoEscolhido(""); }}>

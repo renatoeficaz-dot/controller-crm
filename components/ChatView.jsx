@@ -16,6 +16,7 @@ import AgendarMensagemModal from "./AgendarMensagemModal";
 import VideoChamadaCall from "./VideoChamadaCall";
 import TarefaBarra from "./TarefaBarra";
 import RenovacaoRapida from "./RenovacaoRapida";
+import CalculadoraRapida from "./CalculadoraRapida";
 import AcordoModal from "./AcordoModal";
 
 // Data de hoje (local) como "YYYY-MM-DD"
@@ -197,6 +198,7 @@ export default function ChatView() {
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [agendarAberto, setAgendarAberto] = useState(false);
+  const [calcAberta, setCalcAberta] = useState(false); // calculadora rápida (botão ao lado do envio)
   const [gerandoLinkVideo, setGerandoLinkVideo] = useState(false);
   const [videoChamadaAberta, setVideoChamadaAberta] = useState(null); // sessaoId | null
   const [attachError, setAttachError] = useState("");
@@ -1730,6 +1732,14 @@ export default function ChatView() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setCalcAberta(true)}
+                  title="Calculadora rápida"
+                  className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center text-base"
+                >
+                  🧮
+                </button>
+                <button
+                  type="button"
                   onClick={() => setAgendarAberto(true)}
                   disabled={uploading || recording}
                   title="Agendar esta mensagem pra outro momento"
@@ -2431,6 +2441,8 @@ export default function ChatView() {
           </div>
         </div>
       )}
+
+      {calcAberta && <CalculadoraRapida onClose={() => setCalcAberta(false)} onUsar={(v) => setText((t) => (t ? t + " " : "") + v)} />}
 
       {acordoAberto && selected && (
         <AcordoModal

@@ -79,6 +79,9 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: result.error }, { status: 502 });
   }
 
+  // Conversa fechada volta pra lista quando uma pessoa manda mensagem pro cliente.
+  await prisma.contact.updateMany({ where: { id, chatArquivado: true }, data: { chatArquivado: false } }).catch(() => {});
+
   const message = await prisma.message.create({
     data: {
       enviadoPor: (user?.name || null),

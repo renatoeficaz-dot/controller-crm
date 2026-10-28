@@ -146,6 +146,9 @@ export async function POST(req, { params }) {
   // isso o ✓✓ nunca teria como saber a qual mensagem nossa cada ack se refere.
   const waMessageId = result.simulated ? null : extractSentMessageId(result.data);
 
+  // Conversa fechada volta pra lista quando uma pessoa manda mensagem pro cliente.
+  await prisma.contact.updateMany({ where: { id, chatArquivado: true }, data: { chatArquivado: false } }).catch(() => {});
+
   const message = await prisma.message.create({
     data: {
       enviadoPor: (user?.name || null),
