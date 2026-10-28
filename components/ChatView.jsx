@@ -161,6 +161,7 @@ export default function ChatView() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [contactErro, setContactErro] = useState(""); // motivo de a ficha do lead não ter carregado
   const chatEnd = useRef(null);
   const selectedIdRef = useRef(null);
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
@@ -453,6 +454,7 @@ export default function ChatView() {
     if (!selectedId) return;
     const requestedId = selectedId;
     const ct = await fetch(`/api/contacts/${requestedId}`).then((r) => r.json()).catch(() => null);
+    if (requestedId === selectedIdRef.current) setContactErro(ct?.error || (ct ? "" : "Falha de conexão ao carregar o lead."));
     loadTasks();
     if (requestedId !== selectedIdRef.current) return; // trocou de conversa enquanto isso — descarta
     if (ct && !ct.error) {
@@ -1869,6 +1871,19 @@ export default function ChatView() {
       {/* Painel direito: edição do lead. No mobile era um overlay w-full que
           cobria o chat inteiro — agora é uma gaveta mais estreita (com fundo
           escurecido atrás) pra sobrar um pouco do chat visível do lado. */}
+      {/* Dados ainda não chegaram (conversa grande demora ou a consulta falhou): antes o clique não fazia nada. */}
+      {selectedId && !contact && showInfo && (
+        <div className="w-[82%] max-w-sm md:w-72 lg:w-80 shrink-0 border-l border-slate-200 bg-white absolute md:relative inset-y-0 right-0 md:inset-auto z-30 md:z-auto shadow-xl md:shadow-none">
+          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-800 text-sm">Editar lead</h3>
+            <button onClick={() => setShowInfo(false)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+          </div>
+          <div className="p-4 text-sm text-slate-500 space-y-3">
+            <p className={contactErro ? "text-red-500" : ""}>{contactErro || "Carregando os dados do lead…"}</p>
+            <button onClick={() => loadContact()} className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50">Tentar de novo</button>
+          </div>
+        </div>
+      )}
       {selectedId && contact && showInfo && (
         <div className="md:hidden fixed inset-0 bg-slate-900/30 z-20" onClick={() => setShowInfo(false)} />
       )}
