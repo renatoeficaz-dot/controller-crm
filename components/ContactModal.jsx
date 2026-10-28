@@ -1065,6 +1065,22 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
             {field("Nome", "name")}
             {field("WhatsApp (ex.: 5511999998888)", "phone")}
 
+            {contact?.stage && (
+              <label className="block">
+                <span className="text-xs text-slate-400">Coluna (etapa)</span>
+                <select
+                  value={contact.stage.id}
+                  onChange={(e) => changeStage(e.target.value)}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
+                >
+                  {stagesList.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                {moveErr && <p className="text-xs text-red-500 mt-1">{moveErr}</p>}
+              </label>
+            )}
+
             {/* Mensagens prontas — escolhe um modelo e joga no campo de envio */}
             <label className="block">
               <span className="text-xs text-slate-400 flex items-center gap-2">
@@ -1485,21 +1501,6 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                 className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-emerald-400 resize-none"
               />
             </label>
-            {contact?.stage && (
-              <label className="block">
-                <span className="text-xs text-slate-400">Coluna (etapa)</span>
-                <select
-                  value={contact.stage.id}
-                  onChange={(e) => changeStage(e.target.value)}
-                  className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-                >
-                  {stagesList.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-                {moveErr && <p className="text-xs text-red-500 mt-1">{moveErr}</p>}
-              </label>
-            )}
 
             {/* Responsável pela lead — seletor dos usuários cadastrados */}
             <label className="block">
@@ -2302,6 +2303,15 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
               <p className="text-xs text-slate-400 leading-tight">
                 {form.phone ? form.phone : "sem telefone cadastrado"}
               </p>
+              {contact?.stage && (
+                <span
+                  className="inline-block mt-0.5 text-[10px] font-semibold rounded-full px-2 py-0.5 text-white"
+                  style={{ backgroundColor: contact.stage.color || "#64748b" }}
+                  title="Etapa do Kanban"
+                >
+                  {contact.stage.name}
+                </span>
+              )}
             </div>
             <button
               onClick={abrirEncaminharLead}

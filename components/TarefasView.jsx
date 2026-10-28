@@ -52,6 +52,7 @@ export default function TarefasView() {
   const [users, setUsers] = useState([]);
   const [modoFoco, setModoFoco] = useState(false);
   const [indiceFoco, setIndiceFoco] = useState(0);
+  const [focoTaskId, setFocoTaskId] = useState(null); // tarefa do lead aberto a partir do modo foco
 
   const loadMeta = useCallback(async () => {
     const [tp, stages, us] = await Promise.all([
@@ -237,9 +238,26 @@ export default function TarefasView() {
     return m;
   }, [tasks]);
 
+  const filaFoco = useMemo(
+    () => tasks.filter((t) => !t.done).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)),
+    [tasks]
+  );
+
+  // Abriu o lead pelo modo foco e finalizou/adiou a tarefa lá dentro: passa sozinho para o card da próxima tarefa.
+  useEffect(() => {
+    if (!modoFoco || !focoTaskId || !openContactId) return;
+    const t = filaFoco.find((x) => x.id === focoTaskId);
+    const dia = t ? t.dueDate.slice(0, 10) : null;
+    if (t && dia <= hoje) return; // ainda pendente e vencida/de hoje (continua na mesma posição)
+    if (t && filaFoco.findIndex((x) => x.id === focoTaskId) === Math.min(indiceFoco, filaFoco.length - 1)) return;
+    const prox = filaFoco[Math.min(indiceFoco, filaFoco.length - 1)];
+    if (prox?.contact?.id) { setFocoTaskId(prox.id); setOpenContactId(prox.contact.id); }
+    else { setFocoTaskId(null); setOpenContactId(null); }
+  }, [filaFoco, focoTaskId, modoFoco, openContactId, indiceFoco, hoje]);
+
   // Modo foco: uma tarefa pendente por vez (as mais antigas primeiro), com ações grandes — mesmo jeito do modo foco das cobranças.
   if (modoFoco) {
-    const fila = tasks.filter((t) => !t.done).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    const fila = filaFoco;
     const t = fila[Math.min(indiceFoco, fila.length - 1)];
     if (!t) {
       return (
@@ -280,7 +298,7 @@ export default function TarefasView() {
           {t.notes && <p className="text-sm text-slate-600 mt-3 whitespace-pre-wrap text-left bg-slate-50 rounded-lg p-3">{t.notes}</p>}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          {t.contact && <button onClick={() => setOpenContactId(t.contact.id)} className="col-span-2 bg-sky-500 text-white rounded-xl py-4 font-medium hover:bg-sky-600 transition-colors">Abrir ficha</button>}
+          {t.contact && <button onClick={() => { setFocoTaskId(t.id); setOpenContactId(t.contact.id); }} className="col-span-2 bg-sky-500 text-white rounded-xl py-4 font-medium hover:bg-sky-600 transition-colors">Abrir ficha</button>}
           <button onClick={() => toggleDone(t)} className="col-span-2 bg-emerald-500 text-white rounded-xl py-4 font-medium hover:bg-emerald-600 transition-colors">Concluir tarefa</button>
           {tel ? (
             <a href={`https://wa.me/${tel}`} target="_blank" rel="noreferrer" className="border border-slate-200 text-slate-600 rounded-xl py-4 text-center font-medium hover:bg-slate-50 transition-colors">WhatsApp</a>
@@ -298,7 +316,24 @@ export default function TarefasView() {
           </span>
           <button onClick={() => setIndiceFoco((i) => Math.min(i + 1, Math.max(0, fila.length - 1)))} className="text-sm text-slate-600 font-medium">Pular →</button>
         </div>
-        {openContactId && <ContactModal contactId={openContactId} onClose={() => setOpenContactId(null)} onChanged={load} />}
+        {openContactId && (
+          <>
+            <ContactModal contactId={openContactId} onClose={() => { setOpenContactId(null); setFocoTaskId(null); }} onChanged={load} />
+            {focoTaskId && (
+              <button
+                onClick={() => {
+                  const prox = fila[Math.min(indiceFoco + 1, fila.length - 1)];
+                  if (!prox || prox.id === t.id) { setOpenContactId(null); setFocoTaskId(null); return; }
+                  setIndiceFoco((i) => Math.min(i + 1, fila.length - 1));
+                  if (prox.contact?.id) { setFocoTaskId(prox.id); setOpenContactId(prox.contact.id); } else { setOpenContactId(null); setFocoTaskId(null); }
+                }}
+                className="fixed top-1 left-1/2 -translate-x-1/2 z-[95] bg-slate-800 text-white text-sm font-medium rounded-full px-5 py-2 shadow-lg hover:bg-slate-700"
+              >
+                Próxima tarefa → ({Math.min(indiceFoco + 1, fila.length)}/{fila.length})
+              </button>
+            )}
+          </>
+        )}
         {detailTask && (
           <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setDetailTask(null)}>
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
