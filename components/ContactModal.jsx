@@ -64,6 +64,9 @@ function numberLabel(instance, numbers) {
 // DateTime ISO -> "YYYY-MM-DD" (para <input type=date>)
 const toDateInput = (iso) => (iso ? new Date(iso).toISOString().slice(0, 10) : "");
 
+// Telefone para copiar sem o 55 do Brasil (só DDD + número).
+const semDdi = (v) => { const d = String(v || "").replace(/\D/g, ""); return d.length > 11 && d.startsWith("55") ? d.slice(2) : d; };
+
 export default function ContactModal({ contactId, onClose, onChanged, abrirNovaTarefa = false }) {
   const [contact, setContact] = useState(null);
   const [minim, setMinim] = useState({}); // bloco -> minimizado (sem chave = padrão pela etapa)
@@ -1135,7 +1138,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                           type="button"
                           onClick={async () => {
                             try {
-                              await navigator.clipboard.writeText(form.phone);
+                              await navigator.clipboard.writeText(semDdi(form.phone));
                               setTelefoneCopiadoId("cliente");
                               setTimeout(() => setTelefoneCopiadoId(null), 1500);
                             } catch {}
@@ -1177,7 +1180,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                           type="button"
                           onClick={async () => {
                             try {
-                              await navigator.clipboard.writeText(form[t.chave]);
+                              await navigator.clipboard.writeText(semDdi(form[t.chave]));
                               setTelefoneCopiadoId(t.chave);
                               setTimeout(() => setTelefoneCopiadoId(null), 1500);
                             } catch {}
