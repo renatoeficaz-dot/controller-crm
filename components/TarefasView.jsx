@@ -280,6 +280,7 @@ export default function TarefasView() {
           {t.notes && <p className="text-sm text-slate-600 mt-3 whitespace-pre-wrap text-left bg-slate-50 rounded-lg p-3">{t.notes}</p>}
         </div>
         <div className="grid grid-cols-2 gap-3">
+          {t.contact && <button onClick={() => setOpenContactId(t.contact.id)} className="col-span-2 bg-sky-500 text-white rounded-xl py-4 font-medium hover:bg-sky-600 transition-colors">Abrir ficha</button>}
           <button onClick={() => toggleDone(t)} className="col-span-2 bg-emerald-500 text-white rounded-xl py-4 font-medium hover:bg-emerald-600 transition-colors">Concluir tarefa</button>
           {tel ? (
             <a href={`https://wa.me/${tel}`} target="_blank" rel="noreferrer" className="border border-slate-200 text-slate-600 rounded-xl py-4 text-center font-medium hover:bg-slate-50 transition-colors">WhatsApp</a>
@@ -293,7 +294,6 @@ export default function TarefasView() {
         <div className="flex items-center justify-between gap-3">
           <button onClick={() => setIndiceFoco((i) => Math.max(0, i - 1))} disabled={indiceFoco === 0} className="text-sm text-slate-500 disabled:opacity-40">← Anterior</button>
           <span className="flex gap-4">
-            {t.contact && <button onClick={() => setOpenContactId(t.contact.id)} className="text-sm text-sky-600">Abrir ficha</button>}
             <button onClick={() => openDetail(t)} className="text-sm text-sky-600">Editar</button>
           </span>
           <button onClick={() => setIndiceFoco((i) => Math.min(i + 1, Math.max(0, fila.length - 1)))} className="text-sm text-slate-600 font-medium">Pular →</button>
