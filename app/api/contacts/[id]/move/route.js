@@ -8,7 +8,7 @@ import { limiteEscalonado } from "@/lib/escalonamento";
 import { contatoComCaloteMesmoCpf } from "@/lib/cpfBloqueio";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { criarTarefaLiberarPagamento } from "@/lib/tarefaLiberarPagamento";
-import { criarTarefaVideoChamada } from "@/lib/tarefaVideoChamada";
+import { criarTarefaVideoChamada, enviarCobradorVideoChamada } from "@/lib/tarefaVideoChamada";
 import { criarTarefaPuxada } from "@/lib/tarefaPuxada";
 import { getSession, getCurrentUser } from "@/lib/session";
 import { escolherPorCarga } from "@/lib/distribuicao";
@@ -270,6 +270,7 @@ export async function PATCH(req, { params }) {
     // tarefa que normalmente precisa acontecer logo ao chegar nessa etapa.
     if (stage.name === "Vídeo chamada" && trocandoDeEtapa) {
       await criarTarefaVideoChamada(id).catch(() => {});
+      await enviarCobradorVideoChamada(id).catch(() => {});
     }
     if (stage.name === "Análise" && trocandoDeEtapa) {
       await criarTarefaPuxada(id).catch(() => {});
