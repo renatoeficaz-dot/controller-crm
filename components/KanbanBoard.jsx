@@ -267,12 +267,11 @@ export default function KanbanBoard() {
   async function carregarAntigas(stageId) {
     setCarregandoAntigas(stageId);
     try {
-      const jaTem = (antigasRef.current[stageId] || []).length;
-      const res = await fetch(`/api/stages?antigas=1&skip=${jaTem}`);
+      const res = await fetch("/api/stages?antigas=1");
       if (!res.ok) throw new Error();
       const data = await res.json();
       const novos = data.find((st) => st.id === stageId)?.contacts || [];
-      antigasRef.current = { ...antigasRef.current, [stageId]: [...(antigasRef.current[stageId] || []), ...novos] };
+      antigasRef.current = { ...antigasRef.current, [stageId]: novos };
       setStages((prev) => prev.map((st) => (st.id === stageId ? { ...st, contacts: [...st.contacts, ...novos.filter((n) => !st.contacts.some((c) => c.id === n.id))] } : st)));
       setLimiteColuna((l) => ({ ...l, [stageId]: (l[stageId] || 60) + novos.length }));
     } catch {
@@ -1348,7 +1347,7 @@ export default function KanbanBoard() {
                       disabled={carregandoAntigas === stage.id}
                       className="text-xs text-slate-500 hover:bg-white rounded-lg py-2 border border-dashed border-slate-200 disabled:opacity-60"
                     >
-                      {carregandoAntigas === stage.id ? "Carregando…" : `Carregar mais antigas (${stage.totalContatos - stage.contacts.length} restantes)`}
+                      {carregandoAntigas === stage.id ? "Carregando…" : `Carregar mais (${stage.totalContatos - stage.contacts.length} antigos)`}
                     </button>
                   )}
                   {visiveis.length > (limiteColuna[stage.id] || 60) && (
