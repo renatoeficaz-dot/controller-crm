@@ -1068,6 +1068,8 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   const parcelasHistorico = parcelas.filter((p) => (p.ciclo || 1) < cicloAtual);
   const totalPago = parcelasAtuais.reduce((s, p) => s + (p.paid ? (p.amountPago != null ? p.amountPago : p.amount) : (p.valorPago || 0)), 0);
   const faltaQuitar = parcelasAtuais.filter((p) => !p.paid && !p.renegociada).reduce((s, p) => s + Math.max(0, p.amount - (p.valorPago || 0)), 0);
+  // Mesmo cálculo, mas com multa/juros de atraso de cada parcela (igual ao valor mostrado na lista).
+  const faltaQuitarJuros = parcelasAtuais.filter((p) => !p.paid && !p.renegociada).reduce((s, p) => s + Math.max(0, valorParcelaAtual(p, undefined, multaOpts) - (p.valorPago || 0)), 0);
   const todasPagas = parcelasAtuais.length > 0 && parcelasAtuais.every((p) => p.paid);
 
   function field(label, key, type = "text") {
@@ -2095,6 +2097,8 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                     <>
                       <span className="text-red-600 font-semibold">Falta quitar</span>
                       <span className="text-right font-semibold text-red-600">{money(faltaQuitar)}</span>
+                      <span className="text-red-700 font-bold">Falta quitar com juros</span>
+                      <span className="text-right font-bold text-red-700">{money(faltaQuitarJuros)}</span>
                     </>
                   )}
                 </div>
