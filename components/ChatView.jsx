@@ -172,8 +172,8 @@ export default function ChatView() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  // Painel de dados do lead: "completo" = o mesmo painel do Kanban; "rapida" = edição resumida do Chat (Juntar parcelas, Negociação).
-  const [abaDados, setAbaDados] = useState("completo");
+  // Painel de dados do lead: o mesmo painel do Kanban.
+  const abaDados = "completo"; // o painel completo (mesmo do Kanban) já inclui Juntar parcelas e Negociação
   const [contactErro, setContactErro] = useState(""); // motivo de a ficha do lead não ter carregado
   const chatEnd = useRef(null);
   const selectedIdRef = useRef(null);
@@ -1906,18 +1906,7 @@ export default function ChatView() {
       {selectedId && contact && showInfo && (
         <div className={`${abaDados === "completo" ? "w-[92%] max-w-lg md:w-[440px] lg:w-[500px] flex flex-col" : "w-[82%] max-w-sm md:w-72 lg:w-80 overflow-y-auto thin-scroll"} shrink-0 border-l border-slate-200 bg-white absolute md:relative inset-y-0 right-0 md:inset-auto z-30 md:z-auto shadow-xl md:shadow-none`}>
           <div className="px-4 py-2 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10 shrink-0">
-            <div className="flex items-center gap-1">
-              {[["completo", "Dados completos"], ["rapida", "Edição rápida"]].map(([k, rot]) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setAbaDados(k)}
-                  className={`text-xs font-medium rounded-md px-2.5 py-1.5 ${abaDados === k ? "bg-emerald-50 text-emerald-700" : "text-slate-500 hover:bg-slate-50"}`}
-                >
-                  {rot}
-                </button>
-              ))}
-            </div>
+            <h3 className="font-semibold text-slate-800 text-sm">Dados do contato</h3>
             <button onClick={() => setShowInfo(false)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
           </div>
           {abaDados === "completo" && (
