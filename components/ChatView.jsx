@@ -226,6 +226,23 @@ export default function ChatView() {
   const [taskTypes, setTaskTypes] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [tarefaModalAberta, setTarefaModalAberta] = useState(false);
+  // Botão vermelho "!" — reporta erro da IA nesta lead (mesma fila do Kanban: Configurações → IA → Suporte da IA).
+  const [suporteIaAberto, setSuporteIaAberto] = useState(false);
+  const [suporteIaDescricao, setSuporteIaDescricao] = useState("");
+  const [enviandoSuporteIa, setEnviandoSuporteIa] = useState(false);
+  async function reportarErroIa() {
+    if (!selectedId) return;
+    setEnviandoSuporteIa(true);
+    const res = await fetch("/api/suporte-ia", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId: selectedId, descricao: suporteIaDescricao }),
+    });
+    setEnviandoSuporteIa(false);
+    if (!res.ok) { alert("Não foi possível registrar."); return; }
+    setSuporteIaAberto(false);
+    setSuporteIaDescricao("");
+  }
   useEffect(() => { if (tarefaModalAberta) setTaskForm((f) => (f.dueDate < diaBR(0) ? { ...f, dueDate: diaBR(0) } : f)); }, [tarefaModalAberta]);
   const [taskForm, setTaskForm] = useState(tarefaPadrao());
   const [horaLimite, setHoraLimite] = useState("");
@@ -1489,6 +1506,13 @@ export default function ChatView() {
                 <Icone nome="pessoas" className="w-3 h-3" /> Chat interno
               </button>
               <button
+                onClick={() => setSuporteIaAberto(true)}
+                title="Reportar que a IA preencheu/entendeu algo errado nesta lead"
+                className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+              >
+                !
+              </button>
+              <button
                 onClick={gerarResumo}
                 disabled={resumindo}
                 title="Resumir a conversa com IA"
@@ -1805,6 +1829,39 @@ export default function ChatView() {
               )}
               {videoChamadaAberta && (
                 <VideoChamadaCall sessaoId={videoChamadaAberta} onClose={() => setVideoChamadaAberta(null)} />
+              )}
+              {suporteIaAberto && (
+                <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setSuporteIaAberto(false)}>
+                  <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
+                      <h3 className="font-semibold text-slate-800">Reportar erro da IA</h3>
+                      <button onClick={() => setSuporteIaAberto(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+                    </div>
+                    <div className="p-5 space-y-3">
+                      <p className="text-xs text-slate-500">
+                        Fica registrado numa fila em Configurações → IA → Suporte da IA, pra revisar depois e ajustar a IA pra não repetir.
+                      </p>
+                      <label className="block">
+                        <span className="text-xs text-slate-500">O que a IA fez errado? (opcional)</span>
+                        <textarea
+                          value={suporteIaDescricao}
+                          onChange={(e) => setSuporteIaDescricao(e.target.value)}
+                          rows={3}
+                          placeholder="Ex.: salvou o CPF errado, pegou o endereço errado..."
+                          className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-red-400 resize-none"
+                          autoFocus
+                        />
+                      </label>
+                      <button
+                        onClick={reportarErroIa}
+                        disabled={enviandoSuporteIa}
+                        className="w-full bg-red-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {enviandoSuporteIa ? "Registrando..." : "Registrar erro"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
               {tarefaModalAberta && (
                 <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setTarefaModalAberta(false)}>
