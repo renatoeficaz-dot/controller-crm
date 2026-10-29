@@ -77,7 +77,8 @@ function depoisDaUltima(parcelas, ignorarId) {
   return d.toISOString().slice(0, 10);
 }
 
-export default function ContactModal({ contactId, onClose, onChanged, abrirNovaTarefa = false }) {
+// `embutido`: usado dentro do Chat — mostra só a coluna de dados (igual à do Kanban), sem o overlay e sem a coluna do WhatsApp.
+export default function ContactModal({ contactId, onClose, onChanged, abrirNovaTarefa = false, embutido = false }) {
   const [contact, setContact] = useState(null);
   const [minim, setMinim] = useState({}); // bloco -> minimizado (sem chave = padrão pela etapa)
   // Contatos de referência (item 73) só podem ser editados por admin — quem
@@ -583,9 +584,9 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
           return [...prev, ...novas.filter((m) => !vistos.has(m.id))];
         });
       }
-    }, 5000);
+    }, embutido ? 30000 : 5000);
     return () => clearInterval(t);
-  }, [contactId]);
+  }, [contactId, embutido]);
 
   const hasScrolledRef = useRef(false);
   const lastMsgIdRef = useRef(null);
@@ -1048,18 +1049,18 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-0 md:p-4"
-      onClick={onClose}
+      className={embutido ? "h-full" : "fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-0 md:p-4"}
+      onClick={embutido ? undefined : onClose}
     >
       <div
-        className="bg-white md:rounded-2xl shadow-xl w-full h-full md:max-w-5xl md:h-[85vh] flex flex-col md:flex-row overflow-hidden"
+        className={embutido ? "bg-white w-full h-full flex flex-col overflow-hidden" : "bg-white md:rounded-2xl shadow-xl w-full h-full md:max-w-5xl md:h-[85vh] flex flex-col md:flex-row overflow-hidden"}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Coluna esquerda: dados do contato — no mobile só aparece depois de
             tocar na foto no cabeçalho do WhatsApp (dadosAbertoMobile); no
             desktop (md:) sempre visível, lado a lado com o chat. */}
-        <div className={`w-full md:w-1/2 md:border-r border-b md:border-b-0 border-slate-200 ${dadosAbertoMobile ? "flex" : "hidden md:flex"} flex-col max-h-[50vh] md:max-h-none`}>
-          <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div className={embutido ? "w-full flex flex-col flex-1 min-h-0" : `w-full md:w-1/2 md:border-r border-b md:border-b-0 border-slate-200 ${dadosAbertoMobile ? "flex" : "hidden md:flex"} flex-col max-h-[50vh] md:max-h-none`}>
+          <div className={embutido ? "hidden" : "px-5 py-4 border-b border-slate-200 flex items-center justify-between"}>
             <h2 className="font-semibold text-slate-800">Dados do contato</h2>
             <div className="flex items-center gap-3">
               <button
@@ -2292,7 +2293,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
         </div>
 
         {/* Coluna direita: chat WhatsApp */}
-        <div className="w-full md:w-1/2 flex flex-col bg-slate-50 flex-1 min-h-0">
+        <div className={embutido ? "hidden" : "w-full md:w-1/2 flex flex-col bg-slate-50 flex-1 min-h-0"}>
           <div className="px-5 py-4 border-b border-slate-200 bg-white flex items-center gap-2">
             {/* Celular: sem este botão não havia como fechar o card e voltar para o Kanban. */}
             <button

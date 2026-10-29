@@ -18,6 +18,7 @@ import TarefaBarra from "./TarefaBarra";
 import RenovacaoRapida from "./RenovacaoRapida";
 import CalculadoraRapida from "./CalculadoraRapida";
 import AcordoModal from "./AcordoModal";
+import ContactModal from "./ContactModal";
 
 // Data de hoje (local) como "YYYY-MM-DD"
 function todayStr() {
@@ -171,6 +172,8 @@ export default function ChatView() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  // Painel de dados do lead: "completo" = o mesmo painel do Kanban; "rapida" = edição resumida do Chat (Juntar parcelas, Negociação).
+  const [abaDados, setAbaDados] = useState("completo");
   const [contactErro, setContactErro] = useState(""); // motivo de a ficha do lead não ter carregado
   const chatEnd = useRef(null);
   const selectedIdRef = useRef(null);
@@ -1901,12 +1904,34 @@ export default function ChatView() {
         <div className="md:hidden fixed inset-0 bg-slate-900/30 z-20" onClick={() => setShowInfo(false)} />
       )}
       {selectedId && contact && showInfo && (
-        <div className="w-[82%] max-w-sm md:w-72 lg:w-80 shrink-0 border-l border-slate-200 bg-white overflow-y-auto thin-scroll absolute md:relative inset-y-0 right-0 md:inset-auto z-30 md:z-auto shadow-xl md:shadow-none">
-          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
-            <h3 className="font-semibold text-slate-800 text-sm">Editar lead</h3>
+        <div className={`${abaDados === "completo" ? "w-[92%] max-w-lg md:w-[440px] lg:w-[500px] flex flex-col" : "w-[82%] max-w-sm md:w-72 lg:w-80 overflow-y-auto thin-scroll"} shrink-0 border-l border-slate-200 bg-white absolute md:relative inset-y-0 right-0 md:inset-auto z-30 md:z-auto shadow-xl md:shadow-none`}>
+          <div className="px-4 py-2 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10 shrink-0">
+            <div className="flex items-center gap-1">
+              {[["completo", "Dados completos"], ["rapida", "Edição rápida"]].map(([k, rot]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setAbaDados(k)}
+                  className={`text-xs font-medium rounded-md px-2.5 py-1.5 ${abaDados === k ? "bg-emerald-50 text-emerald-700" : "text-slate-500 hover:bg-slate-50"}`}
+                >
+                  {rot}
+                </button>
+              ))}
+            </div>
             <button onClick={() => setShowInfo(false)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
           </div>
-          <div className="p-4 space-y-3">
+          {abaDados === "completo" && (
+            <div className="flex-1 min-h-0">
+              <ContactModal
+                key={selectedId}
+                embutido
+                contactId={selectedId}
+                onClose={() => setShowInfo(false)}
+                onChanged={() => { loadContact(); loadConversations(); }}
+              />
+            </div>
+          )}
+          <div className={`p-4 space-y-3 ${abaDados === "completo" ? "hidden" : ""}`}>
             {/* Campos editáveis */}
             <label className="block">
               <span className="text-[11px] text-slate-400">Nome</span>
