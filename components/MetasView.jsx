@@ -286,7 +286,7 @@ export default function MetasView() {
     load();
     // Só fica atualizando sozinho no dia de hoje — dia passado não muda mais.
     if (dia !== hojeStr()) return;
-    const t = setInterval(load, 30000);
+    const t = setInterval(() => { if (!document.hidden) load(); }, 30000);
     return () => clearInterval(t);
   }, [load, dia]);
 

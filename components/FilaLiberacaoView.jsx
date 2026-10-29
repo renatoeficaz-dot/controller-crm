@@ -29,7 +29,7 @@ export default function FilaLiberacaoView() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 30000);
+    const t = setInterval(() => { if (!document.hidden) load(); }, 30000);
     return () => clearInterval(t);
   }, [load]);
 

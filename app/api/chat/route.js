@@ -1,14 +1,39 @@
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { getCurrentUser, veTodosLeads, mensagensWhere, instanciasVisiveis } from "@/lib/session";
 
 // Lista conversas do usuário (contatos com mensagens, ordenados pela mais recente).
 // Cada item traz o contato + última mensagem + contagem de não lidas + dados
 // usados pelos filtros da tela de Chat (etapa, tags, parcelas, número de origem).
+// Cache curto por usuário: várias abas/usuários pedindo a lista ao mesmo tempo dividem uma só consulta
+// (era ~1 MB e ~350 ms por chamada, a cada 15 s por aba). Pedidos simultâneos também se juntam.
+const TTL_MS = 4000;
+const cache = new Map(); // chave -> { em, corpo, promessa }
+
 export async function GET(req) {
   const user = await getCurrentUser();
   const mostrarArquivadas = new URL(req.url).searchParams.get("arquivadas") === "1";
+  const chave = `${user?.id ?? user?.name ?? "anon"}|${mostrarArquivadas ? 1 : 0}`;
+  let ent = cache.get(chave);
+  if (!ent || (!ent.promessa && Date.now() - ent.em > TTL_MS)) {
+    ent = { em: Date.now(), corpo: null, promessa: null };
+    ent.promessa = montarLista(user, mostrarArquivadas).then((r) => {
+      ent.corpo = JSON.stringify(r);
+      ent.etag = `W/"${ent.corpo.length}-${Date.now().toString(36)}"`;
+      ent.em = Date.now();
+      ent.promessa = null;
+      return ent;
+    }).catch((e) => { cache.delete(chave); throw e; });
+    cache.set(chave, ent);
+    if (cache.size > 200) cache.delete(cache.keys().next().value);
+  }
+  if (ent.promessa) await ent.promessa;
+  const base = { "Content-Type": "application/json", ETag: ent.etag };
+  if (req.headers.get("if-none-match") === ent.etag) return new Response(null, { status: 304, headers: { ETag: ent.etag } });
+  return new Response(ent.corpo, { headers: base });
+}
+
+async function montarLista(user, mostrarArquivadas) {
   const contactWhere = {
     excluidoEm: null,
     chatArquivado: mostrarArquivadas, // item 82: por padrão só as não-arquivadas
@@ -85,5 +110,5 @@ export async function GET(req) {
       return db - da;
     });
 
-  return NextResponse.json(result);
+  return result;
 }

@@ -272,8 +272,10 @@ export default function ChatView() {
     // é uma consulta pesada a menos rodando o dia inteiro em cada aba de Chat
     // aberta, sem perder responsividade real pro uso (lista de conversas, não
     // a conversa aberta em si).
-    const t = setInterval(loadConversations, 15000);
-    return () => clearInterval(t);
+    const t = setInterval(() => { if (!document.hidden) loadConversations(); }, 15000);
+    const onVis = () => { if (!document.hidden) loadConversations(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVis); };
   }, [loadConversations]);
 
   async function toggleChatFixado(c) {
@@ -305,7 +307,7 @@ export default function ChatView() {
 
   useEffect(() => {
     loadResumo();
-    const t = setInterval(loadResumo, 30000);
+    const t = setInterval(() => { if (!document.hidden) loadResumo(); }, 30000);
     return () => clearInterval(t);
   }, [loadResumo]);
 
@@ -545,7 +547,7 @@ export default function ChatView() {
   }, [selectedId, loadTasks]);
   useEffect(() => {
     if (!selectedId) return;
-    const t = setInterval(atualizarFinanceiro, 15000);
+    const t = setInterval(() => { if (!document.hidden) atualizarFinanceiro(); }, 15000);
     const onFocus = () => atualizarFinanceiro();
     window.addEventListener("focus", onFocus);
     return () => { clearInterval(t); window.removeEventListener("focus", onFocus); };
@@ -558,6 +560,7 @@ export default function ChatView() {
     loadMessages(true); // ao abrir a conversa, sempre completa
     if (!selectedId) return;
     const t = setInterval(() => {
+      if (document.hidden) return;
       ciclosRef.current += 1;
       // 1 recarga completa a cada 10 ciclos (40s) pra pegar mensagem apagada
       // ou marcada como lida; nas outras 9, só o que chegou de novo.
