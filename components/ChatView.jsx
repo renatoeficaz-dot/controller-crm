@@ -19,6 +19,7 @@ import RenovacaoRapida from "./RenovacaoRapida";
 import CalculadoraRapida from "./CalculadoraRapida";
 import AcordoModal from "./AcordoModal";
 import ContactModal from "./ContactModal";
+import TarefaAtalhos, { tarefaPadrao, diaBR } from "./TarefaAtalhos";
 
 // Data de hoje (local) como "YYYY-MM-DD"
 function todayStr() {
@@ -225,7 +226,8 @@ export default function ChatView() {
   const [taskTypes, setTaskTypes] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [tarefaModalAberta, setTarefaModalAberta] = useState(false);
-  const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
+  useEffect(() => { if (tarefaModalAberta) setTaskForm((f) => (f.dueDate < diaBR(0) ? { ...f, dueDate: diaBR(0) } : f)); }, [tarefaModalAberta]);
+  const [taskForm, setTaskForm] = useState(tarefaPadrao());
   const [horaLimite, setHoraLimite] = useState("");
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
@@ -990,8 +992,8 @@ export default function ChatView() {
   async function createTask(e) {
     e.preventDefault();
     if (!selectedId) return;
-    const dia = taskForm.dueDate || todayStr();
-    const hora = taskForm.dueTime || "09:00";
+    const dia = taskForm.dueDate || diaBR(0);
+    const hora = taskForm.dueTime || "19:00";
     // Título não é mais obrigatório — sem nada digitado, usa o tipo
     // escolhido (ex.: "Ligar") como título, ou "Tarefa" se nem isso.
     const tipoEscolhido = taskTypes.find((t) => t.id === taskForm.tipoId);
@@ -1006,7 +1008,7 @@ export default function ChatView() {
       alert(d.error || "Não foi possível criar a tarefa.");
       return;
     }
-    setTaskForm({ title: "", tipoId: "", dueDate: "", dueTime: "09:00" });
+    setTaskForm(tarefaPadrao());
     setShowTaskForm(false);
     setTarefaModalAberta(false);
     loadTasks();
@@ -1814,6 +1816,7 @@ export default function ChatView() {
                       </button>
                     </div>
                     <form onSubmit={createTask} className="space-y-2">
+                      <TarefaAtalhos taskTypes={taskTypes} setTaskForm={setTaskForm} />
                       <input
                         value={taskForm.title}
                         onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
@@ -2201,6 +2204,7 @@ export default function ChatView() {
               </div>
               {showTaskForm && (
                 <form onSubmit={createTask} className="mt-2 space-y-1.5">
+                  <TarefaAtalhos taskTypes={taskTypes} setTaskForm={setTaskForm} compacto />
                   <input
                     value={taskForm.title}
                     onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}

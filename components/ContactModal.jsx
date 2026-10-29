@@ -22,6 +22,7 @@ import PuxadaAnexo from "./PuxadaAnexo";
 import TimelineLead from "./TimelineLead";
 import AgendarMensagemModal from "./AgendarMensagemModal";
 import AcordoModal from "./AcordoModal";
+import TarefaAtalhos, { tarefaPadrao, diaBR } from "./TarefaAtalhos";
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -327,9 +328,10 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   const [agendamentos, setAgendamentos] = useState([]);
   const [taskTypes, setTaskTypes] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [taskForm, setTaskForm] = useState({ title: "", tipoId: "", dueDate: "", dueTime: "09:00", responsavel: "" });
+  const [taskForm, setTaskForm] = useState(tarefaPadrao({ responsavel: "" }));
   const [taskFormErro, setTaskFormErro] = useState("");
   const [tarefaModalAberta, setTarefaModalAberta] = useState(!!abrirNovaTarefa); // vindo de "Criar tarefa" no menu do card
+  useEffect(() => { if (tarefaModalAberta) setTaskForm((f) => (f.dueDate < diaBR(0) ? { ...f, dueDate: diaBR(0) } : f)); }, [tarefaModalAberta]);
   const chatEnd = useRef(null);
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
@@ -755,8 +757,8 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   async function createTask(e) {
     e.preventDefault();
     setTaskFormErro("");
-    const dia = taskForm.dueDate || toDateInput(new Date());
-    const hora = taskForm.dueTime || "09:00";
+    const dia = taskForm.dueDate || diaBR(0);
+    const hora = taskForm.dueTime || "19:00";
     // Título não é mais obrigatório — sem nada digitado, usa o tipo
     // escolhido (ex.: "Ligar") como título, ou "Tarefa" se nem isso.
     const tipoEscolhido = taskTypes.find((t) => t.id === taskForm.tipoId);
@@ -771,7 +773,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
       setTaskFormErro(d.error || "Não foi possível criar a tarefa.");
       return;
     }
-    setTaskForm({ title: "", tipoId: "", dueDate: "", dueTime: "09:00", responsavel: "" });
+    setTaskForm(tarefaPadrao({ responsavel: "" }));
     setShowTaskForm(false);
     setTarefaModalAberta(false);
     loadTasks();
@@ -1800,6 +1802,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
               </div>
               {showTaskForm && (
                 <form onSubmit={createTask} className="mt-2 space-y-1.5">
+                  <TarefaAtalhos taskTypes={taskTypes} setTaskForm={setTaskForm} compacto />
                   <input
                     value={taskForm.title}
                     onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
@@ -1833,7 +1836,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                     />
                     <input
                       type="time"
-                      value={taskForm.dueTime || "09:00"}
+                      value={taskForm.dueTime || "19:00"}
                       onChange={(e) => setTaskForm((f) => ({ ...f, dueTime: e.target.value }))}
                       className="min-w-0 w-24 shrink-0 text-xs border border-slate-200 rounded px-2 py-1.5"
                     />
@@ -2657,6 +2660,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
               </button>
             </div>
             <form onSubmit={createTask} className="space-y-2">
+              <TarefaAtalhos taskTypes={taskTypes} setTaskForm={setTaskForm} />
               <input
                 value={taskForm.title}
                 onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
@@ -2691,7 +2695,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                 />
                 <input
                   type="time"
-                  value={taskForm.dueTime || "09:00"}
+                  value={taskForm.dueTime || "19:00"}
                   onChange={(e) => setTaskForm((f) => ({ ...f, dueTime: e.target.value }))}
                   className="min-w-0 w-28 shrink-0 text-sm border border-slate-200 rounded px-2.5 py-2"
                 />
