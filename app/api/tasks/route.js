@@ -13,7 +13,7 @@ export async function GET(req) {
   if (contactId) where.contactId = contactId;
   if (done === "true") where.done = true;
   if (done === "false") where.done = false;
-  if (tipoId) where.tipoId = tipoId;
+  if (tipoId) where.tipoId = tipoId.includes(",") ? { in: tipoId.split(",").filter(Boolean) } : tipoId;
 
   // Tarefa sem responsavel próprio segue implícito o responsável do LEAD (ver
   // comentário no schema) — filtrar só por task.responsavel escondia a

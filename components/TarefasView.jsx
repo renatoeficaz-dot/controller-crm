@@ -25,7 +25,7 @@ export default function TarefasView() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [fStatus, setFStatus] = useState("pendentes"); // pendentes | todas | concluidas
-  const [fTipo, setFTipo] = useState("");
+  const [fTipo, setFTipo] = useState([]); // vários tipos ao mesmo tempo
   const [fResponsavel, setFResponsavel] = useState(""); // "" = todos; nome do usuário = só as tarefas dele
   const [fPrazo, setFPrazo] = useState(""); // "" | atrasadas | hoje | avencer
   const [fEtapas, setFEtapas] = useState([]); // ids das etapas do funil do lead (vazio = todas)
@@ -47,7 +47,7 @@ export default function TarefasView() {
     const done = fStatus === "pendentes" ? "false" : fStatus === "concluidas" ? "true" : "";
     const q = new URLSearchParams();
     if (done) q.set("done", done);
-    if (fTipo) q.set("tipoId", fTipo);
+    if (fTipo.length) q.set("tipoId", fTipo.join(","));
     if (fResponsavel) q.set("responsavel", fResponsavel);
     const data = await fetch(`/api/tasks?${q}`).then((r) => r.json()).catch(() => []);
     let lista = Array.isArray(data) ? data : [];
@@ -271,7 +271,7 @@ export default function TarefasView() {
     else { setFocoTaskId(null); setOpenContactId(null); }
   }, [filaFoco, focoTaskId, modoFoco, openContactId, indiceFoco, hoje]);
 
-  const filtrosAtivos = (fStatus !== "pendentes" ? 1 : 0) + (fTipo ? 1 : 0) + (fResponsavel ? 1 : 0) + (fEtapas.length ? 1 : 0) + (fPrazo ? 1 : 0);
+  const filtrosAtivos = (fStatus !== "pendentes" ? 1 : 0) + (fTipo.length ? 1 : 0) + (fResponsavel ? 1 : 0) + (fEtapas.length ? 1 : 0) + (fPrazo ? 1 : 0);
 
   // Modo foco: uma tarefa pendente por vez (as mais antigas primeiro), com ações grandes — mesmo jeito do modo foco das cobranças.
   if (modoFoco) {
@@ -530,7 +530,7 @@ export default function TarefasView() {
               <h3 className="font-semibold text-slate-800">Filtros</h3>
               <div className="flex items-center gap-3">
                 {filtrosAtivos > 0 && (
-                  <button onClick={() => { setFStatus("pendentes"); setFTipo(""); setFResponsavel(""); setFEtapas([]); setFPrazo(""); }} className="text-xs text-red-400 hover:text-red-600">Limpar tudo</button>
+                  <button onClick={() => { setFStatus("pendentes"); setFTipo([]); setFResponsavel(""); setFEtapas([]); setFPrazo(""); }} className="text-xs text-red-400 hover:text-red-600">Limpar tudo</button>
                 )}
                 <button onClick={() => setFiltrosAbertos(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
               </div>
@@ -554,10 +554,17 @@ export default function TarefasView() {
               </div>
               <label className="block">
                 <span className="text-xs text-slate-400">Tipo de tarefa</span>
-                <select value={fTipo} onChange={(e) => setFTipo(e.target.value)} className="mt-1.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400">
-                  <option value="">Todos os tipos</option>
-                  {tipos.map((t) => (<option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>))}
-                </select>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <button type="button" onClick={() => setFTipo([])} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${fTipo.length === 0 ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>Todos os tipos</button>
+                  {tipos.map((t) => {
+                    const on = fTipo.includes(t.id);
+                    return (
+                      <button key={t.id} type="button" onClick={() => setFTipo((a) => (a.includes(t.id) ? a.filter((x) => x !== t.id) : [...a, t.id]))} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${on ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                        {t.emoji ? `${t.emoji} ` : ""}{t.name}
+                      </button>
+                    );
+                  })}
+                </div>
               </label>
               <label className="block">
                 <span className="text-xs text-slate-400">Responsável</span>
