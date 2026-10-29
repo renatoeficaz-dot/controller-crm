@@ -30,6 +30,11 @@ export default function TarefasView() {
   const [fPrazo, setFPrazo] = useState(""); // "" | atrasadas | hoje | avencer
   const [fHoraDe, setFHoraDe] = useState(""); // horário da tarefa: de HH:MM
   const [fHoraAte, setFHoraAte] = useState(""); // ... até HH:MM
+  // Ação em massa: "Selecionar" liga a seleção nos cards; a barra de baixo aplica a mudança em todas as marcadas.
+  const [selecionando, setSelecionando] = useState(false);
+  const [sel, setSel] = useState([]); // ids marcados
+  const [massa, setMassa] = useState({ responsavel: "", tipoId: "", dia: "", hora: "" });
+  const [aplicandoMassa, setAplicandoMassa] = useState(false);
   const [fEtapas, setFEtapas] = useState([]); // ids das etapas do funil do lead (vazio = todas)
   const [stagesList, setStagesList] = useState([]);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -156,6 +161,36 @@ export default function TarefasView() {
     if (!res.ok) return;
     setDetailTask(null);
     load();
+  }
+
+  const alternarSel = (id) => setSel((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
+  const sairSelecao = () => { setSelecionando(false); setSel([]); };
+
+  // Aplica `corpo(tarefa)` (campos do PATCH) em cada tarefa marcada, uma por vez (o banco é SQLite).
+  async function aplicarMassa(corpo, texto) {
+    const alvo = tasks.filter((t) => sel.includes(t.id));
+    if (!alvo.length) return;
+    if (texto && !confirm(`${texto} (${alvo.length} tarefa${alvo.length > 1 ? "s" : ""})?`)) return;
+    setAplicandoMassa(true);
+    let falhas = 0;
+    for (const t of alvo) {
+      const r = await fetch(`/api/tasks/${t.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo(t)) }).catch(() => null);
+      if (!r || !r.ok) falhas++;
+    }
+    setAplicandoMassa(false);
+    if (falhas) alert(`${falhas} tarefa(s) não puderam ser alteradas.`);
+    await load();
+  }
+  const diaBRDe = (t) => new Date(t.dueDate).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const horaBRDe = (t) => new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/Sao_Paulo" });
+  async function excluirMassa() {
+    const alvo = tasks.filter((t) => sel.includes(t.id));
+    if (!alvo.length || !confirm(`Excluir ${alvo.length} tarefa${alvo.length > 1 ? "s" : ""}? Não dá para desfazer.`)) return;
+    setAplicandoMassa(true);
+    for (const t of alvo) await fetch(`/api/tasks/${t.id}`, { method: "DELETE" }).catch(() => null);
+    setAplicandoMassa(false);
+    setSel([]);
+    await load();
   }
 
   async function toggleDone(t) {
@@ -513,8 +548,14 @@ export default function TarefasView() {
           {fStatus === "pendentes" ? "Pendentes" : fStatus === "concluidas" ? "Finalizadas" : "Todas"}
         </span>
         <button
+          onClick={() => (selecionando ? sairSelecao() : setSelecionando(true))}
+          className={`ml-auto text-xs rounded-full px-3.5 py-1.5 border transition-colors shrink-0 ${selecionando ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}
+        >
+          {selecionando ? "Cancelar seleção" : "Selecionar"}
+        </button>
+        <button
           onClick={() => { setIndiceFoco(0); setModoFoco(true); }}
-          className="ml-auto text-xs rounded-full px-3.5 py-1.5 bg-slate-800 text-white hover:bg-slate-700 transition-colors shrink-0"
+          className="text-xs rounded-full px-3.5 py-1.5 bg-slate-800 text-white hover:bg-slate-700 transition-colors shrink-0"
         >
           Modo foco
         </button>
@@ -697,6 +738,19 @@ export default function TarefasView() {
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: col.color }} />
                 <span className="font-medium text-sm text-slate-700">{col.label}</span>
                 <span className="text-xs text-slate-400 bg-slate-200 rounded-full px-1.5">{lista.length}</span>
+                {selecionando && lista.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ids = lista.map((x) => x.id);
+                      const todas = ids.every((i) => sel.includes(i));
+                      setSel((a) => (todas ? a.filter((i) => !ids.includes(i)) : [...new Set([...a, ...ids])]));
+                    }}
+                    className="ml-auto text-[11px] text-emerald-600 hover:text-emerald-700"
+                  >
+                    {lista.every((x) => sel.includes(x.id)) ? "Desmarcar" : "Marcar todas"}
+                  </button>
+                )}
               </div>
 
               <div className="p-2 flex flex-col gap-2 min-h-[60px] max-h-[calc(100vh-320px)] overflow-y-auto thin-scroll">
@@ -721,14 +775,14 @@ export default function TarefasView() {
                         setDraggingId(null);
                         setOverCol(null);
                       }}
-                      onClick={() => openDetail(t)}
-                      className={`group rounded-lg border p-2.5 cursor-pointer active:cursor-grabbing hover:shadow-sm transition-all ${corCard}`}
+                      onClick={() => (selecionando ? alternarSel(t.id) : openDetail(t))}
+                      className={`group rounded-lg border p-2.5 cursor-pointer active:cursor-grabbing hover:shadow-sm transition-all ${corCard} ${selecionando && sel.includes(t.id) ? "ring-2 ring-emerald-500" : ""}`}
                     >
                       <div className="flex items-start gap-2">
                         <input
                           type="checkbox"
-                          checked={t.done}
-                          onChange={(e) => { e.stopPropagation(); toggleDone(t); }}
+                          checked={selecionando ? sel.includes(t.id) : t.done}
+                          onChange={(e) => { e.stopPropagation(); if (selecionando) alternarSel(t.id); else toggleDone(t); }}
                           onClick={(e) => e.stopPropagation()}
                           className="mt-0.5 accent-emerald-500 shrink-0"
                         />
@@ -925,6 +979,42 @@ export default function TarefasView() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {selecionando && sel.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-4xl bg-slate-900 text-white rounded-2xl shadow-2xl p-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+          <span className="font-semibold">{sel.length} selecionada{sel.length > 1 ? "s" : ""}</span>
+          <div className="flex items-center gap-1">
+            <select value={massa.responsavel} onChange={(e) => setMassa((m) => ({ ...m, responsavel: e.target.value }))} className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white">
+              <option value="">Responsável…</option>
+              <option value="__lead__">Segue o responsável do lead</option>
+              {users.map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
+            </select>
+            <button disabled={!massa.responsavel || aplicandoMassa} onClick={() => aplicarMassa(() => ({ responsavel: massa.responsavel === "__lead__" ? null : massa.responsavel }))} className="rounded-lg bg-emerald-500 px-2.5 py-1.5 disabled:opacity-40">Aplicar</button>
+          </div>
+          <div className="flex items-center gap-1">
+            <select value={massa.tipoId} onChange={(e) => setMassa((m) => ({ ...m, tipoId: e.target.value }))} className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white">
+              <option value="">Tipo…</option>
+              <option value="__nenhum__">— Sem tipo —</option>
+              {tipos.map((t) => (<option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>))}
+            </select>
+            <button disabled={!massa.tipoId || aplicandoMassa} onClick={() => aplicarMassa(() => ({ tipoId: massa.tipoId === "__nenhum__" ? null : massa.tipoId }))} className="rounded-lg bg-emerald-500 px-2.5 py-1.5 disabled:opacity-40">Aplicar</button>
+          </div>
+          <div className="flex items-center gap-1">
+            <input type="date" value={massa.dia} onChange={(e) => setMassa((m) => ({ ...m, dia: e.target.value }))} className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white [color-scheme:dark]" />
+            <button disabled={!massa.dia || aplicandoMassa} onClick={() => aplicarMassa((t) => ({ dueDate: `${massa.dia}T${horaBRDe(t)}:00` }))} className="rounded-lg bg-emerald-500 px-2.5 py-1.5 disabled:opacity-40">Mudar dia</button>
+          </div>
+          <div className="flex items-center gap-1">
+            <input type="time" value={massa.hora} onChange={(e) => setMassa((m) => ({ ...m, hora: e.target.value }))} className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white [color-scheme:dark]" />
+            <button disabled={!massa.hora || aplicandoMassa} onClick={() => aplicarMassa((t) => ({ dueDate: `${diaBRDe(t)}T${massa.hora}:00` }))} className="rounded-lg bg-emerald-500 px-2.5 py-1.5 disabled:opacity-40">Mudar horário</button>
+          </div>
+          <div className="flex items-center gap-1 ml-auto">
+            <button disabled={aplicandoMassa} onClick={() => aplicarMassa(() => ({ done: true }), "Concluir")} className="rounded-lg border border-slate-600 px-2.5 py-1.5 hover:bg-slate-800 disabled:opacity-40">Concluir</button>
+            <button disabled={aplicandoMassa} onClick={excluirMassa} className="rounded-lg border border-red-500 text-red-300 px-2.5 py-1.5 hover:bg-red-950 disabled:opacity-40">Excluir</button>
+            <button onClick={() => setSel([])} className="rounded-lg px-2.5 py-1.5 text-slate-300 hover:text-white">Limpar</button>
+          </div>
+          {aplicandoMassa && <span className="text-slate-300">Aplicando…</span>}
         </div>
       )}
 
