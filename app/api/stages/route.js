@@ -4,10 +4,11 @@ import { getCurrentUser, kanbansVisiveis, veTodosLeads } from "@/lib/session";
 import { lerCorpo } from "@/lib/corpo";
 import { Prisma } from "@prisma/client";
 
-// Colunas enormes (Venda perdida tem milhares de leads) mandam só os mais recentes: a coluna inteira
+// Colunas enormes (Venda perdida tem milhares de leads) mandam só os das últimas 2 semanas (?antigas=1&skip=N traz os mais velhos aos poucos): a coluna inteira
 // pesava ~8 MB por chamada e travava a abertura do funil. A busca (?busca=) procura em todos os leads.
 const COLUNA_GRANDE = new Set(["Venda perdida"]);
-const LIMITE_COLUNA_GRANDE = 150;
+const DIAS_COLUNA_GRANDE = 14; // só aparecem os que entraram na coluna nas últimas 2 semanas; o resto, sob demanda
+const LOTE_ANTIGAS = 100;
 
 // Lista as colunas do Kanban com seus contatos, respeitando as permissões do usuário:
 // - colunas: só as que ele pode ver (admin/sem restrição = todas)
@@ -16,6 +17,9 @@ export async function GET(req) {
   const sp = new URL(req.url).searchParams;
   const leve = sp.get("leve") === "1"; // só as etapas, sem os leads (telas que só precisam dos nomes)
   const busca = (sp.get("busca") || "").trim();
+  const antigas = sp.get("antigas") === "1";
+  const skipAntigas = Math.max(0, Number(sp.get("skip")) || 0);
+  const corte = new Date(Date.now() - DIAS_COLUNA_GRANDE * 864e5);
   const user = await getCurrentUser();
   let colunas = kanbansVisiveis(user); // null = todas
 
@@ -57,15 +61,20 @@ export async function GET(req) {
   const totais = new Map((await prisma.contact.groupBy({ by: ["stageId"], where: contactWhere, _count: { _all: true } })).map((g) => [g.stageId, g._count._all]));
   const stages = await Promise.all(
     stagesBase.map(async (st) => {
-      const cortar = !busca && COLUNA_GRANDE.has(st.name) && (totais.get(st.id) || 0) > LIMITE_COLUNA_GRANDE;
+      const grande = !busca && COLUNA_GRANDE.has(st.name) && (totais.get(st.id) || 0) > LOTE_ANTIGAS;
+      if (antigas && !grande) return { ...st, contacts: [], totalContatos: totais.get(st.id) || 0, cortada: false };
       const contacts = await prisma.contact.findMany({
-        where: { ...contactWhere, stageId: st.id },
+        where: {
+          ...contactWhere,
+          stageId: st.id,
+          ...(grande ? (antigas ? { OR: [{ entrouEtapaEm: { lt: corte } }, { entrouEtapaEm: null }] } : { entrouEtapaEm: { gte: corte } }) : {}),
+        },
         // Fixado (item 54) sempre no topo da coluna, dentro disso mantém a ordem manual de sempre.
-        orderBy: cortar ? [{ fixado: "desc" }, { entrouEtapaEm: "desc" }] : [{ fixado: "desc" }, { order: "asc" }],
-        ...(cortar ? { take: LIMITE_COLUNA_GRANDE } : {}),
+        orderBy: grande ? [{ fixado: "desc" }, { entrouEtapaEm: "desc" }] : [{ fixado: "desc" }, { order: "asc" }],
+        ...(grande && antigas ? { skip: skipAntigas, take: LOTE_ANTIGAS } : {}),
         include: leadInclude,
       });
-      return { ...st, contacts, totalContatos: totais.get(st.id) || 0, cortada: cortar };
+      return { ...st, contacts, totalContatos: totais.get(st.id) || 0, cortada: grande };
     })
   );
 

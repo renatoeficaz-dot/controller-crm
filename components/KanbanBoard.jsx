@@ -231,6 +231,8 @@ export default function KanbanBoard() {
   }
 
   const buscaRef = useRef("");
+  const antigasRef = useRef({}); // stageId -> leads antigos carregados sob demanda
+  const [carregandoAntigas, setCarregandoAntigas] = useState(null);
   const primeiraBusca = useRef(true);
   const load = useCallback(async () => {
     setLoadError(false);
@@ -239,7 +241,16 @@ export default function KanbanBoard() {
       const res = await fetch(termo ? `/api/stages?busca=${encodeURIComponent(termo)}` : "/api/stages");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setStages(data);
+      // Leads antigos já carregados em "Carregar mais" continuam na coluna depois de cada atualização.
+      const emOutraColuna = new Set(data.flatMap((st) => (st.cortada ? [] : st.contacts.map((c) => c.id))));
+      setStages(
+        data.map((st) => {
+          const extra = st.cortada ? (antigasRef.current[st.id] || []) : [];
+          if (!extra.length) return st;
+          const ja = new Set(st.contacts.map((c) => c.id));
+          return { ...st, contacts: [...st.contacts, ...extra.filter((c) => !ja.has(c.id) && !emOutraColuna.has(c.id))] };
+        })
+      );
     } catch {
       // Sem isso, uma falha de rede/sessão deixava a tela presa em
       // "Carregando funil…" pra sempre, sem nenhum aviso ou jeito de tentar de novo.
@@ -252,6 +263,23 @@ export default function KanbanBoard() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function carregarAntigas(stageId) {
+    setCarregandoAntigas(stageId);
+    try {
+      const jaTem = (antigasRef.current[stageId] || []).length;
+      const res = await fetch(`/api/stages?antigas=1&skip=${jaTem}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const novos = data.find((st) => st.id === stageId)?.contacts || [];
+      antigasRef.current = { ...antigasRef.current, [stageId]: [...(antigasRef.current[stageId] || []), ...novos] };
+      setStages((prev) => prev.map((st) => (st.id === stageId ? { ...st, contacts: [...st.contacts, ...novos.filter((n) => !st.contacts.some((c) => c.id === n.id))] } : st)));
+      setLimiteColuna((l) => ({ ...l, [stageId]: (l[stageId] || 60) + novos.length }));
+    } catch {
+      flash("Não foi possível carregar os leads antigos.");
+    }
+    setCarregandoAntigas(null);
+  }
 
   // A busca roda no servidor: colunas enormes (Venda perdida) só trazem os mais recentes, e a busca acha os demais.
   useEffect(() => {
@@ -1313,10 +1341,15 @@ export default function KanbanBoard() {
                       </div>
                     );
                   })}
-                  {stage.cortada && (
-                    <p className="text-[11px] text-slate-400 text-center px-2">
-                      Mostrando os {stage.contacts.length} mais recentes de {stage.totalContatos}. Use a busca para achar os outros.
-                    </p>
+                  {stage.cortada && stage.totalContatos > stage.contacts.length && (
+                    <button
+                      type="button"
+                      onClick={() => carregarAntigas(stage.id)}
+                      disabled={carregandoAntigas === stage.id}
+                      className="text-xs text-slate-500 hover:bg-white rounded-lg py-2 border border-dashed border-slate-200 disabled:opacity-60"
+                    >
+                      {carregandoAntigas === stage.id ? "Carregando…" : `Carregar mais antigas (${stage.totalContatos - stage.contacts.length} restantes)`}
+                    </button>
                   )}
                   {visiveis.length > (limiteColuna[stage.id] || 60) && (
                     <button
