@@ -1,7 +1,7 @@
 "use client";
 
 import RenovacaoRapida from "./RenovacaoRapida";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import ContactModal from "./ContactModal";
 import MetasMini from "./MetasMini";
@@ -230,10 +230,13 @@ export default function KanbanBoard() {
     setTimeout(() => setNotify(""), 4000);
   }
 
+  const buscaRef = useRef("");
+  const primeiraBusca = useRef(true);
   const load = useCallback(async () => {
     setLoadError(false);
     try {
-      const res = await fetch("/api/stages");
+      const termo = buscaRef.current.trim();
+      const res = await fetch(termo ? `/api/stages?busca=${encodeURIComponent(termo)}` : "/api/stages");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setStages(data);
@@ -249,6 +252,14 @@ export default function KanbanBoard() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // A busca roda no servidor: colunas enormes (Venda perdida) só trazem os mais recentes, e a busca acha os demais.
+  useEffect(() => {
+    buscaRef.current = busca;
+    if (primeiraBusca.current) { primeiraBusca.current = false; return; }
+    const t = setTimeout(load, 350);
+    return () => clearTimeout(t);
+  }, [busca, load]);
 
   // O funil só carregava uma vez ao abrir a página — sem isso, um card movido
   // por outra pessoa (outro cobrador, outra aba) ficava "grudado" na coluna
@@ -1051,7 +1062,7 @@ export default function KanbanBoard() {
                       />
                       <span className="font-medium text-sm text-slate-700">{stage.name}</span>
                       <span className="text-xs text-slate-400 bg-slate-200 rounded-full px-1.5">
-                        {visiveis.length}
+                        {stage.cortada ? stage.totalContatos : visiveis.length}
                       </span>
                       {stage.acumulada && (
                         <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5" title="Essa coluna passou do limite configurado">
@@ -1302,6 +1313,11 @@ export default function KanbanBoard() {
                       </div>
                     );
                   })}
+                  {stage.cortada && (
+                    <p className="text-[11px] text-slate-400 text-center px-2">
+                      Mostrando os {stage.contacts.length} mais recentes de {stage.totalContatos}. Use a busca para achar os outros.
+                    </p>
+                  )}
                   {visiveis.length > (limiteColuna[stage.id] || 60) && (
                     <button
                       type="button"

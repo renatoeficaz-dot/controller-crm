@@ -555,7 +555,7 @@ function Usuarios() {
   }, []);
   useEffect(() => {
     load();
-    fetch("/api/stages").then((r) => r.json()).then((s) => setStages(Array.isArray(s) ? s : [])).catch(() => {});
+    fetch("/api/stages?leve=1").then((r) => r.json()).then((s) => setStages(Array.isArray(s) ? s : [])).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumeros(Array.isArray(n) ? n : [])).catch(() => {});
   }, [load]);
 
@@ -5133,7 +5133,7 @@ function AgentesIa() {
   const load = useCallback(async () => {
     const [list, st] = await Promise.all([
       fetch("/api/ia/agents").then((r) => r.json()).catch(() => []),
-      fetch("/api/stages").then((r) => r.json()).catch(() => []),
+      fetch("/api/stages?leve=1").then((r) => r.json()).catch(() => []),
     ]);
     setAgents(Array.isArray(list) ? list : []);
     setStages(Array.isArray(st) ? st.map((s) => ({ id: s.id, name: s.name })) : []);

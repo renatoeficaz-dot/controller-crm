@@ -434,7 +434,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   // Usuários (responsável), etapas (mudar de coluna) e mensagens prontas
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsers).catch(() => {});
-    fetch("/api/stages")
+    fetch("/api/stages?leve=1")
       .then((r) => r.json())
       .then((d) => setStagesList(d.map((s) => ({ id: s.id, name: s.name }))))
       .catch(() => {});

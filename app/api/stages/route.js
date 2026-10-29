@@ -2,11 +2,20 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, kanbansVisiveis, veTodosLeads } from "@/lib/session";
 import { lerCorpo } from "@/lib/corpo";
+import { Prisma } from "@prisma/client";
+
+// Colunas enormes (Venda perdida tem milhares de leads) mandam só os mais recentes: a coluna inteira
+// pesava ~8 MB por chamada e travava a abertura do funil. A busca (?busca=) procura em todos os leads.
+const COLUNA_GRANDE = new Set(["Venda perdida"]);
+const LIMITE_COLUNA_GRANDE = 150;
 
 // Lista as colunas do Kanban com seus contatos, respeitando as permissões do usuário:
 // - colunas: só as que ele pode ver (admin/sem restrição = todas)
 // - leads: só os dele (responsável) quando não tem permissão de ver todos
-export async function GET() {
+export async function GET(req) {
+  const sp = new URL(req.url).searchParams;
+  const leve = sp.get("leve") === "1"; // só as etapas, sem os leads (telas que só precisam dos nomes)
+  const busca = (sp.get("busca") || "").trim();
   const user = await getCurrentUser();
   let colunas = kanbansVisiveis(user); // null = todas
 
@@ -18,56 +27,65 @@ export async function GET() {
     for (const st of cobrancaStages) if (!colunas.includes(st.id)) colunas = [...colunas, st.id];
   }
 
+  const digitosBusca = busca.replace(/\D/g, "");
   const contactWhere = {
     excluidoEm: null, // exclusão fica reversível por 24h — não some da lista de vez
     ...(veTodosLeads(user) ? {} : { responsavel: user?.name || "__none__" }),
+    ...(busca ? { OR: [{ name: { contains: busca } }, ...(digitosBusca ? [{ phone: { contains: digitosBusca } }] : [])] } : {}),
   };
+
+  if (leve) {
+    const so = await prisma.stage.findMany({ where: colunas ? { id: { in: colunas } } : {}, orderBy: { order: "asc" } });
+    return NextResponse.json(so.map((s) => ({ ...s, contacts: [] })));
+  }
 
   const config = await prisma.config.findUnique({
     where: { id: "singleton" },
     select: { slaPrimeiraRespostaMin: true, avisoAcumuloLimite: true },
   });
 
-  const stages = await prisma.stage.findMany({
-    where: colunas ? { id: { in: colunas } } : {},
-    orderBy: { order: "asc" },
-    include: {
-      contacts: {
-        where: contactWhere,
-        // Fixado (item 54) sempre no topo da coluna, dentro disso mantém a
-        // ordem manual de sempre.
-        orderBy: [{ fixado: "desc" }, { order: "asc" }],
-        include: {
-          parcelas: { orderBy: { number: "asc" } },
-          tags: { select: { id: true, name: true, color: true } },
-          campanha: { select: { id: true, nome: true, regiao: true } },
-          _count: { select: { messages: { where: { fromMe: false, readAt: null } }, tasks: true } },
-          tasks: { where: { done: false }, select: { dueDate: true } },
-          // As mensagens NÃO vêm mais daqui: o `messages { take: 50 }` aninhado do
-          // Prisma lê a conversa inteira de cada lead e corta na memória (~1,3s dos
-          // 1,5s desta rota, a cada 30s por aba aberta — e o banco atende uma
-          // consulta por vez, então abrir uma ficha ficava na fila atrás dela).
-          // Última mensagem e contagem do cliente saem de 2 consultas agregadas.
-        },
-      },
-    },
-  });
+  const leadInclude = {
+    parcelas: { orderBy: { number: "asc" } },
+    tags: { select: { id: true, name: true, color: true } },
+    campanha: { select: { id: true, nome: true, regiao: true } },
+    _count: { select: { messages: { where: { fromMe: false, readAt: null } }, tasks: true } },
+    tasks: { where: { done: false }, select: { dueDate: true } },
+    // As mensagens NÃO vêm daqui: o `messages { take: 50 }` aninhado do Prisma lê a conversa inteira
+    // de cada lead. Última mensagem e contagem do cliente saem de 2 consultas agregadas (abaixo).
+  };
+  const stagesBase = await prisma.stage.findMany({ where: colunas ? { id: { in: colunas } } : {}, orderBy: { order: "asc" } });
+  const totais = new Map((await prisma.contact.groupBy({ by: ["stageId"], where: contactWhere, _count: { _all: true } })).map((g) => [g.stageId, g._count._all]));
+  const stages = await Promise.all(
+    stagesBase.map(async (st) => {
+      const cortar = !busca && COLUNA_GRANDE.has(st.name) && (totais.get(st.id) || 0) > LIMITE_COLUNA_GRANDE;
+      const contacts = await prisma.contact.findMany({
+        where: { ...contactWhere, stageId: st.id },
+        // Fixado (item 54) sempre no topo da coluna, dentro disso mantém a ordem manual de sempre.
+        orderBy: cortar ? [{ fixado: "desc" }, { entrouEtapaEm: "desc" }] : [{ fixado: "desc" }, { order: "asc" }],
+        ...(cortar ? { take: LIMITE_COLUNA_GRANDE } : {}),
+        include: leadInclude,
+      });
+      return { ...st, contacts, totalContatos: totais.get(st.id) || 0, cortada: cortar };
+    })
+  );
 
   // Enriquece com unreadCount, tasksCount (pra alertar lead em Recebimento sem
   // nenhuma tarefa de cobrança), tarefasPendentes (datas das tarefas em aberto,
   // pro filtro de atrasada/hoje/a vencer no front) e o horário da última
   // mensagem (de qualquer direção) — o front ordena os cards por isso (mais
   // recente ou mais antiga primeiro, conforme o filtro escolhido).
+  const idsLeads = stages.flatMap((st) => st.contacts.map((c) => c.id));
+  const filtroIds = idsLeads.length ? Prisma.sql`WHERE contactId IN (${Prisma.join(idsLeads)})` : Prisma.sql`WHERE 0`;
   const [ultimas, doCliente] = await Promise.all([
     prisma.$queryRaw`
       SELECT m.contactId, m.createdAt, m.fromMe
       FROM Message m
-      JOIN (SELECT contactId, MAX(createdAt) mx FROM Message GROUP BY contactId) x
+      JOIN (SELECT contactId, MAX(createdAt) mx FROM Message ${filtroIds} GROUP BY contactId) x
         ON x.contactId = m.contactId AND x.mx = m.createdAt`,
     // Mensagens do cliente entre as últimas 50 de cada conversa (mesma janela de antes).
     prisma.$queryRaw`
       SELECT contactId, SUM(CASE WHEN fromMe = 0 THEN 1 ELSE 0 END) AS n
-      FROM (SELECT contactId, fromMe, ROW_NUMBER() OVER (PARTITION BY contactId ORDER BY createdAt DESC) rn FROM Message)
+      FROM (SELECT contactId, fromMe, ROW_NUMBER() OVER (PARTITION BY contactId ORDER BY createdAt DESC) rn FROM Message ${filtroIds})
       WHERE rn <= 50 GROUP BY contactId`,
   ]);
   const ultimaPorContato = new Map();
@@ -80,7 +98,7 @@ export async function GET() {
   const enriched = stages.map((s) => ({
     ...s,
     // Aviso de acúmulo (item 58): coluna passou do limite configurado.
-    acumulada: !!config?.avisoAcumuloLimite && s.contacts.length > config.avisoAcumuloLimite,
+    acumulada: !!config?.avisoAcumuloLimite && (s.totalContatos ?? s.contacts.length) > config.avisoAcumuloLimite,
     contacts: s.contacts.map((c) => ({
       ...c,
       unreadCount: c._count?.messages || 0,
