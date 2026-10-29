@@ -1117,19 +1117,42 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
             {field("WhatsApp (ex.: 5511999998888)", "phone")}
 
             {contact?.stage && (
-              <label className="block">
-                <span className="text-xs text-slate-400">Coluna (etapa)</span>
-                <select
-                  value={contact.stage.id}
-                  onChange={(e) => changeStage(e.target.value)}
-                  className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400"
-                >
-                  {stagesList.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
+              <div className="block">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Etapa no funil</span>
+                  <span className="text-xs font-semibold rounded-full px-2.5 py-0.5 text-white" style={{ backgroundColor: contact.stage.color || "#64748b" }}>{contact.stage.name}</span>
+                </div>
+                {(() => {
+                  const idxAtual = stagesList.findIndex((x) => x.id === contact.stage.id);
+                  return (
+                    <div className="mt-2 flex w-full">
+                      {stagesList.map((x, i) => {
+                        const cor = x.color || "#64748b";
+                        const feito = i <= idxAtual;
+                        const atual = i === idxAtual;
+                        return (
+                          <button
+                            key={x.id}
+                            type="button"
+                            title={x.name}
+                            onClick={() => !atual && changeStage(x.id)}
+                            className="group flex-1 min-w-0 flex flex-col items-center gap-1 px-px focus:outline-none"
+                          >
+                            <span className="relative block w-full h-1.5 rounded-full transition-colors group-hover:brightness-110" style={{ backgroundColor: feito ? cor : "#e2e8f0" }}>
+                              <span
+                                className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white ${atual ? "w-3.5 h-3.5" : "w-2.5 h-2.5 group-hover:scale-125"} transition-transform`}
+                                style={{ backgroundColor: feito ? cor : "#cbd5e1" }}
+                              />
+                            </span>
+                            <span className={`w-full truncate text-center text-[9px] leading-tight ${atual ? "font-semibold text-slate-800" : "text-slate-400 group-hover:text-slate-700"}`}>{x.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
                 {moveErr && <p className="text-xs text-red-500 mt-1">{moveErr}</p>}
-              </label>
+              </div>
             )}
 
             {/* Mensagens prontas — escolhe um modelo e joga no campo de envio */}
