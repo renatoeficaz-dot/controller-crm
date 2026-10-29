@@ -132,6 +132,16 @@ function situacaoContato(contact) {
   return "emdia";
 }
 
+// "Sem pagar hoje": tem parcela em aberto no ciclo atual e NENHUM pagamento (total ou parcial) entrou hoje.
+function semPagarHoje(c) {
+  const ciclo = c.cicloAtual || 1;
+  const ps = (c.parcelas || []).filter((p) => (p.ciclo || 1) === ciclo && !p.renegociada);
+  if (!ps.some((p) => !p.paid)) return false;
+  const hoje = todayStr();
+  const dia = (v) => (v ? new Date(v).toLocaleDateString("en-CA") : null);
+  return !(c.parcelas || []).some((p) => dia(p.paidAt) === hoje || dia(p.valorPagoEm) === hoje);
+}
+
 // Situação das tarefas (pendentes) do contato:
 //  "sem"      = nenhuma tarefa pendente cadastrada
 //  "atrasada" = tem tarefa pendente com prazo já vencido
@@ -165,6 +175,7 @@ const FILTRO_OPCOES = [
   { label: "Atrasados", sit: "atrasado", dot: "bg-red-500" },
   { label: "Vencem hoje", sit: "hoje", dot: "bg-amber-400" },
   { label: "Em dia", sit: "emdia", dot: "bg-emerald-500" },
+  { label: "Sem pagar hoje", sit: "semhoje", dot: "bg-slate-500" },
 ];
 
 export default function KanbanBoard() {
@@ -452,7 +463,7 @@ export default function KanbanBoard() {
   // Um lead passa pelo filtro atual (situação + responsável + região + busca)?
   function passaFiltro(c) {
     if (etapaFiltro.length && !etapaFiltro.includes(c.stageId)) return false;
-    if (filtros.length && !filtros.includes(situacaoContato(c))) return false;
+    if (filtros.length && !filtros.includes(situacaoContato(c)) && !(filtros.includes("semhoje") && semPagarHoje(c))) return false;
     if (respFiltro === "__none__" && c.responsavel) return false;
     if (respFiltro && respFiltro !== "__none__" && c.responsavel !== respFiltro) return false;
     if (tagFiltro && !(c.tags || []).some((t) => t.id === tagFiltro)) return false;

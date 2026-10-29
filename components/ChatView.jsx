@@ -99,6 +99,16 @@ function statusTarefas(c) {
   return "futura";
 }
 
+// "Sem pagar hoje": tem parcela em aberto no ciclo atual e NENHUM pagamento (total ou parcial) entrou hoje.
+function semPagarHoje(c) {
+  const ciclo = c.cicloAtual || 1;
+  const ps = (c.parcelas || []).filter((p) => (p.ciclo || 1) === ciclo && !p.renegociada);
+  if (!ps.some((p) => !p.paid)) return false;
+  const hoje = todayStr();
+  const dia = (v) => (v ? new Date(v).toLocaleDateString("en-CA") : null);
+  return !(c.parcelas || []).some((p) => dia(p.paidAt) === hoje || dia(p.valorPagoEm) === hoje);
+}
+
 function situacaoContato(c) {
   const ciclo = c.cicloAtual || 1;
   // renegociada = substituída por acordo, não é mais dívida em aberto. Sem
@@ -119,7 +129,7 @@ function situacaoContato(c) {
   return "emdia";
 }
 
-const STATUS_LABEL = { atrasado: "Atrasado", hoje: "Vence hoje", emdia: "Em dia", sem: "Sem cobrança" };
+const STATUS_LABEL = { atrasado: "Atrasado", hoje: "Vence hoje", emdia: "Em dia", sem: "Sem cobrança", semhoje: "Sem pagar hoje" };
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -440,7 +450,8 @@ export default function ChatView() {
         const batePhone = termoDigitos && (c.phone || "").replace(/\D/g, "").includes(termoDigitos);
         if (!bateNome && !batePhone) return false;
       }
-      if (statusFiltro && situacaoContato(c) !== statusFiltro) return false;
+      if (statusFiltro === "semhoje") { if (!semPagarHoje(c)) return false; }
+      else if (statusFiltro && situacaoContato(c) !== statusFiltro) return false;
       if (tarefaFiltro) {
         const st = statusTarefas(c);
         if (tarefaFiltro === "com" ? st === "sem" : st !== tarefaFiltro) return false;
@@ -1239,7 +1250,7 @@ export default function ChatView() {
                 <div>
                   <span className="text-xs text-slate-400">Situação</span>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    {["", "atrasado", "hoje", "emdia", "sem"].map((s) => (
+                    {["", "atrasado", "hoje", "emdia", "semhoje", "sem"].map((s) => (
                       <button
                         key={s || "todos"}
                         onClick={() => setStatusFiltro(s)}

@@ -51,7 +51,7 @@ async function montarLista(user, mostrarArquivadas) {
       stageId: true,
       stage: { select: { id: true, name: true } },
       tags: { select: { id: true, name: true, color: true } },
-      parcelas: { select: { dueDate: true, paid: true, ciclo: true } },
+      parcelas: { select: { dueDate: true, paid: true, ciclo: true, renegociada: true, paidAt: true, valorPagoEm: true } },
       cicloAtual: true,
       chatFixado: true,
       chatArquivado: true,
