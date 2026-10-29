@@ -459,7 +459,8 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   }, [contactId]);
   useEffect(() => {
     if (instanceDefaultedForRef.current === contactId) return;
-    const lastWithInstance = [...messages].reverse().find((m) => m.instance);
+    // Padrão = último número que ENVIOU mensagem pra esse cliente (se nunca enviamos, o da última mensagem recebida).
+    const lastWithInstance = [...messages].reverse().find((m) => m.instance && m.fromMe) || [...messages].reverse().find((m) => m.instance);
     setSelectedInstance(lastWithInstance?.instance || numbers[0]?.instance || "");
     // Só trava depois que as mensagens carregaram: travar com a lista ainda vazia deixava sempre o 1º número, mesmo a conversa sendo de outro.
     if (messages.length > 0) instanceDefaultedForRef.current = contactId;
