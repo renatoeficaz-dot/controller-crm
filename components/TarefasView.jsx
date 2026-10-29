@@ -28,6 +28,8 @@ export default function TarefasView() {
   const [fTipo, setFTipo] = useState([]); // vários tipos ao mesmo tempo
   const [fResponsavel, setFResponsavel] = useState(""); // "" = todos; nome do usuário = só as tarefas dele
   const [fPrazo, setFPrazo] = useState(""); // "" | atrasadas | hoje | avencer
+  const [fHoraDe, setFHoraDe] = useState(""); // horário da tarefa: de HH:MM
+  const [fHoraAte, setFHoraAte] = useState(""); // ... até HH:MM
   const [fEtapas, setFEtapas] = useState([]); // ids das etapas do funil do lead (vazio = todas)
   const [stagesList, setStagesList] = useState([]);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -52,6 +54,12 @@ export default function TarefasView() {
     const data = await fetch(`/api/tasks?${q}`).then((r) => r.json()).catch(() => []);
     let lista = Array.isArray(data) ? data : [];
     if (fEtapas.length) lista = lista.filter((t) => fEtapas.includes(t.contact?.stage?.id));
+    if (fHoraDe || fHoraAte) {
+      lista = lista.filter((t) => {
+        const hm = new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/Sao_Paulo" });
+        return (!fHoraDe || hm >= fHoraDe) && (!fHoraAte || hm <= fHoraAte);
+      });
+    }
     if (fPrazo) {
       const h = hojeStr();
       lista = lista.filter((t) => {
@@ -62,7 +70,7 @@ export default function TarefasView() {
       });
     }
     setTasks(lista);
-  }, [fStatus, fTipo, fResponsavel, fEtapas, fPrazo]);
+  }, [fStatus, fTipo, fResponsavel, fEtapas, fPrazo, fHoraDe, fHoraAte]);
 
   const [users, setUsers] = useState([]);
   const [modoFoco, setModoFoco] = useState(false);
@@ -271,7 +279,7 @@ export default function TarefasView() {
     else { setFocoTaskId(null); setOpenContactId(null); }
   }, [filaFoco, focoTaskId, modoFoco, openContactId, indiceFoco, hoje]);
 
-  const filtrosAtivos = (fStatus !== "pendentes" ? 1 : 0) + (fTipo.length ? 1 : 0) + (fResponsavel ? 1 : 0) + (fEtapas.length ? 1 : 0) + (fPrazo ? 1 : 0);
+  const filtrosAtivos = (fStatus !== "pendentes" ? 1 : 0) + (fTipo.length ? 1 : 0) + (fResponsavel ? 1 : 0) + (fEtapas.length ? 1 : 0) + (fPrazo ? 1 : 0) + (fHoraDe || fHoraAte ? 1 : 0);
 
   // Modo foco: uma tarefa pendente por vez (as mais antigas primeiro), com ações grandes — mesmo jeito do modo foco das cobranças.
   if (modoFoco) {
@@ -530,7 +538,7 @@ export default function TarefasView() {
               <h3 className="font-semibold text-slate-800">Filtros</h3>
               <div className="flex items-center gap-3">
                 {filtrosAtivos > 0 && (
-                  <button onClick={() => { setFStatus("pendentes"); setFTipo([]); setFResponsavel(""); setFEtapas([]); setFPrazo(""); }} className="text-xs text-red-400 hover:text-red-600">Limpar tudo</button>
+                  <button onClick={() => { setFStatus("pendentes"); setFTipo([]); setFResponsavel(""); setFEtapas([]); setFPrazo(""); setFHoraDe(""); setFHoraAte(""); }} className="text-xs text-red-400 hover:text-red-600">Limpar tudo</button>
                 )}
                 <button onClick={() => setFiltrosAbertos(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
               </div>
@@ -550,6 +558,15 @@ export default function TarefasView() {
                   {[["", "Todos"], ["atrasadas", "Atrasadas"], ["hoje", "De hoje"], ["avencer", "A vencer"]].map(([k, l]) => (
                     <button key={k || "todos"} onClick={() => setFPrazo(k)} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${fPrazo === k ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}>{l}</button>
                   ))}
+                </div>
+              </div>
+              <div className="block">
+                <span className="text-xs text-slate-400">Horário da tarefa</span>
+                <div className="mt-1.5 flex items-center gap-2 text-sm text-slate-500">
+                  <span>de</span>
+                  <input type="time" value={fHoraDe} onChange={(e) => setFHoraDe(e.target.value)} className="min-w-0 flex-1 border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400" />
+                  <span>até</span>
+                  <input type="time" value={fHoraAte} onChange={(e) => setFHoraAte(e.target.value)} className="min-w-0 flex-1 border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400" />
                 </div>
               </div>
               <label className="block">
