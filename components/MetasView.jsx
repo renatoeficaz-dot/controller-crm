@@ -259,6 +259,75 @@ function ComparativoPeriodos({ usuario }) {
   );
 }
 
+/* ---------------- Metas por período (de / até) ---------------- */
+function PainelPeriodo({ de, ate, usuario, equipe, onDia }) {
+  const [d, setD] = useState(null);
+  const [erro, setErro] = useState("");
+  useEffect(() => {
+    let vivo = true;
+    setD(null); setErro("");
+    const qs = new URLSearchParams({ de, ate });
+    if (equipe) qs.set("equipe", equipe);
+    else if (usuario) qs.set("usuario", usuario);
+    fetch(`/api/metas/periodo?${qs}`).then((r) => r.json()).then((x) => { if (!vivo) return; if (x?.error) setErro(x.error); else setD(x); }).catch(() => vivo && setErro("Não foi possível carregar o período."));
+    return () => { vivo = false; };
+  }, [de, ate, usuario, equipe]);
+  if (erro) return <div className="p-4 text-sm text-red-500">{erro}</div>;
+  if (!d) return <div className="p-4 text-sm text-slate-400">Carregando período…</div>;
+  const cards = [
+    ["Vendas", d.vendas, d.metaVendas ? `meta ${d.metaVendas} · ${d.pctVendas}%` : null],
+    ["Capital liberado", money(d.valorVendido), null],
+    ["Baixas de parcela", d.baixas, null],
+    ["Valor recebido", money(d.valorRecebido), d.metaRecebimentos ? `meta ${d.metaRecebimentos} recebimentos · ${d.pctRecebimentos}%` : null],
+    ["Recuperado de atrasados", money(d.valorRecuperado), null],
+  ];
+  return (
+    <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
+      <h2 className="text-sm font-semibold text-slate-800">Período: {fmtBR(de)} até {fmtBR(ate)} ({d.dias} dia{d.dias > 1 ? "s" : ""})</h2>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {cards.map(([t, v, sub]) => (
+          <div key={t} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+            <p className="text-[11px] text-slate-400">{t}</p>
+            <p className="text-lg font-semibold text-slate-800 tabular-nums">{v}</p>
+            {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
+          </div>
+        ))}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-slate-400 border-b border-slate-100">
+              <th className="text-left font-medium py-1.5">Dia</th>
+              <th className="text-right font-medium py-1.5">Vendas</th>
+              <th className="text-right font-medium py-1.5">Capital</th>
+              <th className="text-right font-medium py-1.5">Baixas</th>
+              <th className="text-right font-medium py-1.5">Recebido</th>
+              <th className="text-right font-medium py-1.5">Recuperado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...d.serie].reverse().map((x) => (
+              <tr key={x.dia} onClick={() => onDia(x.dia)} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 cursor-pointer" title="Abrir este dia">
+                <td className="py-1.5 text-slate-600">{fmtBR(x.dia)}</td>
+                <td className="py-1.5 text-right tabular-nums">{x.vendas}</td>
+                <td className="py-1.5 text-right tabular-nums">{money(x.valorVendido)}</td>
+                <td className="py-1.5 text-right tabular-nums">{x.baixas}</td>
+                <td className="py-1.5 text-right tabular-nums">{money(x.valorRecebido)}</td>
+                <td className="py-1.5 text-right tabular-nums">{money(x.valorRecuperado)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function fmtBR(iso) {
+  const [a, m, d] = String(iso).split("-");
+  return `${d}/${m}/${a}`;
+}
+
 export default function MetasView() {
   const [resumo, setResumo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -268,6 +337,7 @@ export default function MetasView() {
   const [modalLiberado, setModalLiberado] = useState(false);
   const [modalRecebimentos, setModalRecebimentos] = useState(false);
   const [dia, setDia] = useState(hojeStr());
+  const [periodo, setPeriodo] = useState(null); // null = visão do dia | { de, ate }
   const [usuario, setUsuario] = useState("");   // "" = total da empresa
   const [equipe, setEquipe] = useState("");     // item 117: recorte por equipe (id)
   const [pessoas, setPessoas] = useState([]);
@@ -319,6 +389,31 @@ export default function MetasView() {
     setDia(novoDia);
     setLoading(true);
   }
+
+  // Atalhos de período: Hoje / Ontem = visão do dia; 7 dias e Mês = painel de período (de/até).
+  function somaDiasStr(base, n) {
+    const x = new Date(base + "T00:00:00.000Z");
+    x.setUTCDate(x.getUTCDate() + n);
+    return x.toISOString().slice(0, 10);
+  }
+  function atalho(qual) {
+    const h = hojeStr();
+    if (qual === "hoje") { setPeriodo(null); irPara(h); }
+    else if (qual === "ontem") { setPeriodo(null); irPara(somaDiasStr(h, -1)); }
+    else if (qual === "7") setPeriodo({ de: somaDiasStr(h, -6), ate: h });
+    else if (qual === "mes") setPeriodo({ de: h.slice(0, 8) + "01", ate: h });
+  }
+  function mudarPeriodo(campo, valor) {
+    if (!valor || valor > hojeStr()) return;
+    const base = periodo || { de: dia, ate: dia };
+    const novo = { ...base, [campo]: valor };
+    if (novo.de > novo.ate) { if (campo === "de") novo.ate = novo.de; else novo.de = novo.ate; }
+    setPeriodo(novo.de === novo.ate ? null : novo);
+    if (novo.de === novo.ate) irPara(novo.de);
+  }
+  const atalhoAtivo = periodo
+    ? (periodo.ate === hojeStr() && periodo.de === somaDiasStr(hojeStr(), -6) ? "7" : periodo.ate === hojeStr() && periodo.de === hojeStr().slice(0, 8) + "01" ? "mes" : "")
+    : dia === hojeStr() ? "hoje" : dia === somaDiasStr(hojeStr(), -1) ? "ontem" : "";
 
   if (loading) return <div className="p-6 text-slate-400">Carregando metas…</div>;
   if (!resumo) return <div className="p-6 text-slate-400">Não foi possível carregar as metas.</div>;
@@ -393,6 +488,16 @@ export default function MetasView() {
           </div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+          {[["hoje", "Hoje"], ["ontem", "Ontem"], ["7", "7 dias"], ["mes", "Mês"]].map(([k, t]) => (
+            <button key={k} type="button" onClick={() => atalho(k)} className={`text-xs rounded-full px-3 py-1 border transition-colors ${atalhoAtivo === k ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>{t}</button>
+          ))}
+          <span className="text-xs text-slate-400 ml-2">de</span>
+          <input type="date" value={periodo ? periodo.de : dia} max={hojeStr()} onChange={(e) => mudarPeriodo("de", e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-emerald-400" />
+          <span className="text-xs text-slate-400">até</span>
+          <input type="date" value={periodo ? periodo.ate : dia} max={hojeStr()} onChange={(e) => mudarPeriodo("ate", e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-emerald-400" />
+        </div>
+
         <p className="text-sm text-slate-500 mt-1">
           {fmtDiaLongo(r.dia)}
           {r.equipeNome && <> · <strong className="text-slate-600">Equipe {r.equipeNome}</strong></>}
@@ -416,6 +521,9 @@ export default function MetasView() {
         )}
       </div>
 
+      {periodo && <PainelPeriodo de={periodo.de} ate={periodo.ate} usuario={usuario} equipe={equipe} onDia={(x) => { setPeriodo(null); irPara(x); }} />}
+
+      <div className={periodo ? "hidden" : "contents"}>
       {/* -------- Metas do dia -------- */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 items-start">
         <button
@@ -698,6 +806,7 @@ export default function MetasView() {
       )}
 
       <ComparativoPeriodos usuario={usuario} />
+      </div>
 
       {modalVendas && (
         <ListaModal
