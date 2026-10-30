@@ -56,6 +56,15 @@ export default function TarefaBarra({ tasks, onChanged, onCriar }) {
     await patch({ dueDate: base.toISOString() });
   }
 
+  // Adiar para amanhã num horário fixo (9h ou 19h).
+  async function adiarAmanha(h) {
+    setAdiarAberto(false);
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(h, 0, 0, 0);
+    await patch({ dueDate: d.toISOString() });
+  }
+
   function abrir(m) {
     setAdiarAberto(false);
     setForm({ title: t.title || "", dia: dia(dt), hora: hora(dt) });
@@ -111,6 +120,8 @@ export default function TarefaBarra({ tasks, onChanged, onCriar }) {
               <>
                 <span className="fixed inset-0 z-30" onClick={() => setAdiarAberto(false)} />
                 <span className="absolute left-0 bottom-6 z-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[96px]">
+                  <button type="button" onClick={() => adiarAmanha(9)} className="block w-full text-left px-3 py-1 text-[11px] text-slate-700 hover:bg-slate-50 whitespace-nowrap">Amanhã 09:00</button>
+                  <button type="button" onClick={() => adiarAmanha(19)} className="block w-full text-left px-3 py-1 text-[11px] text-slate-700 hover:bg-slate-50 whitespace-nowrap">Amanhã 19:00</button>
                   {[1, 2, 3].map((d) => (
                     <button key={d} type="button" onClick={() => adiar(d)} className="block w-full text-left px-3 py-1 text-[11px] text-slate-700 hover:bg-slate-50">
                       {d} dia{d > 1 ? "s" : ""}
