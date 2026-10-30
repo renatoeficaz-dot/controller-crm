@@ -683,6 +683,7 @@ model Config {
   mensagemInicialTitulo    String  @default("1 - Mensagem inicial")
   mensagemInicialInstancia String?
   // Catta API (dono do telefone dos contatos de referência) — chave só pelo painel; ligada/desligada aqui.
+  wavoipToken              String? // token do dispositivo Wavoip (ligação pelo WhatsApp)
   cattaApiKey              String?
   cattaAtivo               Boolean @default(false)
   // CNPJá (opcional): sem chave usa a API aberta (limite ~5/min).

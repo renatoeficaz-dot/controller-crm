@@ -4906,7 +4906,7 @@ function MetaAdsConfig() {
 // Tokens dos provedores de IA (texto/transcrição na DeepInfra; voz opcionalmente
 // em Fish Audio ou ElevenLabs — cada agente escolhe qual usar).
 function TokenDeepInfra() {
-  const [tokens, setTokens] = useState({ deepinfraApiKey: "", fishAudioApiKey: "", elevenLabsApiKey: "", cattaApiKey: "", cattaAtivo: false });
+  const [tokens, setTokens] = useState({ deepinfraApiKey: "", fishAudioApiKey: "", elevenLabsApiKey: "", cattaApiKey: "", wavoipToken: "", cattaAtivo: false });
   const [catta, setCatta] = useState(null); // { ok, creditos, podeBuscar, situacao } | { ok:false, erro }
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -4919,6 +4919,7 @@ function TokenDeepInfra() {
         fishAudioApiKey: d?.fishAudioApiKey || "",
         elevenLabsApiKey: d?.elevenLabsApiKey || "",
         cattaApiKey: d?.cattaApiKey || "",
+        wavoipToken: d?.wavoipToken || "",
         cattaAtivo: !!d?.cattaAtivo,
       });
     }).catch(() => {});
@@ -4970,6 +4971,13 @@ function TokenDeepInfra() {
       <Field label="API Key — texto/transcrição" value={tokens.deepinfraApiKey} onChange={(v) => setTokens((t) => ({ ...t, deepinfraApiKey: v }))} placeholder="di_..." />
       <Field label="API Key — Fish Audio (voz, opcional)" value={tokens.fishAudioApiKey} onChange={(v) => setTokens((t) => ({ ...t, fishAudioApiKey: v }))} placeholder="fa-..." />
       <Field label="API Key — ElevenLabs (voz, opcional)" value={tokens.elevenLabsApiKey} onChange={(v) => setTokens((t) => ({ ...t, elevenLabsApiKey: v }))} placeholder="sk_..." />
+      <div className="border-t border-slate-100 pt-3 space-y-2">
+        <p className="text-xs font-medium text-slate-600">Wavoip — ligar pelo WhatsApp</p>
+        <p className="text-[11px] text-slate-400">
+          Com o token do dispositivo (<a href="https://www.wavoip.com/" target="_blank" rel="noreferrer" className="underline text-emerald-600">wavoip.com</a>), o botão <strong>Ligar</strong> do Chat abre a janela de chamada e já disca para o cliente. Sem token, o botão só abre a conversa no WhatsApp.
+        </p>
+        <Field label="Token do dispositivo — Wavoip" value={tokens.wavoipToken} onChange={(v) => setTokens((t) => ({ ...t, wavoipToken: v }))} placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" />
+      </div>
       <div className="border-t border-slate-100 pt-3 space-y-2">
         <p className="text-xs font-medium text-slate-600">Catta — dono do telefone dos contatos de referência</p>
         <p className="text-[11px] text-slate-400">

@@ -20,7 +20,7 @@ async function getConfig() {
 // entregava a API key da Evolution pra qualquer usuário logado.
 const CAMPOS_SECRETOS = [
   "evolutionApiKey", "wahaApiKey", "deepinfraApiKey",
-  "fishAudioApiKey", "elevenLabsApiKey", "cattaApiKey", "cnpjaApiKey", "dataApiKey", "snoopApiKey",
+  "fishAudioApiKey", "elevenLabsApiKey", "cattaApiKey", "wavoipToken", "cnpjaApiKey", "dataApiKey", "snoopApiKey",
   // O token do webhook entra aqui também: se vazasse pra qualquer usuário
   // logado, a trava do webhook viraria enfeite — bastaria ler o token e
   // continuar injetando mensagem falsa.
@@ -144,6 +144,7 @@ export async function PATCH(req) {
     data.dataApiAtivo = body.dataApiAtivo;
     data.dataApiErro = null;
   }
+  if ("wavoipToken" in body) data.wavoipToken = texto(body.wavoipToken) || null;
   if ("cattaApiKey" in body) data.cattaApiKey = texto(body.cattaApiKey) || null;
   if ("cattaAtivo" in body) data.cattaAtivo = !!body.cattaAtivo;
   if ("fishAudioApiKey" in body) data.fishAudioApiKey = texto(body.fishAudioApiKey) || null;

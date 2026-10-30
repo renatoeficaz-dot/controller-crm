@@ -349,6 +349,20 @@ export default function ChatView() {
     loadConversations();
   }
 
+  // Liga pelo WhatsApp via Wavoip: abre a janela já no clique (senão o navegador bloqueia o popup)
+  // e troca pela URL de chamada quando o servidor responde. Sem token, cai no wa.me.
+  async function ligarWhatsapp(phone, nome) {
+    const digitos = String(phone || "").replace(/\D/g, "");
+    const w = window.open("", "wavoip", "width=320,height=520");
+    try {
+      const r = await fetch(`/api/wavoip/ligar?phone=${digitos}&name=${encodeURIComponent(nome || "")}`).then((x) => x.json());
+      const url = r?.url || `https://wa.me/${digitos}`;
+      if (w) w.location.href = url; else window.open(url, "_blank");
+    } catch {
+      if (w) w.location.href = `https://wa.me/${digitos}`;
+    }
+  }
+
   function sairSelecaoChat() { setSelecionando(false); setSelIds([]); setFecharMenu(false); }
 
   // Responde a mesma mensagem para todas as conversas selecionadas (uma por vez, pelo número padrão de cada uma).
@@ -1661,15 +1675,14 @@ export default function ChatView() {
                 {resumindo ? "Resumindo…" : (<><Icone nome="estrela" className="w-3 h-3" /> Resumir</>)}
               </button>
               {selected.phone && (
-                <a
-                  href={`https://wa.me/${selected.phone.replace(/\D/g, "")}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  title="Abrir conversa no WhatsApp pra ligar pro cliente (o sistema não faz a chamada sozinho)"
+                <button
+                  type="button"
+                  onClick={() => ligarWhatsapp(selected.phone, selected.name)}
+                  title="Ligar pelo WhatsApp (Wavoip). Sem token configurado, abre a conversa no WhatsApp"
                   className="hidden md:flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
                 >
                   <Icone nome="cobranca" className="w-3 h-3" /> Ligar
-                </a>
+                </button>
               )}
               {contact && (
                 <button
