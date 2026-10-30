@@ -759,12 +759,27 @@ export default function ChatView() {
     const body = text;
     setText("");
     setSending(true);
-    const res = await fetch(`/api/contacts/${selectedId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body, instance: selectedInstance }),
-    });
-    setSending(false);
+    // No celular a conexão cai/oscila: sem try/finally o fetch rejeitado deixava `sending`
+    // travado em true (botão Enviar apagado pra sempre) e o texto digitado se perdia.
+    // O timeout evita ficar pendurado numa requisição que nunca volta.
+    let res;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 45000);
+    try {
+      res = await fetch(`/api/contacts/${selectedId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body, instance: selectedInstance }),
+        signal: ctrl.signal,
+      });
+    } catch {
+      setText((atual) => atual || body);
+      alert("Sem conexão ou resposta lenta — a mensagem não foi enviada. O texto foi mantido, toque em Enviar de novo (confira a conversa antes, ela pode ter saído).");
+      return;
+    } finally {
+      clearTimeout(timer);
+      setSending(false);
+    }
     const data = await res.json().catch(() => ({}));
     if (data.message) setMessages((prev) => [...prev, data.message]);
     if (!res.ok) alert(data.error || "Falha ao enviar — a mensagem ficou marcada como \"falhou\" na conversa.");
@@ -809,8 +824,9 @@ export default function ChatView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+      }).catch(() => null);
       setSending(false);
+      if (!res) { alert("Sem conexão — o envio não foi concluído. Tente de novo."); return; }
       const data = await res.json().catch(() => ({}));
       if (data.message) setMessages((prev) => [...prev, data.message]);
       if (res.ok) {
