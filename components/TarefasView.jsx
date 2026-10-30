@@ -37,6 +37,42 @@ export default function TarefasView() {
   const [fOrdem, setFOrdem] = useState(""); // "" = por prazo | "pagAsc" | "pagDesc" (horário do último pagamento)
   const [fHoraDe, setFHoraDe] = useState(""); // horário da tarefa: de HH:MM
   const [fHoraAte, setFHoraAte] = useState(""); // ... até HH:MM
+  // Filtros salvos (nome + combinação de filtros; um pode ser o padrão, aplicado ao abrir a tela). Ficam neste navegador.
+  const CHAVE_FILTROS = "tarefas-filtros-salvos";
+  const [salvos, setSalvos] = useState([]);
+  const [nomeFiltro, setNomeFiltro] = useState("");
+  useEffect(() => {
+    try {
+      const lista = JSON.parse(localStorage.getItem(CHAVE_FILTROS) || "[]");
+      if (!Array.isArray(lista)) return;
+      setSalvos(lista);
+      const padrao = lista.find((x) => x.padrao);
+      if (padrao) aplicarFiltroSalvo(padrao);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function gravarSalvos(lista) {
+    setSalvos(lista);
+    try { localStorage.setItem(CHAVE_FILTROS, JSON.stringify(lista)); } catch {}
+  }
+  function aplicarFiltroSalvo(x) {
+    const f = x.f || {};
+    setFStatus(f.fStatus || "pendentes");
+    setFTipo(f.fTipo || []);
+    setFResponsavel(f.fResponsavel || "");
+    setFEtapas(f.fEtapas || []);
+    setFPrazo(f.fPrazo || "");
+    setFHoraDe(f.fHoraDe || "");
+    setFHoraAte(f.fHoraAte || "");
+    setFOrdem(f.fOrdem || "");
+  }
+  function salvarFiltroAtual() {
+    const nome = nomeFiltro.trim();
+    if (!nome) return;
+    const f = { fStatus, fTipo, fResponsavel, fEtapas, fPrazo, fHoraDe, fHoraAte, fOrdem };
+    gravarSalvos([...salvos.filter((x) => x.nome !== nome), { nome, f, padrao: salvos.find((x) => x.nome === nome)?.padrao || false }]);
+    setNomeFiltro("");
+  }
   // Ação em massa: "Selecionar" liga a seleção nos cards; a barra de baixo aplica a mudança em todas as marcadas.
   const [selecionando, setSelecionando] = useState(false);
   const [sel, setSel] = useState([]); // ids marcados
@@ -602,6 +638,36 @@ export default function TarefasView() {
                   <button onClick={() => { setFStatus("pendentes"); setFTipo([]); setFResponsavel(""); setFEtapas([]); setFPrazo(""); setFHoraDe(""); setFHoraAte(""); setFOrdem(""); }} className="text-xs text-red-400 hover:text-red-600">Limpar tudo</button>
                 )}
                 <button onClick={() => setFiltrosAbertos(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              </div>
+            </div>
+            <div className="px-5 pt-3 pb-3 border-b border-slate-100 space-y-2">
+              <span className="text-xs text-slate-400">Filtros salvos</span>
+              {salvos.length === 0 && <p className="text-[11px] text-slate-400">Nenhum ainda. Monte os filtros abaixo, dê um nome e salve.</p>}
+              <div className="flex flex-wrap gap-1.5">
+                {salvos.map((x) => (
+                  <span key={x.nome} className="inline-flex items-center rounded-full border border-slate-200 bg-white text-xs text-slate-700 overflow-hidden">
+                    <button type="button" title="Aplicar" onClick={() => aplicarFiltroSalvo(x)} className="pl-3 pr-1.5 py-1.5 hover:bg-slate-50">{x.nome}</button>
+                    <button
+                      type="button"
+                      title={x.padrao ? "Padrão (abre com este filtro). Clique para tirar" : "Usar como padrão ao abrir a tela"}
+                      onClick={() => gravarSalvos(salvos.map((y) => ({ ...y, padrao: y.nome === x.nome ? !y.padrao : false })))}
+                      className={`px-1 py-1.5 ${x.padrao ? "text-amber-500" : "text-slate-300 hover:text-amber-500"}`}
+                    >
+                      ★
+                    </button>
+                    <button type="button" title="Excluir" onClick={() => gravarSalvos(salvos.filter((y) => y.nome !== x.nome))} className="pl-0.5 pr-2.5 py-1.5 text-slate-300 hover:text-red-500">×</button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-1.5">
+                <input
+                  value={nomeFiltro}
+                  onChange={(e) => setNomeFiltro(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") salvarFiltroAtual(); }}
+                  placeholder="Nome para salvar os filtros atuais"
+                  className="min-w-0 flex-1 text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400"
+                />
+                <button type="button" disabled={!nomeFiltro.trim()} onClick={salvarFiltroAtual} className="text-xs rounded-lg bg-emerald-600 text-white px-3 py-1.5 disabled:opacity-40">Salvar</button>
               </div>
             </div>
             <div className="p-5 space-y-4">
