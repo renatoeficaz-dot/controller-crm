@@ -330,6 +330,12 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskForm, setTaskForm] = useState(tarefaPadrao({ responsavel: "" }));
   const [taskFormErro, setTaskFormErro] = useState("");
+  // Tipo padrão = Cobrança (sem opção "Sem tipo").
+  useEffect(() => {
+    if (taskForm.tipoId) return;
+    const t = taskTypes.find((x) => /cobran/i.test(x.name));
+    if (t) setTaskForm((p) => (p.tipoId ? p : { ...p, tipoId: t.id }));
+  }, [taskForm.tipoId, taskTypes]);
   const [tarefaModalAberta, setTarefaModalAberta] = useState(!!abrirNovaTarefa); // vindo de "Criar tarefa" no menu do card
   useEffect(() => { if (tarefaModalAberta) setTaskForm((f) => (f.dueDate < diaBR(0) ? { ...f, dueDate: diaBR(0) } : f)); }, [tarefaModalAberta]);
   const chatEnd = useRef(null);
@@ -1840,7 +1846,6 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                     onChange={(e) => setTaskForm((f) => ({ ...f, tipoId: e.target.value }))}
                     className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none"
                   >
-                    <option value="">— Sem tipo —</option>
                     {taskTypes.map((t) => (
                       <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
                     ))}
@@ -2701,7 +2706,6 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                 onChange={(e) => setTaskForm((f) => ({ ...f, tipoId: e.target.value }))}
                 className="w-full text-sm border border-slate-200 rounded px-2.5 py-2 bg-white outline-none"
               >
-                <option value="">— Sem tipo —</option>
                 {taskTypes.map((t) => (
                   <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
                 ))}

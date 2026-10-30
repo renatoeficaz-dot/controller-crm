@@ -255,6 +255,12 @@ export default function ChatView() {
   }
   useEffect(() => { if (tarefaModalAberta) setTaskForm((f) => (f.dueDate < diaBR(0) ? { ...f, dueDate: diaBR(0) } : f)); }, [tarefaModalAberta]);
   const [taskForm, setTaskForm] = useState(tarefaPadrao());
+  // Tipo padrão = Cobrança (sem opção "Sem tipo").
+  useEffect(() => {
+    if (taskForm.tipoId) return;
+    const t = taskTypes.find((x) => /cobran/i.test(x.name));
+    if (t) setTaskForm((p) => (p.tipoId ? p : { ...p, tipoId: t.id }));
+  }, [taskForm.tipoId, taskTypes]);
   const [horaLimite, setHoraLimite] = useState("");
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
@@ -1898,7 +1904,6 @@ export default function ChatView() {
                         onChange={(e) => setTaskForm((f) => ({ ...f, tipoId: e.target.value }))}
                         className="w-full text-sm border border-slate-200 rounded px-2.5 py-2 bg-white outline-none"
                       >
-                        <option value="">— Sem tipo —</option>
                         {taskTypes.map((t) => (
                           <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
                         ))}
@@ -2285,7 +2290,6 @@ export default function ChatView() {
                     onChange={(e) => setTaskForm((f) => ({ ...f, tipoId: e.target.value }))}
                     className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none"
                   >
-                    <option value="">— Sem tipo —</option>
                     {taskTypes.map((t) => (
                       <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
                     ))}

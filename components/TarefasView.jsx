@@ -22,6 +22,12 @@ export default function TarefasView() {
   const [tipos, setTipos] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  // Tipo padrão = Cobrança (sem opção "Sem tipo").
+  useEffect(() => {
+    if (form.tipoId) return;
+    const t = tipos.find((x) => /cobran/i.test(x.name));
+    if (t) setForm((p) => (p.tipoId ? p : { ...p, tipoId: t.id }));
+  }, [form.tipoId, tipos]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [fStatus, setFStatus] = useState("pendentes"); // pendentes | todas | concluidas
@@ -470,7 +476,6 @@ export default function TarefasView() {
                 onChange={(e) => setForm((f) => ({ ...f, tipoId: e.target.value }))}
                 className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white outline-none focus:border-emerald-400"
               >
-                <option value="">— Sem tipo —</option>
                 {tipos.map((t) => (
                   <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
                 ))}
