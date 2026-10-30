@@ -105,7 +105,10 @@ export async function PATCH(req, { params }) {
       }
     }
     if ("chatFixado" in body) data.chatFixado = !!body.chatFixado;
-    if ("chatArquivado" in body) data.chatArquivado = !!body.chatArquivado;
+    if ("chatArquivado" in body) {
+      data.chatArquivado = !!body.chatArquivado;
+      data.chatVoltaEm = data.chatArquivado && body.chatVoltaEm ? new Date(body.chatVoltaEm) : null;
+    }
     if ("naoPerturbarAte" in body) data.naoPerturbarAte = body.naoPerturbarAte ? new Date(body.naoPerturbarAte) : null;
     if ("valorCapital" in body) {
       data.valorCapital = body.valorCapital === "" || body.valorCapital == null ? null : Number(body.valorCapital);

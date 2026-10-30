@@ -296,6 +296,10 @@ export default function ChatView() {
   const [resumindo, setResumindo] = useState(false);
 
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false);
+  const [selecionando, setSelecionando] = useState(false); // seleção em massa na lista
+  const [selIds, setSelIds] = useState([]);
+  const [fecharMenu, setFecharMenu] = useState(false);
+  const [massaChat, setMassaChat] = useState(null); // { texto, enviando, feitos, falhas }
   const [menuConversaId, setMenuConversaId] = useState(null); // menu ⋮ da lista (Fechar conversa)
 
   const loadConversations = useCallback(async () => {
@@ -330,6 +334,42 @@ export default function ChatView() {
     });
     if (!mostrarArquivadas) setConversations((prev) => prev.filter((x) => x.id !== c.id));
     loadConversations();
+  }
+
+  // Fecha as conversas e agenda a volta (minutos); sem minutos fecha até o cliente escrever.
+  async function fecharVarias(ids, minutos) {
+    const volta = minutos ? new Date(Date.now() + minutos * 60e3).toISOString() : null;
+    setFecharMenu(false);
+    await Promise.all(ids.map((id) => fetch(`/api/contacts/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatArquivado: true, chatVoltaEm: volta }),
+    }).catch(() => null)));
+    if (!mostrarArquivadas) setConversations((prev) => prev.filter((x) => !ids.includes(x.id)));
+    setSelIds([]);
+    setSelecionando(false);
+    loadConversations();
+  }
+
+  function sairSelecaoChat() { setSelecionando(false); setSelIds([]); setFecharMenu(false); }
+
+  // Responde a mesma mensagem para todas as conversas selecionadas (uma por vez, pelo número padrão de cada uma).
+  async function enviarEmMassaChat() {
+    const texto = (massaChat?.texto || "").trim();
+    if (!texto || !selIds.length) return;
+    setMassaChat((m) => ({ ...m, enviando: true, feitos: 0, falhas: 0 }));
+    let feitos = 0, falhas = 0;
+    for (const id of selIds) {
+      const r = await fetch(`/api/contacts/${id}/messages`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body: texto }),
+      }).catch(() => null);
+      if (r && r.ok) feitos++; else falhas++;
+      setMassaChat((m) => ({ ...m, feitos, falhas }));
+      await new Promise((ok) => setTimeout(ok, 1200));
+    }
+    setMassaChat(null);
+    setSelIds([]);
+    setSelecionando(false);
+    loadConversations();
+    if (falhas) alert(`${feitos} enviada(s), ${falhas} falharam.`);
   }
 
   // Resumo financeiro (a receber / inadimplência) — recarrega periodicamente,
@@ -1205,9 +1245,84 @@ export default function ChatView() {
             >
               <Icone nome="documento" className="w-3.5 h-3.5" />
             </button>
+            <button
+              type="button"
+              title="Selecionar conversas (responder ou fechar em massa)"
+              onClick={() => (selecionando ? sairSelecaoChat() : setSelecionando(true))}
+              className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-full border text-sm transition-colors ${
+                selecionando ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              ☑
+            </button>
           </div>
+          {selecionando && (
+            <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2 space-y-1.5">
+              <div className="flex items-center justify-between gap-2 text-[11px] text-slate-600">
+                <button
+                  type="button"
+                  onClick={() => setSelIds(selIds.length === conversasFiltradas.length ? [] : conversasFiltradas.map((x) => x.id))}
+                  className="font-medium text-emerald-700 hover:underline"
+                >
+                  {selIds.length === conversasFiltradas.length && conversasFiltradas.length > 0 ? "Desmarcar todos" : `Selecionar todos (${conversasFiltradas.length})`}
+                </button>
+                <span>{selIds.length} selecionada(s)</span>
+                <button type="button" onClick={sairSelecaoChat} className="text-slate-500 hover:underline">Cancelar</button>
+              </div>
+              <div className="flex gap-1.5 relative">
+                <button
+                  type="button"
+                  disabled={!selIds.length}
+                  onClick={() => setMassaChat({ texto: "", enviando: false, feitos: 0, falhas: 0 })}
+                  className="flex-1 text-xs rounded-lg bg-emerald-600 text-white py-1.5 disabled:opacity-40"
+                >
+                  Responder
+                </button>
+                <button
+                  type="button"
+                  disabled={!selIds.length}
+                  onClick={() => setFecharMenu((v) => !v)}
+                  className="flex-1 text-xs rounded-lg bg-white border border-slate-300 text-slate-700 py-1.5 disabled:opacity-40"
+                >
+                  Fechar ▾
+                </button>
+                {fecharMenu && (
+                  <>
+                    <span className="fixed inset-0 z-30" onClick={() => setFecharMenu(false)} />
+                    <span className="absolute right-0 top-8 z-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[190px]">
+                      {[[30, "Voltar em 30 min"], [60, "Voltar em 1 hora"], [180, "Voltar em 3 horas"], [300, "Voltar em 5 horas"], [0, "Só quando o cliente escrever"]].map(([min, txt]) => (
+                        <button key={min} type="button" onClick={() => fecharVarias(selIds, min)} className="block w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">{txt}</button>
+                      ))}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           {mostrarArquivadas && <p className="text-[11px] text-slate-500 mt-1.5">Conversas fechadas — voltam para a lista quando o cliente escreve.</p>}
         </div>
+
+        {massaChat && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => !massaChat.enviando && setMassaChat(null)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-sm font-semibold text-slate-800">Responder {selIds.length} conversa(s)</h3>
+              <textarea
+                autoFocus
+                rows={5}
+                value={massaChat.texto}
+                disabled={massaChat.enviando}
+                onChange={(e) => setMassaChat((m) => ({ ...m, texto: e.target.value }))}
+                placeholder="Mensagem que será enviada para todas as selecionadas"
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
+              />
+              {massaChat.enviando && <p className="text-xs text-slate-500">Enviando… {massaChat.feitos + massaChat.falhas}/{selIds.length}</p>}
+              <div className="flex justify-end gap-2">
+                <button type="button" disabled={massaChat.enviando} onClick={() => setMassaChat(null)} className="text-sm px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600">Cancelar</button>
+                <button type="button" disabled={massaChat.enviando || !massaChat.texto.trim()} onClick={enviarEmMassaChat} className="text-sm px-3 py-1.5 rounded-lg bg-emerald-600 text-white disabled:opacity-40">Enviar para todas</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {filtrosAbertos && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setFiltrosAbertos(false)}>
@@ -1397,12 +1512,16 @@ export default function ChatView() {
           {conversasFiltradas.slice(0, limiteLista).map((c) => (
             <div key={c.id} className="group relative">
               <button
-                onClick={() => { setSelectedId(c.id); setContact(null); setMessages([]); setShowInfo(false); }}
+                onClick={() => {
+                  if (selecionando) { setSelIds((s) => (s.includes(c.id) ? s.filter((x) => x !== c.id) : [...s, c.id])); return; }
+                  setSelectedId(c.id); setContact(null); setMessages([]); setShowInfo(false);
+                }}
                 className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors ${
-                  selectedId === c.id ? "bg-emerald-50" : ""
+                  selecionando && selIds.includes(c.id) ? "bg-emerald-100" : selectedId === c.id ? "bg-emerald-50" : ""
                 }`}
               >
                 <div className="flex items-center gap-3">
+                  {selecionando && <input type="checkbox" readOnly checked={selIds.includes(c.id)} className="shrink-0 w-4 h-4 accent-emerald-600" />}
                   <div className="relative w-9 h-9 shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center">
                     {initials(c.name)}
                     {c.unreadCount > 0 && (
@@ -1460,6 +1579,9 @@ export default function ChatView() {
                         >
                           {c.chatArquivado ? "Reabrir conversa" : "Fechar conversa"}
                         </button>
+                        {!c.chatArquivado && [[30, "Fechar e voltar em 30 min"], [60, "Fechar e voltar em 1 hora"], [180, "Fechar e voltar em 3 horas"], [300, "Fechar e voltar em 5 horas"]].map(([min, txt]) => (
+                          <button key={min} type="button" onClick={(e) => { e.stopPropagation(); setMenuConversaId(null); fecharVarias([c.id], min); }} className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 whitespace-nowrap">{txt}</button>
+                        ))}
                       </span>
                     </>
                   )}

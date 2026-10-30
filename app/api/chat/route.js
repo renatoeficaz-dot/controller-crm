@@ -34,6 +34,10 @@ export async function GET(req) {
 }
 
 async function montarLista(user, mostrarArquivadas) {
+  // Conversas fechadas "para voltar daqui X": chegou a hora, reabre.
+  await prisma.contact.updateMany({ where: { chatArquivado: true, chatVoltaEm: { lte: new Date() } }, data: { chatArquivado: false, chatVoltaEm: null } }).catch(() => {});
+  // Conversas fechadas "para voltar daqui X": chegou a hora, reabre.
+  await prisma.contact.updateMany({ where: { chatArquivado: true, chatVoltaEm: { lte: new Date() } }, data: { chatArquivado: false, chatVoltaEm: null } }).catch(() => {});
   const contactWhere = {
     excluidoEm: null,
     chatArquivado: mostrarArquivadas, // item 82: por padrão só as não-arquivadas

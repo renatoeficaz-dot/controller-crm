@@ -80,7 +80,7 @@ export async function POST(req, { params }) {
   }
 
   // Conversa fechada volta pra lista quando uma pessoa manda mensagem pro cliente.
-  await prisma.contact.updateMany({ where: { id, chatArquivado: true }, data: { chatArquivado: false } }).catch(() => {});
+  await prisma.contact.updateMany({ where: { id, chatArquivado: true }, data: { chatArquivado: false, chatVoltaEm: null } }).catch(() => {});
 
   const message = await prisma.message.create({
     data: {

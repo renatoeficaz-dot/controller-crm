@@ -147,7 +147,7 @@ export async function POST(req, { params }) {
   const waMessageId = result.simulated ? null : extractSentMessageId(result.data);
 
   // Conversa fechada volta pra lista quando uma pessoa manda mensagem pro cliente.
-  await prisma.contact.updateMany({ where: { id, chatArquivado: true }, data: { chatArquivado: false } }).catch(() => {});
+  await prisma.contact.updateMany({ where: { id, chatArquivado: true }, data: { chatArquivado: false, chatVoltaEm: null } }).catch(() => {});
 
   const message = await prisma.message.create({
     data: {
