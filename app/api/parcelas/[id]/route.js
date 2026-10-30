@@ -96,6 +96,7 @@ export async function PATCH(req, { params }) {
     }
     parcela = await prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { id: true, name: true } } } });
     await criarTarefaConferirPagamento(parcela.contactId, { parcelaId: id, valor: amountPago, forma: parcela.formaPagamento }).catch(() => {});
+    await prisma.contact.update({ where: { id: parcela.contactId }, data: { ultimoPagamentoEm: new Date() } }).catch(() => {});
     // Baixa dada: tira o lead da lista do chat (arquiva); volta sozinho se o cliente escrever.
     await prisma.contact.updateMany({ where: { id: parcela.contactId, chatArquivado: false }, data: { chatArquivado: true, chatVoltaEm: null } }).catch(() => {});
   } else {

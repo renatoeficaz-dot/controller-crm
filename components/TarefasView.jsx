@@ -34,6 +34,7 @@ export default function TarefasView() {
   const [fTipo, setFTipo] = useState([]); // vários tipos ao mesmo tempo
   const [fResponsavel, setFResponsavel] = useState(""); // "" = todos; nome do usuário = só as tarefas dele
   const [fPrazo, setFPrazo] = useState(""); // "" | atrasadas | hoje | avencer
+  const [fOrdem, setFOrdem] = useState(""); // "" = por prazo | "pagAsc" | "pagDesc" (horário do último pagamento)
   const [fHoraDe, setFHoraDe] = useState(""); // horário da tarefa: de HH:MM
   const [fHoraAte, setFHoraAte] = useState(""); // ... até HH:MM
   // Ação em massa: "Selecionar" liga a seleção nos cards; a barra de baixo aplica a mudança em todas as marcadas.
@@ -80,8 +81,22 @@ export default function TarefasView() {
         return d > h; // a vencer
       });
     }
+    if (fOrdem) {
+      // Horário do último pagamento do lead (só a hora do dia importa pra conferir em sequência); sem pagamento vai pro fim.
+      const chave = (t) => {
+        const v = t.contact?.ultimoPagamentoEm;
+        return v ? new Date(v).getTime() : null;
+      };
+      lista = [...lista].sort((a, b) => {
+        const x = chave(a), y = chave(b);
+        if (x == null && y == null) return 0;
+        if (x == null) return 1;
+        if (y == null) return -1;
+        return fOrdem === "pagAsc" ? x - y : y - x;
+      });
+    }
     setTasks(lista);
-  }, [fStatus, fTipo, fResponsavel, fEtapas, fPrazo, fHoraDe, fHoraAte]);
+  }, [fStatus, fTipo, fResponsavel, fEtapas, fPrazo, fHoraDe, fHoraAte, fOrdem]);
 
   const [users, setUsers] = useState([]);
   const [modoFoco, setModoFoco] = useState(false);
@@ -320,7 +335,7 @@ export default function TarefasView() {
     else { setFocoTaskId(null); setOpenContactId(null); }
   }, [filaFoco, focoTaskId, modoFoco, openContactId, indiceFoco, hoje]);
 
-  const filtrosAtivos = (fStatus !== "pendentes" ? 1 : 0) + (fTipo.length ? 1 : 0) + (fResponsavel ? 1 : 0) + (fEtapas.length ? 1 : 0) + (fPrazo ? 1 : 0) + (fHoraDe || fHoraAte ? 1 : 0);
+  const filtrosAtivos = (fStatus !== "pendentes" ? 1 : 0) + (fTipo.length ? 1 : 0) + (fResponsavel ? 1 : 0) + (fEtapas.length ? 1 : 0) + (fPrazo ? 1 : 0) + (fHoraDe || fHoraAte ? 1 : 0) + (fOrdem ? 1 : 0);
 
   // Modo foco: uma tarefa pendente por vez (as mais antigas primeiro), com ações grandes — mesmo jeito do modo foco das cobranças.
   if (modoFoco) {
@@ -584,7 +599,7 @@ export default function TarefasView() {
               <h3 className="font-semibold text-slate-800">Filtros</h3>
               <div className="flex items-center gap-3">
                 {filtrosAtivos > 0 && (
-                  <button onClick={() => { setFStatus("pendentes"); setFTipo([]); setFResponsavel(""); setFEtapas([]); setFPrazo(""); setFHoraDe(""); setFHoraAte(""); }} className="text-xs text-red-400 hover:text-red-600">Limpar tudo</button>
+                  <button onClick={() => { setFStatus("pendentes"); setFTipo([]); setFResponsavel(""); setFEtapas([]); setFPrazo(""); setFHoraDe(""); setFHoraAte(""); setFOrdem(""); }} className="text-xs text-red-400 hover:text-red-600">Limpar tudo</button>
                 )}
                 <button onClick={() => setFiltrosAbertos(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
               </div>
@@ -603,6 +618,14 @@ export default function TarefasView() {
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {[["", "Todos"], ["atrasadas", "Atrasadas"], ["hoje", "De hoje"], ["avencer", "A vencer"]].map(([k, l]) => (
                     <button key={k || "todos"} onClick={() => setFPrazo(k)} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${fPrazo === k ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="block">
+                <span className="text-xs text-slate-400">Ordenar por</span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {[["", "Prazo da tarefa"], ["pagAsc", "Último pagamento: mais antigo primeiro"], ["pagDesc", "Último pagamento: mais recente primeiro"]].map(([v, txt]) => (
+                    <button key={v || "prazo"} type="button" onClick={() => setFOrdem(v)} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${fOrdem === v ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>{txt}</button>
                   ))}
                 </div>
               </div>
@@ -823,6 +846,7 @@ export default function TarefasView() {
                             ) : (
                               "—"
                             )}
+                            {t.contact?.ultimoPagamentoEm && <span className="text-slate-500"> · pagou {new Date(t.contact.ultimoPagamentoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}</span>}
                             {" "}· {new Date(t.dueDate).toLocaleDateString("pt-BR")} {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
                           </p>
                           {t.notes && <p className="text-xs text-slate-400 truncate">{t.notes}</p>}

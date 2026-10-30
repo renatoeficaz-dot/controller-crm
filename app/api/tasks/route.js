@@ -27,7 +27,7 @@ export async function GET(req) {
     where,
     orderBy: { dueDate: "asc" },
     include: {
-      contact: { select: { id: true, name: true, phone: true, responsavel: true, stage: { select: { id: true, name: true } } } },
+      contact: { select: { id: true, name: true, phone: true, responsavel: true, ultimoPagamentoEm: true, stage: { select: { id: true, name: true } } } },
       tipo: { select: { id: true, name: true, color: true, emoji: true } },
     },
   });

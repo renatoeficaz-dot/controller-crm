@@ -226,6 +226,7 @@ model Contact {
   // porque fixar no Kanban e fixar no Chat são decisões de telas diferentes.
   chatFixado    Boolean @default(false)
   chatArquivado Boolean @default(false)
+  ultimoPagamentoEm DateTime? // horário do último pagamento (baixa) — usado para ordenar/conferir nas Tarefas
   chatVoltaEm   DateTime? // conversa fechada com retorno: volta sozinha para a lista nesse horário
 
   // "Não perturbe" temporário (item 98) — enquanto no futuro, a cobrança
