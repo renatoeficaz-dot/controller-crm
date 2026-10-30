@@ -1100,7 +1100,11 @@ export default function KanbanBoard() {
                       />
                       <span className="font-medium text-sm text-slate-700">{stage.name}</span>
                       <span className="text-xs text-slate-400 bg-slate-200 rounded-full px-1.5">
-                        {stage.cortada ? stage.totalContatos : visiveis.length}
+                        {/* Coluna cortada (Venda perdida etc.) só tem parte dos leads carregada: com filtro/busca o
+                            total do servidor não vale — mostra os que passam no filtro, com "+" se ainda há antigos. */}
+                        {stage.cortada && !filtrosAtivosCount && !busca.trim()
+                          ? stage.totalContatos
+                          : `${visiveis.length}${stage.cortada && stage.totalContatos > stage.contacts.length ? "+" : ""}`}
                       </span>
                       {stage.acumulada && (
                         <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5" title="Essa coluna passou do limite configurado">
