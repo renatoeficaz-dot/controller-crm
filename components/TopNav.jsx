@@ -11,8 +11,8 @@ const links = [
   { href: "/chat-interno", label: "Chat interno", pagina: "chat-interno" },
   { href: "/tarefas", label: "Tarefas", pagina: "tarefas" },
   { href: "/metas", label: "Metas", pagina: "metas" },
-  { href: "/cobranca", label: "Cobrança", pagina: "cobranca" },
   { href: "/relatorios", label: "Relatórios", pagina: "relatorios" },
+  { href: "/cobranca", label: "Cobrança", pagina: "cobranca" },
   { href: "/lancamentos", label: "Lançamentos", admin: true },
   { href: "/configuracoes", label: "Configurações", admin: true },
 ];

@@ -13,8 +13,8 @@ const links = [
   { href: "/chat-interno", label: "Chat interno", icon: "pessoas", pagina: "chat-interno" },
   { href: "/tarefas", label: "Tarefas", icon: "tarefa", pagina: "tarefas" },
   { href: "/metas", label: "Metas", icon: "meta", pagina: "metas" },
-  { href: "/cobranca", label: "Cobrança", icon: "cobranca", pagina: "cobranca" },
   { href: "/relatorios", label: "Relatórios", icon: "grafico", pagina: "relatorios" },
+  { href: "/cobranca", label: "Cobrança", icon: "cobranca", pagina: "cobranca" },
   { href: "/lancamentos", label: "Lançamentos", icon: "dinheiro", admin: true },
   { href: "/configuracoes", label: "Configurações", icon: "engrenagem", admin: true },
 ];
