@@ -15,6 +15,7 @@ export default function RelatoriosGestao() {
   const [loading, setLoading] = useState(true);
   const [openContactId, setOpenContactId] = useState(null);
   const [ordemRent, setOrdemRent] = useState("lucro"); // lucro | prejuizo
+  const [colOrdem, setColOrdem] = useState(null); // { campo, dir: "asc" | "desc" } — clique no cabeçalho da tabela; null = usa os botões acima
   const [rentExpandida, setRentExpandida] = useState(false);
 
   const load = useCallback(async () => {
@@ -29,9 +30,21 @@ export default function RelatoriosGestao() {
 
   if (loading || !d) return null;
 
-  const rentOrdenada = ordemRent === "lucro"
+  const rentOrdenada = colOrdem
+    ? [...d.rentabilidade].sort((a, b) => (colOrdem.dir === "asc" ? 1 : -1) * ((a[colOrdem.campo] || 0) - (b[colOrdem.campo] || 0)))
+    : ordemRent === "lucro"
     ? d.rentabilidade
     : [...d.rentabilidade].sort((a, b) => a.lucro - b.lucro);
+  // Clique no cabeçalho: 1º clique = decrescente, 2º = crescente, 3º = volta à ordem dos botões.
+  const clicarColuna = (campo) => setColOrdem((o) => (!o || o.campo !== campo ? { campo, dir: "desc" } : o.dir === "desc" ? { campo, dir: "asc" } : null));
+  const Th = ({ campo, children, className }) => (
+    <th className={className}>
+      <button type="button" onClick={() => clicarColuna(campo)} className={`inline-flex items-center gap-1 hover:text-slate-700 ${colOrdem?.campo === campo ? "text-slate-700" : ""}`}>
+        {children}
+        <span className="text-[9px]">{colOrdem?.campo === campo ? (colOrdem.dir === "asc" ? "▲" : "▼") : ""}</span>
+      </button>
+    </th>
+  );
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
@@ -157,7 +170,7 @@ export default function RelatoriosGestao() {
               ].map((o) => (
                 <button
                   key={o.key}
-                  onClick={() => setOrdemRent(o.key)}
+                  onClick={() => { setColOrdem(null); setOrdemRent(o.key); }}
                   className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
                     ordemRent === o.key ? "bg-white shadow-sm text-slate-700 font-medium" : "text-slate-500"
                   }`}
@@ -212,11 +225,11 @@ export default function RelatoriosGestao() {
               <thead>
                 <tr className="text-xs text-slate-400 border-b border-slate-100">
                   <th className="text-left font-medium px-4 py-2">Cliente</th>
-                  <th className="text-right font-medium px-3 py-2">Ciclos</th>
-                  <th className="text-right font-medium px-3 py-2">Emprestado</th>
-                  <th className="text-right font-medium px-3 py-2">Recebido</th>
-                  <th className="text-right font-medium px-3 py-2">Lucro</th>
-                  <th className="text-right font-medium px-4 py-2">Em aberto</th>
+                  <Th campo="ciclos" className="text-right font-medium px-3 py-2">Ciclos</Th>
+                  <Th campo="emprestado" className="text-right font-medium px-3 py-2">Emprestado</Th>
+                  <Th campo="recebido" className="text-right font-medium px-3 py-2">Recebido</Th>
+                  <Th campo="lucro" className="text-right font-medium px-3 py-2">Lucro</Th>
+                  <Th campo="emAberto" className="text-right font-medium px-4 py-2">Em aberto</Th>
                 </tr>
               </thead>
               <tbody>
