@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Secao from "@/components/SecaoColapsavel";
 import Icone from "@/components/Icones";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -143,12 +144,10 @@ function RankingEquipe() {
 
 export default function RelatoriosOperacao() {
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="grid lg:grid-cols-2 gap-4 md:gap-6 items-start">
-        <FluxoCaixa />
-        <RoiCapital />
-      </div>
-      <RankingEquipe />
+    <div className="contents">
+      <Secao titulo="Fluxo de caixa projetado"><FluxoCaixa /></Secao>
+      <Secao titulo="ROI do capital"><RoiCapital /></Secao>
+      <Secao titulo="Ranking da equipe"><RankingEquipe /></Secao>
     </div>
   );
 }

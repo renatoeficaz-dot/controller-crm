@@ -18,7 +18,7 @@ export default function Secao({ aberta = false, titulo = "", className = "", chi
   if (aberta) return <section {...resto} className={className}>{children}</section>;
 
   const partes = Children.toArray(children);
-  const corpo = partes.slice(1); // 1º filho = cabeçalho (o nome já vai no quadrado)
+  const corpo = partes.length > 1 ? partes.slice(1) : partes; // 1º filho = cabeçalho (o nome já vai no quadrado)
 
   return (
     <>
@@ -28,13 +28,13 @@ export default function Secao({ aberta = false, titulo = "", className = "", chi
         tabIndex={0}
         onClick={() => setOpen(true)}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(true); } }}
-        className="group relative flex-1 basis-[230px] min-w-[200px] max-w-[360px] cursor-pointer overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:shadow-[0_0_22px_rgba(34,211,238,0.25)] focus:outline-none focus-visible:border-cyan-400"
+        className="group relative min-w-0 cursor-pointer overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:shadow-[0_0_22px_rgba(34,211,238,0.25)] focus:outline-none focus-visible:border-cyan-400"
       >
-        <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-2">
-          <span className="truncate text-[13px] font-semibold text-slate-100">{titulo || "Relatório"}</span>
+        <div className="flex items-center justify-between gap-2 border-l-4 border-cyan-400 bg-slate-800/80 px-3 py-2.5">
+          <span className="text-[15px] font-bold leading-tight tracking-tight text-white">{titulo || "Relatório"}</span>
           <span className="shrink-0 text-[10px] text-cyan-400/80 opacity-0 transition-opacity group-hover:opacity-100">abrir ⤢</span>
         </div>
-        <div className="relative mx-2 mb-2 h-28 overflow-hidden rounded-lg bg-white" aria-hidden="true">
+        <div className="relative mx-2 my-2 h-28 overflow-hidden rounded-lg bg-white" aria-hidden="true">
           <div className="pointer-events-none select-none origin-top-left bg-white p-4" style={{ width: "400%", transform: "scale(0.25)" }}>
             {corpo}
           </div>
@@ -43,7 +43,7 @@ export default function Secao({ aberta = false, titulo = "", className = "", chi
       </div>
 
       {open && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-stretch sm:items-center justify-center p-0 sm:p-6 modal-tech-fundo" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-[45] flex items-stretch sm:items-center justify-center p-0 sm:p-6 modal-tech-fundo" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" />
           <div
             onClick={(e) => e.stopPropagation()}

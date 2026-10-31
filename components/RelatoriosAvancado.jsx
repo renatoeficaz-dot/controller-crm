@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Icone from "@/components/Icones";
 import ContactModal from "@/components/ContactModal";
+import Secao from "@/components/SecaoColapsavel";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR", { timeZone: "UTC" });
 
 function Cartao({ icone, titulo, subtitulo, children }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+    <Secao titulo={titulo}>
       <div className="flex items-center gap-2 mb-1">
         <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
           <Icone nome={icone} className="w-4 h-4" />
@@ -18,7 +19,7 @@ function Cartao({ icone, titulo, subtitulo, children }) {
       </div>
       {subtitulo && <p className="text-[11px] text-slate-400 mb-3">{subtitulo}</p>}
       {children}
-    </div>
+    </Secao>
   );
 }
 
@@ -43,10 +44,10 @@ export default function RelatoriosAvancado() {
   const maxDiaMes = Math.max(1, ...diaDoMes.map((d) => d.qtd));
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-slate-500 pt-2">Análises avançadas</h2>
+    <div className="contents">
+      <h2 className="col-span-full text-sm font-semibold text-slate-500 pt-2">Análises avançadas</h2>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="contents">
         <Cartao icone="relogio" titulo="Melhor horário para cobrar" subtitulo="Quando o cliente costuma responder mensagem — cobrar nesse horário tende a dar mais retorno.">
           {melhorHorario.total === 0 ? (
             <p className="text-xs text-slate-400">Sem mensagens de clientes ainda.</p>
@@ -200,7 +201,7 @@ export default function RelatoriosAvancado() {
         )}
       </Cartao>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="contents">
         <Cartao icone="check" titulo="Quitados no mês" subtitulo="Clientes que terminaram de pagar o ciclo atual este mês.">
           {quitados.length === 0 ? (
             <p className="text-xs text-slate-400">Ninguém quitou este mês ainda.</p>

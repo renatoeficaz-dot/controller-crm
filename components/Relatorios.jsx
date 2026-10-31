@@ -1246,7 +1246,7 @@ export default function Relatorios() {
   if (loading) return <div className="p-6 text-slate-400">Carregando relatórios…</div>;
 
   return (
-    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 flex flex-wrap content-start gap-4 md:gap-6 [&>*:not([data-tile])]:w-full">
+    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] content-start gap-4 md:gap-6 [&>*:not([data-tile])]:col-span-full">
       {/* Barra fixa no topo: filtros + período sempre à mão enquanto rola os relatórios */}
       <div className="sticky top-0 z-20 !w-[calc(100%+1.5rem)] md:!w-[calc(100%+3rem)] -mx-3 md:-mx-6 -mt-3 md:-mt-6 px-3 md:px-6 py-2 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-2 flex-nowrap overflow-x-auto md:flex-wrap [&>*]:shrink-0">
         <button
@@ -1492,7 +1492,7 @@ export default function Relatorios() {
       </Secao>
 
       {/* Balanço do período: compensou? deu lucro? */}
-      <Secao aberta>
+      <Secao titulo="O período compensou?">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           O período compensou? <span className="text-slate-400 font-normal">— recebido x planejado x liberado, no mesmo filtro de datas</span>
         </h2>

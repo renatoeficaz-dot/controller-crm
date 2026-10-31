@@ -2,7 +2,6 @@
 
 import { CartaoWabaApp, PainelWabaNumero } from "@/components/WabaPaineis";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
 import { PAGINAS_SISTEMA } from "@/lib/paginas";
 import { ACOES as ACOES_EXTRAS } from "@/lib/permissoes";
@@ -12,6 +11,7 @@ import { ComissaoConfig, RiscoConfig, AuditoriaLog, IntegridadeConfig, Solicitac
 import { MotivosPerdaConfig, OperacaoConfig, LinksUteisConfig } from "@/components/ConfigOperacao";
 import ConfigEquipe from "@/components/ConfigEquipe";
 import SnoopConfiguracao from "@/components/SnoopConfiguracao";
+import { createPortal } from "react-dom";
 
 // Posição (fixed, em relação à viewport) do EmojiPicker a partir do botão que
 // o abriu — mantém dentro da tela em qualquer largura (nada de calcular
@@ -157,6 +157,22 @@ function Icon({ name, className }) {
   );
 }
 
+// Uma cor por quadrado (classes literais pro Tailwind enxergar) + o hex usado no brilho do modal.
+const CORES = [
+  { hex: "#10b981", barra: "bg-emerald-500", icone: "bg-emerald-50 text-emerald-600", hover: "hover:border-emerald-400" },
+  { hex: "#0ea5e9", barra: "bg-sky-500", icone: "bg-sky-50 text-sky-600", hover: "hover:border-sky-400" },
+  { hex: "#8b5cf6", barra: "bg-violet-500", icone: "bg-violet-50 text-violet-600", hover: "hover:border-violet-400" },
+  { hex: "#f59e0b", barra: "bg-amber-500", icone: "bg-amber-50 text-amber-600", hover: "hover:border-amber-400" },
+  { hex: "#f43f5e", barra: "bg-rose-500", icone: "bg-rose-50 text-rose-600", hover: "hover:border-rose-400" },
+  { hex: "#14b8a6", barra: "bg-teal-500", icone: "bg-teal-50 text-teal-600", hover: "hover:border-teal-400" },
+  { hex: "#6366f1", barra: "bg-indigo-500", icone: "bg-indigo-50 text-indigo-600", hover: "hover:border-indigo-400" },
+  { hex: "#f97316", barra: "bg-orange-500", icone: "bg-orange-50 text-orange-600", hover: "hover:border-orange-400" },
+  { hex: "#d946ef", barra: "bg-fuchsia-500", icone: "bg-fuchsia-50 text-fuchsia-600", hover: "hover:border-fuchsia-400" },
+  { hex: "#84cc16", barra: "bg-lime-500", icone: "bg-lime-50 text-lime-600", hover: "hover:border-lime-400" },
+  { hex: "#06b6d4", barra: "bg-cyan-500", icone: "bg-cyan-50 text-cyan-600", hover: "hover:border-cyan-400" },
+  { hex: "#ec4899", barra: "bg-pink-500", icone: "bg-pink-50 text-pink-600", hover: "hover:border-pink-400" },
+];
+
 const TABS = [
   { key: "chips", label: "Chips", desc: "Chips usados, última recarga e roteador" },
   { key: "honorarios", label: "Honorários / Multa", desc: "Percentuais e regras de cobrança" },
@@ -188,7 +204,7 @@ const TABS = [
 ];
 
 export default function Configuracoes() {
-  const [tab, setTab] = useState("honorarios");
+  const [tab, setTab] = useState(null); // null = só os quadrados; chave = modal aberto
 
   // Deep-link de outras páginas (ex.: "Automatizar funil" em Contatos) via ?tab=automacao
   useEffect(() => {
@@ -203,6 +219,14 @@ export default function Configuracoes() {
   }, []);
 
   const atual = TABS.find((t) => t.key === tab);
+  const corAtual = CORES[Math.max(0, TABS.findIndex((t) => t.key === tab)) % CORES.length];
+
+  useEffect(() => {
+    if (!tab) return;
+    const onKey = (e) => { if (e.key === "Escape") setTab(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tab]);
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll bg-slate-50/60">
@@ -212,58 +236,50 @@ export default function Configuracoes() {
           <p className="text-sm text-slate-500 mt-1">Gerencie usuários, números, automações e integrações do sistema.</p>
         </header>
 
-        {/* Navegação: pills horizontais roláveis no mobile, sidebar vertical no desktop */}
-        <nav className="flex md:hidden gap-1.5 mb-5 overflow-x-auto pb-1 -mx-4 px-4">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium border transition-colors ${
-                tab === t.key
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-600 border-slate-200"
-              }`}
-            >
-              <Icon name={t.key} className="w-3.5 h-3.5" />
-              {t.label}
-            </button>
-          ))}
-        </nav>
-
-        <div className="md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-8 md:items-start">
-          <nav className="hidden md:flex flex-col gap-0.5 sticky top-6">
-            {TABS.map((t) => {
-              const active = tab === t.key;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
-                  className={`group flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                    active ? "bg-white shadow-sm ring-1 ring-slate-200" : "hover:bg-white/70"
-                  }`}
-                >
-                  <Icon
-                    name={t.key}
-                    className={`w-4 h-4 mt-0.5 shrink-0 transition-colors ${
-                      active ? "text-emerald-600" : "text-slate-400 group-hover:text-slate-500"
-                    }`}
-                  />
-                  <span>
-                    <span className={`block text-sm font-medium ${active ? "text-slate-900" : "text-slate-600"}`}>
-                      {t.label}
-                    </span>
-                    <span className="block text-[11px] text-slate-400 leading-tight mt-0.5">{t.desc}</span>
+        {/* Quadrados coloridos: cada um abre a configuração num modal (mesmo estilo dos relatórios) */}
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3 md:gap-4">
+          {TABS.map((t, i) => {
+            const cor = CORES[i % CORES.length];
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                className={`group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${cor.hover}`}
+              >
+                <span className={`h-1.5 w-full ${cor.barra}`} />
+                <span className="flex flex-1 flex-col gap-2 p-4">
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${cor.icone}`}>
+                    <Icon name={t.key} className="h-5 w-5" />
                   </span>
-                </button>
-              );
-            })}
-          </nav>
+                  <span className="text-[15px] font-bold leading-tight tracking-tight text-slate-900">{t.label}</span>
+                  <span className="text-[11px] leading-snug text-slate-400">{t.desc}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
+        {tab && atual && typeof document !== "undefined" && createPortal(
+          <div className="fixed inset-0 z-[45] flex items-stretch justify-center p-0 sm:items-center sm:p-6 modal-tech-fundo" onClick={() => setTab(null)}>
+            <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" />
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="modal-tech relative flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border bg-slate-50 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
+              style={{ borderColor: corAtual.hex + "99", boxShadow: `0 0 0 1px ${corAtual.hex}40, 0 0 60px ${corAtual.hex}38` }}
+            >
+              <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 text-white" style={{ background: `linear-gradient(90deg, #0f172a, ${corAtual.hex}cc)` }}>
+                <span className="flex items-center gap-2.5">
+                  <Icon name={atual.key} className="h-5 w-5" />
+                  <span>
+                    <span className="block text-sm font-bold leading-tight">{atual.label}</span>
+                    <span className="block text-[11px] leading-tight text-white/70">{atual.desc}</span>
+                  </span>
+                </span>
+                <button type="button" onClick={() => setTab(null)} title="Fechar (Esc)" className="rounded-md px-2 text-xl leading-none text-white/70 hover:bg-white/10 hover:text-white">×</button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto thin-scroll p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6">
           <main className="min-w-0">
-            <div className="md:hidden mb-4">
-              <h2 className="text-sm font-semibold text-slate-700">{atual?.label}</h2>
-              <p className="text-xs text-slate-400 mt-0.5">{atual?.desc}</p>
-            </div>
 
             {tab === "honorarios" && <Honorarios />}
             {tab === "usuarios" && (
@@ -333,7 +349,11 @@ export default function Configuracoes() {
               </SectionCard>
             )}
           </main>
-        </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
       </div>
     </div>
   );

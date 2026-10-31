@@ -525,7 +525,7 @@ export default function MetasView() {
 
       <div className={periodo ? "hidden" : "contents"}>
       {/* -------- Metas do dia -------- */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 items-start">
+      <div className="columns-1 xl:columns-2 gap-4 md:gap-6 [&>*]:block [&>*]:w-full [&>*]:break-inside-avoid [&>*]:mb-4 md:[&>*]:mb-6">
         <button
           type="button"
           onClick={() => setModalVendas(true)}

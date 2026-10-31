@@ -48,7 +48,7 @@ export default function RelatoriosGestao() {
   );
 
   return (
-    <div className="flex flex-wrap content-start gap-4 md:gap-6 [&>*:not([data-tile])]:w-full">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] content-start gap-4 md:gap-6 [&>*:not([data-tile])]:col-span-full">
       {/* -------- Comparativo entre cobradores -------- */}
       <Secao titulo="Comparativo entre cobradores" className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between gap-3 p-4 border-b border-slate-100">
