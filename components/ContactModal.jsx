@@ -2356,7 +2356,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                       <ul className="mt-1 divide-y divide-slate-100 text-[11px]">
                         {parcelasHistorico.map((p) => {
                           const due = new Date(p.dueDate).toISOString().slice(0, 10);
-                          const paid = p.paidAt ? new Date(p.paidAt).toISOString().slice(0, 10) : null;
+                          const paid = p.paidAt ? new Date(p.paidAt).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }) : null; // instante: dia em Brasília
                           const atrasado = paid && paid > due;
                           return (
                             <li key={p.id} className={`flex justify-between py-1 px-1.5 rounded ${atrasado ? "bg-red-50" : "bg-emerald-50"}`}>

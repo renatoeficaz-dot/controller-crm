@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { aReceber, totalRecebido, planejadoNoPeriodo, liberadoNoPeriodo, custoComissaoEstimado, rateioContasPagar, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
-import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS, valorEmAberto } from "@/lib/finance";
+import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS, valorEmAberto, diaBR } from "@/lib/finance";
 import ContactModal from "@/components/ContactModal";
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
 import Icone from "@/components/Icones";
@@ -399,7 +399,7 @@ export default function Relatorios() {
     for (const p of pagas) {
       acumulado += p.amountPago ?? p.amount;
       if (acumulado >= c.valorCapital) {
-        return Math.max(0, Math.round((new Date(String(p.paidAt).slice(0, 10)) - inicio) / 86400000));
+        return Math.max(0, Math.round((new Date(diaBR(p.paidAt)) - inicio) / 86400000));
       }
     }
     return null;
@@ -473,7 +473,7 @@ export default function Relatorios() {
     for (const c of contatosFiltrados) {
       if (!c.createdAt || !c.pagamentoCapital) continue;
       const d = Math.round(
-        (new Date(String(c.pagamentoCapital).slice(0, 10)) - new Date(String(c.createdAt).slice(0, 10))) / 86400000
+        (new Date(String(c.pagamentoCapital).slice(0, 10)) - new Date(diaBR(c.createdAt))) / 86400000
       );
       if (d >= 0) dias.push(d);
     }
@@ -582,7 +582,7 @@ export default function Relatorios() {
     for (const c of contatosFiltrados) {
       for (const p of c.parcelas || []) {
         if (!p.paid || !p.paidAt) continue;
-        const dias = Math.round((new Date(String(p.paidAt).slice(0, 10)) - new Date(dueStr(p))) / 86400000);
+        const dias = Math.round((new Date(diaBR(p.paidAt)) - new Date(dueStr(p))) / 86400000);
         const faixa = faixas.find((f) => dias <= f.max);
         if (faixa) faixa.value++;
         soma += Math.max(0, dias);

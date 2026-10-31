@@ -174,7 +174,7 @@ function statusTarefas(contact) {
   let atrasada = false;
   let hojeVence = false;
   for (const t of tarefas) {
-    const d = new Date(t.dueDate).toISOString().slice(0, 10);
+    const d = new Date(t.dueDate).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }); // prazo é um instante: dia em Brasília
     if (d < hoje) atrasada = true;
     else if (d === hoje) hojeVence = true;
   }

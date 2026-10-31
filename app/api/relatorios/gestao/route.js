@@ -53,7 +53,7 @@ export async function GET() {
     r.recuperado += p.amountPago != null ? p.amountPago : p.amount;
     r.baixas += 1;
     // Pagou até o vencimento?
-    const pagoEm = p.paidAt ? new Date(p.paidAt).toISOString().slice(0, 10) : null;
+    const pagoEm = p.paidAt ? new Date(p.paidAt).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }) : null; // instante: dia em Brasília
     if (pagoEm && pagoEm <= dueStr(p)) r.emDia += 1;
   }
 
