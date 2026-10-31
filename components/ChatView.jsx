@@ -109,6 +109,19 @@ function semPagarHoje(c) {
   return !(c.parcelas || []).some((p) => dia(p.paidAt) === hoje || dia(p.valorPagoEm) === hoje);
 }
 
+// Há quantos dias o cliente não paga nada (total ou parcial); null = nunca pagou ou sem parcela em aberto no ciclo atual.
+function diasSemPagar(c) {
+  const ciclo = c.cicloAtual || 1;
+  const ps = (c.parcelas || []).filter((p) => (p.ciclo || 1) === ciclo && !p.renegociada);
+  if (!ps.some((p) => !p.paid)) return null;
+  const dia = (v) => (v ? new Date(v).toLocaleDateString("en-CA") : null);
+  const datas = [dia(c.ultimoPagamentoEm)];
+  for (const p of c.parcelas || []) datas.push(dia(p.paidAt), dia(p.valorPagoEm));
+  const ultimo = datas.filter(Boolean).sort().pop();
+  if (!ultimo) return null;
+  return Math.round((new Date(todayStr() + "T00:00:00Z") - new Date(ultimo + "T00:00:00Z")) / 86400000);
+}
+
 function situacaoContato(c) {
   const ciclo = c.cicloAtual || 1;
   // renegociada = substituída por acordo, não é mais dívida em aberto. Sem
@@ -270,6 +283,7 @@ export default function ChatView() {
   // Filtros da lista de conversas
   const [busca, setBusca] = useState(""); // nome ou telefone
   const [statusFiltro, setStatusFiltro] = useState(""); // "" = todos
+  const [semPagarFiltro, setSemPagarFiltro] = useState(""); // "" = todos; "1".."7" = N dias sem pagar; "8" = mais de 7
   const [tagFiltro, setTagFiltro] = useState("");
   const [renovandoRapido, setRenovandoRapido] = useState(false);
   // "Juntar parcelas": marca várias parcelas em aberto e dá baixa num valor só (aplicado a partir da 1ª marcada, nas seguintes em aberto).
@@ -472,7 +486,7 @@ export default function ChatView() {
   }
 
   const chatFiltrosAtivosCount =
-    (statusFiltro ? 1 : 0) + (stageFiltro.length ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0) + (tarefaFiltro ? 1 : 0);
+    (statusFiltro ? 1 : 0) + (semPagarFiltro ? 1 : 0) + (stageFiltro.length ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0) + (tarefaFiltro ? 1 : 0);
 
   // Filtros da lista lembrados no navegador: o chat abre sempre com o último filtro escolhido (busca e "arquivadas" não entram).
   const [filtrosCarregados, setFiltrosCarregados] = useState(false);
@@ -510,6 +524,11 @@ export default function ChatView() {
         const batePhone = termoDigitos && (c.phone || "").replace(/\D/g, "").includes(termoDigitos);
         if (!bateNome && !batePhone) return false;
       }
+      if (semPagarFiltro) {
+        const d = diasSemPagar(c);
+        if (d == null) return false;
+        if (semPagarFiltro === "8" ? d <= 7 : d !== Number(semPagarFiltro)) return false;
+      }
       if (statusFiltro === "semhoje") { if (!semPagarHoje(c)) return false; }
       else if (statusFiltro && situacaoContato(c) !== statusFiltro) return false;
       if (tarefaFiltro) {
@@ -537,7 +556,7 @@ export default function ChatView() {
       });
     }
     return out;
-  }, [conversations, busca, statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, ordem]);
+  }, [conversations, busca, statusFiltro, semPagarFiltro, tarefaFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, ordem]);
 
   const loadTasks = useCallback(async () => {
     if (!selectedId) return;
@@ -1365,7 +1384,7 @@ export default function ChatView() {
                 <div className="flex items-center gap-3">
                   {chatFiltrosAtivosCount > 0 && (
                     <button
-                      onClick={() => { setStatusFiltro(""); setStageFiltro([]); setTagFiltro(""); setInstanceFiltro(""); setFiltroMsgs(""); setTarefaFiltro(""); }}
+                      onClick={() => { setStatusFiltro(""); setSemPagarFiltro(""); setStageFiltro([]); setTagFiltro(""); setInstanceFiltro(""); setFiltroMsgs(""); setTarefaFiltro(""); }}
                       className="text-xs text-red-400 hover:text-red-600"
                     >
                       Limpar tudo
@@ -1395,6 +1414,14 @@ export default function ChatView() {
                       >
                         {rotulo}
                       </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400">Dias sem pagar nada</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {[["", "Todos"], ["1", "1 dia"], ["2", "2"], ["3", "3"], ["4", "4"], ["5", "5"], ["6", "6"], ["7", "7"], ["8", "+7"]].map(([v, t]) => (
+                      <button key={v || "todos"} type="button" onClick={() => setSemPagarFiltro(v)} className={`text-xs rounded-full px-3 py-1 border transition-colors ${semPagarFiltro === v ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}>{t}</button>
                     ))}
                   </div>
                 </div>

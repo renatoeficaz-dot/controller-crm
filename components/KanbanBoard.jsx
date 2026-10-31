@@ -87,6 +87,11 @@ function valorAReceber(contact) {
     .reduce((sum, p) => sum + Math.max(0, p.amount - (p.valorPago || 0)), 0);
 }
 
+// Total já recebido do cliente (todas as parcelas pagas + pagamentos parciais) — usado na coluna Pago.
+function valorRecebido(contact) {
+  return (contact.parcelas || []).reduce((sum, p) => sum + (p.paid ? (p.amountPago || p.valorPago || p.amount || 0) : (p.valorPago || 0)), 0);
+}
+
 // Quantos dias a parcela mais atrasada do ciclo atual está vencida (0 se
 // nenhuma estiver atrasada) — usado pra ordenar "mais tempo inadimplente".
 function diasInadimplente(contact) {
@@ -140,6 +145,21 @@ function semPagarHoje(c) {
   const hoje = todayStr();
   const dia = (v) => (v ? new Date(v).toLocaleDateString("en-CA") : null);
   return !(c.parcelas || []).some((p) => dia(p.paidAt) === hoje || dia(p.valorPagoEm) === hoje);
+}
+
+// Há quantos dias o cliente não paga nada (total ou parcial): dia do último pagamento até hoje. null = nunca pagou
+// ou não tem parcela em aberto no ciclo atual.
+function diasSemPagar(c) {
+  const ciclo = c.cicloAtual || 1;
+  const ps = (c.parcelas || []).filter((p) => (p.ciclo || 1) === ciclo && !p.renegociada);
+  if (!ps.some((p) => !p.paid)) return null;
+  const dia = (v) => (v ? new Date(v).toLocaleDateString("en-CA") : null);
+  const datas = [];
+  for (const p of c.parcelas || []) { datas.push(dia(p.paidAt), dia(p.valorPagoEm)); }
+  datas.push(dia(c.ultimoPagamentoEm));
+  const ultimo = datas.filter(Boolean).sort().pop();
+  if (!ultimo) return null;
+  return Math.round((new Date(todayStr() + "T00:00:00Z") - new Date(ultimo + "T00:00:00Z")) / 86400000);
 }
 
 // Situação das tarefas (pendentes) do contato:
@@ -221,6 +241,7 @@ export default function KanbanBoard() {
   const [tarefaFiltro, setTarefaFiltro] = useState(""); // "" = todas; "sem" | "atrasada" | "hoje" | "futura"
   const [etapaMulti, setEtapaMulti] = useState(false); // botão "Seleção múltipla" dos chips de etapa
   const [etapaFiltro, setEtapaFiltro] = useState([]); // stageIds selecionados; vazio = todas as colunas
+  const [semPagarFiltro, setSemPagarFiltro] = useState(""); // "" = todos; "1".."7" = exatamente N dias sem pagar; "8" = mais de 7
   const [tempoFiltro, setTempoFiltro] = useState(""); // "" = todos; "3" | "7" | "15" | "30" = pelo menos N dias parado na etapa
   const [etapaDeFiltro, setEtapaDeFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = entrou na etapa atual a partir dessa data
   const [etapaAteFiltro, setEtapaAteFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = entrou na etapa atual até essa data
@@ -473,6 +494,11 @@ export default function KanbanBoard() {
     if (renovacaoFiltro === "sim" && (c.cicloAtual || 1) <= 1) return false;
     if (renovacaoFiltro === "nao" && (c.cicloAtual || 1) > 1) return false;
     if (tarefaFiltro && statusTarefas(c) !== tarefaFiltro) return false;
+    if (semPagarFiltro) {
+      const d = diasSemPagar(c);
+      if (d == null) return false;
+      if (semPagarFiltro === "8" ? d <= 7 : d !== Number(semPagarFiltro)) return false;
+    }
     if (tempoFiltro && diasNaEtapa(c) < Number(tempoFiltro)) return false;
     if (etapaDeFiltro || etapaAteFiltro) {
       const base = c.entrouEtapaEm || c.createdAt;
@@ -589,6 +615,7 @@ export default function KanbanBoard() {
     (tarefaFiltro ? 1 : 0) +
     etapaFiltro.length +
     (tempoFiltro ? 1 : 0) +
+    (semPagarFiltro ? 1 : 0) +
     (criadoDeFiltro ? 1 : 0) +
     (criadoAteFiltro ? 1 : 0) +
     (etapaDeFiltro ? 1 : 0) +
@@ -727,7 +754,7 @@ export default function KanbanBoard() {
                     onClick={() => {
                       setFiltros([]); setRespFiltro(""); setTagFiltro(""); setEstadoFiltro("");
                       setGeneroFiltro(""); setTipoClienteFiltro(""); setRenovacaoFiltro(""); setTarefaFiltro("");
-                      setEtapaFiltro([]); setTempoFiltro("");
+                      setEtapaFiltro([]); setTempoFiltro(""); setSemPagarFiltro("");
                       setCriadoDeFiltro(""); setCriadoAteFiltro("");
                       setEtapaDeFiltro(""); setEtapaAteFiltro("");
                     }}
@@ -977,6 +1004,15 @@ export default function KanbanBoard() {
                 </div>
               </div>
 
+              <div>
+                <span className="text-xs text-slate-400">Dias sem pagar nada</span>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {[["", "Todos"], ["1", "1 dia"], ["2", "2"], ["3", "3"], ["4", "4"], ["5", "5"], ["6", "6"], ["7", "7"], ["8", "+7"]].map(([v, t]) => (
+                    <button key={v || "todos"} type="button" onClick={() => setSemPagarFiltro(v)} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${semPagarFiltro === v ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>{t}</button>
+                  ))}
+                </div>
+              </div>
+
               <label className="block">
                 <span className="text-xs text-slate-400">Tempo parado na etapa</span>
                 <select
@@ -1069,6 +1105,7 @@ export default function KanbanBoard() {
             const totalAReceber = mostraTotal
               ? visiveis.reduce((sum, c) => sum + valorAReceber(c), 0)
               : 0;
+            const totalRecebido = stage.name === "Pago" ? visiveis.reduce((sum, c) => sum + valorRecebido(c), 0) : 0;
             const qtdAtrasados =
               stage.name === "Recebimento" || stage.name === "Renovação"
                 ? visiveis.filter((c) => situacaoContato(c) === "atrasado").length
@@ -1113,6 +1150,11 @@ export default function KanbanBoard() {
                       )}
                     </div>
                   </div>
+                  {stage.name === "Pago" && (
+                    <div className="pl-[18px]">
+                      <p className="text-xs text-emerald-700 font-medium">Recebido: {money(totalRecebido)}</p>
+                    </div>
+                  )}
                   {mostraTotal && (
                     <div className="flex items-center gap-2 pl-[18px]">
                       <p className="text-xs text-emerald-700 font-medium">
