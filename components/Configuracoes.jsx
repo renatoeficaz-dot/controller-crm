@@ -65,6 +65,15 @@ const UF_LIST = [
 
 // Ícones de linha, minimalistas (sem depender de lib externa) — 20x20, stroke atual.
 const ICONS = {
+  comissao: <><circle cx="12" cy="12" r="9" /><path d="M9 9.5a2 2 0 0 1 2-1.5h2a2 2 0 0 1 0 4h-2a2 2 0 0 0 0 4h2a2 2 0 0 0 2-1.5M12 6v2m0 8v2" strokeLinecap="round" strokeLinejoin="round" /></>,
+  equipe: <><circle cx="12" cy="8" r="3" /><circle cx="5.5" cy="10" r="2.2" /><circle cx="18.5" cy="10" r="2.2" /><path d="M7 20v-1.5a5 5 0 0 1 10 0V20M1.5 19v-1a3.5 3.5 0 0 1 4-3.4M22.5 19v-1a3.5 3.5 0 0 0-4-3.4" strokeLinecap="round" strokeLinejoin="round" /></>,
+  risco: <><path d="M12 3 2.5 20h19L12 3Z" strokeLinejoin="round" /><path d="M12 10v5m0 3v.01" strokeLinecap="round" /></>,
+  motivos: <><path d="M4 5h16M4 12h16M4 19h10" strokeLinecap="round" /><path d="m17 16 4 4m0-4-4 4" strokeLinecap="round" /></>,
+  operacao: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" strokeLinecap="round" /></>,
+  alteracoes: <><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" strokeLinecap="round" strokeLinejoin="round" /><path d="M12 8v4l3 2" strokeLinecap="round" /></>,
+  auditoria: <><path d="M12 3 4 6v6c0 4.5 3.2 7.5 8 9 4.8-1.5 8-4.5 8-9V6l-8-3Z" strokeLinejoin="round" /><path d="m9 12 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" /></>,
+  saude: <><path d="M3 12h4l2-6 4 12 2-6h6" strokeLinecap="round" strokeLinejoin="round" /></>,
+  links: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1" strokeLinecap="round" strokeLinejoin="round" /></>,
   integracoes: <><path d="M8 3v5m8-5v5M6 8h12v3a6 6 0 0 1-12 0V8Z" /><path d="M12 17v4" /></>,
   honorarios: (
     <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" strokeLinecap="round" strokeLinejoin="round" />
