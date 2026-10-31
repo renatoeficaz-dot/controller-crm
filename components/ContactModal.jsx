@@ -5,7 +5,7 @@ import CalculadoraRapida from "./CalculadoraRapida";
 import { rolarAteOFim } from "@/lib/rolar";
 import { CHECKLIST_DOC } from "@/lib/checklistDoc";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { resumoCobranca, valorParcelaAtual, parcelaAtrasada, gerarParcelas, NUM_PARCELAS } from "@/lib/finance";
+import { resumoCobranca, valorParcelaAtual, parcelaAtrasada, gerarParcelas, NUM_PARCELAS, NUM_PARCELAS_15X, HONORARIOS_15X } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
 import { validarCPF } from "@/lib/cpf";
 import { UFS_BR } from "@/lib/ddd";
@@ -322,7 +322,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   const [dadosAbertoMobile, setDadosAbertoMobile] = useState(false);
   const [showHistorico, setShowHistorico] = useState(false);
   const [showRenegociadas, setShowRenegociadas] = useState(false);
-  const [renovForm, setRenovForm] = useState({ valorCapital: "", pagamentoCapital: "" });
+  const [renovForm, setRenovForm] = useState({ valorCapital: "", pagamentoCapital: "", parcelas: 10 });
   const [renovando, setRenovando] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [agendamentos, setAgendamentos] = useState([]);
@@ -909,7 +909,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
       setCobrancaMsg(d.error || "Erro ao renovar.");
       return;
     }
-    setRenovForm({ valorCapital: "", pagamentoCapital: "" });
+    setRenovForm({ valorCapital: "", pagamentoCapital: "", parcelas: 10 });
     loadContact();
     onChanged?.();
   }
@@ -1060,7 +1060,10 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   // etapas (ex.: o cobrador na vídeo chamada) precisa conferir os mesmos
   // dados sem o lead ter que "voltar" pra Documentação/Análise.
   const mostraChecklistAnalise = true;
-  const resumo = resumoCobranca(form.valorCapital, honorariosPct);
+  // Ciclo parcelado em 15x (renovação): honorários 120% e 15 parcelas.
+  const nPlano = parcelas.filter((p) => (p.ciclo || 1) === cicloAtual && !p.renegociada && !p.deAcordo).length >= NUM_PARCELAS_15X ? NUM_PARCELAS_15X : NUM_PARCELAS;
+  const pctPlano = nPlano === NUM_PARCELAS_15X ? HONORARIOS_15X : honorariosPct;
+  const resumo = resumoCobranca(form.valorCapital, pctPlano, nPlano);
   // Limite de capital do ciclo atual, quando o escalonamento está ligado.
   const limiteCiclo = escalonamentoCfg ? limiteEscalonado(cicloAtual, escalonamentoCfg) : null;
   const acimaDoLimite = limiteCiclo != null && Number(form.valorCapital || 0) > limiteCiclo;
@@ -1997,7 +2000,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
               <div className="border border-sky-200 bg-sky-50/50 rounded-lg p-3 mt-1 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-sky-800">Liberação do pagamento</h3>
-                  <span className="text-xs text-slate-400">honorários {honorariosPct}%</span>
+                  <span className="text-xs text-slate-400">honorários {pctPlano}%</span>
                 </div>
 
                 {resumo.capital > 0 ? (
@@ -2006,7 +2009,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                     <div className="grid grid-cols-2 gap-y-1 text-xs text-slate-600 bg-white rounded border border-slate-200 p-2">
                       <span>Capital liberado</span>
                       <span className="text-right font-medium">{money(resumo.capital)}</span>
-                      <span>Honorários ({honorariosPct}%)</span>
+                      <span>Honorários ({pctPlano}%)</span>
                       <span className="text-right font-medium">{money(resumo.honorarios)}</span>
                       <span className="text-slate-800 font-semibold">Total a pagar</span>
                       <span className="text-right font-semibold text-sky-700">{money(resumo.total)}</span>
@@ -2087,13 +2090,13 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
               <div className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-3 mt-1">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-emerald-700">Cobrança</h3>
-                  <span className="text-xs text-slate-400">honorários {honorariosPct}%</span>
+                  <span className="text-xs text-slate-400">honorários {pctPlano}%</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-y-1 text-xs text-slate-600 mb-3">
                   <span>Capital</span>
                   <span className="text-right font-medium">{money(resumo.capital)}</span>
-                  <span>Honorários ({honorariosPct}%)</span>
+                  <span>Honorários ({pctPlano}%)</span>
                   <span className="text-right font-medium">{money(resumo.honorarios)}</span>
                   <span className="text-slate-800 font-semibold">Total a receber</span>
                   <span className="text-right font-semibold text-emerald-700">{money(resumo.total)}</span>
@@ -2155,7 +2158,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                         // Ponto de equilíbrio (item 106): parcela em que o capital
                         // emprestado volta pro caixa — antes dela, cliente que
                         // some ainda dá prejuízo.
-                        const noPontoEquilibrio = !p.deAcordo && p.number === Math.ceil(NUM_PARCELAS / (1 + honorariosPct / 100));
+                        const noPontoEquilibrio = !p.deAcordo && p.number === Math.ceil(nPlano / (1 + pctPlano / 100));
                         return (
                         <li key={p.id} className="flex items-center justify-between py-1.5">
                           <label className="flex items-center gap-2 cursor-pointer">
@@ -2309,6 +2312,24 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                             />
                           </label>
                         </div>
+                        <div className="flex items-center gap-1.5 text-[11px]">
+                          <span className="text-slate-400">Parcelas:</span>
+                          {[NUM_PARCELAS, NUM_PARCELAS_15X].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setRenovForm((f) => ({ ...f, parcelas: n }))}
+                              className={`rounded px-2 py-0.5 border ${renovForm.parcelas === n ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-600 hover:border-emerald-400"}`}
+                            >
+                              {n}x{n === NUM_PARCELAS_15X ? ` (honorários ${HONORARIOS_15X}%)` : ""}
+                            </button>
+                          ))}
+                        </div>
+                        {Number(renovForm.valorCapital) > 0 && (() => {
+                          const n = renovForm.parcelas === NUM_PARCELAS_15X ? NUM_PARCELAS_15X : NUM_PARCELAS;
+                          const r = resumoCobranca(renovForm.valorCapital, n === NUM_PARCELAS_15X ? HONORARIOS_15X : honorariosPct, n);
+                          return <p className="text-[11px] text-slate-500">{n}x de <strong>{money(r.valorParcela)}</strong> · total {money(r.total)}</p>;
+                        })()}
                         <button
                           onClick={renovar}
                           disabled={renovando}

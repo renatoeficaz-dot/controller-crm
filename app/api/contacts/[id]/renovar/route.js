@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { gerarParcelas } from "@/lib/finance";
+import { gerarParcelas, NUM_PARCELAS, NUM_PARCELAS_15X, HONORARIOS_15X } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
 import { getCurrentUser } from "@/lib/session";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
@@ -44,7 +44,9 @@ export async function POST(req, { params }) {
 
   const novoCiclo = contact.cicloAtual + 1;
   const config = await prisma.config.findUnique({ where: { id: "singleton" } });
-  const pct = config?.honorariosPct ?? 30;
+  // Renovação em 15x: honorários 120% (opção só da renovação; o 1º empréstimo é sempre 10x).
+  const numParcelas = Number(body.parcelas) === NUM_PARCELAS_15X ? NUM_PARCELAS_15X : NUM_PARCELAS;
+  const pct = numParcelas === NUM_PARCELAS_15X ? HONORARIOS_15X : (config?.honorariosPct ?? 30);
 
   if (config?.escalonamentoAtivo && !body.forcar) {
     // Busca o cargo direto no banco, não do cookie de sessão: o cookie
@@ -62,7 +64,7 @@ export async function POST(req, { params }) {
       );
     }
   }
-  const novasParcelas = gerarParcelas(valorCapital, pct, pagamentoCapital);
+  const novasParcelas = gerarParcelas(valorCapital, pct, pagamentoCapital, numParcelas);
 
   // Renovação nunca movia o lead de etapa — ele ficava parado onde já estava
   // (normalmente "Recebimento" ou "Pago", já que renovar exige o ciclo atual
