@@ -1248,7 +1248,7 @@ export default function Relatorios() {
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 flex flex-wrap content-start gap-4 md:gap-6 [&>*:not([data-tile])]:w-full">
       {/* Barra fixa no topo: filtros + período sempre à mão enquanto rola os relatórios */}
-      <div className="sticky top-0 z-20 !w-[calc(100%+1.5rem)] md:!w-[calc(100%+3rem)] -mx-3 md:-mx-6 -mt-3 md:-mt-6 px-3 md:px-6 py-2 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-2 flex-wrap">
+      <div className="sticky top-0 z-20 !w-[calc(100%+1.5rem)] md:!w-[calc(100%+3rem)] -mx-3 md:-mx-6 -mt-3 md:-mt-6 px-3 md:px-6 py-2 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-2 flex-nowrap overflow-x-auto md:flex-wrap [&>*]:shrink-0">
         <button
           onClick={() => setFiltrosAbertos(true)}
           className={`flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border transition-colors ${
@@ -1773,7 +1773,7 @@ export default function Relatorios() {
             {adimplenciaPorEstado.length === 0 ? (
               <p className="text-sm text-slate-400 py-4">Nenhum cliente com empréstimo ativo.</p>
             ) : (
-              <div className="flex flex-wrap gap-x-6 gap-y-5 justify-center">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-5 justify-items-center sm:flex sm:flex-wrap sm:gap-x-6 sm:justify-center">
                 {adimplenciaPorEstado.map((g) => {
                   const total = g.adimplentes + g.inadimplentes;
                   const pct = total ? Math.round((g.inadimplentes / total) * 100) : 0;

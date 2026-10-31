@@ -1,6 +1,7 @@
 "use client";
 
 import { Children, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 // Seção de relatório em formato de "quadrado": mostra o nome e uma miniatura do gráfico/tabela; clicar abre tudo
 // num modal com zoom rápido. `aberta` mantém a seção inline (usado no Resumo). O pai precisa ser flex-wrap.
@@ -41,12 +42,12 @@ export default function Secao({ aberta = false, titulo = "", className = "", chi
         </div>
       </div>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 modal-tech-fundo" onClick={() => setOpen(false)}>
+      {open && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-stretch sm:items-center justify-center p-0 sm:p-6 modal-tech-fundo" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" />
           <div
             onClick={(e) => e.stopPropagation()}
-            className="modal-tech relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-cyan-400/40 bg-slate-50 shadow-[0_0_0_1px_rgba(34,211,238,0.25),0_0_60px_rgba(34,211,238,0.22)]"
+            className="modal-tech relative flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden rounded-none sm:h-auto sm:max-h-[92vh] sm:rounded-2xl border border-cyan-400/40 bg-slate-50 shadow-[0_0_0_1px_rgba(34,211,238,0.25),0_0_60px_rgba(34,211,238,0.22)]"
           >
             <span className="pointer-events-none absolute left-0 top-0 h-4 w-4 rounded-tl-2xl border-l-2 border-t-2 border-cyan-400" />
             <span className="pointer-events-none absolute right-0 top-0 h-4 w-4 rounded-tr-2xl border-r-2 border-t-2 border-cyan-400" />
@@ -59,11 +60,12 @@ export default function Secao({ aberta = false, titulo = "", className = "", chi
               </span>
               <button type="button" onClick={() => setOpen(false)} className="rounded-md px-2 text-xl leading-none text-slate-400 hover:bg-slate-800 hover:text-white" title="Fechar (Esc)">×</button>
             </div>
-            <section {...resto} className={`${className} min-h-0 flex-1 overflow-y-auto thin-scroll p-4 md:p-5`}>
+            <section {...resto} className={`${className} min-h-0 flex-1 overflow-y-auto thin-scroll p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-5`}>
               {children}
             </section>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
