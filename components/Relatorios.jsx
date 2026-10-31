@@ -823,6 +823,14 @@ export default function Relatorios() {
     const [a, b] = p.range();
     setIni(a);
     setFim(b);
+    // "Novas vendas"/"Renovações" seguem a Data de criação da lead: sem isto, trocar o período para "Hoje" deixava esses números
+    // no mês inteiro (filtro de criação antigo) e eles não batiam com o resto. "Todo período" limpa o filtro de criação.
+    sincronizarCriacao(p.key, a, b);
+  }
+  function sincronizarCriacao(chave, a, b) {
+    setCriacaoPreset(chave);
+    setCriacaoIni(chave === "tudo" ? "" : a);
+    setCriacaoFim(chave === "tudo" ? "" : b);
   }
 
   // Mesmos atalhos (Hoje/Esta semana/Este mês/Todo período), mas só pro filtro
@@ -1279,9 +1287,9 @@ export default function Relatorios() {
             {p.label}
           </button>
         ))}
-        <input type="date" value={ini} onChange={(e) => { setPreset("custom"); setIni(e.target.value); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-emerald-400" />
+        <input type="date" value={ini} onChange={(e) => { setPreset("custom"); setIni(e.target.value); sincronizarCriacao("custom", e.target.value, fim); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-emerald-400" />
         <span className="text-xs text-slate-400">até</span>
-        <input type="date" value={fim} onChange={(e) => { setPreset("custom"); setFim(e.target.value); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-emerald-400" />
+        <input type="date" value={fim} onChange={(e) => { setPreset("custom"); setFim(e.target.value); sincronizarCriacao("custom", ini, e.target.value); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-emerald-400" />
       </div>
 
       {filtrosAbertos && (
@@ -1465,7 +1473,7 @@ export default function Relatorios() {
             {PRESETS.find((p) => p.key === preset)?.label || "Período personalizado"} — trocar
           </button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-3">
           <CardCompacto titulo="Novas vendas" valor={novasVendas} cor="text-violet-600" numero />
           <CardCompacto titulo="Renovações" valor={renovacoes} cor="text-amber-600" numero />
           <CardCompacto titulo="A receber hoje" valor={receber.dia} cor="text-emerald-600" />
@@ -1474,6 +1482,8 @@ export default function Relatorios() {
           <CardCompacto titulo="Total recebido" valor={recebido} cor="text-emerald-600" />
           <CardCompacto titulo="Pendente em capital" valor={inad.pendenteCapital} cor="text-red-500" />
           <CardCompacto titulo="Pendente total (c/ honorários)" valor={inad.pendenteTotal} cor="text-red-500" />
+          <CardCompacto titulo={`% Adimplente (${adimplentes})`} valor={adimplentes + inadimplentes > 0 ? `${((adimplentes / (adimplentes + inadimplentes)) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"} cor="text-emerald-600" numero />
+          <CardCompacto titulo={`% Inadimplente (${inadimplentes})`} valor={adimplentes + inadimplentes > 0 ? `${((inadimplentes / (adimplentes + inadimplentes)) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"} cor="text-red-500" numero />
         </div>
         <p className="text-xs text-slate-400 mt-1">
           "A receber" = parcelas em aberto que vencem até o fim de cada período (já com multa de {multaPct}% nas vencidas).
@@ -1770,7 +1780,7 @@ export default function Relatorios() {
                   return (
                     <div key={g.chave}>
                       <p className="text-xs font-medium text-slate-500 mb-2 text-center">
-                        {g.label} <span className="text-slate-400">· {pct}% inadimpl.</span>
+                        {g.label} <span className="text-slate-400">· <span className="text-emerald-600">{total ? 100 - pct : 0}% adimpl.</span> · <span className="text-red-500">{pct}% inadimpl.</span></span>
                       </p>
                       <DonutChart
                         size={96}
