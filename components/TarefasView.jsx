@@ -17,6 +17,10 @@ function addDaysStr(str, n) {
 
 const EMPTY_FORM = { title: "", notes: "", contactId: "", tipoId: "", dueDate: hojeStr(), dueTime: "09:00", responsavel: "" };
 
+// Dia (AAAA-MM-DD) da tarefa em horário de Brasília. O prazo vem em UTC: "30/10 21:00" é 31/10 00:00Z, e cortar a string
+// jogava tarefas das 21h em diante na coluna do dia seguinte (não apareciam como Atrasadas/Hoje).
+const diaBR = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+
 export default function TarefasView() {
   const [tasks, setTasks] = useState([]);
   const [tipos, setTipos] = useState([]);
@@ -111,7 +115,7 @@ export default function TarefasView() {
     if (fPrazo) {
       const h = hojeStr();
       lista = lista.filter((t) => {
-        const d = t.dueDate.slice(0, 10);
+        const d = diaBR(t.dueDate);
         if (fPrazo === "atrasadas") return !t.done && d < h;
         if (fPrazo === "hoje") return d === h;
         return d > h; // a vencer
@@ -292,7 +296,7 @@ export default function TarefasView() {
   );
 
   function bucketOf(t) {
-    const d = t.dueDate.slice(0, 10);
+    const d = diaBR(t.dueDate);
     if (d < hoje) return "atrasadas";
     if (d === hoje) return "hoje";
     if (d === amanha) return "amanha";
@@ -347,7 +351,7 @@ export default function TarefasView() {
   const tasksPorDia = useMemo(() => {
     const m = new Map();
     for (const t of tasks) {
-      const d = t.dueDate.slice(0, 10);
+      const d = diaBR(t.dueDate);
       if (!m.has(d)) m.set(d, []);
       m.get(d).push(t);
     }
@@ -363,7 +367,7 @@ export default function TarefasView() {
   useEffect(() => {
     if (!modoFoco || !focoTaskId || !openContactId) return;
     const t = filaFoco.find((x) => x.id === focoTaskId);
-    const dia = t ? t.dueDate.slice(0, 10) : null;
+    const dia = t ? diaBR(t.dueDate) : null;
     if (t && dia <= hoje) return; // ainda pendente e vencida/de hoje (continua na mesma posição)
     if (t && filaFoco.findIndex((x) => x.id === focoTaskId) === Math.min(indiceFoco, filaFoco.length - 1)) return;
     const prox = filaFoco[Math.min(indiceFoco, filaFoco.length - 1)];
@@ -386,7 +390,7 @@ export default function TarefasView() {
       );
     }
     const tel = String(t.contact?.phone || "").replace(/\D/g, "");
-    const dia = t.dueDate.slice(0, 10);
+    const dia = diaBR(t.dueDate);
     const atr = dia < hoje;
     const adiar = async (dias) => {
       const horario = new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
@@ -849,8 +853,8 @@ export default function TarefasView() {
 
               <div className="p-2 flex flex-col gap-2 min-h-[60px] max-h-[calc(100vh-320px)] overflow-y-auto thin-scroll">
                 {lista.map((t) => {
-                  const atrasada = !t.done && t.dueDate.slice(0, 10) < hoje;
-                  const venceHoje = !t.done && t.dueDate.slice(0, 10) === hoje;
+                  const atrasada = !t.done && diaBR(t.dueDate) < hoje;
+                  const venceHoje = !t.done && diaBR(t.dueDate) === hoje;
                   const corCard = atrasada
                     ? "border-red-300 bg-red-50 hover:bg-red-100/70"
                     : venceHoje
