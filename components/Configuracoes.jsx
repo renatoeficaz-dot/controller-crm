@@ -274,7 +274,7 @@ export default function Configuracoes() {
             <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" />
             <div
               onClick={(e) => e.stopPropagation()}
-              className="modal-tech relative flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border bg-slate-50 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
+              className="modal-tech relative flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border bg-slate-50 sm:h-auto sm:w-fit sm:min-w-[640px] sm:max-h-[92vh] sm:rounded-2xl"
               style={{ borderColor: corAtual.hex + "99", boxShadow: `0 0 0 1px ${corAtual.hex}40, 0 0 60px ${corAtual.hex}38` }}
             >
               <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 text-white" style={{ background: `linear-gradient(90deg, #0f172a, ${corAtual.hex}cc)` }}>
@@ -4454,7 +4454,7 @@ function AutomacaoFunil() {
   }
 
   return (
-    <div className="grid lg:grid-cols-3 gap-6 items-start">
+    <div className="grid lg:grid-cols-3 gap-6 items-stretch">
       <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>

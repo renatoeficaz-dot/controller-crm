@@ -484,6 +484,49 @@ export default function ChatView() {
     return [...msgs, ...ativ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   }, [messages, atividade]);
 
+  // Só as últimas mensagens vão pro DOM: conversa com centenas de mensagens/imagens/áudios travava o aparelho (principalmente
+  // no celular) ao abrir. "Mostrar anteriores" traz mais 80 por vez.
+  const [limiteTl, setLimiteTl] = useState(80);
+  useEffect(() => { setLimiteTl(80); }, [selectedId]);
+  const timelineVisivel = timeline.length > limiteTl ? timeline.slice(timeline.length - limiteTl) : timeline;
+
+  // Monitor de travadas: mede o clique numa conversa até a tela responder (2 quadros) e tarefas longas (>600 ms) com o Chat
+  // aberto; relatos vão pra auditoria (acao "travada_chat"), no máximo 1 por minuto por aparelho.
+  const ultimoRelatoTravada = useRef(0);
+  const relatarTravada = useCallback((tipo, ms) => {
+    const agora = Date.now();
+    if (agora - ultimoRelatoTravada.current < 60000) return;
+    ultimoRelatoTravada.current = agora;
+    try {
+      fetch("/api/monitor/travada", {
+        method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+        body: JSON.stringify({
+          tipo, ms, contactId: selectedIdRef.current, msgs: messagesRef.current.length,
+          mobile: window.innerWidth < 768, memMb: performance?.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null,
+          ua: navigator.userAgent,
+        }),
+      }).catch(() => {});
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (typeof PerformanceObserver === "undefined") return;
+    let obs;
+    try {
+      obs = new PerformanceObserver((lista) => {
+        for (const e of lista.getEntries()) if (e.duration >= 600 && !document.hidden) relatarTravada("tarefa", Math.round(e.duration));
+      });
+      obs.observe({ entryTypes: ["longtask"] });
+    } catch {}
+    return () => { try { obs?.disconnect(); } catch {} };
+  }, [relatarTravada]);
+  const medirCliqueConversa = useCallback(() => {
+    const t0 = performance.now();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const ms = Math.round(performance.now() - t0);
+      if (ms >= 1200) relatarTravada("clique", ms);
+    }));
+  }, [relatarTravada]);
+
   // Aplica busca + filtros + ordenação na lista de conversas
   // Busca dentro das conversas (inclui transcrição de áudio, que fica no body).
   // Com debounce pra não disparar uma consulta por tecla digitada.
@@ -1601,6 +1644,7 @@ export default function ChatView() {
               <button
                 onClick={() => {
                   if (selecionando) { setSelIds((s) => (s.includes(c.id) ? s.filter((x) => x !== c.id) : [...s, c.id])); return; }
+                  medirCliqueConversa();
                   setSelectedId(c.id); setContact(null); setMessages([]); setShowInfo(false);
                 }}
                 className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors ${
@@ -1807,7 +1851,12 @@ export default function ChatView() {
               </div>
             )}
             <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-2" onWheel={() => { userRolouRef.current = true; }} onTouchMove={() => { userRolouRef.current = true; }}>
-              {timeline.map((item) => item.tipo === "atividade" ? (
+              {timeline.length > limiteTl && (
+                <button type="button" onClick={() => setLimiteTl((n) => n + 80)} className="mx-auto block text-xs text-sky-600 hover:text-sky-700 bg-white border border-slate-200 rounded-full px-3 py-1">
+                  Mostrar mensagens anteriores ({timeline.length - limiteTl})
+                </button>
+              )}
+              {timelineVisivel.map((item) => item.tipo === "atividade" ? (
                 <div key={`ativ-${item.ativ.createdAt}-${item.ativ.detalhe}`} className="flex justify-center">
                   <p className="max-w-[85%] text-center text-[11px] text-slate-500 bg-slate-200/70 rounded-full px-3 py-1">
                     <span className="font-semibold">{item.ativ.usuario || "IA"}</span>
