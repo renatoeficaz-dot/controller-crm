@@ -238,8 +238,8 @@ export default function Configuracoes() {
 
         {/* Quadrados coloridos: cada um abre a configuração num modal (mesmo estilo dos relatórios) */}
         <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3 md:gap-4">
-          {TABS.map((t, i) => {
-            const cor = CORES[i % CORES.length];
+          {[...TABS].sort((a, b) => a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" })).map((t) => {
+            const cor = CORES[TABS.indexOf(t) % CORES.length]; // cor fixa por seção, mesmo reordenando
             return (
               <button
                 key={t.key}

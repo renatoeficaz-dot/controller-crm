@@ -14,8 +14,8 @@ const links = [
   { href: "/tarefas", label: "Tarefas", icon: "tarefa", pagina: "tarefas" },
   { href: "/cobranca", label: "Cobrança", icon: "cobranca", pagina: "cobranca" },
   { href: "/metas", label: "Metas", icon: "meta", pagina: "metas" },
-  { href: "/lancamentos", label: "Lançamentos", icon: "dinheiro", admin: true },
   { href: "/relatorios", label: "Relatórios", icon: "grafico", pagina: "relatorios" },
+  { href: "/lancamentos", label: "Lançamentos", icon: "dinheiro", admin: true },
   { href: "/configuracoes", label: "Configurações", icon: "engrenagem", admin: true },
 ];
 

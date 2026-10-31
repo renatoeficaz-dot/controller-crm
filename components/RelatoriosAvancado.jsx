@@ -45,7 +45,7 @@ export default function RelatoriosAvancado() {
 
   return (
     <div className="contents">
-      <h2 className="col-span-full text-sm font-semibold text-slate-500 pt-2">Análises avançadas</h2>
+      
 
       <div className="contents">
         <Cartao icone="relogio" titulo="Melhor horário para cobrar" subtitulo="Quando o cliente costuma responder mensagem — cobrar nesse horário tende a dar mais retorno.">

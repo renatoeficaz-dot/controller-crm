@@ -5,6 +5,17 @@ import { createPortal } from "react-dom";
 
 // Seção de relatório em formato de "quadrado": mostra o nome e uma miniatura do gráfico/tabela; clicar abre tudo
 // num modal com zoom rápido. `aberta` mantém a seção inline (usado no Resumo). O pai precisa ser flex-wrap.
+// Ordem alfabética dos quadrados: a grade usa CSS `order`, calculada pelas 6 primeiras letras do nome (sem acento).
+function ordemPorNome(nome) {
+  const t = String(nome || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  let k = 0;
+  for (let i = 0; i < 6; i++) {
+    const c = t[i];
+    k = k * 28 + (c ? (c >= "a" ? c.charCodeAt(0) - 96 : 27) : 0);
+  }
+  return k + 1;
+}
+
 export default function Secao({ aberta = false, titulo = "", className = "", children, ...resto }) {
   const [open, setOpen] = useState(false);
 
@@ -24,6 +35,7 @@ export default function Secao({ aberta = false, titulo = "", className = "", chi
     <>
       <div
         data-tile
+        style={{ order: ordemPorNome(titulo) }}
         role="button"
         tabIndex={0}
         onClick={() => setOpen(true)}
