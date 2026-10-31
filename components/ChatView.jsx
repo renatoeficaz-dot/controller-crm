@@ -363,6 +363,36 @@ export default function ChatView() {
     loadConversations();
   }
 
+  // 1º empréstimo em um clique: capital R$ 300, liberação com a data de agora e a lead vai para Recebimento
+  // (o movimento gera as parcelas e avisa o cliente, igual a arrastar no Kanban).
+  const [liberando1o, setLiberando1o] = useState(false);
+  async function primeiroEmprestimo() {
+    if (!selectedId || liberando1o) return;
+    const recebimento = stagesList.find((x) => x.name === "Recebimento");
+    if (!recebimento) { alert("Etapa Recebimento não encontrada."); return; }
+    if (!confirm(`Liberar o 1° empréstimo de R$ 300,00 para ${selected?.name || "esta lead"} e enviar para Recebimento? O cliente recebe o aviso de liberação.`)) return;
+    setLiberando1o(true);
+    try {
+      const r1 = await fetch(`/api/contacts/${selectedId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ valorCapital: 300, pagamentoCapital: new Date().toLocaleDateString("en-CA") }),
+      });
+      if (!r1.ok) { alert((await r1.json().catch(() => ({}))).error || "Não foi possível preencher o capital."); return; }
+      const r2 = await fetch(`/api/contacts/${selectedId}/move`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stageId: recebimento.id }),
+      });
+      const d2 = await r2.json().catch(() => ({}));
+      if (!r2.ok) { alert(d2.error || "Não foi possível enviar para Recebimento."); return; }
+      loadContact();
+      loadConversations();
+    } catch {
+      alert("Sem conexão — confira a lead antes de tentar de novo.");
+    } finally {
+      setLiberando1o(false);
+    }
+  }
+
   // Liga pelo WhatsApp via Wavoip: abre a janela já no clique (senão o navegador bloqueia o popup)
   // e troca pela URL de chamada quando o servidor responde. Sem token, cai no wa.me.
   async function ligarWhatsapp(phone, nome) {
@@ -1710,12 +1740,12 @@ export default function ChatView() {
                 !
               </button>
               <button
-                onClick={gerarResumo}
-                disabled={resumindo}
-                title="Resumir a conversa com IA"
-                className="hidden md:flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                onClick={primeiroEmprestimo}
+                disabled={liberando1o || selected.stageName === "Recebimento"}
+                title="Preenche o capital com R$ 300, data de liberação agora, e envia a lead para Recebimento"
+                className="hidden md:flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
               >
-                {resumindo ? "Resumindo…" : (<><Icone nome="estrela" className="w-3 h-3" /> Resumir</>)}
+                {liberando1o ? "Liberando…" : (<><Icone nome="dinheiro" className="w-3 h-3" /> 1° empréstimo</>)}
               </button>
               {selected.phone && (
                 <button
