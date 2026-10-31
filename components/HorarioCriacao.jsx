@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Secao from "@/components/SecaoColapsavel";
 
 const pct = (n, d) => (d > 0 ? Math.round((n / d) * 1000) / 10 : null);
 
@@ -45,7 +46,7 @@ export default function HorarioCriacao({ ini, fim }) {
 
   const horas = dados?.horas || [];
   return (
-    <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 mt-4">
+    <Secao titulo="Funil por horário de criação do lead" className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 mt-4">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
         <h2 className="text-sm font-semibold text-slate-800">Funil por horário de criação do lead</h2>
         <select value={tagId} onChange={(e) => setTagId(e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1 bg-white">
@@ -101,6 +102,6 @@ export default function HorarioCriacao({ ini, fim }) {
           )}
         </table>
       </div>
-    </section>
+    </Secao>
   );
 }

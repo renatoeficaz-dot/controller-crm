@@ -12,6 +12,7 @@ import RelatoriosAvancado from "@/components/RelatoriosAvancado";
 import CacEtiquetas from "@/components/CacEtiquetas";
 import HorarioCriacao from "@/components/HorarioCriacao";
 import HorarioRecebimento from "@/components/HorarioRecebimento";
+import Secao from "@/components/SecaoColapsavel";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1237,9 +1238,9 @@ export default function Relatorios() {
   if (loading) return <div className="p-6 text-slate-400">Carregando relatórios…</div>;
 
   return (
-    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 flex flex-col gap-4 md:gap-6">
+    <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 flex flex-wrap content-start gap-4 md:gap-6 [&>*:not([data-tile])]:w-full">
       {/* Barra fixa no topo: filtros + período sempre à mão enquanto rola os relatórios */}
-      <div className="sticky top-0 z-20 -mx-3 md:-mx-6 -mt-3 md:-mt-6 px-3 md:px-6 py-2 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-2 flex-wrap">
+      <div className="sticky top-0 z-20 !w-[calc(100%+1.5rem)] md:!w-[calc(100%+3rem)] -mx-3 md:-mx-6 -mt-3 md:-mt-6 px-3 md:px-6 py-2 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setFiltrosAbertos(true)}
           className={`flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border transition-colors ${
@@ -1457,7 +1458,7 @@ export default function Relatorios() {
       )}
 
       {/* Indicadores gerais + A receber + Total recebido — tudo numa linha só */}
-      <section>
+      <Secao aberta>
         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
           <h2 className="text-sm font-semibold text-slate-700">Resumo</h2>
           <button onClick={() => setFiltrosAbertos(true)} className="text-xs text-sky-600 hover:text-sky-700">
@@ -1478,10 +1479,10 @@ export default function Relatorios() {
           "A receber" = parcelas em aberto que vencem até o fim de cada período (já com multa de {multaPct}% nas vencidas).
           "Total recebido" = baixado entre {ini} e {fim}. "Pendente" = leads em Cravo ({inad.clientes}).
         </p>
-      </section>
+      </Secao>
 
       {/* Balanço do período: compensou? deu lucro? */}
-      <section>
+      <Secao aberta>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           O período compensou? <span className="text-slate-400 font-normal">— recebido x planejado x liberado, no mesmo filtro de datas</span>
         </h2>
@@ -1576,14 +1577,14 @@ export default function Relatorios() {
             )}
           </div>
         </div>
-      </section>
+      </Secao>
 
       {/* Resumo por estado (comentário antigo removido: ESTE título dizia
           "independente do filtro acima", mas o cálculo logo abaixo — a
           useMemo porEstado — já usa stagesFiltrados desde uma correção
           anterior. O comentário ficou desatualizado e passava a informação
           errada pra quem lesse o código depois. */}
-      <section>
+      <Secao titulo="Resumo por estado">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Resumo por estado</h2>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {porEstado.length === 0 ? (
@@ -1711,10 +1712,10 @@ export default function Relatorios() {
             </div>
           </div>
         )}
-      </section>
+      </Secao>
 
       {/* Funil: leads por etapa */}
-      <section>
+      <Secao titulo="Funil — leads por etapa">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Funil — leads por etapa</h2>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="p-5">
@@ -1732,13 +1733,13 @@ export default function Relatorios() {
             />
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Os 3 donuts de adimplência ficam lado a lado — sozinhos em largura
           total sobra muito espaço branco em volta do gráfico. */}
       <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
       {/* Adimplência vs inadimplência (+ por estado, no espaço que sobrava embaixo) */}
-      <section className="flex flex-col gap-4">
+      <Secao titulo="Adimplência (geral e por estado)" className="flex flex-col gap-4">
         <div>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência</h2>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
@@ -1786,10 +1787,10 @@ export default function Relatorios() {
             )}
           </div>
         </div>
-      </section>
+      </Secao>
 
       {/* Adimplência por gênero */}
-      <section className="flex flex-col">
+      <Secao titulo="Adimplência por gênero" className="flex flex-col">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência por gênero</h2>
         <div className="bg-white rounded-xl border border-slate-200 p-5 flex-1 flex items-center justify-center">
           {adimplenciaPorGenero.length === 0 ? (
@@ -1812,10 +1813,10 @@ export default function Relatorios() {
             </div>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Adimplência por tipo de cliente */}
-      <section className="flex flex-col">
+      <Secao titulo="Adimplência por tipo de cliente" className="flex flex-col">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">Adimplência por tipo de cliente</h2>
         <div className="bg-white rounded-xl border border-slate-200 p-5 flex-1 flex items-center justify-center">
           {adimplenciaPorTipoCliente.length === 0 ? (
@@ -1838,11 +1839,11 @@ export default function Relatorios() {
             </div>
           )}
         </div>
-      </section>
+      </Secao>
       </div>
 
       {/* Lucro real por perfil: recebido - emprestado, não só % de inadimplência */}
-      <section>
+      <Secao titulo="Lucro real por perfil">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Lucro real por perfil <span className="text-slate-400 font-normal">— recebido menos emprestado, não só % de inadimplência</span>
         </h2>
@@ -1862,10 +1863,10 @@ export default function Relatorios() {
             </div>
           ))}
         </div>
-      </section>
+      </Secao>
 
       {/* Recebido por estado: valor bruto pago, sem descontar o capital emprestado */}
-      <section>
+      <Secao titulo="Recebido por estado">
         <div className="flex items-center justify-between gap-2 mb-2">
           <h2 className="text-sm font-semibold text-slate-700">
             Recebido por estado <span className="text-slate-400 font-normal">— valor total já pago, por região</span>
@@ -1890,10 +1891,10 @@ export default function Relatorios() {
             <HBarChart data={recebidoPorEstado} valueFmt={money} onBarClick={(d) => setEstadoDetalheAberto(d.label)} />
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Curva de safra: clientes agrupados pelo mês em que o capital foi liberado */}
-      <section>
+      <Secao titulo="Curva de safra">
         <div className="flex items-center justify-between gap-2 mb-2">
           <h2 className="text-sm font-semibold text-slate-700">
             Curva de safra <span className="text-slate-400 font-normal">— carteira agrupada pelo mês de liberação do capital</span>
@@ -1952,10 +1953,10 @@ export default function Relatorios() {
             </div>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Cruzamento com quando o lead foi criado (dia da semana / hora / dia do mês) */}
-      <section>
+      <Secao titulo="Por criação da lead">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
           <h2 className="text-sm font-semibold text-slate-700">
             Por criação da lead <span className="text-slate-400 font-normal">— quando o lead entrou no funil</span>
@@ -2034,10 +2035,10 @@ export default function Relatorios() {
             )}
           </div>
         </div>
-      </section>
+      </Secao>
 
       {/* Em qual parcela o cliente parou de pagar */}
-      <section>
+      <Secao titulo="Parcela em que o cliente parou de pagar">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Parcela em que o cliente parou de pagar <span className="text-slate-400 font-normal">— clientes em atraso agora</span>
         </h2>
@@ -2054,10 +2055,10 @@ export default function Relatorios() {
             </>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* A receber por número de parcela */}
-      <section>
+      <Secao titulo="A receber por parcela">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           A receber por parcela <span className="text-slate-400 font-normal">— quantas parcelas em aberto de cada número, só leads em Recebimento</span>
         </h2>
@@ -2072,10 +2073,10 @@ export default function Relatorios() {
             />
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Payback: quanto foi liberado, quanto voltou e em quantos dias */}
-      <section>
+      <Secao titulo="Payback dos clientes">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Payback dos clientes <span className="text-slate-400 font-normal">— o que foi liberado, quanto voltou e em quanto tempo</span>
         </h2>
@@ -2148,10 +2149,10 @@ export default function Relatorios() {
             </div>
           </div>
         )}
-      </section>
+      </Secao>
 
       {/* LTV: valor total já gerado por cada cliente (todos os ciclos) */}
-      <section>
+      <Secao titulo="LTV dos clientes">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           LTV dos clientes <span className="text-slate-400 font-normal">— total já recebido de cada um, somando todos os ciclos</span>
         </h2>
@@ -2169,10 +2170,10 @@ export default function Relatorios() {
             </>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Aging da carteira */}
-      <section>
+      <Secao titulo="Aging da carteira">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Aging da carteira <span className="text-slate-400 font-normal">— valor em aberto por tempo de atraso</span>
         </h2>
@@ -2204,10 +2205,10 @@ export default function Relatorios() {
             </>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Conversão etapa a etapa */}
-      <section>
+      <Secao titulo="Conversão etapa a etapa">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Conversão etapa a etapa <span className="text-slate-400 font-normal">— onde o lead para no funil (exclui Venda perdida)</span>
         </h2>
@@ -2241,10 +2242,10 @@ export default function Relatorios() {
             </div>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Tempo médio por etapa (item 129) */}
-      <section>
+      <Secao titulo="Tempo médio em cada etapa">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Tempo médio em cada etapa <span className="text-slate-400 font-normal">— do histórico real de mudanças de coluna</span>
         </h2>
@@ -2271,10 +2272,10 @@ export default function Relatorios() {
             </ul>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Velocidade e giro do capital */}
-      <section>
+      <Secao titulo="Velocidade e giro do capital">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Velocidade e giro do capital <span className="text-slate-400 font-normal">— quanto tempo até liberar e quantas vezes o dinheiro rodou</span>
         </h2>
@@ -2300,10 +2301,10 @@ export default function Relatorios() {
             <p className="text-[11px] text-slate-400 mt-1">Emprestado ÷ capital na rua</p>
           </div>
         </div>
-      </section>
+      </Secao>
 
       {/* Faixa de ticket */}
-      <section>
+      <Secao titulo="Inadimplência e lucro por faixa de ticket">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Inadimplência e lucro por faixa de ticket <span className="text-slate-400 font-normal">— até onde vale emprestar</span>
         </h2>
@@ -2343,10 +2344,10 @@ export default function Relatorios() {
             </div>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Comportamento por ciclo */}
-      <section>
+      <Secao titulo="Comportamento por ciclo">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Comportamento por ciclo <span className="text-slate-400 font-normal">— 1º empréstimo vs. renovações</span>
         </h2>
@@ -2396,10 +2397,10 @@ export default function Relatorios() {
             </div>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Atraso de quem paga */}
-      <section>
+      <Secao titulo="Atraso de quem paga">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Atraso de quem paga <span className="text-slate-400 font-normal">— separa mau pagador de pagador atrasado</span>
         </h2>
@@ -2418,10 +2419,10 @@ export default function Relatorios() {
             </>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Calendário de recebimento */}
-      <section>
+      <Secao titulo="Calendário de recebimento">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Calendário de recebimento <span className="text-slate-400 font-normal">— em que dia do mês o dinheiro entra</span>
         </h2>
@@ -2439,10 +2440,10 @@ export default function Relatorios() {
             </div>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Engajamento por origem */}
-      <section>
+      <Secao titulo="Engajamento por origem">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           Engajamento por origem <span className="text-slate-400 font-normal">— lead que conversou de verdade vs. quem mandou um "oi" e sumiu</span>
         </h2>
@@ -2478,10 +2479,10 @@ export default function Relatorios() {
             </div>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Comparativo mês a mês */}
-      <section>
+      <Secao titulo="Comparativo mês a mês">
         <div className="flex items-center justify-between gap-2 mb-2">
           <h2 className="text-sm font-semibold text-slate-700">
             Comparativo mês a mês <span className="text-slate-400 font-normal">— últimos 6 meses</span>
@@ -2538,7 +2539,7 @@ export default function Relatorios() {
             </div>
           )}
         </div>
-      </section>
+      </Secao>
 
       {/* Relatórios de gestão (cobradores, provisão, rentabilidade) — só admin;
           a própria API recusa pra quem não é, então aqui só monta o bloco. */}
@@ -2549,7 +2550,7 @@ export default function Relatorios() {
       {/* Projeção: o que entra e o que sobra SE as metas forem batidas. Fica
           no rodapé — é o indicador mais "e se" da tela, os outros são fato. */}
       {projecao && (
-        <section>
+        <Secao titulo="Projeção — se bater as metas">
           <div className="flex flex-wrap items-end justify-between gap-3 mb-2">
             <h2 className="text-sm font-semibold text-slate-700">
               Projeção — se bater as metas{" "}
@@ -2677,7 +2678,7 @@ export default function Relatorios() {
             depois (a saída dos atuais sai da última parcela em aberto de cada um). O recebimento por
             dia vem da carteira de cada dia, não do número de hoje parado.
           </p>
-        </section>
+        </Secao>
       )}
 
       {agingDrill && (

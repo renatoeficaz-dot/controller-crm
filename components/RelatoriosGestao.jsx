@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import ContactModal from "@/components/ContactModal";
 import Icone from "@/components/Icones";
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
+import Secao from "@/components/SecaoColapsavel";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -47,9 +48,9 @@ export default function RelatoriosGestao() {
   );
 
   return (
-    <div className="flex flex-col gap-4 md:gap-6">
+    <div className="flex flex-wrap content-start gap-4 md:gap-6 [&>*:not([data-tile])]:w-full">
       {/* -------- Comparativo entre cobradores -------- */}
-      <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
+      <Secao titulo="Comparativo entre cobradores" className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between gap-3 p-4 border-b border-slate-100">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-800">Comparativo entre cobradores</h2>
@@ -111,10 +112,10 @@ export default function RelatoriosGestao() {
             </table>
           </div>
         )}
-      </section>
+      </Secao>
 
       {/* -------- Provisão de perda -------- */}
-      <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4">
+      <Secao titulo="Projeção de perda (provisão)" className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-800">Projeção de perda (provisão)</h2>
@@ -151,10 +152,10 @@ export default function RelatoriosGestao() {
             );
           })}
         </ul>
-      </section>
+      </Secao>
 
       {/* -------- Rentabilidade por cliente -------- */}
-      <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
+      <Secao titulo="Rentabilidade por cliente" className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-slate-100">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-800">Rentabilidade por cliente</h2>
@@ -273,7 +274,7 @@ export default function RelatoriosGestao() {
             )}
           </div>
         )}
-      </section>
+      </Secao>
 
       {openContactId && (
         <ContactModal contactId={openContactId} onClose={() => setOpenContactId(null)} onChanged={load} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Secao from "@/components/SecaoColapsavel";
 
 const money = (n) => (n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -40,7 +41,7 @@ export default function HorarioRecebimento({ ini, fim }) {
   const area = horas.length ? `${linha} L${x(23).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z` : "";
 
   return (
-    <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 mt-4">
+    <Secao titulo="Horários de recebimento" className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 mt-4">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
         <h2 className="text-sm font-semibold text-slate-800">Horários de recebimento</h2>
         <div className="flex gap-1">
@@ -91,6 +92,6 @@ export default function HorarioRecebimento({ ini, fim }) {
           )}
         </svg>
       </div>
-    </section>
+    </Secao>
   );
 }

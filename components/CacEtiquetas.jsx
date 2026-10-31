@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Secao from "@/components/SecaoColapsavel";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -58,7 +59,7 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
 
   const linhas = dados?.linhas || [];
   return (
-    <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 mt-4">
+    <Secao titulo="CAC por etiqueta" className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 mt-4">
       <h2 className="text-sm font-semibold text-slate-800">CAC por etiqueta</h2>
       <p className="text-[11px] text-slate-400 mb-3">
         Digite o custo por lead de cada etiqueta — ou o custo total do período, que o sistema divide pelos leads para achar o custo por lead. Leads criados de {(leadIni || ini).split("-").reverse().join("/")} a {(leadFim || fim).split("-").reverse().join("/")}; vendas = leads que foram para Recebimento de {ini.split("-").reverse().join("/")} a {fim.split("-").reverse().join("/")}{coorte ? " (só dos leads criados nessa janela)" : ""}. Custo = custo por lead × leads; CAC = custo ÷ vendas.
@@ -143,6 +144,6 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
           )}
         </table>
       </div>
-    </section>
+    </Secao>
   );
 }

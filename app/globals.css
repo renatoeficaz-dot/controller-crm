@@ -224,3 +224,13 @@ html.dark .hover\:text-red-600:hover { color: #f87171; }
 html.dark .hover\:text-sky-600:hover { color: #38bdf8; }
 html.dark .hover\:text-sky-700:hover { color: #7dd3fc; }
 html.dark .hover\:text-amber-700:hover { color: #fcd34d; }
+
+/* Modais dos relatórios: zoom-in rápido com ar "tech" (escala + desfoque que some + brilho) */
+@keyframes techZoom {
+  0% { opacity: 0; transform: scale(0.55); filter: blur(8px) brightness(1.6); }
+  55% { opacity: 1; filter: blur(0) brightness(1.15); }
+  100% { transform: scale(1); filter: none; }
+}
+@keyframes techFundo { from { opacity: 0; } to { opacity: 1; } }
+.modal-tech { animation: techZoom 0.24s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.modal-tech-fundo { animation: techFundo 0.18s ease-out backwards; }
