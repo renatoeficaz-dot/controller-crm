@@ -128,12 +128,14 @@ export async function POST(req) {
         { chave: "empFmt", label: "Emprestado", largura: 95 },
         { chave: "recFmt", label: "Recebido", largura: 95 },
         { chave: "lucroFmt", label: "Lucro", largura: 95 },
+        { chave: "roiFmt", label: "ROI", largura: 55 },
         { chave: "inadFmt", label: "% Inad.", largura: 60 },
       ], d.porCiclo.map((c) => ({
         ...c,
         empFmt: money(c.emprestado),
         recFmt: money(c.recebido),
         lucroFmt: money(c.lucro),
+        roiFmt: c.emprestado > 0 ? `${((c.lucro / c.emprestado) * 100).toFixed(1).replace(".", ",")}%` : "—",
         inadFmt: `${c.pctInad}%`,
       })));
     }

@@ -2348,6 +2348,7 @@ export default function Relatorios() {
                     <th className="py-2.5 px-3 font-medium text-right">Emprestado</th>
                     <th className="py-2.5 px-3 font-medium text-right">Recebido</th>
                     <th className="py-2.5 px-3 font-medium text-right">Lucro</th>
+                    <th className="py-2.5 px-3 font-medium text-right" title="Lucro ÷ Emprestado">ROI</th>
                     <th className="py-2.5 px-3 font-medium text-right">% Inadimplência</th>
                     <th className="py-2.5 px-4 font-medium text-right">Payback médio</th>
                   </tr>
@@ -2363,6 +2364,9 @@ export default function Relatorios() {
                       <td className="py-2 px-3 text-right tabular-nums text-slate-600">{money(r.recebido)}</td>
                       <td className={`py-2 px-3 text-right tabular-nums font-medium ${r.lucro >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                         {money(r.lucro)}
+                      </td>
+                      <td className={`py-2 px-3 text-right tabular-nums font-medium ${r.lucro >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {r.emprestado > 0 ? `${((r.lucro / r.emprestado) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"}
                       </td>
                       <td className={`py-2 px-3 text-right tabular-nums font-medium ${r.pctInad >= 50 ? "text-red-600" : r.pctInad >= 25 ? "text-amber-600" : "text-slate-500"}`}>
                         {r.pctInad}%
