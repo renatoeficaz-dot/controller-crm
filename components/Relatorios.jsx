@@ -1238,8 +1238,8 @@ export default function Relatorios() {
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 flex flex-col gap-4 md:gap-6">
-      {/* Botão único que abre o modal com todos os filtros */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Barra fixa no topo: filtros + período sempre à mão enquanto rola os relatórios */}
+      <div className="sticky top-0 z-20 -mx-3 md:-mx-6 -mt-3 md:-mt-6 px-3 md:px-6 py-2 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setFiltrosAbertos(true)}
           className={`flex items-center gap-1.5 text-xs rounded-full px-3.5 py-1.5 border transition-colors ${
@@ -1266,6 +1266,21 @@ export default function Relatorios() {
         >
           {gerandoPdf ? "Gerando…" : (<><Icone nome="documento" className="w-3.5 h-3.5" /> Exportar PDF</>)}
         </button>
+
+        <span className="hidden md:block w-px h-5 bg-slate-200 mx-1" />
+        <span className="text-xs text-slate-400">Período</span>
+        {PRESETS.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => aplicarPreset(p)}
+            className={`text-xs rounded-full px-3 py-1 border transition-colors ${preset === p.key ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}
+          >
+            {p.label}
+          </button>
+        ))}
+        <input type="date" value={ini} onChange={(e) => { setPreset("custom"); setIni(e.target.value); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-emerald-400" />
+        <span className="text-xs text-slate-400">até</span>
+        <input type="date" value={fim} onChange={(e) => { setPreset("custom"); setFim(e.target.value); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-emerald-400" />
       </div>
 
       {filtrosAbertos && (
