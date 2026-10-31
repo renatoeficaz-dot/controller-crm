@@ -96,7 +96,7 @@ export default function RelatoriosAvancado() {
               <ul className="divide-y divide-slate-50">
                 {concentracao.top10.map((c) => (
                   <li key={c.id} className="py-1.5 flex items-center justify-between text-xs">
-                    <span className="text-slate-600 truncate">{c.nome}</span>
+                    <span className="min-w-0"><button type="button" onClick={() => setOpenContactId(c.id)} className="text-slate-600 hover:text-emerald-600 hover:underline truncate text-left">{c.nome}</button></span>
                     <span className="font-medium text-slate-700 shrink-0 ml-2">{money(c.emAberto)}</span>
                   </li>
                 ))}
@@ -179,7 +179,12 @@ export default function RelatoriosAvancado() {
             {identidadesCompartilhadas.map((s) => (
               <li key={s.phone} className="text-xs">
                 <span className="text-slate-500">{s.phone}:</span>{" "}
-                {s.cadastros.map((c) => `${c.nome} (${c.cpf})`).join(" · ")}
+                {s.cadastros.map((c, i) => (
+                  <span key={c.id || i}>
+                    {i > 0 && " · "}
+                    <button type="button" onClick={() => setOpenContactId(c.id)} className="text-slate-600 hover:text-emerald-600 hover:underline">{c.nome}</button> ({c.cpf})
+                  </span>
+                ))}
               </li>
             ))}
           </ul>
@@ -193,7 +198,7 @@ export default function RelatoriosAvancado() {
           <ul className="divide-y divide-slate-50">
             {atrasoAmanha.map((c) => (
               <li key={c.contactId} className="py-1.5 flex items-center justify-between text-xs">
-                <span className="text-slate-600">{c.nome}</span>
+                <span className="min-w-0"><button type="button" onClick={() => setOpenContactId(c.contactId)} className="text-slate-600 hover:text-emerald-600 hover:underline truncate text-left">{c.nome}</button></span>
                 <span className="text-slate-400">{money(c.valor)} · atrasou {c.vezesAtrasouAntes}x antes</span>
               </li>
             ))}
