@@ -1747,7 +1747,7 @@ export default function Relatorios() {
 
       {/* Os 3 donuts de adimplência ficam lado a lado — sozinhos em largura
           total sobra muito espaço branco em volta do gráfico. */}
-      <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="contents">
       {/* Adimplência vs inadimplência (+ por estado, no espaço que sobrava embaixo) */}
       <Secao titulo="Adimplência (geral e por estado)" className="flex flex-col gap-4">
         <div>

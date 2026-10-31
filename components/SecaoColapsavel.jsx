@@ -2,6 +2,7 @@
 
 import { Children, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { AJUDA_RELATORIOS } from "@/lib/relatoriosAjuda";
 
 // Seção de relatório em formato de "quadrado": mostra o nome e uma miniatura do gráfico/tabela; clicar abre tudo
 // num modal com zoom rápido. `aberta` mantém a seção inline (usado no Resumo). O pai precisa ser flex-wrap.
@@ -28,6 +29,7 @@ export default function Secao({ aberta = false, titulo = "", className = "", chi
 
   if (aberta) return <section {...resto} className={className}>{children}</section>;
 
+  const ajuda = AJUDA_RELATORIOS[titulo]; // [o que mostra, exemplo]
   const partes = Children.toArray(children);
   const corpo = partes.length > 1 ? partes.slice(1) : partes; // 1º filho = cabeçalho (o nome já vai no quadrado)
 
@@ -52,6 +54,12 @@ export default function Secao({ aberta = false, titulo = "", className = "", chi
           </div>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white/90 to-transparent" />
         </div>
+        {ajuda && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[50px] z-10 flex flex-col justify-center gap-1.5 border-t border-cyan-400/40 bg-slate-900/95 px-3 py-2 text-[11px] leading-snug text-slate-200 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <p><span className="font-bold text-cyan-300">O que mostra: </span>{ajuda[0]}</p>
+            <p><span className="font-bold text-emerald-300">Exemplo: </span>{ajuda[1]}</p>
+          </div>
+        )}
       </div>
 
       {open && typeof document !== "undefined" && createPortal(
@@ -72,6 +80,11 @@ export default function Secao({ aberta = false, titulo = "", className = "", chi
               </span>
               <button type="button" onClick={() => setOpen(false)} className="rounded-md px-2 text-xl leading-none text-slate-400 hover:bg-slate-800 hover:text-white" title="Fechar (Esc)">×</button>
             </div>
+            {ajuda && (
+              <p className="shrink-0 border-b border-slate-200 bg-cyan-50 px-4 py-2 text-[11px] leading-snug text-slate-600">
+                <b className="text-cyan-700">O que mostra:</b> {ajuda[0]} <b className="ml-2 text-emerald-700">Exemplo:</b> {ajuda[1]}
+              </p>
+            )}
             <section {...resto} className={`${className} min-h-0 flex-1 overflow-y-auto thin-scroll p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-5`}>
               {children}
             </section>
