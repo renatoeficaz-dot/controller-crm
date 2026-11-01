@@ -706,6 +706,11 @@ model Config {
   metaPctRecebimentoMinima Float @default(40)
   metaPctRecebimentoMedia  Float @default(55)
   metaPctRecebimento       Float @default(70)
+  // Meta diária de LIBERAÇÃO de capital: % do capital que volta no dia (parte de capital das parcelas que vencem). 100% mantém
+  // a operação do mesmo tamanho; acima de 100% ela cresce.
+  metaPctLiberacaoMinima   Float @default(80)
+  metaPctLiberacaoMedia    Float @default(100)
+  metaPctLiberacao         Float @default(110)
   // Meta diária de vendas em R$ liberado (complementa a meta por quantidade:
   // 3 empréstimos de 300 e 3 de 900 contam igual na quantidade, mas não no
   // dinheiro que saiu). 0 = meta de valor desligada.

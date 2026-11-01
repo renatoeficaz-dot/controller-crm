@@ -42,6 +42,7 @@ export async function GET(req) {
   const comMeta = serie.filter((d) => d.temMeta && d.diaUtil);
   const metaVendas = comMeta.reduce((s, d) => s + (d.metaVendasDia || 0), 0);
   const metaReceb = comMeta.reduce((s, d) => s + (d.metaRecebimentosDia || 0), 0);
+  const metaLib = serie.filter((d) => d.diaUtil).reduce((s, d) => s + (d.metaLiberacaoDia || 0), 0);
   return NextResponse.json({
     de, ate, dias: serie.length,
     vendas: somar("vendas"),
@@ -51,6 +52,9 @@ export async function GET(req) {
     valorRecebido: r2(somar("valorRecebido")),
     valorRecuperado: r2(somar("valorRecuperado")),
     metaVendas,
+    liberado: r2(somar("liberado")),
+    metaLiberacao: r2(metaLib),
+    pctLiberacao: metaLib > 0 ? Math.round((somar("liberado") / metaLib) * 100) : null,
     metaRecebimentos: metaReceb,
     pctVendas: metaVendas > 0 ? Math.round((somar("vendas") / metaVendas) * 100) : null,
     pctRecebimentos: metaReceb > 0 ? Math.round((somar("recebimentos") / metaReceb) * 100) : null,

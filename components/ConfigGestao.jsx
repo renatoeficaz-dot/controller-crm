@@ -425,7 +425,7 @@ export function ComissaoConfig() {
                   {acertoPrevia.detalhe.map((d) => (
                     <li key={d.dia} className="flex justify-between py-0.5">
                       <span>
-                        {d.dia.slice(8, 10)}/{d.dia.slice(5, 7)} · {acertoPrevia.tipoMeta === "venda" ? `${d.recebimentos} venda(s)` : `R$ ${Number(d.recebimentos || 0).toFixed(2).replace(".", ",")} receb.`}
+                        {d.dia.slice(8, 10)}/{d.dia.slice(5, 7)} · {acertoPrevia.tipoMeta === "venda" ? `R$ ${Number(d.recebimentos || 0).toFixed(2).replace(".", ",")} lib.` : `R$ ${Number(d.recebimentos || 0).toFixed(2).replace(".", ",")} receb.`}
                         {d.semMeta ? " (sem meta registrada)" : d.faixa ? ` · ${d.faixa}` : " · não bateu"}
                       </span>
                       <span className={d.bonus ? "text-emerald-600 font-medium" : "text-slate-400"}>

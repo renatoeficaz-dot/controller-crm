@@ -13,6 +13,7 @@ function agregado(serie) {
     dias: serie.length,
     vendas: somar("vendas"),
     valorVendido: r2(somar("valorVendido")),
+    liberado: r2(somar("liberado")),
     baixas: somar("baixas"),
     recebimentos: somar("recebimentos"),
     valorRecebido: r2(somar("valorRecebido")),

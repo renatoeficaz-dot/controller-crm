@@ -233,7 +233,7 @@ function EquipesConfig() {
             </button>
             {abertaId === eq.id && (
               <div className="px-3 pb-3 space-y-3 border-t border-slate-100 pt-3">
-                <div>
+                <div hidden>
                   <p className="text-xs text-slate-500 mb-1.5">Meta de vendas do dia (vazio = meta global)</p>
                   <div className="grid grid-cols-3 gap-2">
                     <input type="number" min={0} placeholder="Mínima" value={form.metaVendasMinima} onChange={(e) => setForm((f) => ({ ...f, metaVendasMinima: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />

@@ -113,11 +113,11 @@ function nivelDoDia(d, metrica) {
   if (!d.diaUtil) return "folga";
   if (!d.temMeta) return "sem";
   if (metrica === "vendas") {
-    if (d.metaVendasDia == null) return "sem";
-    if (d.vendas >= d.metaVendasDia) return "meta";
-    if (d.vendas >= d.metaVendasMedia) return "media";
-    if (d.vendas >= d.metaVendasMinima) return "minima";
-    return d.vendas > 0 ? "abaixo" : "zero";
+    if (d.metaLiberacaoDia == null) return "sem";
+    if (d.liberado >= d.metaLiberacaoDia) return "meta";
+    if (d.liberado >= d.metaLiberacaoMedia) return "media";
+    if (d.liberado >= d.metaLiberacaoMinima) return "minima";
+    return d.liberado > 0 ? "abaixo" : "zero";
   }
   if (d.metaRecebimentosDia == null) return "sem";
   if (d.recebimentos >= d.metaRecebimentosDia) return "meta";
@@ -143,7 +143,7 @@ export function CalendarioMes({ serie, diaAtual, onDia }) {
         <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
           {[
             { key: "recebimentos", label: "Recebimento" },
-            { key: "vendas", label: "Vendas" },
+            { key: "vendas", label: "Liberação" },
           ].map((x) => (
             <button
               key={x.key}
@@ -166,10 +166,10 @@ export function CalendarioMes({ serie, diaAtual, onDia }) {
         {serie.map((d) => {
           const nv = nivelDoDia(d, metrica);
           const atual = d.dia === diaAtual;
-          const fmtV = (v) => (metrica === "vendas" ? v : "R$ " + Number(v || 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 }));
-          const valor = metrica === "vendas" ? d.vendas : d.recebimentos;
-          const meta = metrica === "vendas" ? d.metaVendasDia : d.metaRecebimentosDia;
-          const minima = metrica === "vendas" ? d.metaVendasMinima : d.metaRecebimentosMinima;
+          const fmtV = (v) => "R$ " + Number(v || 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+          const valor = metrica === "vendas" ? d.liberado : d.recebimentos;
+          const meta = metrica === "vendas" ? d.metaLiberacaoDia : d.metaRecebimentosDia;
+          const minima = metrica === "vendas" ? d.metaLiberacaoMinima : d.metaRecebimentosMinima;
           const NOME_NIVEL = { meta: "meta cheia batida", media: "bateu a média", minima: "bateu só a mínima", abaixo: "abaixo da mínima", zero: "zerado (abaixo da mínima)" };
           return (
             <button
@@ -189,7 +189,7 @@ export function CalendarioMes({ serie, diaAtual, onDia }) {
             >
               <span className="flex flex-col items-center leading-tight">
                 <span>{diaDoMes(d.dia)}</span>
-                {nv !== "folga" && nv !== "sem" && <span className="text-[8px] font-normal opacity-90">{metrica === "vendas" ? `${valor}/${minima}` : `${Math.round(valor)}/${Math.round(minima)}`}</span>}
+                {nv !== "folga" && nv !== "sem" && <span className="text-[8px] font-normal opacity-90">{`${Math.round(valor)}/${Math.round(minima)}`}</span>}
               </span>
             </button>
           );

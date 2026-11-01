@@ -184,7 +184,7 @@ function ComparativoPeriodos({ usuario }) {
 
   const LINHAS = [
     ["Vendas", "vendas", (v) => v],
-    ["Capital liberado", "valorVendido", money],
+    ["Capital liberado (novo + renovação)", "liberado", money],
     ["Baixas de parcela", "baixas", (v) => v],
     ["Valor recebido", "valorRecebido", money],
     ["Recuperado de atrasados", "valorRecuperado", money],
@@ -275,8 +275,8 @@ function PainelPeriodo({ de, ate, usuario, equipe, onDia }) {
   if (erro) return <div className="p-4 text-sm text-red-500">{erro}</div>;
   if (!d) return <div className="p-4 text-sm text-slate-400">Carregando período…</div>;
   const cards = [
-    ["Vendas", d.vendas, d.metaVendas ? `meta ${d.metaVendas} · ${d.pctVendas}%` : null],
-    ["Capital liberado", money(d.valorVendido), null],
+    ["Vendas novas", d.vendas, null],
+    ["Capital liberado", money(d.liberado), d.metaLiberacao ? `meta ${money(d.metaLiberacao)} · ${d.pctLiberacao}%` : null],
     ["Baixas de parcela", d.baixas, null],
     ["Valor recebido", money(d.valorRecebido), d.metaRecebimentos ? `meta de recebimento ${money(d.metaRecebimentos)} · ${d.pctRecebimentos}%` : null],
     ["Recuperado de atrasados", money(d.valorRecuperado), null],
@@ -532,18 +532,27 @@ export default function MetasView() {
           className="text-left bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 hover:border-emerald-300 transition-colors"
         >
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-semibold text-slate-700">Vendas {ehHoje ? "hoje" : "no dia"}</p>
-            <p className="text-sm text-slate-500">{r.vendasHoje} / {r.metaVendasDia}</p>
+            <p className="text-sm font-semibold text-slate-700">Liberação de capital ({r.metaPctLiberacao}%)</p>
+            <div className="text-right">
+              <p className="text-sm text-slate-500">{money(r.liberadoHoje)} / {money(r.metaLiberacaoDia)}</p>
+              <p className="text-[11px] text-slate-400">
+                {r.capitalVoltaDia > 0 ? `${Math.round(((r.liberadoHoje || 0) / r.capitalVoltaDia) * 100)}% dos ${money(r.capitalVoltaDia)} que voltam · ` : ""}{r.vendasHoje} venda{r.vendasHoje === 1 ? "" : "s"} nova{r.vendasHoje === 1 ? "" : "s"}
+              </p>
+            </div>
           </div>
           <NivelBar
-            atual={r.vendasHoje}
-            minima={r.metaVendasMinima}
-            media={r.metaVendasMedia}
-            meta={r.metaVendasDia}
-            nivel={r.niveis?.vendas}
-            unidade="venda"
+            atual={r.liberadoHoje}
+            minima={r.metaLiberacaoMinima}
+            media={r.metaLiberacaoMedia}
+            meta={r.metaLiberacaoDia}
+            nivel={r.niveis?.liberacao}
+            fmt={money}
           />
-          <p className="text-[11px] text-emerald-600 mt-2">Clique para ver as vendas fechadas →</p>
+          <p className="text-[11px] text-slate-400 mt-2">
+            100% = liberar o <strong>capital que volta</strong> no dia (parte do que vence sem os honorários): a operação se mantém do mesmo tamanho.
+            Acima de 100% ela cresce — o ciclo seguinte recebe mais.
+          </p>
+          <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver as vendas fechadas →</p>
         </button>
 
         <button
@@ -758,7 +767,7 @@ export default function MetasView() {
           </p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <BarraMes label="Vendas" atual={mes.vendas} meta={mes.metaVendas} />
+          <BarraMes label="Liberação de capital" atual={mes.liberado} meta={mes.metaLiberacao} fmt={money} />
           <BarraMes label="Recebimento (sem juros)" atual={mes.recebimentos} meta={mes.metaRecebimentos} fmt={money} />
           <BarraMes label="Recuperado de atrasados" atual={mes.valorRecuperado} meta={mes.metaRecuperacao} fmt={money} />
           <div>
@@ -781,8 +790,8 @@ export default function MetasView() {
               onClick={() => baixarCsv("historico-metas", [
                 { label: "Dia", chave: "dia" },
                 { label: "Vendas", chave: "vendas" },
-                { label: "Meta vendas", chave: "metaVendasDia" },
-                { label: "Capital liberado", valor: (d) => numeroCsv(d.valorVendido) },
+                { label: "Meta de liberação (R$)", valor: (d) => numeroCsv(d.metaLiberacaoDia) },
+                { label: "Capital liberado", valor: (d) => numeroCsv(d.liberado) },
                 { label: "Baixas de parcela", chave: "baixas" },
                 { label: "Meta de recebimento (R$)", valor: (d) => numeroCsv(d.metaRecebimentosDia) },
                 { label: "Valor recebido", valor: (d) => numeroCsv(d.valorRecebido) },

@@ -305,8 +305,6 @@ export default function Configuracoes() {
             {tab === "metas" && (
               <div className="space-y-4 max-w-md">
                 <MetasConfig />
-                <MetaDiaSemanaConfig />
-                <MetaVendasDataConfig />
               </div>
             )}
             {tab === "comissao" && <ComissaoConfig />}
@@ -928,7 +926,7 @@ function Usuarios() {
                     </button>
                   </label>
 
-                  <div className="border border-slate-200 rounded-lg p-2.5">
+                  <div hidden className="border border-slate-200 rounded-lg p-2.5">
                     <span className="text-xs text-slate-600">Meta de vendas própria</span>
                     <p className="text-[11px] text-slate-400 mb-1.5">
                       Deixe em branco pra usar a meta global. Os 3 níveis precisam estar preenchidos pra valer.
@@ -2867,9 +2865,9 @@ function AlteracoesLog() {
 
 /* ---------------- Tags / Etiquetas + regras de auto-tag ---------------- */
 function MetasConfig() {
-  const [vMinima, setVMinima] = useState(2);
-  const [vMedia, setVMedia] = useState(3);
-  const [vMeta, setVMeta] = useState(5);
+  const [vMinima, setVMinima] = useState(80);
+  const [vMedia, setVMedia] = useState(100);
+  const [vMeta, setVMeta] = useState(110);
   const [pMinima, setPMinima] = useState(40);
   const [pMedia, setPMedia] = useState(55);
   const [pMeta, setPMeta] = useState(70);
@@ -2887,9 +2885,9 @@ function MetasConfig() {
 
   useEffect(() => {
     fetch("/api/config").then((r) => r.json()).then((c) => {
-      setVMinima(c?.metaVendasMinima ?? 2);
-      setVMedia(c?.metaVendasMedia ?? 3);
-      setVMeta(c?.metaVendasDia ?? 5);
+      setVMinima(c?.metaPctLiberacaoMinima ?? 80);
+      setVMedia(c?.metaPctLiberacaoMedia ?? 100);
+      setVMeta(c?.metaPctLiberacao ?? 110);
       setPMinima(c?.metaPctRecebimentoMinima ?? 40);
       setPMedia(c?.metaPctRecebimentoMedia ?? 55);
       setPMeta(c?.metaPctRecebimento ?? 70);
@@ -2911,9 +2909,9 @@ function MetasConfig() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        metaVendasMinima: vMinima,
-        metaVendasMedia: vMedia,
-        metaVendasDia: vMeta,
+        metaPctLiberacaoMinima: vMinima,
+        metaPctLiberacaoMedia: vMedia,
+        metaPctLiberacao: vMeta,
         metaPctRecebimentoMinima: pMinima,
         metaPctRecebimentoMedia: pMedia,
         metaPctRecebimento: pMeta,
@@ -2937,35 +2935,38 @@ function MetasConfig() {
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-4">
         <SectionHeader
           icon="meta"
-          title="Meta diária de vendas"
-          subtitle="Quantos leads devem cair na etapa 'Recebimento' (empréstimo liberado) no dia. 3 níveis: mínima, média e meta cheia."
+          title="Meta diária de liberação"
+          subtitle="Regra: X% do capital que volta no dia (parte de capital das parcelas que vencem). 100% = liberar o que voltou, a operação se mantém do mesmo tamanho; 110% = ela cresce e o ciclo seguinte recebe mais. 3 níveis: mínima, média e meta cheia."
         />
         <div className="grid grid-cols-3 gap-3">
           <label className="block">
-            <span className="text-xs text-red-500">Mínima</span>
+            <span className="text-xs text-red-500">Mínima (%)</span>
             <input
               type="number"
               min={0}
+              max={1000}
               value={vMinima}
               onChange={(e) => setVMinima(e.target.value)}
               className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
             />
           </label>
           <label className="block">
-            <span className="text-xs text-amber-500">Média</span>
+            <span className="text-xs text-amber-500">Média (%)</span>
             <input
               type="number"
               min={0}
+              max={1000}
               value={vMedia}
               onChange={(e) => setVMedia(e.target.value)}
               className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
             />
           </label>
           <label className="block">
-            <span className="text-xs text-emerald-600">Meta</span>
+            <span className="text-xs text-emerald-600">Meta (%)</span>
             <input
               type="number"
               min={0}
+              max={1000}
               value={vMeta}
               onChange={(e) => setVMeta(e.target.value)}
               className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
@@ -3130,205 +3131,6 @@ function MetasConfig() {
         {saved ? "Salvo ✓" : "Salvar"}
       </button>
     </form>
-  );
-}
-
-/* ---------------- 118. Meta diferente por dia da semana ---------------- */
-const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-function MetaDiaSemanaConfig() {
-  const [linhas, setLinhas] = useState({});
-  const [abertoDia, setAbertoDia] = useState(null);
-  const [salvando, setSalvando] = useState(null);
-
-  const load = useCallback(() => {
-    fetch("/api/metas-dia-semana").then((r) => r.json()).then((rows) => {
-      const mapa = {};
-      for (const r of Array.isArray(rows) ? rows : []) mapa[r.diaSemana] = r;
-      setLinhas(mapa);
-    }).catch(() => {});
-  }, []);
-  useEffect(load, [load]);
-
-  function campo(dia, key) {
-    const v = linhas[dia]?.[key];
-    return v == null ? "" : v;
-  }
-  function setCampo(dia, key, valor) {
-    setLinhas((l) => ({ ...l, [dia]: { ...(l[dia] || { diaSemana: dia }), [key]: valor } }));
-  }
-
-  async function salvar(dia) {
-    setSalvando(dia);
-    const l = linhas[dia] || { diaSemana: dia };
-    await fetch("/api/metas-dia-semana", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ diaSemana: dia, ...l }),
-    });
-    setSalvando(null);
-    load();
-  }
-
-  const CAMPOS = [
-    { key: "metaVendasMinima", label: "Vendas mín." },
-    { key: "metaVendasMedia", label: "Vendas média" },
-    { key: "metaVendasDia", label: "Vendas meta" },
-    { key: "metaPctRecebimentoMinima", label: "Receb. mín. %" },
-    { key: "metaPctRecebimentoMedia", label: "Receb. média %" },
-    { key: "metaPctRecebimento", label: "Receb. meta %" },
-  ];
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-2">
-      <SectionHeader icon="calendario" title="Meta por dia da semana" subtitle='Ex.: sábado costuma render menos — dá pra colocar uma meta menor só pra ele. Dias sem meta própria usam a meta global de cima.' />
-      {DIAS_SEMANA.map((nome, dia) => (
-        <div key={dia} className="border border-slate-100 rounded-xl">
-          <button type="button" onClick={() => setAbertoDia(abertoDia === dia ? null : dia)} className="w-full flex items-center justify-between px-3 py-2 text-left">
-            <span className="text-sm text-slate-700">{nome}</span>
-            <span className="text-[11px] text-slate-400">{linhas[dia] ? "meta própria" : "meta global"}</span>
-          </button>
-          {abertoDia === dia && (
-            <div className="px-3 pb-3 space-y-2 border-t border-slate-100 pt-2">
-              <div className="grid grid-cols-3 gap-2">
-                {CAMPOS.map((c) => (
-                  <label key={c.key} className="block">
-                    <span className="text-[10px] text-slate-400">{c.label}</span>
-                    <input
-                      type="number" min={0}
-                      value={campo(dia, c.key)}
-                      onChange={(e) => setCampo(dia, c.key, e.target.value)}
-                      className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
-                    />
-                  </label>
-                ))}
-              </div>
-              <button type="button" disabled={salvando === dia} onClick={() => salvar(dia)} className="text-xs bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600 disabled:opacity-50">
-                {salvando === dia ? "Salvando…" : "Salvar"}
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Meta de vendas por DIA ESPECÍFICO do calendário (item novo) — diferente do
-// MetaDiaSemana acima (que repete toda semana), essa é pra planejar uma curva
-// de campanha com meta crescente dia a dia, mês a mês. Agrupado por mês pra
-// não virar uma lista gigante numa coluna só.
-function MetaVendasDataConfig() {
-  const [rows, setRows] = useState([]);
-  const [novoDia, setNovoDia] = useState("");
-  const [novaMeta, setNovaMeta] = useState("");
-  const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState("");
-  const [mesAberto, setMesAberto] = useState(null);
-
-  const load = useCallback(() => {
-    fetch("/api/metas-vendas-data").then((r) => r.json()).then((d) => setRows(Array.isArray(d) ? d : [])).catch(() => {});
-  }, []);
-  useEffect(load, [load]);
-
-  async function adicionar() {
-    if (!novoDia || novaMeta === "") return;
-    setSalvando(true);
-    setErro("");
-    const res = await fetch("/api/metas-vendas-data", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: novoDia, metaVendasDia: novaMeta }),
-    });
-    setSalvando(false);
-    if (!res.ok) { setErro((await res.json().catch(() => ({}))).error || "Erro ao salvar."); return; }
-    setNovoDia("");
-    setNovaMeta("");
-    load();
-  }
-
-  async function editarMeta(row, valor) {
-    if (valor === "" || Number(valor) === row.metaVendasDia) return;
-    await fetch("/api/metas-vendas-data", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: row.data.slice(0, 10), metaVendasDia: valor }),
-    });
-    load();
-  }
-
-  async function remover(id) {
-    await fetch(`/api/metas-vendas-data/${id}`, { method: "DELETE" });
-    load();
-  }
-
-  // Agrupa por "YYYY-MM" pra render em seções colapsáveis por mês.
-  const porMes = new Map();
-  for (const r of rows) {
-    const chave = r.data.slice(0, 7);
-    if (!porMes.has(chave)) porMes.set(chave, []);
-    porMes.get(chave).push(r);
-  }
-  const meses = [...porMes.keys()].sort();
-
-  function labelMes(chave) {
-    const [ano, mes] = chave.split("-").map(Number);
-    return new Date(Date.UTC(ano, mes - 1, 1)).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
-  }
-  function labelDia(iso) {
-    const d = new Date(iso.slice(0, 10) + "T00:00:00.000Z");
-    return { data: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" }), diaSemana: DIAS_SEMANA[d.getUTCDay()] };
-  }
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
-      <SectionHeader icon="calendario" title="Meta de vendas por dia (calendário)" subtitle="Pra planejar uma curva de campanha com meta crescente dia a dia — tem prioridade sobre a meta do dia da semana e a meta global nesse dia exato." />
-
-      <div className="flex items-end gap-2 border border-slate-100 rounded-xl p-2.5">
-        <label className="block flex-1">
-          <span className="text-[10px] text-slate-400">Dia</span>
-          <input type="date" value={novoDia} onChange={(e) => setNovoDia(e.target.value)} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400" />
-        </label>
-        <label className="block w-24">
-          <span className="text-[10px] text-slate-400">Meta</span>
-          <input type="number" min={0} value={novaMeta} onChange={(e) => setNovaMeta(e.target.value)} className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400" />
-        </label>
-        <button type="button" disabled={salvando} onClick={adicionar} className="shrink-0 bg-emerald-500 text-white text-xs rounded-lg px-3 py-2 hover:bg-emerald-600 disabled:opacity-50">
-          {salvando ? "Salvando…" : "+ Adicionar"}
-        </button>
-      </div>
-      {erro && <p className="text-xs text-red-500">{erro}</p>}
-
-      {meses.length === 0 && <p className="text-xs text-slate-400">Nenhum dia com meta própria cadastrada ainda.</p>}
-
-      {meses.map((chave) => (
-        <div key={chave} className="border border-slate-100 rounded-xl">
-          <button type="button" onClick={() => setMesAberto(mesAberto === chave ? null : chave)} className="w-full flex items-center justify-between px-3 py-2 text-left capitalize">
-            <span className="text-sm text-slate-700">{labelMes(chave)}</span>
-            <span className="text-[11px] text-slate-400">{porMes.get(chave).length} dia(s)</span>
-          </button>
-          {mesAberto === chave && (
-            <div className="px-3 pb-3 space-y-1 border-t border-slate-100 pt-2">
-              {porMes.get(chave).map((r) => {
-                const { data, diaSemana } = labelDia(r.data);
-                return (
-                  <div key={r.id} className="flex items-center gap-2 text-xs">
-                    <span className="text-slate-500 w-24 shrink-0">{data} · {diaSemana.slice(0, 3)}</span>
-                    <input
-                      type="number" min={0}
-                      defaultValue={r.metaVendasDia}
-                      onBlur={(e) => editarMeta(r, e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
-                      className="w-20 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-emerald-400"
-                    />
-                    <button type="button" onClick={() => remover(r.id)} className="text-red-400 hover:text-red-600 ml-auto shrink-0">Excluir</button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
   );
 }
 

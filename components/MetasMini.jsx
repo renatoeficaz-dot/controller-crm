@@ -49,7 +49,7 @@ export default function MetasMini() {
   // Os níveis vêm prontos da API — recalcular aqui duplicaria a regra, que foi
   // justamente como esta pill já ficou dessincronizada da tela de Metas.
   const niveis = resumo.niveis || {};
-  const vendasPct = pctDaMeta(resumo.vendasHoje, resumo.metaVendasDia);
+  const vendasPct = pctDaMeta(resumo.liberadoHoje, resumo.metaLiberacaoDia);
   const recebPct = pctDaMeta(resumo.recebimentosHoje, resumo.metaRecebimentosDia);
   const renovPct = pctDaMeta(resumo.renovacoesHoje, resumo.metaRenovacaoDia);
 
@@ -61,8 +61,8 @@ export default function MetasMini() {
         title="Ver metas do dia"
       >
         <span className="text-slate-400">
-          Vendas{" "}
-          <strong className={NIVEL_COR[niveis.vendas] || "text-slate-400"}>
+          Liberação{" "}
+          <strong className={NIVEL_COR[niveis.liberacao] || "text-slate-400"}>
             {vendasPct == null ? "—" : `${vendasPct}%`}
           </strong>
         </span>

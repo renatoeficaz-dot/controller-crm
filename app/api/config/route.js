@@ -155,6 +155,9 @@ export async function PATCH(req) {
   if ("horarioComercialFim" in body) data.horarioComercialFim = texto(body.horarioComercialFim) || null;
   if ("metaPctRecebimentoMinima" in body) data.metaPctRecebimentoMinima = Math.min(1000, Math.max(0, Number(body.metaPctRecebimentoMinima) || 0));
   if ("metaPctRecebimentoMedia" in body) data.metaPctRecebimentoMedia = Math.min(1000, Math.max(0, Number(body.metaPctRecebimentoMedia) || 0));
+  for (const k of ["metaPctLiberacaoMinima", "metaPctLiberacaoMedia", "metaPctLiberacao"]) {
+    if (k in body) data[k] = Math.min(1000, Math.max(0, Number(body[k]) || 0));
+  }
   if ("metaPctRecebimento" in body) data.metaPctRecebimento = Math.min(1000, Math.max(0, Number(body.metaPctRecebimento) || 0));
   if ("metaVendasMinima" in body) data.metaVendasMinima = inteiro(body.metaVendasMinima);
   if ("metaVendasMedia" in body) data.metaVendasMedia = inteiro(body.metaVendasMedia);
