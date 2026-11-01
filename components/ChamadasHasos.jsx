@@ -1,0 +1,112 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { obterDiscador, discadorDe } from "@/lib/hasosDiscador";
+
+// Receptor global das ligações RECEBIDAS pela Hasos (fica montado no app inteiro, ver app/layout.js). O discador headless só
+// toca — sem esta tela ninguém vê quem está ligando nem consegue atender ou recusar. Conecta os números liberados para o usuário
+// e mostra: quem liga (nome do lead pelo telefone), por qual número, e os botões Atender / Recusar / Desligar.
+const soDigitos = (v) => String(v || "").replace(/\D/g, "");
+const mascara = (p) => {
+  const d = soDigitos(p).replace(/^55/, "");
+  return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}` : p || "";
+};
+const idDaOferta = (o) => o?.id ?? o?.offerId ?? o?.callId ?? null;
+const telDaOferta = (o) => {
+  const bruto = o?.peer?.phone ?? o?.peer?.id ?? o?.peerPhone ?? o?.phone ?? o?.from ?? o?.caller ?? "";
+  return soDigitos(String(bruto).split("@")[0]);
+};
+
+export default function ChamadasHasos() {
+  const [oferta, setOferta] = useState(null); // { id, instId, phone, nome, de, estado: "tocando" | "conversando" | "encerrada", desde }
+  const [seg, setSeg] = useState(0);
+  const ref = useRef(null);
+  const instRef = useRef({}); // instId -> { nome, phone }
+  ref.current = oferta;
+
+  // Conecta (e reconecta de tempos em tempos) os discadores dos números liberados.
+  useEffect(() => {
+    let vivo = true;
+    async function conectar() {
+      const r = await fetch("/api/hasos/instancias", { cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+      if (!vivo || !r?.configurado) return;
+      for (const i of (r.instancias || []).filter((x) => x.status === "CONNECTED")) {
+        instRef.current[i.id] = i;
+        if (!discadorDe(i.id)) await obterDiscador(i).catch(() => {});
+      }
+    }
+    conectar();
+    const t = setInterval(conectar, 3 * 60 * 1000);
+    return () => { vivo = false; clearInterval(t); };
+  }, []);
+
+  useEffect(() => {
+    async function aoEvento(e) {
+      const { ev, payload, instId } = e.detail || {};
+      if (ev === "offer:received") {
+        console.info("[hasos] chamada recebida:", payload);
+        const phone = telDaOferta(payload);
+        const inst = instRef.current[instId];
+        const base = { id: idDaOferta(payload), instId, phone, nome: phone ? mascara(phone) : "Número desconhecido", de: inst ? `${inst.nome || ""} ${inst.phone ? mascara(inst.phone) : ""}`.trim() : "", estado: "tocando" };
+        setOferta(base);
+        if (phone) {
+          const q = await fetch(`/api/hasos/quem?phone=${phone}`, { cache: "no-store" }).then((x) => x.json()).catch(() => null);
+          if (q?.contato) setOferta((o) => (o && o.id === base.id ? { ...o, nome: q.contato.name, contatoId: q.contato.id } : o));
+        }
+      } else if (ev === "call:accepted" && ref.current?.estado === "tocando") {
+        setSeg(0);
+        setOferta((o) => (o ? { ...o, estado: "conversando", desde: Date.now() } : o));
+      } else if (ev === "call:ended" && ref.current) {
+        setOferta((o) => (o ? { ...o, estado: "encerrada" } : o));
+        setTimeout(() => setOferta((o) => (o?.estado === "encerrada" ? null : o)), 3500);
+      }
+    }
+    window.addEventListener("hasos:ev", aoEvento);
+    return () => window.removeEventListener("hasos:ev", aoEvento);
+  }, []);
+
+  // Enquanto toca: se a oferta sumir da lista (quem ligava desistiu), fecha o aviso.
+  useEffect(() => {
+    if (oferta?.estado !== "tocando") return undefined;
+    const t = setInterval(async () => {
+      const d = discadorDe(oferta.instId);
+      if (!d?.call?.getOffers) return;
+      const lista = await Promise.race([d.call.getOffers(), new Promise((r) => setTimeout(() => r(null), 3000))]).catch(() => null);
+      if (Array.isArray(lista) && !lista.some((o) => String(idDaOferta(o)) === String(oferta.id))) {
+        setOferta((o) => (o && o.id === oferta.id && o.estado === "tocando" ? null : o));
+      }
+    }, 2500);
+    return () => clearInterval(t);
+  }, [oferta?.estado, oferta?.id, oferta?.instId]);
+
+  useEffect(() => {
+    if (oferta?.estado !== "conversando") return undefined;
+    const t0 = oferta.desde || Date.now();
+    const t = setInterval(() => setSeg(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [oferta?.estado, oferta?.desde]);
+
+  if (!oferta) return null;
+  const d = discadorDe(oferta.instId);
+  const tempo = `${String(Math.floor(seg / 60)).padStart(2, "0")}:${String(seg % 60).padStart(2, "0")}`;
+
+  return (
+    <div className="fixed top-4 right-4 z-[80] w-72 rounded-xl border-2 border-emerald-400 bg-white shadow-2xl p-3 text-sm">
+      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">
+        {oferta.estado === "tocando" ? "Chamada recebida" : oferta.estado === "conversando" ? "Em chamada" : "Chamada encerrada"}
+      </p>
+      <p className="font-semibold text-slate-800 truncate">{oferta.nome}</p>
+      <p className="text-[11px] text-slate-400 truncate">{oferta.phone ? mascara(oferta.phone) : ""}{oferta.de ? ` · para ${oferta.de}` : ""}</p>
+      {oferta.estado === "conversando" && <p className="mt-1 text-xs font-medium text-emerald-600">{tempo}</p>}
+      {oferta.estado === "tocando" && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button type="button" onClick={async () => { try { await d?.call?.accept(oferta.id); } catch {} }} className="rounded-lg bg-emerald-500 text-white text-xs font-medium py-1.5 hover:bg-emerald-600">Atender</button>
+          <button type="button" onClick={async () => { try { await d?.call?.reject(oferta.id); } catch {} setOferta(null); }} className="rounded-lg bg-red-500 text-white text-xs font-medium py-1.5 hover:bg-red-600">Recusar</button>
+        </div>
+      )}
+      {oferta.estado === "conversando" && (
+        <button type="button" onClick={async () => { try { await d?.call?.hangup(); } catch {} setOferta(null); }} className="mt-2 w-full rounded-lg bg-red-500 text-white text-xs font-medium py-1.5 hover:bg-red-600">Desligar</button>
+      )}
+    </div>
+  );
+}

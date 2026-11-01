@@ -8,6 +8,7 @@ import UsoAtivoTracker from "@/components/UsoAtivoTracker";
 import TaskReminderWatcher from "@/components/TaskReminderWatcher";
 import ChatInternoWatcher from "@/components/ChatInternoWatcher";
 import ChamadaWatcher from "@/components/ChamadaWatcher";
+import ChamadasHasos from "@/components/ChamadasHasos";
 import TravaCalculadora from "@/components/TravaCalculadora";
 
 const geistSans = Geist({
@@ -73,6 +74,7 @@ export default function RootLayout({ children }) {
           <TaskReminderWatcher />
           <ChatInternoWatcher />
           <ChamadaWatcher />
+          <ChamadasHasos />
         </TravaCalculadora>
       </body>
     </html>

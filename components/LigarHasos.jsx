@@ -2,31 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Icone from "@/components/Icones";
+import { obterDiscador, esquecerDiscador } from "@/lib/hasosDiscador";
 
 // Botão "Ligar" do Chat pela Hasos (ligação pelo WhatsApp direto no navegador, discador headless).
-// Fluxo: lista os números da conta → (com 2+ números conectados, pergunta por qual ligar) → pega o token do discador desse número
-// no servidor → carrega o embed.js da Hasos → HasosPhone.create(...).call.start(telefone). A chave de API nunca chega ao navegador.
-// Sem chave configurada, chama `fallback` (Wavoip / wa.me).
-const EMBED = "https://phone.hasos.com.br/embed.js";
-const discadores = {}; // instanceId -> HasosPhone (reaproveita o discador do número)
-let carregandoEmbed = null;
-let emEvento = () => {}; // quem está ouvindo os eventos do discador (sempre o componente montado mais recente)
-
-function carregarEmbed() {
-  if (typeof window === "undefined") return Promise.reject(new Error("sem janela"));
-  if (window.HasosPhone) return Promise.resolve();
-  if (!carregandoEmbed) {
-    carregandoEmbed = new Promise((ok, erro) => {
-      const s = document.createElement("script");
-      s.src = EMBED;
-      s.onload = () => (window.HasosPhone ? ok() : erro(new Error("embed.js carregou sem HasosPhone")));
-      s.onerror = () => { carregandoEmbed = null; erro(new Error("Não foi possível carregar o discador da Hasos.")); };
-      document.head.appendChild(s);
-    });
-  }
-  return carregandoEmbed;
-}
-
+// Fluxo: lista os números liberados e conectados → quadradinhos para escolher por qual número ligar → pega o token do discador
+// desse número no servidor → HasosPhone.create(...).call.start(telefone). A chave de API nunca chega ao navegador.
+// Sem chave configurada, chama `fallback` (Wavoip / wa.me). Chamadas RECEBIDAS ficam em components/ChamadasHasos.jsx.
 const soDigitos = (v) => String(v || "").replace(/\D/g, "");
 const mascara = (p) => {
   const d = soDigitos(p).replace(/^55/, "");
@@ -38,10 +19,30 @@ const gravarSalvo = (v) => { try { localStorage.setItem("hasosInstancia", v); } 
 export default function LigarHasos({ phone, name, fallback, className = "", title = "Ligar pelo WhatsApp" }) {
   const [menu, setMenu] = useState(null); // lista de números conectados para escolher
   const [carregando, setCarregando] = useState(false);
-  const [chamada, setChamada] = useState(null); // { estado, nome, numero, msg, desde }
+  const [chamada, setChamada] = useState(null); // { estado, nome, numero, de, msg, desde }
   const [seg, setSeg] = useState(0);
   const phoneRef = useRef(null);
   const fechaRef = useRef(null);
+  const baseRef = useRef(null); // dados da ligação que ESTE botão iniciou (os eventos de chamadas recebidas não mexem no painel)
+
+  function mostrar(c, fechaEm) {
+    clearTimeout(fechaRef.current);
+    setChamada(c);
+    if (fechaEm) fechaRef.current = setTimeout(() => setChamada(null), fechaEm);
+  }
+
+  useEffect(() => {
+    function aoEvento(e) {
+      const { ev } = e.detail || {};
+      const base = baseRef.current;
+      if (!base) return;
+      if (ev === "call:started") mostrar({ ...base, estado: "chamando" });
+      else if (ev === "call:accepted") { setSeg(0); mostrar({ ...base, estado: "conversando", desde: Date.now() }); }
+      else if (ev === "call:ended") { baseRef.current = null; mostrar({ ...base, estado: "encerrada" }, 4000); }
+    }
+    window.addEventListener("hasos:ev", aoEvento);
+    return () => { window.removeEventListener("hasos:ev", aoEvento); clearTimeout(fechaRef.current); };
+  }, []);
 
   useEffect(() => {
     if (chamada?.estado !== "conversando") return undefined;
@@ -49,13 +50,6 @@ export default function LigarHasos({ phone, name, fallback, className = "", titl
     const id = setInterval(() => setSeg(Math.floor((Date.now() - t0) / 1000)), 1000);
     return () => clearInterval(id);
   }, [chamada?.estado, chamada?.desde]);
-  useEffect(() => () => clearTimeout(fechaRef.current), []);
-
-  function mostrar(c, fechaEm) {
-    clearTimeout(fechaRef.current);
-    setChamada(c);
-    if (fechaEm) fechaRef.current = setTimeout(() => setChamada(null), fechaEm);
-  }
 
   async function clicar() {
     if (carregando || ["preparando", "chamando", "conversando"].includes(chamada?.estado)) return;
@@ -69,7 +63,6 @@ export default function LigarHasos({ phone, name, fallback, className = "", titl
         mostrar({ estado: "erro", msg: (r.instancias || []).length ? "Nenhum número liberado para você está conectado agora. Reconecte em Dispositivos, no painel da Hasos." : "Nenhum número liberado para você ligar. Peça ao administrador (Configurações → Usuários) ou conecte os números na Hasos." }, 8000);
         return;
       }
-      if (!conectados.length) return;
       // Sempre pergunta por qual número ligar (quadradinhos), mesmo com um só conectado.
       setMenu(conectados);
     } finally {
@@ -83,39 +76,33 @@ export default function LigarHasos({ phone, name, fallback, className = "", titl
     let numero = soDigitos(phone);
     if (numero.length === 10 || numero.length === 11) numero = "55" + numero;
     if (numero.length < 12) { mostrar({ estado: "erro", msg: "Telefone inválido." }, 5000); return; }
-    const base = { nome: name || mascara(phone), numero: mascara(phone), de: inst.nome ? `${inst.nome}${inst.phone ? " " + mascara(inst.phone) : ""}` : inst.phone ? mascara(inst.phone) : "" };
+    const base = {
+      nome: name || mascara(phone),
+      numero: mascara(phone),
+      de: inst.nome ? `${inst.nome}${inst.phone ? " " + mascara(inst.phone) : ""}` : inst.phone ? mascara(inst.phone) : "",
+    };
+    baseRef.current = base;
     mostrar({ ...base, estado: "preparando" });
     try {
-      let d = discadores[inst.id];
-      if (!d) {
-        const t = await fetch("/api/hasos/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instanceId: inst.id }) }).then((x) => x.json());
-        if (!t?.token) throw new Error(t?.error || "Não consegui o token do discador.");
-        await carregarEmbed();
-        d = window.HasosPhone.create({ token: t.token, allowedOrigin: window.location.origin });
-        await d.ready();
-        for (const ev of ["call:started", "call:accepted", "call:ended"]) d.on?.(ev, () => emEvento(ev));
-        discadores[inst.id] = d;
-      }
+      const d = await obterDiscador(inst);
       phoneRef.current = d;
-      emEvento = (ev) => {
-        if (ev === "call:started") mostrar({ ...base, estado: "chamando" });
-        else if (ev === "call:accepted") { setSeg(0); mostrar({ ...base, estado: "conversando", desde: Date.now() }); }
-        else if (ev === "call:ended") mostrar({ ...base, estado: "encerrada" }, 4000);
-      };
       mostrar({ ...base, estado: "chamando" });
       // O discador NÃO rejeita quando falha: devolve { call: null, err: { message } } (ex.: "Assine o Pro para ligar.").
       const r = await d.call.start(numero);
       if (r?.err || r?.call === null) {
+        baseRef.current = null;
         mostrar({ ...base, estado: "erro", msg: r?.err?.message || "A Hasos não iniciou a ligação." }, 12000);
       }
     } catch (e) {
-      delete discadores[inst.id];
+      esquecerDiscador(inst.id);
+      baseRef.current = null;
       mostrar({ ...base, estado: "erro", msg: e?.message || "Não foi possível ligar." }, 8000);
     }
   }
 
   async function desligar() {
     try { await phoneRef.current?.call?.hangup(); } catch {}
+    baseRef.current = null;
     mostrar(chamada ? { ...chamada, estado: "encerrada" } : null, 3000);
   }
 
