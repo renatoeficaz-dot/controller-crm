@@ -107,8 +107,12 @@ export default function ChamadasHasos() {
             try {
               const r = await d?.call?.accept(oferta.id);
               console.info("[hasos] atender:", r);
-              if (r?.err) setOferta((o) => (o ? { ...o, erro: r.err.message || "Não foi possível atender." } : o));
-            } catch (e) { setOferta((o) => (o ? { ...o, erro: e?.message || "Não foi possível atender." } : o)); }
+              if (r?.err || r?.call === null) {
+                const e = r?.err || {};
+                const det = e.message || e.code || (Object.keys(e).length ? JSON.stringify(e) : JSON.stringify(r));
+                setOferta((o) => (o ? { ...o, erro: "Não foi possível atender: " + det } : o));
+              }
+            } catch (e) { setOferta((o) => (o ? { ...o, erro: "Não foi possível atender: " + (e?.message || e?.code || String(e)) } : o)); }
           }} className="rounded-lg bg-emerald-500 text-white text-xs font-medium py-1.5 hover:bg-emerald-600">Atender</button>
           <button type="button" onClick={async () => { try { await d?.call?.reject(oferta.id); } catch {} setOferta(null); }} className="rounded-lg bg-red-500 text-white text-xs font-medium py-1.5 hover:bg-red-600">Recusar</button>
         </div>
