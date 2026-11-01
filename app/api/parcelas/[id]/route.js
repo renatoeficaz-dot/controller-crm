@@ -7,6 +7,7 @@ import { podeExecutar } from "@/lib/permissoes";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo, texto } from "@/lib/corpo";
 import { criarTarefaConferirPagamento } from "@/lib/tarefaConferirPagamento";
+import { moverParaPagoSeQuitado } from "@/lib/cicloQuitado";
 
 // Marca uma parcela como paga / pendente.
 // body.amountPago (opcional): valor realmente cobrado — permite ao cobrador
@@ -117,6 +118,8 @@ export async function PATCH(req, { params }) {
   if (!paid) {
     await prisma.especieMovimento.deleteMany({ where: { parcelaId: id, tipo: "recebido" } }).catch(() => {});
   }
+  // Última parcela do ciclo paga → o lead vai sozinho para "Pago".
+  if (paid && !parcelaAtual.paid) await moverParaPagoSeQuitado(parcela.contactId, user?.name);
   // Baixar a parcela conclui a tarefa de cobrança vinculada
   await prisma.task.updateMany({ where: { parcelaId: id }, data: { done: paid } });
 
