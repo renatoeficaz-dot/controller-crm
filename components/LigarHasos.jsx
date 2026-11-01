@@ -66,12 +66,12 @@ export default function LigarHasos({ phone, name, fallback, className = "", titl
       if (r.erro) { mostrar({ estado: "erro", msg: r.erro }, 6000); return; }
       const conectados = (r.instancias || []).filter((i) => i.status === "CONNECTED");
       if (!conectados.length) {
-        mostrar({ estado: "erro", msg: (r.instancias || []).length ? "Nenhum número da Hasos está conectado agora. Reconecte em Dispositivos, no painel da Hasos." : "Nenhum número cadastrado na Hasos ainda. Conecte os números em Dispositivos, no painel da Hasos." }, 8000);
+        mostrar({ estado: "erro", msg: (r.instancias || []).length ? "Nenhum número liberado para você está conectado agora. Reconecte em Dispositivos, no painel da Hasos." : "Nenhum número liberado para você ligar. Peça ao administrador (Configurações → Usuários) ou conecte os números na Hasos." }, 8000);
         return;
       }
-      if (conectados.length === 1) { await iniciar(conectados[0]); return; }
-      const salvo = lerSalvo();
-      setMenu([...conectados].sort((a, b) => (a.id === salvo ? -1 : b.id === salvo ? 1 : 0)));
+      if (!conectados.length) return;
+      // Sempre pergunta por qual número ligar (quadradinhos), mesmo com um só conectado.
+      setMenu(conectados);
     } finally {
       setCarregando(false);
     }
@@ -83,7 +83,7 @@ export default function LigarHasos({ phone, name, fallback, className = "", titl
     let numero = soDigitos(phone);
     if (numero.length === 10 || numero.length === 11) numero = "55" + numero;
     if (numero.length < 12) { mostrar({ estado: "erro", msg: "Telefone inválido." }, 5000); return; }
-    const base = { nome: name || mascara(phone), numero: mascara(phone), de: inst.phone ? mascara(inst.phone) : "" };
+    const base = { nome: name || mascara(phone), numero: mascara(phone), de: inst.nome ? `${inst.nome}${inst.phone ? " " + mascara(inst.phone) : ""}` : inst.phone ? mascara(inst.phone) : "" };
     mostrar({ ...base, estado: "preparando" });
     try {
       let d = discadores[inst.id];
@@ -130,16 +130,30 @@ export default function LigarHasos({ phone, name, fallback, className = "", titl
         </button>
         {menu && (
           <>
-            <span className="fixed inset-0 z-[60]" onClick={() => setMenu(null)} />
-            <span className="absolute right-0 top-full mt-1 z-[61] w-56 rounded-lg border border-slate-200 bg-white shadow-lg py-1">
-              <span className="block px-3 py-1 text-[10px] uppercase tracking-wide text-slate-400">Ligar por qual número?</span>
-              {menu.map((i, idx) => (
-                <button key={i.id} type="button" onClick={() => iniciar(i)} className="block w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-emerald-50">
-                  <span className="font-medium">{i.nome || mascara(i.phone) || i.id}</span>
-                  {i.nome && i.phone && <span className="text-slate-400"> · {mascara(i.phone)}</span>}
-                  {idx === 0 && lerSalvo() === i.id && <span className="ml-1 text-[10px] text-emerald-600">último usado</span>}
-                </button>
-              ))}
+            <span className="fixed inset-0 z-[60] bg-black/20" onClick={() => setMenu(null)} />
+            <span className="fixed z-[61] left-1/2 top-1/3 -translate-x-1/2 w-[min(92vw,26rem)] rounded-2xl border border-slate-200 bg-white shadow-2xl p-4">
+              <span className="block text-sm font-semibold text-slate-800">Ligar para {name || mascara(phone)}</span>
+              <span className="block text-[11px] text-slate-400 mb-3">Por qual número você quer ligar?</span>
+              <span className="grid grid-cols-2 gap-2.5">
+                {menu.map((i) => {
+                  const ultimo = lerSalvo() === i.id;
+                  return (
+                    <button
+                      key={i.id}
+                      type="button"
+                      onClick={() => iniciar(i)}
+                      className={`aspect-[4/3] rounded-xl border-2 p-2.5 text-left flex flex-col justify-between transition-colors hover:border-emerald-500 hover:bg-emerald-50 ${ultimo ? "border-emerald-400 bg-emerald-50/60" : "border-slate-200 bg-white"}`}
+                    >
+                      <span className="flex items-center gap-1.5 text-[10px] text-emerald-600"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> conectado{ultimo ? " · último usado" : ""}</span>
+                      <span>
+                        <span className="block text-sm font-semibold text-slate-800 leading-tight">{i.nome || "Sem nome"}</span>
+                        <span className="block text-[11px] text-slate-500">{i.phone ? mascara(i.phone) : i.id}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </span>
+              <button type="button" onClick={() => setMenu(null)} className="mt-3 w-full text-xs text-slate-400 hover:text-slate-600">Cancelar</button>
             </span>
           </>
         )}

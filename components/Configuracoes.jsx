@@ -523,6 +523,7 @@ const EMPTY_USER = {
   verTodosLeads: false,
   kanbansVisiveis: [],
   numerosVisiveis: [],
+  numerosLigacao: [],
   paginasVisiveis: [],
   // Vazio = usa a meta global de vendas.
   metaVendasMinimaPropria: "",
@@ -596,6 +597,7 @@ function Usuarios() {
       verTodosLeads: !!u.verTodosLeads,
       kanbansVisiveis: (u.kanbansVisiveis || []).map((k) => k.id),
       numerosVisiveis: (u.numerosVisiveis || []).map((n) => n.id),
+      numerosLigacao: (u.numerosLigacao || []).map((n) => n.id),
       paginasVisiveis: (u.paginasVisiveis || "").split(",").map((s) => s.trim()).filter(Boolean),
       metaVendasMinimaPropria: u.metaVendasMinimaPropria ?? "",
       metaVendasMediaPropria: u.metaVendasMediaPropria ?? "",
@@ -977,6 +979,23 @@ function Usuarios() {
                         return (
                           <label key={n.id} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer hover:bg-slate-50">
                             <input type="checkbox" checked={on} onChange={() => toggleArr("numerosVisiveis", n.id)} className="accent-emerald-500 shrink-0" />
+                            <span className="truncate">{n.label}</span>
+                          </label>
+                        );
+                      })}
+                      {numeros.length === 0 && <span className="text-[11px] text-slate-300 col-span-2">Nenhum número cadastrado.</span>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-xs text-slate-400">WhatsApp que pode usar para ligar</span>
+                    <p className="text-[11px] text-slate-300 mb-1.5">Nenhum marcado = pode ligar por todos os números conectados na Hasos. Admin sempre pode todos.</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {numeros.map((n) => {
+                        const on = form.numerosLigacao.includes(n.id);
+                        return (
+                          <label key={n.id} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" checked={on} onChange={() => toggleArr("numerosLigacao", n.id)} className="accent-emerald-500 shrink-0" />
                             <span className="truncate">{n.label}</span>
                           </label>
                         );

@@ -924,6 +924,7 @@ model User {
   verTodosLeads   Boolean          @default(false) // false = só leads onde é responsável
   numeros         WhatsappNumber[] @relation("NumeroResponsavel") // números atribuídos (ownership)
   numerosVisiveis WhatsappNumber[] @relation("NumeroVisibilidade") // WhatsApp cujas mensagens pode ver
+  numerosLigacao  WhatsappNumber[] @relation("NumeroLigacao") // WhatsApp que pode usar para LIGAR (Hasos); vazio = todos os conectados
   kanbansVisiveis Stage[]          @relation("UserKanbans") // colunas do funil que pode ver
   // Páginas do sistema que pode acessar (chaves de lib/paginas.js, separadas por
   // vírgula — ex.: "contatos,chat"). Vazio/null = todas. Não cobre Lançamentos/
@@ -1007,6 +1008,7 @@ model WhatsappNumber {
   user               User?    @relation("NumeroResponsavel", fields: [userId], references: [id], onDelete: SetNull)
   userId             String?
   usuariosVisualizam User[]   @relation("NumeroVisibilidade") // usuários que podem ver as mensagens deste número
+  usuariosLigam      User[]   @relation("NumeroLigacao") // usuários que podem ligar por este número
   agent              IaAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
   agentId            String? // agente de IA que atende neste número (null = IA desligada aqui)
 

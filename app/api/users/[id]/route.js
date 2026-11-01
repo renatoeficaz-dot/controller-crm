@@ -68,6 +68,9 @@ export async function PATCH(req, { params }) {
     if ("numerosVisiveis" in body) {
       data.numerosVisiveis = { set: (body.numerosVisiveis || []).map((nid) => ({ id: nid })) };
     }
+    if ("numerosLigacao" in body) {
+      data.numerosLigacao = { set: (body.numerosLigacao || []).map((nid) => ({ id: nid })) };
+    }
   
     // Meta individual: vazio = null = usa a meta global (não é meta de zero).
     // Sem teto, um valor fora da faixa de 32 bits (Int no schema) não dava erro
@@ -101,6 +104,7 @@ export async function PATCH(req, { params }) {
         suspensoAte: true,
         kanbansVisiveis: { select: { id: true } },
         numerosVisiveis: { select: { id: true } },
+        numerosLigacao: { select: { id: true } },
         metaVendasMinimaPropria: true,
         metaVendasMediaPropria: true,
         metaVendasDiaPropria: true,
@@ -115,7 +119,8 @@ export async function PATCH(req, { params }) {
       ("verTodosLeads" in data && antes?.verTodosLeads !== user.verTodosLeads) ||
       ("paginasVisiveis" in data && antes?.paginasVisiveis !== user.paginasVisiveis) ||
       "kanbansVisiveis" in data ||
-      "numerosVisiveis" in data;
+      "numerosVisiveis" in data ||
+      "numerosLigacao" in data;
     if (mudouPermissao) {
       const session = await getSession();
       registrarAuditoria({
