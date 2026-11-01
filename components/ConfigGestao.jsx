@@ -53,6 +53,9 @@ export function ComissaoConfig() {
   const [comissaoPct, setComissaoPct] = useState(null);       // config de comissão percentual
   const [comissaoPctPrevia, setComissaoPctPrevia] = useState(null);
   const [salvandoComissaoPct, setSalvandoComissaoPct] = useState(false);
+  const [comissaoMetas, setComissaoMetas] = useState(null);   // comissão escalonada por metas (1/2/3% por meta batida)
+  const [comissaoMetasPrevia, setComissaoMetasPrevia] = useState(null);
+  const [salvandoComissaoMetas, setSalvandoComissaoMetas] = useState(false);
   const [metasColab, setMetasColab] = useState({});
   const [salvandoMetrica, setSalvandoMetrica] = useState(null);
 
@@ -172,7 +175,36 @@ export function ComissaoConfig() {
     loadComissaoPct(colabSelecionado);
   }
 
-  useEffect(() => { loadMetasColab(colabSelecionado); loadAcerto(colabSelecionado); loadComissaoPct(colabSelecionado); }, [colabSelecionado]);
+  function loadComissaoMetas(userId) {
+    if (!userId) { setComissaoMetas(null); setComissaoMetasPrevia(null); return; }
+    fetch(`/api/comissao-metas?userId=${userId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setComissaoMetas({
+          desde: d.config ? d.config.desde.slice(0, 10) : "",
+          pctMinima: d.config?.pctMinima ?? 1,
+          pctMedia: d.config?.pctMedia ?? 2,
+          pctMaxima: d.config?.pctMaxima ?? 3,
+          ativo: d.config ? d.config.ativo : false,
+        });
+        setComissaoMetasPrevia(d.previa || null);
+      })
+      .catch(() => {});
+  }
+
+  async function salvarComissaoMetas() {
+    setSalvandoComissaoMetas(true);
+    const res = await fetch("/api/comissao-metas", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: colabSelecionado, ...comissaoMetas }),
+    }).catch(() => null);
+    setSalvandoComissaoMetas(false);
+    if (res && !res.ok) alert((await res.json().catch(() => ({}))).error || "Não foi possível salvar.");
+    loadComissaoMetas(colabSelecionado);
+  }
+
+  useEffect(() => { loadMetasColab(colabSelecionado); loadAcerto(colabSelecionado); loadComissaoPct(colabSelecionado); loadComissaoMetas(colabSelecionado); }, [colabSelecionado]);
 
   function setCampoMetrica(metrica, campo, valor) {
     setMetasColab((p) => ({ ...p, [metrica]: { ...p[metrica], [campo]: valor } }));
@@ -516,6 +548,58 @@ export function ComissaoConfig() {
               className="w-full bg-sky-500 text-white rounded py-1.5 text-xs hover:bg-sky-600 disabled:opacity-50"
             >
               {salvandoComissaoPct ? "Salvando…" : "Salvar comissão percentual"}
+            </button>
+          </div>
+        )}
+
+        {colabSelecionado && comissaoMetas && (
+          <div className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-3 space-y-2 mb-3">
+            <div>
+              <p className="text-sm font-medium text-emerald-800">Comissão por metas do dia</p>
+              <p className="text-[11px] text-slate-500">
+                Cada meta do dia (<strong>recebimento</strong> e <strong>liberação</strong>) que a operação bate rende um % sobre o
+                <strong> recebido do dia</strong>: mínima, média ou máxima. Os dois somam — com 1% / 2% / 3% o máximo é 6%.
+                O Arthur acompanha o quanto ganhou no dia em Metas. O fechamento da semana é sábado às 18:00.
+              </p>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {[["pctMinima", "% mínima"], ["pctMedia", "% média"], ["pctMaxima", "% máxima"]].map(([k, rotulo]) => (
+                <label key={k} className="block">
+                  <span className="text-[11px] text-slate-500">{rotulo}</span>
+                  <input
+                    type="number" min="0" step="0.1"
+                    value={comissaoMetas[k]}
+                    onChange={(e) => setComissaoMetas((a) => ({ ...a, [k]: e.target.value }))}
+                    className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400"
+                  />
+                </label>
+              ))}
+              <label className="block">
+                <span className="text-[11px] text-slate-500">vale a partir de</span>
+                <input
+                  type="date"
+                  value={comissaoMetas.desde}
+                  onChange={(e) => setComissaoMetas((a) => ({ ...a, desde: e.target.value }))}
+                  className="mt-0.5 w-full text-sm border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-400"
+                />
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" checked={!!comissaoMetas.ativo} onChange={(e) => setComissaoMetas((a) => ({ ...a, ativo: e.target.checked }))} />
+              Ativa
+            </label>
+            {comissaoMetasPrevia && (
+              <p className="text-[11px] text-slate-600">
+                Hoje: {comissaoMetasPrevia.hoje ? `R$ ${comissaoMetasPrevia.hoje.comissao.toFixed(2)} (${comissaoMetasPrevia.hoje.pctTotal}%)` : "—"} · semana: R$ {comissaoMetasPrevia.totalSemana.toFixed(2)}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={salvarComissaoMetas}
+              disabled={salvandoComissaoMetas || !comissaoMetas.desde}
+              className="w-full bg-emerald-600 text-white rounded py-1.5 text-xs hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {salvandoComissaoMetas ? "Salvando…" : "Salvar comissão por metas"}
             </button>
           </div>
         )}

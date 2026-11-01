@@ -949,6 +949,7 @@ model User {
   chamadasRecebidas   ChamadaInterna[]          @relation("ChamadaPara")
   pagamentoCobrador   PagamentoCobradorConfig?
   comissaoPercentual  ComissaoPercentualConfig?
+  comissaoMetas       ComissaoMetasConfig?
   mensagensInternas   MensagemInterna[]         @relation("MensagemInternaAutor")
   mensagensAtribuidas MensagemInterna[]         @relation("MensagemInternaAtribuida")
   mencoesInternas     MensagemInterna[]         @relation("MensagemInternaMencoes")
@@ -1770,6 +1771,24 @@ model ComissaoPercentualConfig {
   pctJuros   Float @default(0) // % sobre a parte que É multa por atraso
 
   ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Comissão ESCALONADA POR METAS sobre o recebimento do dia da operação inteira: cada meta do dia (recebimento e liberação) que
+// bate rende um % — mínima / média / máxima. Os dois somam: com 1/2/3, bater as duas máximas = 6% do recebido naquele dia.
+// Só conta dias a partir de `desde`. Cálculo em lib/comissaoMetas.js.
+model ComissaoMetasConfig {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+
+  desde     DateTime // primeiro dia (meia-noite UTC, como MetaDiaria.dia) que vale
+  pctMinima Float    @default(1)
+  pctMedia  Float    @default(2)
+  pctMaxima Float    @default(3)
+  ativo     Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -1,5 +1,6 @@
 "use client";
 
+import ComissaoMetasCard from "./ComissaoMetasCard";
 import { useEffect, useState, useCallback } from "react";
 import ContactModal from "@/components/ContactModal";
 import Icone from "@/components/Icones";
@@ -432,6 +433,8 @@ export default function MetasView() {
 
   return (
     <div className="flex-1 overflow-y-auto thin-scroll p-3 md:p-6 flex flex-col gap-4 md:gap-6">
+      <ComissaoMetasCard />
+
       {/* -------- Cabeçalho: dia + recorte por pessoa -------- */}
       <div>
         <div className="flex flex-wrap items-center justify-between gap-3">
