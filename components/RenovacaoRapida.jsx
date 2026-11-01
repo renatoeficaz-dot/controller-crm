@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { gerarParcelas, resumoCobranca, NUM_PARCELAS } from "@/lib/finance";
+import { gerarParcelas, resumoCobranca, NUM_PARCELAS, NUM_PARCELAS_15X, HONORARIOS_15X } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
 
 const money = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -17,6 +17,7 @@ export default function RenovacaoRapida({ contactId, nome, onClose, onDone }) {
   const [abertas, setAbertas] = useState(0);
   const [valor, setValor] = useState("");
   const [data, setData] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [nParc, setNParc] = useState(NUM_PARCELAS);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [montado, setMontado] = useState(false);
@@ -42,9 +43,10 @@ export default function RenovacaoRapida({ contactId, nome, onClose, onDone }) {
 
   const limite = escalCfg ? limiteEscalonado(ciclo + 1, escalCfg) : null;
   const capital = Number(valor) || 0;
-  const resumo = resumoCobranca(capital, honorariosPct);
+  const pct = nParc === NUM_PARCELAS_15X ? HONORARIOS_15X : honorariosPct;
+  const resumo = resumoCobranca(capital, pct, nParc);
   let parcelas = [];
-  try { parcelas = capital > 0 && data ? gerarParcelas(capital, honorariosPct, data) : []; } catch { parcelas = []; }
+  try { parcelas = capital > 0 && data ? gerarParcelas(capital, pct, data, nParc) : []; } catch { parcelas = []; }
 
   async function confirmar(e) {
     e.preventDefault();
@@ -54,7 +56,7 @@ export default function RenovacaoRapida({ contactId, nome, onClose, onDone }) {
     const res = await fetch(`/api/contacts/${contactId}/renovar`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ valorCapital: capital, pagamentoCapital: data }),
+      body: JSON.stringify({ valorCapital: capital, pagamentoCapital: data, parcelas: nParc }),
     });
     setSalvando(false);
     if (!res.ok) {
@@ -105,11 +107,25 @@ export default function RenovacaoRapida({ contactId, nome, onClose, onDone }) {
           />
         </label>
 
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="text-slate-500">Parcelas:</span>
+          {[NUM_PARCELAS, NUM_PARCELAS_15X].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setNParc(n)}
+              className={`rounded-lg px-2.5 py-1 border ${nParc === n ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-600 hover:border-emerald-400"}`}
+            >
+              {n}x{n === NUM_PARCELAS_15X ? ` (honorários ${HONORARIOS_15X}%)` : ""}
+            </button>
+          ))}
+        </div>
+
         {capital > 0 && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-600 space-y-1">
             <p>
-              {NUM_PARCELAS}x de <strong>{money(resumo.valorParcela)}</strong> · total {money(resumo.total)}
-              <span className="text-slate-400"> (capital + {honorariosPct}%)</span>
+              {nParc}x de <strong>{money(resumo.valorParcela)}</strong> · total {money(resumo.total)}
+              <span className="text-slate-400"> (capital + {pct}%)</span>
             </p>
             {parcelas.length > 0 && (
               <p className="text-slate-400">
