@@ -2978,7 +2978,7 @@ function MetasConfig() {
         <SectionHeader
           icon="dinheiro"
           title="Meta diária de recebimento"
-          subtitle='Regra: X% de todos os leads que estão atualmente na etapa "Recebimento" precisam pagar (dar baixa numa parcela) hoje. 3 níveis: mínima, média e meta cheia.'
+          subtitle='Regra: X% do valor das parcelas que vencem no dia (sem juros) precisa ser recebido. Receber tudo que vence = 100%. 3 níveis: mínima, média e meta cheia.'
         />
         <div className="grid grid-cols-3 gap-3">
           <label className="block">
@@ -3016,7 +3016,7 @@ function MetasConfig() {
           </label>
         </div>
         <p className="text-[11px] text-slate-400">
-          Exemplo: se hoje tem 40 leads em "Recebimento" e a meta é 70%, a meta cheia do dia é 28 baixas de parcela.
+          Exemplo: se as parcelas que vencem hoje somam R$ 2.000 e a meta é 90%, a meta cheia do dia é receber R$ 1.800 (receber os R$ 2.000 = 100%).
         </p>
       </div>
 

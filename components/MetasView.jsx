@@ -278,7 +278,7 @@ function PainelPeriodo({ de, ate, usuario, equipe, onDia }) {
     ["Vendas", d.vendas, d.metaVendas ? `meta ${d.metaVendas} · ${d.pctVendas}%` : null],
     ["Capital liberado", money(d.valorVendido), null],
     ["Baixas de parcela", d.baixas, null],
-    ["Valor recebido", money(d.valorRecebido), d.metaRecebimentos ? `meta ${d.metaRecebimentos} recebimentos · ${d.pctRecebimentos}%` : null],
+    ["Valor recebido", money(d.valorRecebido), d.metaRecebimentos ? `meta de recebimento ${money(d.metaRecebimentos)} · ${d.pctRecebimentos}%` : null],
     ["Recuperado de atrasados", money(d.valorRecuperado), null],
   ];
   return (
@@ -502,8 +502,7 @@ export default function MetasView() {
           {fmtDiaLongo(r.dia)}
           {r.equipeNome && <> · <strong className="text-slate-600">Equipe {r.equipeNome}</strong></>}
           {!r.equipeNome && usuario && <> · <strong className="text-slate-600">{usuario}</strong></>}
-          {" · "}Regra: <strong>{r.metaPctRecebimento}%</strong> de {(usuario || r.equipeNome) ? "quem é dele(a)" : "todos os leads"} em Recebimento
-          {" "}({(usuario || r.equipeNome) ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento} lead{((usuario || r.equipeNome) ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento) === 1 ? "" : "s"})
+          {" · "}Regra: <strong>{r.metaPctRecebimento}%</strong> de {money(r.valorEsperadoDia || 0)} {(usuario || r.equipeNome) ? "(parcelas que vencem hoje dos leads dele(a))" : "(soma das parcelas que vencem no dia, sem juros)"}
           <a href="/configuracoes?tab=metas" className="text-emerald-600 hover:underline ml-1">Configurar</a>
         </p>
 
@@ -556,8 +555,8 @@ export default function MetasView() {
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-semibold text-slate-700">Recebimentos ({r.metaPctRecebimento}%)</p>
             <div className="text-right">
-              <p className="text-sm text-slate-500">{r.recebimentosHoje} / {r.metaRecebimentosDia} parcelas</p>
-              <p className="text-[11px] text-slate-400">{r.clientesRecebimentoHoje ?? 0} cliente{(r.clientesRecebimentoHoje ?? 0) === 1 ? "" : "s"}</p>
+              <p className="text-sm text-slate-500">{money(r.recebimentosHoje)} / {money(r.metaRecebimentosDia)}</p>
+              <p className="text-[11px] text-slate-400">{r.valorEsperadoDia > 0 ? `${Math.round(((r.recebimentosHoje || 0) / r.valorEsperadoDia) * 100)}% dos ${money(r.valorEsperadoDia)} do dia · ` : ""}{r.clientesRecebimentoHoje ?? 0} cliente{(r.clientesRecebimentoHoje ?? 0) === 1 ? "" : "s"}</p>
             </div>
           </div>
           <NivelBar
@@ -566,11 +565,11 @@ export default function MetasView() {
             media={r.metaRecebimentosMedia}
             meta={r.metaRecebimentosDia}
             nivel={r.niveis?.recebimentos}
-            unidade="parcela"
-            unidadePlural="parcelas"
+            fmt={money}
           />
           <p className="text-[11px] text-slate-400 mt-2">
-            Conta cada <strong>parcela baixada</strong> — quem quita 2 parcelas de uma vez conta 2 aqui.
+            Compara o <strong>valor recebido</strong> com a soma das parcelas que vencem no dia — <strong>sem juros nem multa</strong>.
+            Receber tudo que vence = 100%.
           </p>
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver o que foi recebido →</p>
         </button>
@@ -760,7 +759,7 @@ export default function MetasView() {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <BarraMes label="Vendas" atual={mes.vendas} meta={mes.metaVendas} />
-          <BarraMes label="Parcelas baixadas" atual={mes.baixas} meta={mes.metaRecebimentos} />
+          <BarraMes label="Recebimento (sem juros)" atual={mes.recebimentos} meta={mes.metaRecebimentos} fmt={money} />
           <BarraMes label="Recuperado de atrasados" atual={mes.valorRecuperado} meta={mes.metaRecuperacao} fmt={money} />
           <div>
             <div className="flex items-baseline justify-between gap-2">
@@ -785,7 +784,7 @@ export default function MetasView() {
                 { label: "Meta vendas", chave: "metaVendasDia" },
                 { label: "Capital liberado", valor: (d) => numeroCsv(d.valorVendido) },
                 { label: "Baixas de parcela", chave: "baixas" },
-                { label: "Meta de parcelas", chave: "metaRecebimentosDia" },
+                { label: "Meta de recebimento (R$)", valor: (d) => numeroCsv(d.metaRecebimentosDia) },
                 { label: "Valor recebido", valor: (d) => numeroCsv(d.valorRecebido) },
                 { label: "Valor recuperado", valor: (d) => numeroCsv(d.valorRecuperado) },
                 { label: "Tem meta registrada", valor: (d) => (d.temMeta ? "sim" : "não") },

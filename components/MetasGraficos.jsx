@@ -166,6 +166,7 @@ export function CalendarioMes({ serie, diaAtual, onDia }) {
         {serie.map((d) => {
           const nv = nivelDoDia(d, metrica);
           const atual = d.dia === diaAtual;
+          const fmtV = (v) => (metrica === "vendas" ? v : "R$ " + Number(v || 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 }));
           const valor = metrica === "vendas" ? d.vendas : d.recebimentos;
           const meta = metrica === "vendas" ? d.metaVendasDia : d.metaRecebimentosDia;
           const minima = metrica === "vendas" ? d.metaVendasMinima : d.metaRecebimentosMinima;
@@ -179,8 +180,8 @@ export function CalendarioMes({ serie, diaAtual, onDia }) {
                 nv === "folga"
                   ? `${fmtDiaCurto(d.dia)} — domingo (folga)`
                   : nv === "sem"
-                  ? `${fmtDiaCurto(d.dia)} — ${valor} (sem meta registrada nesse dia)`
-                  : `${fmtDiaCurto(d.dia)} — ${valor} de ${meta} (mínima ${minima}): ${NOME_NIVEL[nv]}`
+                  ? `${fmtDiaCurto(d.dia)} — ${fmtV(valor)} (sem meta registrada nesse dia)`
+                  : `${fmtDiaCurto(d.dia)} — ${fmtV(valor)} de ${fmtV(meta)} (mínima ${fmtV(minima)}): ${NOME_NIVEL[nv]}`
               }
               className={`aspect-square rounded-md text-[10px] font-medium flex items-center justify-center transition-transform hover:scale-105 ${COR_NIVEL[nv]} ${
                 atual ? "ring-2 ring-slate-800 ring-offset-1" : ""
@@ -188,7 +189,7 @@ export function CalendarioMes({ serie, diaAtual, onDia }) {
             >
               <span className="flex flex-col items-center leading-tight">
                 <span>{diaDoMes(d.dia)}</span>
-                {nv !== "folga" && nv !== "sem" && <span className="text-[8px] font-normal opacity-90">{valor}/{minima}</span>}
+                {nv !== "folga" && nv !== "sem" && <span className="text-[8px] font-normal opacity-90">{metrica === "vendas" ? `${valor}/${minima}` : `${Math.round(valor)}/${Math.round(minima)}`}</span>}
               </span>
             </button>
           );
