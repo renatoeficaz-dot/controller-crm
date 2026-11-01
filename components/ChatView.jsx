@@ -15,6 +15,7 @@ import Icone from "@/components/Icones";
 import AgendarMensagemModal from "./AgendarMensagemModal";
 import VideoChamadaCall from "./VideoChamadaCall";
 import TarefaBarra from "./TarefaBarra";
+import LigarHasos from "./LigarHasos";
 import RenovacaoRapida from "./RenovacaoRapida";
 import CalculadoraRapida from "./CalculadoraRapida";
 import AcordoModal from "./AcordoModal";
@@ -1792,14 +1793,13 @@ export default function ChatView() {
                 {liberando1o ? "Liberando…" : (<><Icone nome="dinheiro" className="w-3 h-3" /> 1° empréstimo</>)}
               </button>
               {selected.phone && (
-                <button
-                  type="button"
-                  onClick={() => ligarWhatsapp(selected.phone, selected.name)}
-                  title="Ligar pelo WhatsApp (Wavoip). Sem token configurado, abre a conversa no WhatsApp"
-                  className="hidden md:flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
-                >
-                  <Icone nome="cobranca" className="w-3 h-3" /> Ligar
-                </button>
+                <LigarHasos
+                  phone={selected.phone}
+                  name={selected.name}
+                  fallback={() => ligarWhatsapp(selected.phone, selected.name)}
+                  title="Ligar pelo WhatsApp (Hasos). Sem chave configurada, usa o Wavoip ou abre a conversa no WhatsApp"
+                  className="flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                />
               )}
               {contact && (
                 <button
