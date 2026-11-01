@@ -72,21 +72,14 @@ export default function ChamadasHasos() {
     return () => window.removeEventListener("hasos:ev", aoEvento);
   }, []);
 
-  // Enquanto toca: se a Hasos já deu a chamada como encerrada (quem ligava desistiu, caiu ou foi recusada), fecha o aviso e
-  // recusa a oferta no discador — senão ele segue tocando sem parar com uma chamada que já não existe.
+  // A Hasos costuma marcar a chamada como ENCERRADA ("uncallable") menos de 1s depois de chegar, mas o WhatsApp pode seguir tocando
+  // e o discador ainda tem a oferta: por isso o aviso NÃO fecha pelo status do histórico. Fica 60s (ou até o discador encerrar/recusar)
+  // para dar tempo de tentar Atender; se a tentativa falhar, o erro aparece no próprio aviso.
   useEffect(() => {
     if (oferta?.estado !== "tocando") return undefined;
-    const t = setInterval(async () => {
-      const c = await fetch(`/api/hasos/chamada?id=${encodeURIComponent(oferta.id)}`, { cache: "no-store" }).then((x) => x.json()).catch(() => null);
-      if (c?.chamada?.status === "ENDED" || c?.chamada?.status === "MISSED") {
-        try { await discadorDe(oferta.instId)?.call?.reject(oferta.id); } catch {}
-        const motivo = c.chamada.endReason ? ` (${c.chamada.endReason})` : "";
-        setOferta((o) => (o && o.id === oferta.id ? { ...o, estado: "perdida", motivo } : o));
-        setTimeout(() => setOferta((o) => (o?.estado === "perdida" ? null : o)), 6000);
-      }
-    }, 2000);
-    return () => clearInterval(t);
-  }, [oferta?.estado, oferta?.id, oferta?.instId]);
+    const t = setTimeout(() => setOferta((o) => (o && o.id === oferta.id && o.estado === "tocando" ? null : o)), 60000);
+    return () => clearTimeout(t);
+  }, [oferta?.estado, oferta?.id]);
 
   useEffect(() => {
     if (oferta?.estado !== "conversando") return undefined;
@@ -107,9 +100,16 @@ export default function ChamadasHasos() {
       <p className="font-semibold text-slate-800 truncate">{oferta.nome}</p>
       <p className="text-[11px] text-slate-400 truncate">{oferta.phone ? mascara(oferta.phone) : ""}{oferta.de ? ` · para ${oferta.de}` : ""}</p>
       {oferta.estado === "conversando" && <p className="mt-1 text-xs font-medium text-emerald-600">{tempo}</p>}
+      {oferta.erro && <p className="mt-1 text-xs font-medium text-red-600">{oferta.erro}</p>}
       {oferta.estado === "tocando" && (
         <div className="mt-2 grid grid-cols-2 gap-2">
-          <button type="button" onClick={async () => { try { await d?.call?.accept(oferta.id); } catch {} }} className="rounded-lg bg-emerald-500 text-white text-xs font-medium py-1.5 hover:bg-emerald-600">Atender</button>
+          <button type="button" onClick={async () => {
+            try {
+              const r = await d?.call?.accept(oferta.id);
+              console.info("[hasos] atender:", r);
+              if (r?.err) setOferta((o) => (o ? { ...o, erro: r.err.message || "Não foi possível atender." } : o));
+            } catch (e) { setOferta((o) => (o ? { ...o, erro: e?.message || "Não foi possível atender." } : o)); }
+          }} className="rounded-lg bg-emerald-500 text-white text-xs font-medium py-1.5 hover:bg-emerald-600">Atender</button>
           <button type="button" onClick={async () => { try { await d?.call?.reject(oferta.id); } catch {} setOferta(null); }} className="rounded-lg bg-red-500 text-white text-xs font-medium py-1.5 hover:bg-red-600">Recusar</button>
         </div>
       )}
