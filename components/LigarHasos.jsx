@@ -16,7 +16,7 @@ const mascara = (p) => {
 const lerSalvo = () => { try { return localStorage.getItem("hasosInstancia") || ""; } catch { return ""; } };
 const gravarSalvo = (v) => { try { localStorage.setItem("hasosInstancia", v); } catch {} };
 
-export default function LigarHasos({ phone, name, fallback, className = "", title = "Ligar pelo WhatsApp" }) {
+export default function LigarHasos({ phone, name, fallback, className = "", title = "Ligar pelo WhatsApp", wrapperClass = "hidden md:inline-flex" }) {
   const [menu, setMenu] = useState(null); // lista de números conectados para escolher
   const [carregando, setCarregando] = useState(false);
   const [chamada, setChamada] = useState(null); // { estado, nome, numero, de, msg, desde }
@@ -111,7 +111,7 @@ export default function LigarHasos({ phone, name, fallback, className = "", titl
 
   return (
     <>
-      <span className="relative hidden md:inline-flex shrink-0">
+      <span className={`relative ${wrapperClass} shrink-0`}>
         <button type="button" onClick={clicar} disabled={carregando || ativa} title={title} className={className}>
           <Icone nome="cobranca" className="w-3 h-3" /> {carregando ? "…" : "Ligar"}
         </button>

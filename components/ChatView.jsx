@@ -1841,6 +1841,28 @@ export default function ChatView() {
                 {showInfo ? "Ocultar" : "Dados"}
               </button>
             </div>
+            {/* Mobile: os botões do cabeçalho do desktop ficam numa faixa com rolagem lateral */}
+            <div className="md:hidden flex items-center gap-2 overflow-x-auto px-3 py-2 bg-white border-b border-slate-200 shrink-0">
+              <button type="button" onClick={abrirEncaminharLead} className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500"><Icone nome="pessoas" className="w-3 h-3" /> Chat interno</button>
+              <button type="button" onClick={primeiroEmprestimo} disabled={liberando1o || selected.stageName === "Recebimento"} className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-emerald-300 bg-emerald-50 text-emerald-700 disabled:opacity-50">{liberando1o ? "Liberando…" : (<><Icone nome="dinheiro" className="w-3 h-3" /> 1° empréstimo</>)}</button>
+              {selected.phone && (
+                <LigarHasos
+                  phone={selected.phone}
+                  name={selected.name}
+                  fallback={() => ligarWhatsapp(selected.phone, selected.name)}
+                  wrapperClass="inline-flex"
+                  className="flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 disabled:opacity-50"
+                />
+              )}
+              {contact && <button type="button" onClick={() => setTarefaModalAberta(true)} className="shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-600">+ Tarefa</button>}
+              {contact && <button type="button" onClick={() => setRenovandoRapido(true)} className="shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-600">Renovar</button>}
+              {contact && (
+                <button type="button" onClick={toggleIaPausada} className={`shrink-0 text-xs font-medium rounded-full px-2.5 py-1 border ${contact.iaPausada ? "bg-red-50 text-red-600 border-red-200" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}>
+                  <span className="flex items-center gap-1"><Icone nome="robo" className="w-3.5 h-3.5" /> {contact.iaPausada ? "IA desligada" : "IA ligada"}</span>
+                </button>
+              )}
+              <button type="button" onClick={() => setShowInfo((v) => !v)} className="shrink-0 text-xs text-emerald-600 border border-emerald-200 rounded-lg px-2.5 py-1">{showInfo ? "Ocultar" : "Dados"}</button>
+            </div>
             {resumoIa && (
               <div className="mx-4 mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 shrink-0">
                 <div className="flex items-start justify-between gap-2">
