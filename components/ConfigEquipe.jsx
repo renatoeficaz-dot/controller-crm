@@ -244,9 +244,9 @@ function EquipesConfig() {
                 <div>
                   <p className="text-xs text-slate-500 mb-1.5">Meta de recebimento (% da carteira, vazio = meta global)</p>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="number" min={0} max={100} placeholder="Mínima %" value={form.metaPctRecebimentoMinima} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimentoMinima: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
-                    <input type="number" min={0} max={100} placeholder="Média %" value={form.metaPctRecebimentoMedia} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimentoMedia: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
-                    <input type="number" min={0} max={100} placeholder="Meta %" value={form.metaPctRecebimento} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimento: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
+                    <input type="number" min={0} max={1000} placeholder="Mínima %" value={form.metaPctRecebimentoMinima} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimentoMinima: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
+                    <input type="number" min={0} max={1000} placeholder="Média %" value={form.metaPctRecebimentoMedia} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimentoMedia: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
+                    <input type="number" min={0} max={1000} placeholder="Meta %" value={form.metaPctRecebimento} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimento: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
                   </div>
                 </div>
                 <div>

@@ -2986,7 +2986,7 @@ function MetasConfig() {
             <input
               type="number"
               min={0}
-              max={100}
+              max={1000}
               value={pMinima}
               onChange={(e) => setPMinima(e.target.value)}
               className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
@@ -2997,7 +2997,7 @@ function MetasConfig() {
             <input
               type="number"
               min={0}
-              max={100}
+              max={1000}
               value={pMedia}
               onChange={(e) => setPMedia(e.target.value)}
               className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"
@@ -3008,7 +3008,7 @@ function MetasConfig() {
             <input
               type="number"
               min={0}
-              max={100}
+              max={1000}
               value={pMeta}
               onChange={(e) => setPMeta(e.target.value)}
               className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-400"

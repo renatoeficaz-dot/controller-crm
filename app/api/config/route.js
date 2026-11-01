@@ -153,9 +153,9 @@ export async function PATCH(req) {
   if ("contaRecebimentoId" in body) data.contaRecebimentoId = body.contaRecebimentoId || null;
   if ("horarioComercialInicio" in body) data.horarioComercialInicio = texto(body.horarioComercialInicio) || null;
   if ("horarioComercialFim" in body) data.horarioComercialFim = texto(body.horarioComercialFim) || null;
-  if ("metaPctRecebimentoMinima" in body) data.metaPctRecebimentoMinima = Math.min(100, Math.max(0, Number(body.metaPctRecebimentoMinima) || 0));
-  if ("metaPctRecebimentoMedia" in body) data.metaPctRecebimentoMedia = Math.min(100, Math.max(0, Number(body.metaPctRecebimentoMedia) || 0));
-  if ("metaPctRecebimento" in body) data.metaPctRecebimento = Math.min(100, Math.max(0, Number(body.metaPctRecebimento) || 0));
+  if ("metaPctRecebimentoMinima" in body) data.metaPctRecebimentoMinima = Math.min(1000, Math.max(0, Number(body.metaPctRecebimentoMinima) || 0));
+  if ("metaPctRecebimentoMedia" in body) data.metaPctRecebimentoMedia = Math.min(1000, Math.max(0, Number(body.metaPctRecebimentoMedia) || 0));
+  if ("metaPctRecebimento" in body) data.metaPctRecebimento = Math.min(1000, Math.max(0, Number(body.metaPctRecebimento) || 0));
   if ("metaVendasMinima" in body) data.metaVendasMinima = inteiro(body.metaVendasMinima);
   if ("metaVendasMedia" in body) data.metaVendasMedia = inteiro(body.metaVendasMedia);
   if ("metaVendasDia" in body) data.metaVendasDia = inteiro(body.metaVendasDia);
