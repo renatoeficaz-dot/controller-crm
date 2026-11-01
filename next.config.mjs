@@ -51,7 +51,7 @@ const nextConfig = {
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
           // Microfone fica liberado só pra origem (a gravação de áudio do chat
           // usa); câmera, geolocalização e pagamento ficam desligados.
-          { key: "Permissions-Policy", value: "camera=(), geolocation=(), payment=(), microphone=(self)" },
+          { key: "Permissions-Policy", value: 'camera=(), geolocation=(), payment=(), microphone=(self "https://phone.hasos.com.br")' },
           // Isola a janela de popups abertos por ela (WhatsApp Web, se algum
           // dia for linkado) e impede que outra origem leia a resposta de
           // /uploads/* via <img>/<script> cross-origin.
@@ -63,7 +63,7 @@ const nextConfig = {
           // console do navegador pra decidir a política definitiva sem risco.
           {
             key: "Content-Security-Policy-Report-Only",
-            value: "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'self'; frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
+            value: "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://phone.hasos.com.br; style-src 'self' 'unsafe-inline'; connect-src 'self' https://phone.hasos.com.br wss://phone.hasos.com.br; frame-src 'self' https://phone.hasos.com.br; frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
           },
         ],
       },
