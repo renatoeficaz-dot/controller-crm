@@ -21,6 +21,7 @@ import DocumentosPopup from "./DocumentosPopup";
 import PuxadaAnexo from "./PuxadaAnexo";
 import TimelineLead from "./TimelineLead";
 import AgendarMensagemModal from "./AgendarMensagemModal";
+import VideoChamadaCall from "./VideoChamadaCall";
 import AcordoModal from "./AcordoModal";
 import TarefaAtalhos, { tarefaPadrao, diaBR } from "./TarefaAtalhos";
 
@@ -261,6 +262,8 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   const [timelineAberta, setTimelineAberta] = useState(false);
   const [camposDef, setCamposDef] = useState([]);
   const [agendarAberto, setAgendarAberto] = useState(false);
+  const [gerandoLinkVideo, setGerandoLinkVideo] = useState(false);
+  const [videoChamadaAberta, setVideoChamadaAberta] = useState(null); // sessaoId | null
   const [calcAberta, setCalcAberta] = useState(false); // calculadora rápida (botão ao lado do envio)
   const [honorariosPct, setHonorariosPct] = useState(30);
   const [multaPct, setMultaPct] = useState(50);
@@ -471,6 +474,24 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
     // Só trava depois que as mensagens carregaram: travar com a lista ainda vazia deixava sempre o 1º número, mesmo a conversa sendo de outro.
     if (messages.length > 0) instanceDefaultedForRef.current = contactId;
   }, [messages, contactId, numbers]);
+
+  async function gerarLinkVideoChamada() {
+    if (!contactId || gerandoLinkVideo) return;
+    if (!confirm("Gerar link de vídeo chamada e mandar pro cliente agora?")) return;
+    setGerandoLinkVideo(true);
+    const res = await fetch(`/api/contacts/${contactId}/video-chamada-link`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instance: selectedInstance }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setGerandoLinkVideo(false);
+    if (!res.ok) { alert(d.error || "Não foi possível gerar o link."); return; }
+    if (d.message) setMessages((m) => [...m, d.message]);
+    if (!d.mensagemEnviada) alert(`Não deu pra mandar pelo WhatsApp automaticamente. Copie e mande na mão:\n${d.link}`);
+    onChanged?.();
+    if (d.id) setVideoChamadaAberta(d.id);
+  }
 
   // Escolhe uma mensagem pronta: texto → campo de envio; mídia/contato → envia direto
   async function pickTemplate(id) {
@@ -2655,6 +2676,15 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
               <Icone nome="tarefa" className="w-4 h-4" />
             </button>
             <button
+              type="button"
+              onClick={gerarLinkVideoChamada}
+              disabled={uploading || recording || gerandoLinkVideo}
+              title="Gerar link de vídeo chamada com verificação"
+              className="shrink-0 w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
+            >
+              <Icone nome="video" className="w-4 h-4" />
+            </button>
+            <button
               onClick={send}
               disabled={sending || !text.trim()}
               className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-40"
@@ -3030,6 +3060,9 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
             <button onClick={() => setEnviarCampoMsg(null)} className="mt-3 text-xs text-slate-400 hover:text-slate-600">Cancelar</button>
           </div>
         </div>
+      )}
+      {videoChamadaAberta && (
+        <VideoChamadaCall sessaoId={videoChamadaAberta} onClose={() => setVideoChamadaAberta(null)} />
       )}
       {agendarAberto && (
         <AgendarMensagemModal
