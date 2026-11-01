@@ -47,10 +47,17 @@ export default function ChamadasHasos() {
         console.info("[hasos] chamada recebida:", payload);
         const phone = telDaOferta(payload);
         const inst = instRef.current[instId];
-        const base = { id: idDaOferta(payload), instId, phone, nome: phone ? mascara(phone) : "Número desconhecido", de: inst ? `${inst.nome || ""} ${inst.phone ? mascara(inst.phone) : ""}`.trim() : "", estado: "tocando" };
+        const base = { id: idDaOferta(payload), instId, phone, nome: phone ? mascara(phone) : "Chamada recebida…", de: inst ? `${inst.nome || ""} ${inst.phone ? mascara(inst.phone) : ""}`.trim() : "", estado: "tocando" };
         setOferta(base);
-        if (phone) {
-          const q = await fetch(`/api/hasos/quem?phone=${phone}`, { cache: "no-store" }).then((x) => x.json()).catch(() => null);
+        // O discador não diz QUEM liga: o telefone vem do histórico de chamadas da Hasos (pode levar um instante pra aparecer).
+        for (let i = 0; i < 4 && !base.phone; i++) {
+          const c = await fetch(`/api/hasos/chamada?id=${encodeURIComponent(base.id)}`, { cache: "no-store" }).then((x) => x.json()).catch(() => null);
+          if (c?.chamada?.peerPhone) { base.phone = soDigitos(c.chamada.peerPhone); break; }
+          await new Promise((r) => setTimeout(r, 700));
+        }
+        if (base.phone) {
+          setOferta((o) => (o && o.id === base.id ? { ...o, phone: base.phone, nome: mascara(base.phone) } : o));
+          const q = await fetch(`/api/hasos/quem?phone=${base.phone}`, { cache: "no-store" }).then((x) => x.json()).catch(() => null);
           if (q?.contato) setOferta((o) => (o && o.id === base.id ? { ...o, nome: q.contato.name, contatoId: q.contato.id } : o));
         }
       } else if (ev === "call:accepted" && ref.current?.estado === "tocando") {
@@ -65,17 +72,19 @@ export default function ChamadasHasos() {
     return () => window.removeEventListener("hasos:ev", aoEvento);
   }, []);
 
-  // Enquanto toca: se a oferta sumir da lista (quem ligava desistiu), fecha o aviso.
+  // Enquanto toca: se a Hasos já deu a chamada como encerrada (quem ligava desistiu, caiu ou foi recusada), fecha o aviso e
+  // recusa a oferta no discador — senão ele segue tocando sem parar com uma chamada que já não existe.
   useEffect(() => {
     if (oferta?.estado !== "tocando") return undefined;
     const t = setInterval(async () => {
-      const d = discadorDe(oferta.instId);
-      if (!d?.call?.getOffers) return;
-      const lista = await Promise.race([d.call.getOffers(), new Promise((r) => setTimeout(() => r(null), 3000))]).catch(() => null);
-      if (Array.isArray(lista) && !lista.some((o) => String(idDaOferta(o)) === String(oferta.id))) {
-        setOferta((o) => (o && o.id === oferta.id && o.estado === "tocando" ? null : o));
+      const c = await fetch(`/api/hasos/chamada?id=${encodeURIComponent(oferta.id)}`, { cache: "no-store" }).then((x) => x.json()).catch(() => null);
+      if (c?.chamada?.status === "ENDED" || c?.chamada?.status === "MISSED") {
+        try { await discadorDe(oferta.instId)?.call?.reject(oferta.id); } catch {}
+        const motivo = c.chamada.endReason ? ` (${c.chamada.endReason})` : "";
+        setOferta((o) => (o && o.id === oferta.id ? { ...o, estado: "perdida", motivo } : o));
+        setTimeout(() => setOferta((o) => (o?.estado === "perdida" ? null : o)), 6000);
       }
-    }, 2500);
+    }, 2000);
     return () => clearInterval(t);
   }, [oferta?.estado, oferta?.id, oferta?.instId]);
 
@@ -93,7 +102,7 @@ export default function ChamadasHasos() {
   return (
     <div className="fixed top-4 right-4 z-[80] w-72 rounded-xl border-2 border-emerald-400 bg-white shadow-2xl p-3 text-sm">
       <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">
-        {oferta.estado === "tocando" ? "Chamada recebida" : oferta.estado === "conversando" ? "Em chamada" : "Chamada encerrada"}
+        {oferta.estado === "tocando" ? "Chamada recebida" : oferta.estado === "conversando" ? "Em chamada" : oferta.estado === "perdida" ? `Chamada perdida${oferta.motivo || ""}` : "Chamada encerrada"}
       </p>
       <p className="font-semibold text-slate-800 truncate">{oferta.nome}</p>
       <p className="text-[11px] text-slate-400 truncate">{oferta.phone ? mascara(oferta.phone) : ""}{oferta.de ? ` · para ${oferta.de}` : ""}</p>
