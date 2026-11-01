@@ -10,6 +10,8 @@ export default function TarefaBarra({ tasks, onChanged, onCriar }) {
   const [form, setForm] = useState({ title: "", dia: "", hora: "" });
   const [adiarAberto, setAdiarAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [selId, setSelId] = useState(null); // tarefa escolhida na lista de pendentes (padrão: a mais urgente)
+  const [listaAberta, setListaAberta] = useState(false);
 
   const pend = (tasks || []).filter((t) => !t.done).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
@@ -24,7 +26,7 @@ export default function TarefaBarra({ tasks, onChanged, onCriar }) {
     );
   }
 
-  const t = pend[0];
+  const t = pend.find((x) => x.id === selId) || pend[0];
   const dt = new Date(t.dueDate);
   const agora = new Date();
   const mesmoDia = dt.toDateString() === agora.toDateString();
@@ -97,8 +99,32 @@ export default function TarefaBarra({ tasks, onChanged, onCriar }) {
       <div className="flex items-center justify-between gap-2 text-[11px]">
         <span className={`truncate ${cor}`}>
           <span className="font-semibold">{situacao}</span> · {quando}{t.responsavel ? ` para ${t.responsavel}` : ""}
-          {pend.length > 1 && <span className="text-slate-400"> · +{pend.length - 1} pendente{pend.length > 2 ? "s" : ""}</span>}
         </span>
+        {pend.length > 1 && (
+          <span className="relative shrink-0 mr-auto">
+            <button type="button" onClick={() => setListaAberta((v) => !v)} title="Ver as tarefas pendentes" className="text-slate-400 hover:text-emerald-600 underline decoration-dotted">
+              · +{pend.length - 1} pendente{pend.length > 2 ? "s" : ""} ▾
+            </button>
+            {listaAberta && (
+              <>
+                <span className="fixed inset-0 z-30" onClick={() => setListaAberta(false)} />
+                <span className="absolute left-0 bottom-5 z-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-64 max-h-60 overflow-auto">
+                  {pend.map((x) => (
+                    <button
+                      key={x.id}
+                      type="button"
+                      onClick={() => { setSelId(x.id); setListaAberta(false); setModo(null); setAdiarAberto(false); }}
+                      className={`block w-full text-left px-3 py-1.5 text-[11px] hover:bg-slate-50 ${x.id === t.id ? "bg-emerald-50" : ""}`}
+                    >
+                      <span className="block text-slate-400">{new Date(x.dueDate).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", "")}{x.responsavel ? ` · ${x.responsavel}` : ""}</span>
+                      <span className="block text-slate-800 truncate">{x.title}</span>
+                    </button>
+                  ))}
+                </span>
+              </>
+            )}
+          </span>
+        )}
         <button type="button" onClick={excluir} title="Excluir tarefa" className="text-slate-300 hover:text-red-500 shrink-0">🗑</button>
       </div>
       <div className="flex items-center gap-2 mt-0.5">
