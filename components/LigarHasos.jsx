@@ -103,7 +103,11 @@ export default function LigarHasos({ phone, name, fallback, className = "", titl
         else if (ev === "call:ended") mostrar({ ...base, estado: "encerrada" }, 4000);
       };
       mostrar({ ...base, estado: "chamando" });
-      await d.call.start(numero);
+      // O discador NÃO rejeita quando falha: devolve { call: null, err: { message } } (ex.: "Assine o Pro para ligar.").
+      const r = await d.call.start(numero);
+      if (r?.err || r?.call === null) {
+        mostrar({ ...base, estado: "erro", msg: r?.err?.message || "A Hasos não iniciou a ligação." }, 12000);
+      }
     } catch (e) {
       delete discadores[inst.id];
       mostrar({ ...base, estado: "erro", msg: e?.message || "Não foi possível ligar." }, 8000);
