@@ -105,7 +105,17 @@ export default function ChamadasHasos() {
         <div className="mt-2 grid grid-cols-2 gap-2">
           <button type="button" onClick={async () => {
             try {
-              const r = await d?.call?.accept(oferta.id);
+              // O id guardado do aviso pode não ser o da oferta no discador ("no such offer"): pergunta ao discador o que está tocando agora.
+              let alvo = oferta.id;
+              try {
+                const res = await d?.call?.getOffers?.();
+                const lista = Array.isArray(res) ? res : Array.isArray(res?.offers) ? res.offers : [];
+                console.info("[hasos] ofertas ativas:", res);
+                const ids = lista.map((x) => (typeof x === "string" ? x : idDaOferta(x))).filter(Boolean);
+                if (!ids.length) { setOferta((o) => (o ? { ...o, erro: "Essa chamada já terminou no WhatsApp (quem ligou desistiu ou ela foi atendida em outro lugar)." } : o)); return; }
+                if (!ids.includes(alvo)) alvo = ids[ids.length - 1];
+              } catch {}
+              const r = await d?.call?.accept(alvo);
               console.info("[hasos] atender:", r);
               if (r?.err || r?.call === null) {
                 const e = r?.err || {};
