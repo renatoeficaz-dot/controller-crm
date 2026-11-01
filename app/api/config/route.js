@@ -257,5 +257,8 @@ export async function PATCH(req) {
     }
   }
 
+  // Mudou a meta de recebimento: atualiza já o retrato de hoje (senão ficaria até 5 min com o % antigo, inclusive no bônus).
+  if (Object.keys(body).some((k) => k.startsWith("metaPct"))) await import("@/lib/metas").then((m) => m.registrarMetaDoDia()).catch(() => {});
+
   return NextResponse.json({ ...config, dataApiKey: config.dataApiKey ? "***" : null, snoopApiKey: config.snoopApiKey ? "***" : null });
 }
