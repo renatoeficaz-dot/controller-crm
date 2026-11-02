@@ -5,7 +5,7 @@ import TarefaBarra from "./TarefaBarra";
 import CalculadoraRapida from "./CalculadoraRapida";
 import { rolarAteOFim } from "@/lib/rolar";
 import { CHECKLIST_DOC } from "@/lib/checklistDoc";
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { memo, useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { resumoCobranca, valorParcelaAtual, parcelaAtrasada, gerarParcelas, NUM_PARCELAS, NUM_PARCELAS_15X, HONORARIOS_15X } from "@/lib/finance";
 import { limiteEscalonado } from "@/lib/escalonamento";
 import { validarCPF } from "@/lib/cpf";
@@ -25,6 +25,77 @@ import AgendarMensagemModal from "./AgendarMensagemModal";
 import VideoChamadaCall from "./VideoChamadaCall";
 import AcordoModal from "./AcordoModal";
 import TarefaAtalhos, { tarefaPadrao, diaBR } from "./TarefaAtalhos";
+
+// Linha do chat memoizada: digitar na caixa de mensagem re-renderiza o modal inteiro, mas as linhas (que não mudam) são puladas.
+const LinhaTimeline = memo(function LinhaTimeline({ item, numbers, onEnviarCampo }) {
+  return item.tipo === "atividade" ? (
+              <p
+                                className="self-center max-w-[90%] text-center text-[11px] text-slate-500 bg-slate-200/70 rounded-full px-3 py-1"
+              >
+                <span className="font-semibold">{item.ativ.usuario || "IA"}</span>
+                {" "}
+                {item.ativ.tipo === "etapa" ? item.ativ.detalhe : `alterou — ${item.ativ.detalhe}`}
+                {" "}
+                <span className="text-slate-400">· {fmtTime(item.ativ.createdAt)}</span>
+              </p>
+  ) : (
+              <div
+                                className={`group flex items-center gap-1 ${item.msg.fromMe ? "self-end justify-end" : "self-start justify-start"}`}
+              >
+                {(item.msg.body || "").trim() && (
+                  <span className={`shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${item.msg.fromMe ? "order-first" : ""}`}>
+                    <button
+                      type="button"
+                      title="Mandar pra um campo do lead"
+                      onClick={() => onEnviarCampo(item.msg)}
+                      className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-emerald-600 hover:bg-slate-100 text-base leading-none"
+                    >
+                      ⋮
+                    </button>
+                  </span>
+                )}
+                <div
+                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                    item.msg.fromMe
+                      ? "bg-emerald-500 text-white"
+                      : "bg-white border border-slate-200 text-slate-700"
+                  }`}
+                >
+                {item.msg.instance && numbers.length > 1 && (
+                  <p className={`flex items-center gap-1 text-[10px] mb-0.5 ${item.msg.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
+                    <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(item.msg.instance, numbers)}
+                  </p>
+                )}
+                {(item.msg.kind === "audio" || item.msg.kind === "image" || item.msg.kind === "document" || item.msg.kind === "location") && (
+                  <MediaBubble message={item.msg} />
+                )}
+                {item.msg.kind !== "location" && item.msg.body && (
+                  <p className="whitespace-pre-wrap break-words mt-1">{item.msg.body}</p>
+                )}
+                <span
+                  className={`block text-[10px] mt-1 ${
+                    item.msg.fromMe ? "text-emerald-100" : "text-slate-400"
+                  }`}
+                >
+                  {fmtTime(item.msg.createdAt)}
+                  {item.msg.fromMe && item.msg.status === "simulado" ? " • simulado" : ""}
+                  {item.msg.fromMe && (item.msg.status === "falhou" || item.msg.status === "erro") ? " • falhou ao enviar" : ""}
+                  {item.msg.fromMe && !["simulado", "falhou", "erro"].includes(item.msg.status) && (
+                    <>
+                      {" "}
+                      <TicksEnvio status={item.msg.status} />
+                    </>
+                  )}
+                  {item.msg.fromMe && item.msg.enviadoPor && (
+                    <span className="inline-flex items-center gap-0.5 align-middle" title="Quem enviou">
+                      {" · "}<Icone nome={["IA", "Automático", "Agendada"].includes(item.msg.enviadoPor) ? "robo" : item.msg.enviadoPor === "Celular" ? "celular" : "pessoa"} className="w-2.5 h-2.5" /> {item.msg.enviadoPor}
+                    </span>
+                  )}
+                </span>
+                </div>
+              </div>
+              );
+});
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -2529,74 +2600,13 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                 Nenhuma mensagem ainda. Diga olá!
               </p>
             )}
-            {timeline.map((item) => item.tipo === "atividade" ? (
-              <p
-                key={`ativ-${item.ativ.createdAt}-${item.ativ.detalhe}`}
-                className="self-center max-w-[90%] text-center text-[11px] text-slate-500 bg-slate-200/70 rounded-full px-3 py-1"
-              >
-                <span className="font-semibold">{item.ativ.usuario || "IA"}</span>
-                {" "}
-                {item.ativ.tipo === "etapa" ? item.ativ.detalhe : `alterou — ${item.ativ.detalhe}`}
-                {" "}
-                <span className="text-slate-400">· {fmtTime(item.ativ.createdAt)}</span>
-              </p>
-            ) : (
-              <div
-                key={item.msg.id}
-                className={`group flex items-center gap-1 ${item.msg.fromMe ? "self-end justify-end" : "self-start justify-start"}`}
-              >
-                {(item.msg.body || "").trim() && (
-                  <span className={`shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${item.msg.fromMe ? "order-first" : ""}`}>
-                    <button
-                      type="button"
-                      title="Mandar pra um campo do lead"
-                      onClick={() => setEnviarCampoMsg(item.msg)}
-                      className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-emerald-600 hover:bg-slate-100 text-base leading-none"
-                    >
-                      ⋮
-                    </button>
-                  </span>
-                )}
-                <div
-                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                    item.msg.fromMe
-                      ? "bg-emerald-500 text-white"
-                      : "bg-white border border-slate-200 text-slate-700"
-                  }`}
-                >
-                {item.msg.instance && numbers.length > 1 && (
-                  <p className={`flex items-center gap-1 text-[10px] mb-0.5 ${item.msg.fromMe ? "text-emerald-100" : "text-slate-400"}`}>
-                    <Icone nome="celular" className="w-2.5 h-2.5" /> {numberLabel(item.msg.instance, numbers)}
-                  </p>
-                )}
-                {(item.msg.kind === "audio" || item.msg.kind === "image" || item.msg.kind === "document" || item.msg.kind === "location") && (
-                  <MediaBubble message={item.msg} />
-                )}
-                {item.msg.kind !== "location" && item.msg.body && (
-                  <p className="whitespace-pre-wrap break-words mt-1">{item.msg.body}</p>
-                )}
-                <span
-                  className={`block text-[10px] mt-1 ${
-                    item.msg.fromMe ? "text-emerald-100" : "text-slate-400"
-                  }`}
-                >
-                  {fmtTime(item.msg.createdAt)}
-                  {item.msg.fromMe && item.msg.status === "simulado" ? " • simulado" : ""}
-                  {item.msg.fromMe && (item.msg.status === "falhou" || item.msg.status === "erro") ? " • falhou ao enviar" : ""}
-                  {item.msg.fromMe && !["simulado", "falhou", "erro"].includes(item.msg.status) && (
-                    <>
-                      {" "}
-                      <TicksEnvio status={item.msg.status} />
-                    </>
-                  )}
-                  {item.msg.fromMe && item.msg.enviadoPor && (
-                    <span className="inline-flex items-center gap-0.5 align-middle" title="Quem enviou">
-                      {" · "}<Icone nome={["IA", "Automático", "Agendada"].includes(item.msg.enviadoPor) ? "robo" : item.msg.enviadoPor === "Celular" ? "celular" : "pessoa"} className="w-2.5 h-2.5" /> {item.msg.enviadoPor}
-                    </span>
-                  )}
-                </span>
-                </div>
-              </div>
+            {timeline.map((item) => (
+              <LinhaTimeline
+                key={item.tipo === "atividade" ? `ativ-${item.ativ.createdAt}-${item.ativ.detalhe}` : item.msg.id}
+                item={item}
+                numbers={numbers}
+                onEnviarCampo={setEnviarCampoMsg}
+              />
             ))}
             <div ref={chatEnd} />
           </div>
