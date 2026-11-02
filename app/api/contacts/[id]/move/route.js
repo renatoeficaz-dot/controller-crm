@@ -251,6 +251,8 @@ export async function PATCH(req, { params }) {
         after(async () => { await sendRecebimentoNotice(updated).catch(() => {}); });
       }
       await lancarLiberacaoCapital(updated).catch(() => {});
+      const { criarTarefaCobrancaRecebimento } = await import("@/lib/tarefaCobrancaRecebimento");
+      await criarTarefaCobrancaRecebimento(id).catch(() => {});
     }
 
     // Ao ENTRAR em "Liberação pagamento": cria sozinho o lembrete de fazer o

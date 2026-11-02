@@ -107,6 +107,8 @@ export async function POST(req) {
         }
         await sendRecebimentoNotice(updated).catch(() => {});
         await lancarLiberacaoCapital(updated).catch(() => {});
+        const { criarTarefaCobrancaRecebimento } = await import("@/lib/tarefaCobrancaRecebimento");
+        await criarTarefaCobrancaRecebimento(id).catch(() => {});
         moved++;
       }
       return NextResponse.json({ ok: true, moved, skipped });
