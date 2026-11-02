@@ -8,6 +8,72 @@ const DIA_CURTO = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 const labelDia = (iso) => `${DIA_CURTO[new Date(iso + "T00:00:00.000Z").getUTCDay()]} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 const NOME_FAIXA = { minima: "mínima", media: "média", maxima: "máxima" };
 
+// Adiantamentos e descontos a abater dos próximos pagamentos de comissão. Quem lança é outro admin (não o próprio colaborador).
+function Ajustes({ userId, totalSemana }) {
+  const [d, setD] = useState({ itens: [], pendente: 0, podeLancar: false });
+  const [f, setF] = useState({ tipo: "adiantamento", valor: "", descricao: "" });
+  const [erro, setErro] = useState("");
+  const load = useCallback(async () => {
+    const r = await fetch(`/api/comissao-ajustes?userId=${userId}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    if (r) setD(r);
+  }, [userId]);
+  useEffect(() => { load(); }, [load]);
+  async function lancar() {
+    setErro("");
+    const r = await fetch("/api/comissao-ajustes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, ...f }) });
+    if (!r.ok) { setErro((await r.json().catch(() => ({}))).error || "Não foi possível lançar."); return; }
+    setF({ tipo: f.tipo, valor: "", descricao: "" });
+    load();
+  }
+  async function marcar(id, descontado) {
+    await fetch("/api/comissao-ajustes", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, descontado }) });
+    load();
+  }
+  async function apagar(id) {
+    if (!confirm("Apagar este lançamento?")) return;
+    await fetch(`/api/comissao-ajustes?id=${id}`, { method: "DELETE" });
+    load();
+  }
+  const liquido = Math.round((totalSemana - d.pendente) * 100) / 100;
+  return (
+    <div className="mt-3 border-t border-slate-100 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 text-xs">
+        <span className="font-medium text-slate-600">Adiantamentos e descontos</span>
+        <span className="text-slate-500">a descontar: <b className="text-red-600">{money(d.pendente)}</b> · líquido da semana: <b className={liquido < 0 ? "text-red-600" : "text-emerald-600"}>{money(liquido)}</b></span>
+      </div>
+      {d.podeLancar && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <select value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })} className="text-xs border border-slate-200 rounded px-2 py-1.5 bg-white">
+            <option value="adiantamento">Adiantamento</option>
+            <option value="desconto">Desconto</option>
+          </select>
+          <input value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} inputMode="decimal" placeholder="Valor R$" className="w-24 text-xs border border-slate-200 rounded px-2 py-1.5" />
+          <input value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} placeholder="Descrição (opcional)" className="min-w-0 flex-1 text-xs border border-slate-200 rounded px-2 py-1.5" />
+          <button type="button" onClick={lancar} className="text-xs font-medium rounded-lg bg-emerald-500 text-white px-3 py-1.5 hover:bg-emerald-600">Lançar</button>
+        </div>
+      )}
+      {erro && <p className="mt-1 text-[11px] text-red-600">{erro}</p>}
+      <ul className="mt-2 space-y-1">
+        {d.itens.length === 0 && <li className="text-[11px] text-slate-400">Nenhum lançamento.</li>}
+        {d.itens.map((i) => (
+          <li key={i.id} className="flex items-center gap-2 text-xs">
+            <span className="text-slate-400 w-12 shrink-0">{new Date(i.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" })}</span>
+            <span className="text-slate-600 flex-1 min-w-0 truncate">{i.tipo === "desconto" ? "Desconto" : "Adiantamento"}{i.descricao ? ` — ${i.descricao}` : ""}</span>
+            <span className={`shrink-0 font-medium ${i.descontadoEm ? "text-slate-400 line-through" : "text-red-600"}`}>{money(i.valor)}</span>
+            {d.podeLancar && (
+              <>
+                <button type="button" onClick={() => marcar(i.id, !i.descontadoEm)} className="shrink-0 text-[11px] text-slate-500 hover:text-emerald-600">{i.descontadoEm ? "reabrir" : "descontado"}</button>
+                <button type="button" onClick={() => apagar(i.id)} className="shrink-0 text-[11px] text-slate-300 hover:text-red-500">✕</button>
+              </>
+            )}
+            {!d.podeLancar && i.descontadoEm && <span className="shrink-0 text-[11px] text-slate-400">descontado</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // Quanto a pessoa está ganhando de comissão por metas: hoje (em R$ e em %) e o acumulado da semana (seg–sáb, fecha sábado 18h).
 function Cartao({ r }) {
   const [aberto, setAberto] = useState(false);
@@ -44,6 +110,8 @@ function Cartao({ r }) {
           </div>
         </div>
       )}
+
+      <Ajustes userId={r.userId} totalSemana={r.totalSemana} />
 
       {aberto && (
         <div className="mt-3 border-t border-slate-100 pt-3 space-y-1">

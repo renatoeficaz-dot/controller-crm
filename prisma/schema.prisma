@@ -950,6 +950,7 @@ model User {
   pagamentoCobrador   PagamentoCobradorConfig?
   comissaoPercentual  ComissaoPercentualConfig?
   comissaoMetas       ComissaoMetasConfig?
+  comissaoAjustes     ComissaoAjuste[]
   mensagensInternas   MensagemInterna[]         @relation("MensagemInternaAutor")
   mensagensAtribuidas MensagemInterna[]         @relation("MensagemInternaAtribuida")
   mencoesInternas     MensagemInterna[]         @relation("MensagemInternaMencoes")
@@ -1792,6 +1793,22 @@ model ComissaoMetasConfig {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Adiantamentos e descontos lançados para a pessoa: ficam PENDENTES (descontadoEm nulo) e são abatidos dos próximos pagamentos
+// de comissão; ao fechar, marca-se como descontado. Só quem NÃO é o próprio colaborador lança/edita.
+model ComissaoAjuste {
+  id           String    @id @default(cuid())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  tipo         String // "adiantamento" | "desconto"
+  valor        Float
+  descricao    String?
+  data         DateTime  @default(now())
+  descontadoEm DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId, descontadoEm])
 }
 
 // Fechamento semanal já entregue — guarda o resultado calculado (mesmo motivo
