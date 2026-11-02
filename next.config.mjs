@@ -51,7 +51,7 @@ const nextConfig = {
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
           // Microfone fica liberado só pra origem (a gravação de áudio do chat
           // usa); câmera, geolocalização e pagamento ficam desligados.
-          { key: "Permissions-Policy", value: 'camera=(), geolocation=(), payment=(), microphone=(self "https://phone.hasos.com.br")' },
+          { key: "Permissions-Policy", value: 'camera=(self), geolocation=(), payment=(), microphone=(self "https://phone.hasos.com.br")' },
           // Isola a janela de popups abertos por ela (WhatsApp Web, se algum
           // dia for linkado) e impede que outra origem leia a resposta de
           // /uploads/* via <img>/<script> cross-origin.

@@ -10,6 +10,16 @@ import { ICE_SERVERS } from "@/lib/webrtcConfig";
 //
 // `souQuemLigou` decide quem cria a oferta. Se os dois criassem, as duas
 // negociações colidiriam ("glare") e nenhuma completaria.
+// Diz a causa real da falha do microfone (antes era sempre a mesma frase, mesmo quando o PC nem tinha microfone).
+function erroMicrofone(e) {
+  const nome = e?.name || "";
+  if (!navigator.mediaDevices?.getUserMedia) return "O navegador bloqueou o microfone: abra o sistema pelo endereço https:// (conexão segura).";
+  if (nome === "NotFoundError" || nome === "OverconstrainedError") return "Nenhum microfone foi encontrado neste aparelho. Conecte um microfone/fone e tente de novo.";
+  if (nome === "NotReadableError") return "O microfone está em uso por outro programa (ou foi desativado no Windows). Feche o outro programa e tente de novo.";
+  if (nome === "SecurityError") return "O navegador bloqueou o microfone para esta página (política de segurança).";
+  return "Microfone bloqueado para este site: clique no cadeado ao lado do endereço, permita o Microfone e recarregue a página.";
+}
+
 export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
   const souQuemLigou = chamada.deId === euId;
   const outro = souQuemLigou ? chamada.para : chamada.de;
@@ -86,16 +96,16 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
       let stream = null;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: chamada.video });
-      } catch {
+      } catch (e1) {
         if (!chamada.video) {
-          setErro("Não foi possível acessar o microfone. Confirme a permissão de microfone desse site nas configurações do navegador/celular.");
+          setErro(erroMicrofone(e1));
           return;
         }
         try {
           stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           setSemCamera(true);
-        } catch {
-          setErro("Não foi possível acessar o microfone. Confirme a permissão de microfone desse site nas configurações do navegador/celular.");
+        } catch (e2) {
+          setErro(erroMicrofone(e2));
           return;
         }
       }
