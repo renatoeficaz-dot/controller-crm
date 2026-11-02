@@ -246,7 +246,7 @@ export async function PATCH(req, { params }) {
       // tivesse na conta mais nem mandei" (mesma causa da mensagem de vídeo
       // chamada disparando em renovação, corrigida ontem em
       // lib/videoChamadaCobrador.js).
-      if ((updated.cicloAtual || 1) <= 1) {
+      {
         // Envio no WhatsApp em segundo plano: o gestor não fica travado esperando o provedor responder.
         after(async () => { await sendRecebimentoNotice(updated).catch(() => {}); });
       }
