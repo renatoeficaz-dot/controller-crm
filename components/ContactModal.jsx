@@ -2518,8 +2518,8 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
         </div>
 
         {/* Coluna direita: chat WhatsApp */}
-        <div className={embutido ? "hidden" : "w-full md:w-1/2 flex flex-col bg-slate-50 flex-1 min-h-0"}>
-          <div className="px-5 py-4 border-b border-slate-200 bg-white flex items-center gap-2">
+        <div className={embutido ? "hidden" : "w-full md:w-1/2 flex flex-col bg-slate-50 flex-1 min-h-0 min-w-0 max-w-full overflow-x-hidden"}>
+          <div className="px-3 md:px-5 py-3 md:py-4 border-b border-slate-200 bg-white flex flex-wrap md:flex-nowrap items-center gap-2">
             {/* Celular: sem este botão não havia como fechar o card e voltar para o Kanban. */}
             <button
               type="button"
@@ -2594,7 +2594,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto thin-scroll p-4 flex flex-col gap-2">
+          <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden thin-scroll p-3 md:p-4 flex flex-col gap-2">
             {timeline.length === 0 && (
               <p className="text-center text-xs text-slate-400 mt-4">
                 Nenhuma mensagem ainda. Diga olá!
@@ -2624,7 +2624,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                 value={selectedInstance}
                 onChange={(e) => setSelectedInstance(e.target.value)}
                 disabled={sending || uploading}
-                className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400 disabled:opacity-50"
+                className="flex-1 min-w-0 text-xs border border-slate-200 rounded px-2 py-1.5 bg-white outline-none focus:border-emerald-400 disabled:opacity-50"
               >
                 {numbers.map((n) => (
                   <option key={n.id} value={n.instance}>{n.label} ({n.number})</option>
@@ -2633,7 +2633,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
             </div>
           )}
 
-          <div className="p-3 border-t border-slate-200 bg-white flex items-end gap-2">
+          <div className="p-3 border-t border-slate-200 bg-white flex flex-wrap md:flex-nowrap items-end gap-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -2663,7 +2663,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
               rows={1}
               placeholder={recording ? "Gravando áudio…" : uploading ? "Enviando anexo…" : "Escreva uma mensagem… (Ctrl+V pra colar imagem)"}
               disabled={recording}
-              className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 resize-none max-h-24 disabled:bg-slate-50"
+              className="flex-1 min-w-full md:min-w-0 order-first md:order-none text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 resize-none max-h-24 disabled:bg-slate-50"
             />
             {/* Gravar áudio — ao lado do Enviar */}
             <button
@@ -2714,7 +2714,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
             <button
               onClick={send}
               disabled={sending || !text.trim()}
-              className="bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-40"
+              className="ml-auto md:ml-0 bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-600 disabled:opacity-40"
             >
               {sending ? "…" : "Enviar"}
             </button>
