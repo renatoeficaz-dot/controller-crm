@@ -55,6 +55,14 @@ export default function TarefasView() {
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Sem filtro padrão salvo, ao abrir a tela cada usuário já vê só as tarefas dele.
+  useEffect(() => {
+    let temPadrao = false;
+    try { temPadrao = (JSON.parse(localStorage.getItem(CHAVE_FILTROS) || "[]") || []).some((x) => x.padrao); } catch {}
+    if (temPadrao) return;
+    fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then((u) => { if (u?.name) setFResponsavel((atual) => atual || u.name); }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   function gravarSalvos(lista) {
     setSalvos(lista);
     try { localStorage.setItem(CHAVE_FILTROS, JSON.stringify(lista)); } catch {}
