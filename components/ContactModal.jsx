@@ -1,5 +1,6 @@
 "use client";
 
+import LigarHasos from "./LigarHasos";
 import TarefaBarra from "./TarefaBarra";
 import CalculadoraRapida from "./CalculadoraRapida";
 import { rolarAteOFim } from "@/lib/rolar";
@@ -2480,6 +2481,14 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                 </span>
               )}
             </div>
+            {form.phone && (
+              <LigarHasos
+                phone={form.phone}
+                name={form.name}
+                fallback={() => window.open("https://wa.me/" + String(form.phone).replace(/\D/g, ""), "_blank")}
+                className="flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+              />
+            )}
             <button
               onClick={abrirEncaminharLead}
               title="Enviar esta lead pro chat interno da equipe"
