@@ -1,6 +1,7 @@
 "use client";
 
 import LigarHasos from "./LigarHasos";
+import RenovacaoRapida from "./RenovacaoRapida";
 import TarefaBarra from "./TarefaBarra";
 import CalculadoraRapida from "./CalculadoraRapida";
 import { rolarAteOFim } from "@/lib/rolar";
@@ -411,6 +412,35 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
     const t = taskTypes.find((x) => /cobran/i.test(x.name));
     if (t) setTaskForm((p) => (p.tipoId ? p : { ...p, tipoId: t.id }));
   }, [taskForm.tipoId, taskTypes]);
+  const [renovandoRapido, setRenovandoRapido] = useState(false);
+  const [liberando1o, setLiberando1o] = useState(false);
+  // 1º empréstimo em um clique: capital R$ 300, liberação agora e a lead vai para Recebimento (igual ao botão do Chat).
+  async function primeiroEmprestimo() {
+    if (liberando1o) return;
+    const recebimento = stagesList.find((x) => x.name === "Recebimento");
+    if (!recebimento) { alert("Etapa Recebimento não encontrada."); return; }
+    if (!confirm(`Liberar o 1° empréstimo de R$ 300,00 para ${contact?.name || "esta lead"} e enviar para Recebimento? O cliente recebe o aviso de liberação.`)) return;
+    setLiberando1o(true);
+    try {
+      const r1 = await fetch(`/api/contacts/${contactId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ valorCapital: 300, pagamentoCapital: new Date().toLocaleDateString("en-CA") }),
+      });
+      if (!r1.ok) { alert((await r1.json().catch(() => ({}))).error || "Não foi possível preencher o capital."); return; }
+      const r2 = await fetch(`/api/contacts/${contactId}/move`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stageId: recebimento.id }),
+      });
+      const d2 = await r2.json().catch(() => ({}));
+      if (!r2.ok) { alert(d2.error || "Não foi possível enviar para Recebimento."); return; }
+      await loadContact();
+      onChanged?.();
+    } catch {
+      alert("Sem conexão — confira a lead antes de tentar de novo.");
+    } finally {
+      setLiberando1o(false);
+    }
+  }
   const [tarefaModalAberta, setTarefaModalAberta] = useState(!!abrirNovaTarefa); // vindo de "Criar tarefa" no menu do card
   useEffect(() => { if (tarefaModalAberta) setTaskForm((f) => (f.dueDate < diaBR(0) ? { ...f, dueDate: diaBR(0) } : f)); }, [tarefaModalAberta]);
   const chatEnd = useRef(null);
@@ -2561,6 +2591,31 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
               />
             )}
             <button
+              type="button"
+              onClick={primeiroEmprestimo}
+              disabled={liberando1o || contact?.stage?.name === "Recebimento"}
+              title="Preenche o capital com R$ 300, data de liberação agora, e envia a lead para Recebimento"
+              className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              {liberando1o ? "Liberando…" : (<><Icone nome="dinheiro" className="w-3 h-3" /> 1° empréstimo</>)}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRenovandoRapido(true)}
+              title="Renovação rápida: informe o valor e gere o novo ciclo com as parcelas"
+              className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
+            >
+              Renovar
+            </button>
+            <button
+              type="button"
+              onClick={() => setTarefaModalAberta(true)}
+              title="Criar tarefa para este lead"
+              className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
+            >
+              + Tarefa
+            </button>
+            <button
               onClick={abrirEncaminharLead}
               title="Enviar esta lead pro chat interno da equipe"
               className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
@@ -2616,6 +2671,11 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
           )}
 
           <TarefaBarra tasks={tasks} onChanged={() => { loadTasks(); onChanged?.(); }} onCriar={() => setTarefaModalAberta(true)} />
+          {renovandoRapido && (
+            <div className="px-3">
+              <RenovacaoRapida contactId={contactId} nome={contact?.name} onClose={() => setRenovandoRapido(false)} onDone={() => { loadContact(); onChanged?.(); }} />
+            </div>
+          )}
 
           {numbers.length > 1 && (
             <div className="px-3 pt-2 bg-white flex items-center gap-2">
