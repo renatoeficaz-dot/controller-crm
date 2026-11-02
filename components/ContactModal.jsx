@@ -1481,7 +1481,15 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
             {/* Dados pra liberar o pagamento — só em Análise/Liberação pagamento
                 (é quando começa a fazer sentido pedir/conferir esses dados). */}
             {mostraDadosPix && (
-              <div className="grid grid-cols-2 gap-3">
+              <div
+                className="grid grid-cols-2 gap-3"
+                ref={(el) => {
+                  // Ao abrir um lead em "Liberação pagamento", rola até a chave Pix (uma vez por abertura).
+                  if (!el || !emLiberacao || el.dataset.rolou) return;
+                  el.dataset.rolou = "1";
+                  setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 350);
+                }}
+              >
                 <label className="block">
                   <span className="text-xs text-slate-400">Chave Pix</span>
                   <div className="mt-0.5 flex items-center gap-1.5">
