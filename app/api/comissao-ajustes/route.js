@@ -36,7 +36,10 @@ export async function POST(req) {
   const tipo = body.tipo === "desconto" ? "desconto" : "adiantamento";
   const valor = num(body.valor);
   if (!userId || !valor) return NextResponse.json({ error: "Informe o colaborador e um valor maior que zero." }, { status: 400 });
-  const data = /^\d{4}-\d{2}-\d{2}$/.test(texto(body.data)) ? new Date(texto(body.data) + "T12:00:00.000Z") : new Date();
+  // Sem data informada vale o dia de hoje em Brasília (new Date() em UTC já vira o dia seguinte depois das 21h).
+  const hojeBR = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+  const dia = /^\d{4}-\d{2}-\d{2}$/.test(texto(body.data)) ? texto(body.data) : hojeBR;
+  const data = new Date(dia + "T12:00:00.000Z");
   const item = await prisma.comissaoAjuste.create({ data: { userId, tipo, valor, descricao: texto(body.descricao) || null, data } });
   return NextResponse.json(item);
 }
