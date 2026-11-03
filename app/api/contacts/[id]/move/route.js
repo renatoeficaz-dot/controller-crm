@@ -22,7 +22,23 @@ function hojeUTC() {
 }
 
 // Move o contato para outra coluna (drag and drop do Kanban)
-export async function PATCH(req, { params }) {
+// Uma movimentação por vez por contato: 4 requisições simultâneas (clique repetido/rede instável) liam a etapa antiga e cada
+// uma disparava os efeitos de entrar em Recebimento — 4 lançamentos de liberação, 4 avisos ao cliente e 4 tarefas. Em fila,
+// da 2ª em diante o contato já está na etapa (trocandoDeEtapa = false) e nada se repete.
+const movendo = new Map();
+export async function PATCH(req, ctx) {
+  const { id } = await ctx.params;
+  const anterior = movendo.get(id) || Promise.resolve();
+  const atual = anterior.catch(() => {}).then(() => mover(req, ctx));
+  movendo.set(id, atual);
+  try {
+    return await atual;
+  } finally {
+    if (movendo.get(id) === atual) movendo.delete(id);
+  }
+}
+
+async function mover(req, { params }) {
   try {
     const { id } = await params;
     const negado = await negarSeNaoPodeVerContato(id);
