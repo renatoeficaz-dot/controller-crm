@@ -14,6 +14,7 @@ import HorarioCriacao from "@/components/HorarioCriacao";
 import HorarioRecebimento from "@/components/HorarioRecebimento";
 import Secao from "@/components/SecaoColapsavel";
 import GraficoEntrouSoltou from "@/components/GraficoEntrouSoltou";
+import GraficoLiquidezProjetada from "@/components/GraficoLiquidezProjetada";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1499,6 +1500,15 @@ export default function Relatorios() {
         </h2>
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <GraficoEntrouSoltou ini={ini} fim={fim} honorariosPct={cfg?.honorariosPct ?? 30} />
+        </div>
+      </Secao>
+
+      <Secao titulo="Liquidez projetada">
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Liquidez projetada <span className="text-slate-400 font-normal">— retorno do que foi solto (com juros e perda) menos comissão, CAC e custo operacional</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <GraficoLiquidezProjetada ini={ini} fim={fim} honorariosPct={cfg?.honorariosPct ?? 30} />
         </div>
       </Secao>
 
