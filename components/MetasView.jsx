@@ -55,7 +55,7 @@ function pctFalta(atual, limiar) {
 
 // Barra com marcadores de mínima/média. `fmt` permite usar a mesma barra pra
 // quantidade (3 vendas) e pra dinheiro (R$ 1.200,00).
-function NivelBar({ atual, minima, media, meta, nivel, unidade, unidadePlural, fmt }) {
+function NivelBar({ atual, minima, media, meta, nivel, unidade, unidadePlural, fmt, porVenda }) {
   if (!meta) {
     return <p className="text-xs text-slate-400">Meta não configurada.</p>;
   }
@@ -85,11 +85,18 @@ function NivelBar({ atual, minima, media, meta, nivel, unidade, unidadePlural, f
       <p className={`flex items-center gap-1 text-xs font-medium mt-2 ${NIVEL_TEXTO[nv]}`}>
         {NIVEL_LABEL[nv]} {nv === "meta" && <Icone nome="trofeu" className="w-3.5 h-3.5" />}
       </p>
-      {faltaPctMinima != null && <p className="text-xs text-red-500 mt-0.5">Faltam {faltaPctMinima}% pra mínima</p>}
-      {faltaPctMedia != null && <p className="text-xs text-amber-500 mt-0.5">Faltam {faltaPctMedia}% pra média</p>}
+      {[["mínima", minima, faltaPctMinima, "text-red-500"], ["média", media, faltaPctMedia, "text-amber-500"]].map(([nome, alvo, fp, cor]) => {
+        if (fp == null) return null;
+        const falta = Math.max(0, alvo - atual);
+        // Valores em R$ (fmt): mostra quanto falta em dinheiro; contagens seguem em %. Com porVenda, diz também quantas vendas isso dá.
+        const txt = fmt ? f(falta) : `${fp}%`;
+        const vendas = porVenda ? ` (≈ ${Math.ceil(falta / porVenda - 1e-9)} venda${Math.ceil(falta / porVenda - 1e-9) === 1 ? "" : "s"} de ${f(porVenda)})` : "";
+        return <p key={nome} className={`text-xs ${cor} mt-0.5`}>Faltam {txt} pra {nome}{vendas}</p>;
+      })}
       {faltaMeta > 0 && (
         <p className="text-xs text-slate-400 mt-0.5">
           {unidade ? `Faltam ${f(faltaMeta)} ${faltaMeta === 1 ? unidade : plural} pra meta cheia.` : `Faltam ${f(faltaMeta)} pra meta cheia.`}
+          {porVenda ? ` (≈ ${Math.ceil(faltaMeta / porVenda - 1e-9)} venda${Math.ceil(faltaMeta / porVenda - 1e-9) === 1 ? "" : "s"} de ${f(porVenda)})` : ""}
         </p>
       )}
     </div>
@@ -550,6 +557,7 @@ export default function MetasView() {
             meta={r.metaLiberacaoDia}
             nivel={r.niveis?.liberacao}
             fmt={money}
+            porVenda={300}
           />
           <p className="text-[11px] text-slate-400 mt-2">
             100% = liberar o <strong>capital que volta</strong> no dia (parte do que vence sem os honorários): a operação se mantém do mesmo tamanho.
