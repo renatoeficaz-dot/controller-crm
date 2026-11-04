@@ -58,6 +58,6 @@ export async function GET(req) {
     metaRecebimentos: metaReceb,
     pctVendas: metaVendas > 0 ? Math.round((somar("vendas") / metaVendas) * 100) : null,
     pctRecebimentos: metaReceb > 0 ? Math.round((somar("recebimentos") / metaReceb) * 100) : null,
-    serie: serie.map((d) => ({ dia: d.dia, vendas: d.vendas || 0, valorVendido: r2(d.valorVendido), baixas: d.baixas || 0, valorRecebido: r2(d.valorRecebido), valorRecuperado: r2(d.valorRecuperado) })),
+    serie: serie.map((d) => ({ dia: d.dia, vendas: d.vendas || 0, valorVendido: r2(d.valorVendido), baixas: d.baixas || 0, valorRecebido: r2(d.valorRecebido), valorRecuperado: r2(d.valorRecuperado), recebimentos: r2(d.recebimentos), liberado: r2(d.liberado) })),
   });
 }

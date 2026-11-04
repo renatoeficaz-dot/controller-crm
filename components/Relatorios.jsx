@@ -1495,10 +1495,10 @@ export default function Relatorios() {
       {/* Balanço do período: compensou? deu lucro? */}
       <Secao titulo="Entrou x soltou">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
-          Entrou x soltou <span className="text-slate-400 font-normal">— por dia, no mesmo filtro de datas: recebido, liberado, saldo e projeção com juros</span>
+          Entrou x soltou <span className="text-slate-400 font-normal">— por dia, no mesmo filtro de datas: recebido, liberado, projeção com juros e a diferença</span>
         </h2>
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <GraficoEntrouSoltou stages={stagesFiltrados} ini={ini} fim={fim} honorariosPct={cfg?.honorariosPct ?? 30} />
+          <GraficoEntrouSoltou ini={ini} fim={fim} honorariosPct={cfg?.honorariosPct ?? 30} />
         </div>
       </Secao>
 
