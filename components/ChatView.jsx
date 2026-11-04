@@ -343,11 +343,13 @@ export default function ChatView() {
     loadConversations();
   }
 
+  // Otimista: a conversa some da lista no clique (sem esperar o servidor); se o servidor recusar, a lista é recarregada e ela volta.
   async function toggleChatArquivado(c) {
+    if (!mostrarArquivadas) setConversations((prev) => prev.filter((x) => x.id !== c.id));
+    else setConversations((prev) => prev.map((x) => (x.id === c.id ? { ...x, chatArquivado: !c.chatArquivado } : x)));
     await fetch(`/api/contacts/${c.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatArquivado: !c.chatArquivado }),
-    });
-    if (!mostrarArquivadas) setConversations((prev) => prev.filter((x) => x.id !== c.id));
+    }).catch(() => null);
     loadConversations();
   }
 
@@ -355,12 +357,13 @@ export default function ChatView() {
   async function fecharVarias(ids, minutos) {
     const volta = minutos ? new Date(Date.now() + minutos * 60e3).toISOString() : null;
     setFecharMenu(false);
-    await Promise.all(ids.map((id) => fetch(`/api/contacts/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatArquivado: true, chatVoltaEm: volta }),
-    }).catch(() => null)));
+    // Otimista: some da lista já no clique; o servidor confirma em seguida (e a lista é recarregada, trazendo de volta o que falhar).
     if (!mostrarArquivadas) setConversations((prev) => prev.filter((x) => !ids.includes(x.id)));
     setSelIds([]);
     setSelecionando(false);
+    await Promise.all(ids.map((id) => fetch(`/api/contacts/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatArquivado: true, chatVoltaEm: volta }),
+    }).catch(() => null)));
     loadConversations();
   }
 
