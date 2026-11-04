@@ -16,6 +16,7 @@ import AgendarMensagemModal from "./AgendarMensagemModal";
 import VideoChamadaCall from "./VideoChamadaCall";
 import TarefaBarra from "./TarefaBarra";
 import LigarHasos from "./LigarHasos";
+import { pressLongo } from "./pressLongo";
 import RenovacaoRapida from "./RenovacaoRapida";
 import CalculadoraRapida from "./CalculadoraRapida";
 import AcordoModal from "./AcordoModal";
@@ -1913,7 +1914,8 @@ export default function ChatView() {
                     </span>
                   )}
                   <div
-                    className={`max-w-[70%] min-w-0 rounded-xl px-3 py-2 text-sm ${
+                    {...((item.msg.body || "").trim() && !item.msg.apagada ? pressLongo(() => setEnviarCampoMsg(item.msg)) : {})}
+                    className={`max-w-[70%] min-w-0 rounded-xl px-3 py-2 text-sm [-webkit-touch-callout:none] select-none md:select-text ${
                       item.msg.fromMe
                         ? "bg-emerald-500 text-white rounded-br-sm"
                         : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"

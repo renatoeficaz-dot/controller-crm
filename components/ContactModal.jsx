@@ -1,6 +1,7 @@
 "use client";
 
 import LigarHasos from "./LigarHasos";
+import { pressLongo } from "./pressLongo";
 import RenovacaoRapida from "./RenovacaoRapida";
 import TarefaBarra from "./TarefaBarra";
 import CalculadoraRapida from "./CalculadoraRapida";
@@ -56,7 +57,8 @@ const LinhaTimeline = memo(function LinhaTimeline({ item, numbers, onEnviarCampo
                   </span>
                 )}
                 <div
-                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                  {...((item.msg.body || "").trim() ? pressLongo(() => onEnviarCampo(item.msg)) : {})}
+                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm [-webkit-touch-callout:none] select-none md:select-text ${
                     item.msg.fromMe
                       ? "bg-emerald-500 text-white"
                       : "bg-white border border-slate-200 text-slate-700"
