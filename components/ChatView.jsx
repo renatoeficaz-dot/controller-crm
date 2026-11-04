@@ -318,9 +318,15 @@ export default function ChatView() {
   const [massaChat, setMassaChat] = useState(null); // { texto, enviando, feitos, falhas }
   const [menuConversaId, setMenuConversaId] = useState(null); // menu ⋮ da lista (Fechar conversa)
 
+  // Conversas fechadas agora há pouco (id -> até quando esconder). Uma busca da lista que JÁ estava em andamento quando você fechou volta
+  // com a conversa ainda aberta e a recolocava na tela até a próxima atualização — por isso parecia que "demorava para fechar".
+  const fechadasRef = useRef(new Map());
   const loadConversations = useCallback(async () => {
     const data = await fetch(`/api/chat${mostrarArquivadas ? "?arquivadas=1" : ""}`).then((r) => r.json()).catch(() => []);
-    setConversations(Array.isArray(data) ? data : []);
+    const agora = Date.now();
+    for (const [id, ate] of fechadasRef.current) if (ate < agora) fechadasRef.current.delete(id);
+    const lista = Array.isArray(data) ? data : [];
+    setConversations(mostrarArquivadas || fechadasRef.current.size === 0 ? lista : lista.filter((c) => !fechadasRef.current.has(c.id)));
   }, [mostrarArquivadas]);
 
   useEffect(() => {
@@ -346,11 +352,14 @@ export default function ChatView() {
 
   // Otimista: a conversa some da lista no clique (sem esperar o servidor); se o servidor recusar, a lista é recarregada e ela volta.
   async function toggleChatArquivado(c) {
+    if (!c.chatArquivado) fechadasRef.current.set(c.id, Date.now() + 20000);
+    else fechadasRef.current.delete(c.id);
     if (!mostrarArquivadas) setConversations((prev) => prev.filter((x) => x.id !== c.id));
     else setConversations((prev) => prev.map((x) => (x.id === c.id ? { ...x, chatArquivado: !c.chatArquivado } : x)));
-    await fetch(`/api/contacts/${c.id}`, {
+    const r = await fetch(`/api/contacts/${c.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatArquivado: !c.chatArquivado }),
     }).catch(() => null);
+    if (!r?.ok) fechadasRef.current.delete(c.id); // o servidor recusou: a conversa volta na próxima atualização
     loadConversations();
   }
 
@@ -358,13 +367,17 @@ export default function ChatView() {
   async function fecharVarias(ids, minutos) {
     const volta = minutos ? new Date(Date.now() + minutos * 60e3).toISOString() : null;
     setFecharMenu(false);
+    for (const id of ids) fechadasRef.current.set(id, Date.now() + 20000);
     // Otimista: some da lista já no clique; o servidor confirma em seguida (e a lista é recarregada, trazendo de volta o que falhar).
     if (!mostrarArquivadas) setConversations((prev) => prev.filter((x) => !ids.includes(x.id)));
     setSelIds([]);
     setSelecionando(false);
-    await Promise.all(ids.map((id) => fetch(`/api/contacts/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatArquivado: true, chatVoltaEm: volta }),
-    }).catch(() => null)));
+    await Promise.all(ids.map(async (id) => {
+      const r = await fetch(`/api/contacts/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatArquivado: true, chatVoltaEm: volta }),
+      }).catch(() => null);
+      if (!r?.ok) fechadasRef.current.delete(id);
+    }));
     loadConversations();
   }
 
