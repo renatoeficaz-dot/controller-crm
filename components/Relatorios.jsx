@@ -13,6 +13,7 @@ import CacEtiquetas from "@/components/CacEtiquetas";
 import HorarioCriacao from "@/components/HorarioCriacao";
 import HorarioRecebimento from "@/components/HorarioRecebimento";
 import Secao from "@/components/SecaoColapsavel";
+import GraficoEntrouSoltou from "@/components/GraficoEntrouSoltou";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1492,6 +1493,15 @@ export default function Relatorios() {
       </Secao>
 
       {/* Balanço do período: compensou? deu lucro? */}
+      <Secao titulo="Entrou x soltou">
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Entrou x soltou <span className="text-slate-400 font-normal">— por dia, no mesmo filtro de datas: recebido, liberado, saldo e projeção com juros</span>
+        </h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <GraficoEntrouSoltou stages={stagesFiltrados} ini={ini} fim={fim} honorariosPct={cfg?.honorariosPct ?? 30} />
+        </div>
+      </Secao>
+
       <Secao titulo="O período compensou?">
         <h2 className="text-sm font-semibold text-slate-700 mb-2">
           O período compensou? <span className="text-slate-400 font-normal">— recebido x planejado x liberado, no mesmo filtro de datas</span>
