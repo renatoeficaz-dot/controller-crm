@@ -588,7 +588,7 @@ export default function MetasView() {
             fmt={money}
           />
           <p className="text-[11px] text-slate-400 mt-2">
-            Compara o <strong>valor recebido</strong> com a soma das parcelas que vencem no dia — <strong>sem juros nem multa</strong>.
+            Compara tudo que <strong>entrou</strong> (inclusive juros e multa) com a soma das parcelas que vencem no dia, sem juros.
             Receber tudo que vence = 100%.
           </p>
           {(r.valorRecebidoHoje || 0) - (r.recebimentosHoje || 0) > 0.009 && (
