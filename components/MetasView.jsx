@@ -857,10 +857,7 @@ export default function MetasView() {
       {modalLiberado && (
         <ListaModal
           titulo="Liberado no dia"
-          itens={[
-            ...(r.vendasDetalhe || []).map((v) => ({ ...v, id: "v-" + v.id, _tipo: "Venda nova", _hora: v.entrouRecebimentoEm })),
-            ...(r.renovacoesDetalhe || []).map((v) => ({ ...v, id: "r-" + v.id, _tipo: "Renovação", _hora: v.renovadoEm })),
-          ].sort((a, b) => new Date(b._hora) - new Date(a._hora))}
+          itens={(r.liberacoesDetalhe || []).map((v) => ({ ...v, _tipo: v.tipo, _hora: v.hora }))}
           vazio="Nada liberado neste dia."
           onClose={() => setModalLiberado(false)}
           onAbrirContato={(id) => { setModalLiberado(false); setOpenContactId(id); }}
