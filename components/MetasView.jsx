@@ -588,8 +588,8 @@ export default function MetasView() {
             fmt={money}
           />
           <p className="text-[11px] text-slate-400 mt-2">
-            Conta só o que <strong>entrou das parcelas que vencem no dia</strong> (de clientes em Recebimento), sem juros, multa nem atrasadas,
-            contra a soma dessas parcelas. Receber tudo que vence = 100%.
+            Conta <strong>tudo que entrou no dia</strong> (atrasadas, juros e multa inclusive), contra a soma das parcelas que vencem no dia
+            (de clientes em Recebimento, sem juros). Receber tudo que vence = 100%.
           </p>
           {(r.valorRecebidoHoje || 0) - (r.recebimentosHoje || 0) > 0.009 && (
             <p className="text-[11px] text-slate-500 mt-1.5">
