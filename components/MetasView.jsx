@@ -591,6 +591,11 @@ export default function MetasView() {
             Compara o <strong>valor recebido</strong> com a soma das parcelas que vencem no dia — <strong>sem juros nem multa</strong>.
             Receber tudo que vence = 100%.
           </p>
+          {(r.valorRecebidoHoje || 0) - (r.recebimentosHoje || 0) > 0.009 && (
+            <p className="text-[11px] text-slate-500 mt-1.5">
+              Entrou no caixa <strong>{money(r.valorRecebidoHoje)}</strong> = {money(r.recebimentosHoje)} sem juros + {money((r.valorRecebidoHoje || 0) - (r.recebimentosHoje || 0))} de juros/multa.
+            </p>
+          )}
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver o que foi recebido →</p>
         </button>
 
