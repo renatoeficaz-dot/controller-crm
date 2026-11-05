@@ -588,12 +588,12 @@ export default function MetasView() {
             fmt={money}
           />
           <p className="text-[11px] text-slate-400 mt-2">
-            Compara tudo que <strong>entrou</strong> (inclusive juros e multa) com a soma das parcelas que vencem no dia, sem juros.
-            Receber tudo que vence = 100%.
+            Conta só o que <strong>entrou das parcelas que vencem no dia</strong> (de clientes em Recebimento), sem juros, multa nem atrasadas,
+            contra a soma dessas parcelas. Receber tudo que vence = 100%.
           </p>
           {(r.valorRecebidoHoje || 0) - (r.recebimentosHoje || 0) > 0.009 && (
             <p className="text-[11px] text-slate-500 mt-1.5">
-              Entrou no caixa <strong>{money(r.valorRecebidoHoje)}</strong> = {money(r.recebimentosHoje)} sem juros + {money((r.valorRecebidoHoje || 0) - (r.recebimentosHoje || 0))} de juros/multa.
+              Entrou no caixa <strong>{money(r.valorRecebidoHoje)}</strong> = {money(r.recebimentosHoje)} das parcelas do dia + {money((r.valorRecebidoHoje || 0) - (r.recebimentosHoje || 0))} de atrasadas, juros/multa e outras etapas (não entram na meta).
             </p>
           )}
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver o que foi recebido →</p>
