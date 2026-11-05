@@ -380,6 +380,9 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   const [novaTag, setNovaTag] = useState("");
   const [encaminharLeadAberto, setEncaminharLeadAberto] = useState(false);
   const [suporteIaAberto, setSuporteIaAberto] = useState(false);
+  // Botão "ampliar": o modal ocupa quase a tela toda (a lembrança fica no navegador).
+  const [ampliado, setAmpliado] = useState(() => { try { return localStorage.getItem("contactModalAmpliado") === "1"; } catch { return false; } });
+  const alternarAmpliado = () => setAmpliado((v) => { const n = !v; try { localStorage.setItem("contactModalAmpliado", n ? "1" : "0"); } catch {} return n; });
   const [suporteIaDescricao, setSuporteIaDescricao] = useState("");
   const [enviandoSuporteIa, setEnviandoSuporteIa] = useState(false);
   const [conversasInternas, setConversasInternas] = useState([]);
@@ -1227,7 +1230,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
       onClick={embutido ? undefined : onClose}
     >
       <div
-        className={embutido ? "bg-white w-full h-full flex flex-col overflow-hidden" : "bg-white md:rounded-2xl shadow-xl w-full h-full md:max-w-5xl md:h-[85vh] flex flex-col md:flex-row overflow-hidden"}
+        className={embutido ? "bg-white w-full h-full flex flex-col overflow-hidden" : `bg-white md:rounded-2xl shadow-xl w-full h-full ${ampliado ? "md:max-w-[98vw] md:h-[96vh]" : "md:max-w-5xl md:h-[85vh]"} flex flex-col md:flex-row overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Coluna esquerda: dados do contato — no mobile só aparece depois de
@@ -1237,6 +1240,13 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
           <div className={embutido ? "hidden" : "px-5 py-4 border-b border-slate-200 flex items-center justify-between"}>
             <h2 className="font-semibold text-slate-800">Dados do contato</h2>
             <div className="flex items-center gap-3">
+              <button
+                onClick={alternarAmpliado}
+                title={ampliado ? "Voltar ao tamanho normal" : "Aumentar a tela"}
+                className="hidden md:flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                {ampliado ? "⤡" : "⤢"}
+              </button>
               <button
                 onClick={() => setDadosAbertoMobile(false)}
                 className="md:hidden text-xs text-emerald-600 hover:text-emerald-700"
@@ -2551,7 +2561,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
 
         {/* Coluna direita: chat WhatsApp */}
         <div className={embutido ? "hidden" : "w-full md:w-1/2 flex flex-col bg-slate-50 flex-1 min-h-0 min-w-0 max-w-full overflow-x-hidden"}>
-          <div className="px-3 md:px-5 py-3 md:py-4 border-b border-slate-200 bg-white flex flex-wrap md:flex-nowrap items-center gap-2">
+          <div className="px-3 md:px-5 py-3 md:py-4 border-b border-slate-200 bg-white flex flex-wrap items-center gap-2">
             {/* Celular: sem este botão não havia como fechar o card e voltar para o Kanban. */}
             <button
               type="button"
@@ -2584,6 +2594,13 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                 </span>
               )}
             </div>
+            <button
+              onClick={() => setSuporteIaAberto(true)}
+              title="Reportar erro da IA: ela preencheu/entendeu algo errado nesta lead"
+              className="shrink-0 flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+            >
+              ! Reportar erro
+            </button>
             {form.phone && (
               <LigarHasos
                 phone={form.phone}
@@ -2623,13 +2640,6 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
               className="shrink-0 flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50"
             >
               <Icone nome="pessoas" className="w-3.5 h-3.5" /> Chat interno
-            </button>
-            <button
-              onClick={() => setSuporteIaAberto(true)}
-              title="Reportar que a IA preencheu/entendeu algo errado nesta lead"
-              className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-            >
-              !
             </button>
             <button
               onClick={toggleIaPausada}
