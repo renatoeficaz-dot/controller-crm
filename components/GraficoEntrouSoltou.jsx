@@ -10,6 +10,7 @@ const curto = (n) => {
 };
 const fmtDia = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 const r2 = (n) => Math.round(n * 100) / 100;
+const PERDA_MEDIA = 30; // % de perda média descontada da diferença para a liquidez previsível
 
 const LINHAS = [
   { chave: "entrou", nome: "Entrou (recebimento)", cor: "#10b981" },
@@ -59,11 +60,12 @@ export default function GraficoEntrouSoltou({ ini, fim, honorariosPct = 30 }) {
     { nome: "Soltou", v: total.soltou, cor: "text-amber-600" },
     { nome: `Soltou + juros (+${honorariosPct}%)`, v: total.projetado, cor: "text-slate-700" },
     { nome: "Diferença (soltou + juros − entrou)", v: total.diferenca, cor: total.diferenca <= 0 ? "text-emerald-600" : "text-red-600", nota: total.diferenca <= 0 ? "entrou mais que a projeção" : "faltou para a projeção" },
+    { nome: `Liquidez previsível (diferença − ${PERDA_MEDIA}%)`, v: r2(total.diferenca * (1 - PERDA_MEDIA / 100)), cor: total.diferenca <= 0 ? "text-emerald-600" : "text-red-600", nota: `desconta a perda média de ${PERDA_MEDIA}%` },
   ];
 
   return (
     <div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
         {cartoes.map((c) => (
           <div key={c.nome} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
             <p className="text-[11px] text-slate-400 leading-tight">{c.nome}</p>
