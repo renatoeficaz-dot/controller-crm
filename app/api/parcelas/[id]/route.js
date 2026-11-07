@@ -147,43 +147,27 @@ export async function PATCH(req, { params }) {
   // apaga lançamento de baixa parcial alheio. Completando uma parcela que
   // já tinha parcial, lança só a DIFERENÇA que falta pro total, em vez de
   // reescrever um lançamento existente.
-  const novaCompletagem = paid && !parcelaAtual.paid;
   const descricaoPropria = `Parcela ${parcela.number}ª — ${parcela.contact?.name || ""}`.trim();
-  if (paid) {
-    const existente = await prisma.lancamento.findFirst({
-      where: { parcelaId: parcela.id, description: { startsWith: `Parcela ${parcela.number}ª` } },
-    });
-    if (novaCompletagem) {
-      // Nova conclusão: nunca reescreve lançamento alheio (parcial). Só
-      // lança a diferença entre o total e o que outros lançamentos dessa
-      // parcela (parciais inclusive) já somam — evita cobrar/registrar o
-      // mesmo dinheiro duas vezes.
-      const todos = await prisma.lancamento.findMany({ where: { parcelaId: parcela.id }, select: { amount: true } });
-      const jaLancado = todos.reduce((s, l) => s + l.amount, 0);
-      const diferenca = Math.round((amountPago - jaLancado) * 100) / 100;
-      if (diferenca > 0.01) {
-        const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
-        await prisma.lancamento.create({
-          data: {
-            type: "entrada",
-            amount: diferenca,
-            description: descricaoPropria,
-            contactId: parcela.contactId,
-            parcelaId: parcela.id,
-            bancoId: cfg?.contaRecebimentoId || null,
-          },
-        });
-      }
-    } else if (existente) {
-      // Correção de valor de uma baixa já feita (editar_valor_baixa) — só
-      // ajusta o lançamento que essa rota mesma criou antes.
-      await prisma.lancamento.update({ where: { id: existente.id }, data: { amount: amountPago } });
-    } else {
+  if (paid && parcelaAtual.paid && !ehAlteracao) {
+    // Parcela que JÁ estava paga, salva de novo com o mesmo valor (tela desatualizada, clique repetido, edição só da forma de pagamento):
+    // o dinheiro já está no caixa — lançar de novo duplicava a entrada (R$ 342 fantasmas em 02/11 e 07/11, inflando metas e comissão).
+  } else if (paid) {
+    // O que essa parcela deve ter no caixa = o valor pago. Os lançamentos dos OUTROS caminhos (baixa parcial, adiantamento, diferença
+    // de juros) contam primeiro; este só completa a diferença — nunca soma o valor cheio por cima deles.
+    const todos = await prisma.lancamento.findMany({ where: { parcelaId: parcela.id, type: "entrada" }, select: { id: true, amount: true, description: true } });
+    const proprio = todos.find((l) => String(l.description || "").startsWith(`Parcela ${parcela.number}ª`)) || null;
+    const outros = todos.filter((l) => l.id !== proprio?.id).reduce((s, l) => s + l.amount, 0);
+    const alvo = Math.round((amountPago - outros) * 100) / 100;
+    if (proprio) {
+      // Correção de valor de uma baixa já feita (editar_valor_baixa): ajusta só o lançamento que essa rota criou.
+      if (alvo > 0.01) await prisma.lancamento.update({ where: { id: proprio.id }, data: { amount: alvo } });
+      else await prisma.lancamento.delete({ where: { id: proprio.id } });
+    } else if (alvo > 0.01) {
       const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
       await prisma.lancamento.create({
         data: {
           type: "entrada",
-          amount: amountPago,
+          amount: alvo,
           description: descricaoPropria,
           contactId: parcela.contactId,
           parcelaId: parcela.id,
