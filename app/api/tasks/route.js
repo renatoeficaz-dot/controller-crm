@@ -49,6 +49,11 @@ export async function POST(req) {
   // Repetição no período (ex.: das 13:00 às 17:00, a cada 60 min): cria uma
   // tarefa por horário, no mesmo dia, pro mesmo lead.
   const rep = body.repetir;
+  // "Conferir pagamento" é sempre do gestor, qualquer que seja quem criou/escolheu o responsável.
+  if (body.tipoId) {
+    const tp = await prisma.taskType.findUnique({ where: { id: body.tipoId }, select: { name: true } }).catch(() => null);
+    if (tp && /^conferir pagamento$/i.test(tp.name)) body.responsavel = "gestor";
+  }
   if (rep && typeof body.dueDate === "string" && body.dueDate.length >= 10) {
     const passo = Math.floor(Number(rep.cadaMin));
     const dia = body.dueDate.slice(0, 10);
