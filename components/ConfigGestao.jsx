@@ -403,7 +403,7 @@ export function ComissaoConfig() {
               <p className="text-[11px] text-slate-500">
                 Fixo por semana + bônus por DIA em que a operação bate a meta {acerto.tipoMeta === "venda" ? "de vendas" : "de recebimento"}.
                 Conta <strong>{acerto.tipoMeta === "venda" ? "todas as vendas do dia" : "todos os recebimentos do dia"}</strong>, não só os que essa pessoa fez.
-                A semana fecha sábado às 18h — o que acontecer depois disso conta na semana seguinte.
+                A semana fecha sábado às 17h — o que acontecer depois disso conta na semana seguinte.
                 O relatório é entregue no chat interno todo sábado às 16h.
               </p>
             </div>
@@ -559,7 +559,7 @@ export function ComissaoConfig() {
               <p className="text-[11px] text-slate-500">
                 Cada meta do dia (<strong>recebimento</strong> e <strong>liberação</strong>) que a operação bate rende um % sobre o
                 <strong> recebido do dia</strong>: mínima, média ou máxima. Os dois somam — com 1% / 2% / 3% o máximo é 6%.
-                O Arthur acompanha o quanto ganhou no dia em Metas. O fechamento da semana é sábado às 18:00.
+                O Arthur acompanha o quanto ganhou no dia em Metas. O fechamento da semana é sábado às 17:00.
               </p>
             </div>
             <div className="grid grid-cols-4 gap-2">

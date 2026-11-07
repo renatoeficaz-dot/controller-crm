@@ -74,7 +74,7 @@ function Ajustes({ userId, totalSemana }) {
   );
 }
 
-// Quanto a pessoa está ganhando de comissão por metas: hoje (em R$ e em %) e o acumulado da semana (seg–sáb, fecha sábado 18h).
+// Quanto a pessoa está ganhando de comissão por metas: hoje (em R$ e em %) e o acumulado da semana (seg–sáb, fecha sábado 17h).
 function Cartao({ r }) {
   const [aberto, setAberto] = useState(false);
   const h = r.hoje;
@@ -116,7 +116,7 @@ function Cartao({ r }) {
       {aberto && (
         <div className="mt-3 border-t border-slate-100 pt-3 space-y-1">
           <p className="text-[11px] text-slate-400 mb-1">
-            Semana {r.inicio.slice(8, 10)}/{r.inicio.slice(5, 7)} a {r.fim.slice(8, 10)}/{r.fim.slice(5, 7)} · fechamento sábado às 18:00 · cada meta rende {r.pcts.minima}% / {r.pcts.media}% / {r.pcts.maxima}% (mínima / média / máxima)
+            Semana {r.inicio.slice(8, 10)}/{r.inicio.slice(5, 7)} a {r.fim.slice(8, 10)}/{r.fim.slice(5, 7)} · fechamento sábado às 17:00 · cada meta rende {r.pcts.minima}% / {r.pcts.media}% / {r.pcts.maxima}% (mínima / média / máxima)
           </p>
           {r.detalhe.map((d) => (
             <div key={d.dia} className="flex items-center justify-between text-xs gap-2">
