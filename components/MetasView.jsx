@@ -563,6 +563,9 @@ export default function MetasView() {
             100% = liberar o <strong>capital que volta</strong> no dia (parte do que vence sem os honorários): a operação se mantém do mesmo tamanho.
             Acima de 100% ela cresce — o ciclo seguinte recebe mais.
           </p>
+          {r.dia && new Date(r.dia + "T12:00:00Z").getUTCDay() === 6 && (
+            <p className="text-[11px] text-amber-600 mt-1">Sábado: a meta de liberação vale a metade.</p>
+          )}
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver as vendas fechadas →</p>
         </button>
 
