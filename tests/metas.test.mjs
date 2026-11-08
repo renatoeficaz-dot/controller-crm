@@ -198,3 +198,37 @@ test("comissão por metas: faixa de recebimento + faixa de liberação sobre o r
   assert.ok(r.totalSemana >= 40);
   assert.equal(r.maxPct, 6);
 });
+
+test("fechamento do sábado às 17h: o que entra depois conta na segunda da semana seguinte (recebido e liberado)", async () => {
+  const [SAB, SEG] = ["2026-03-14", "2026-03-16"];
+  const dono = await prisma.user.findFirst({ where: { login: "comissionado" } });
+  const s1 = await contato("S1", "Recebimento");
+  const p1 = await parcela(s1.id, { dueDia: SAB, amount: 100, paid: true, paidAt: brt(SAB, 16, 30), amountPago: 100 });
+  await entrada(s1.id, p1.id, 100, brt(SAB, 16, 30)); // antes do fechamento: fica no sábado
+  const s2 = await contato("S2", "Recebimento");
+  const p2 = await parcela(s2.id, { dueDia: SAB, amount: 60, paid: true, paidAt: brt(SAB, 17, 30), amountPago: 60 });
+  await entrada(s2.id, p2.id, 60, brt(SAB, 17, 30)); // depois do fechamento: vai pra segunda
+  await liberacao(s1.id, 50, brt(SAB, 15)); // liberação antes: sábado
+  await liberacao(s1.id, 200, brt(SAB, 18)); // liberação depois: segunda
+  const m1 = await contato("M1", "Recebimento");
+  const pm = await parcela(m1.id, { dueDia: SEG, amount: 40, paid: true, paidAt: brt(SEG, 9), amountPago: 40 });
+  await entrada(m1.id, pm.id, 40, brt(SEG, 9));
+
+  const semana1 = await calcularComissaoMetas(dono.id, brt("2026-03-12", 12));
+  const sab = semana1.detalhe.find((x) => x.dia === SAB);
+  assert.equal(sab.recebido, 100, "sábado conta só até as 17h");
+  assert.equal(sab.liberado, 50);
+  assert.equal(sab.ajusteRec, -60, "R$ 60 saíram do sábado (entraram depois das 17h)");
+  assert.equal(sab.ajusteLib, -200);
+
+  const semana2 = await calcularComissaoMetas(dono.id, brt("2026-03-18", 12));
+  const seg = semana2.detalhe.find((x) => x.dia === SEG);
+  assert.equal(seg.recebido, 100, "segunda = os 40 dela + os 60 de sábado depois das 17h");
+  assert.equal(seg.liberado, 200, "a liberação de sábado depois das 17h vem pra segunda");
+  assert.equal(seg.ajusteRec, 60);
+  assert.equal(seg.ajusteLib, 200);
+
+  // O Metas (dia do calendário) continua mostrando o dia inteiro.
+  assert.equal((await M.resultadoDoDia(SAB)).recebimentos, 160);
+  assert.equal((await M.resultadoDoDia(SAB)).liberado, 250);
+});
