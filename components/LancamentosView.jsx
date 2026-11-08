@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import ContactModal from "./ContactModal";
 import ContasPagarView from "@/components/ContasPagarView";
 import FilaLiberacaoView from "@/components/FilaLiberacaoView";
+import ConciliacaoView from "@/components/ConciliacaoView";
 import Icone from "@/components/Icones";
 import { useUndoDelete, UndoToast } from "./UndoToast";
 
@@ -540,13 +541,15 @@ export default function LancamentosView() {
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
         <div className="min-w-0">
           <h1 className="text-lg font-semibold text-slate-800">
-            {aba === "lancamentos" ? "Lançamentos" : aba === "contas" ? "Contas a pagar" : "Fila de liberação"}
+            {aba === "lancamentos" ? "Lançamentos" : aba === "contas" ? "Contas a pagar" : aba === "conciliacao" ? "Conciliação bancária" : "Fila de liberação"}
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
             {aba === "lancamentos"
               ? "Acompanhe entradas, saídas e o saldo financeiro da sua operação."
               : aba === "contas"
               ? "Despesas previstas. O saldo só muda quando você marca a conta como paga."
+              : aba === "conciliacao"
+              ? "Confira cada baixa e cada saída com o extrato do banco e feche o caixa do dia."
               : "Quem está aprovado esperando o capital sair, e até onde o saldo de hoje alcança."}
           </p>
         </div>
@@ -578,6 +581,7 @@ export default function LancamentosView() {
           { key: "lancamentos", label: "Lançamentos" },
           { key: "contas", label: "Contas a pagar" },
           { key: "fila", label: "Fila de liberação" },
+          { key: "conciliacao", label: "Conciliação" },
         ].map((t) => (
           <button
             key={t.key}
@@ -595,6 +599,8 @@ export default function LancamentosView() {
         <ContasPagarView />
       ) : aba === "fila" ? (
         <FilaLiberacaoView />
+      ) : aba === "conciliacao" ? (
+        <ConciliacaoView />
       ) : (
       // grid-cols-1 no mobile (= repeat(1, minmax(0,1fr))) e minmax(0,1fr) no
       // desktop. Sem coluna explícita, a coluna implícita é `auto` e dimensiona

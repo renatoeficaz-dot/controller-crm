@@ -30,7 +30,7 @@ model Stage {
 
 // Contato / lead
 model Contact {
-  id                 String    @id @default(cuid())
+  id                 String            @id @default(cuid())
   name               String
   phone              String?
   // Estado (UF) do lead identificado pela IA a partir do que ele conta na
@@ -60,7 +60,7 @@ model Contact {
   // Nome e tipo do comércio, nas palavras do cliente (ex.: "Bar do Mané — bar"). A IA pergunta ao comerciante.
   comercioDescricao  String?
   // Entregador de bicicleta / a pé: sem veículo. Pula placa, documento e foto do veículo e pede o extrato de onde recebe as corridas.
-  semVeiculo         Boolean   @default(false)
+  semVeiculo         Boolean           @default(false)
   // Resumo da consulta do CNPJ na CNPJá (lib/cnpja.js): situação, atividade, endereço, sócios.
   cnpjDados          String?
   cnpjConsultadoEm   DateTime?
@@ -85,13 +85,13 @@ model Contact {
   // Lead vindo de um formulário instantâneo (Instant Form) da Meta (Facebook/
   // Instagram Lead Ads) — ver app/api/webhook/meta-leads. metaLeadId é único
   // pra não duplicar o card se a Meta reenviar o mesmo webhook (acontece).
-  metaLeadId         String?   @unique
+  metaLeadId         String?           @unique
   metaFormId         String?
   metaAdId           String?
   metaCampaignId     String?
   notes              String?
-  order              Int       @default(0)
-  stage              Stage     @relation(fields: [stageId], references: [id])
+  order              Int               @default(0)
+  stage              Stage             @relation(fields: [stageId], references: [id])
   stageId            String
   messages           Message[]
 
@@ -224,10 +224,10 @@ model Contact {
 
   // Organização do Chat (itens 81/82) — independente do "fixado" do funil,
   // porque fixar no Kanban e fixar no Chat são decisões de telas diferentes.
-  chatFixado    Boolean @default(false)
-  chatArquivado Boolean @default(false)
+  chatFixado        Boolean   @default(false)
+  chatArquivado     Boolean   @default(false)
   ultimoPagamentoEm DateTime? // horário do último pagamento (baixa) — usado para ordenar/conferir nas Tarefas
-  chatVoltaEm   DateTime? // conversa fechada com retorno: volta sozinha para a lista nesse horário
+  chatVoltaEm       DateTime? // conversa fechada com retorno: volta sozinha para a lista nesse horário
 
   // "Não perturbe" temporário (item 98) — enquanto no futuro, a cobrança
   // automática (régua/lembrete) pula esse lead. Não afeta atendimento manual.
@@ -608,16 +608,16 @@ model MessageTemplate {
 
 // Cada CPF fica reservado antes da chamada paga, inclusive entre reinícios.
 model ConsultaDataApi {
-  id          String   @id @default(cuid())
-  contactId   String
-  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  cpf         String
-  versao      String   @default("cpf_v1")
-  status      String   @default("consultando")
-  dados       String?
-  erro        String?
-  tentativas  Int      @default(1)
-  criadoEm    DateTime @default(now())
+  id           String   @id @default(cuid())
+  contactId    String
+  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  cpf          String
+  versao       String   @default("cpf_v1")
+  status       String   @default("consultando")
+  dados        String?
+  erro         String?
+  tentativas   Int      @default(1)
+  criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
   @@unique([contactId, cpf, versao])
@@ -652,7 +652,7 @@ model Config {
   // exigir ?t=TOKEN. Fica VAZIO por padrao de proposito — o webhook recebe
   // mensagem real de cliente 24h, entao exigir token de cara derrubaria a
   // ingestao ate a Evolution/WAHA ser reconfigurada com a URL nova.
-  webhookToken      String?
+  webhookToken           String?
 
   // Integração Meta Ads (Facebook/Instagram Lead Ads — formulários instantâneos):
   // deixado pronto pra conectar depois, do lado de quem cria o App no Meta for
@@ -690,14 +690,14 @@ model Config {
   // CNPJá (opcional): sem chave usa a API aberta (limite ~5/min).
   cnpjaApiKey              String?
   // DataAPI: consultas dos próprios clientes, autorizadas pelo titular.
-  dataApiKey              String?
-  dataApiAtivo            Boolean @default(false)
-  dataApiErro             String?
+  dataApiKey               String?
+  dataApiAtivo             Boolean @default(false)
+  dataApiErro              String?
   // Provedor atual das puxadas. Credenciais antigas não são reutilizadas.
-  snoopApiKey             String?
-  snoopAtivo              Boolean @default(false)
-  snoopErro               String?
-  snoopOpcoes             String?
+  snoopApiKey              String?
+  snoopAtivo               Boolean @default(false)
+  snoopErro                String?
+  snoopOpcoes              String?
   // Rotina única: quando true, a IA responde (uma vez) todos os leads do funil que ficaram sem resposta e desliga sozinha.
   reprocessarPendentes     Boolean @default(false)
 
@@ -931,7 +931,7 @@ model User {
   // Configurações, que continuam exclusivas de admin independente disso.
   paginasVisiveis String?
   // Acesso suspenso até esta data/hora (null = não suspenso). Vencido o prazo, volta sozinho.
-  suspensoAte DateTime?
+  suspensoAte     DateTime?
 
   // Meta de vendas individual (vendedor) — null em qualquer um dos 3 campos
   // significa "usa a meta global" (Config.metaVendas*).
@@ -992,27 +992,27 @@ model Equipe {
 
 // Número de WhatsApp conectado (uma instância da Evolution), atribuível a um usuário
 model WhatsappNumber {
-  id                 String   @id @default(cuid())
-  label              String // nome amigável (ex.: "Comercial 1")
-  number             String // número (ex.: 5511999998888)
-  instance           String // nome da instância (Evolution) ou sessão (WAHA)
-  provider           String   @default("evolution") // "evolution" | "waha" | "waba" — qual API atende este número
+  id       String @id @default(cuid())
+  label    String // nome amigável (ex.: "Comercial 1")
+  number   String // número (ex.: 5511999998888)
+  instance String // nome da instância (Evolution) ou sessão (WAHA)
+  provider String @default("evolution") // "evolution" | "waha" | "waba" — qual API atende este número
 
   // WABA = API oficial da Meta (WhatsApp Cloud API). Para provider="waba", `instance` é só um apelido interno
   // (as mensagens chegam pelo phone_number_id). Coexistência = o mesmo número continua no app WhatsApp Business
   // do celular enquanto a API atende — mensagens enviadas pelo app chegam como "ecos" (smb_message_echoes).
-  wabaPhoneNumberId       String?
-  wabaBusinessAccountId   String?
-  wabaAccessToken         String?
-  wabaCoexistence         Boolean @default(false)
-  wabaTemplateForaJanela  String? // template usado fora da janela de 24h (se vazio, usa o da Configuração)
-  wabaQualidade           String? // última qualidade informada pela Meta (GREEN/YELLOW/RED)
-  user               User?    @relation("NumeroResponsavel", fields: [userId], references: [id], onDelete: SetNull)
-  userId             String?
-  usuariosVisualizam User[]   @relation("NumeroVisibilidade") // usuários que podem ver as mensagens deste número
-  usuariosLigam      User[]   @relation("NumeroLigacao") // usuários que podem ligar por este número
-  agent              IaAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  agentId            String? // agente de IA que atende neste número (null = IA desligada aqui)
+  wabaPhoneNumberId      String?
+  wabaBusinessAccountId  String?
+  wabaAccessToken        String?
+  wabaCoexistence        Boolean  @default(false)
+  wabaTemplateForaJanela String? // template usado fora da janela de 24h (se vazio, usa o da Configuração)
+  wabaQualidade          String? // última qualidade informada pela Meta (GREEN/YELLOW/RED)
+  user                   User?    @relation("NumeroResponsavel", fields: [userId], references: [id], onDelete: SetNull)
+  userId                 String?
+  usuariosVisualizam     User[]   @relation("NumeroVisibilidade") // usuários que podem ver as mensagens deste número
+  usuariosLigam          User[]   @relation("NumeroLigacao") // usuários que podem ligar por este número
+  agent                  IaAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  agentId                String? // agente de IA que atende neste número (null = IA desligada aqui)
 
   // Cobrança automática: estados (UF) que este número atende, pelo DDD do
   // cliente (ex.: "SP,MG"), e a mensagem enviada diariamente antes do horário
@@ -1096,14 +1096,14 @@ model MotivoPerda {
 // Atalhos pra links que a equipe usa no dia a dia (painel da Evolution,
 // planilha, banco, etc.) — pra não ficar procurando em favorito de navegador.
 model LinkUtil {
-  id        String   @id @default(cuid())
-  titulo    String
-  url       String
-  login     String? // acesso salvo do link (só admin vê e grava)
-  senha     String?
+  id         String   @id @default(cuid())
+  titulo     String
+  url        String
+  login      String? // acesso salvo do link (só admin vê e grava)
+  senha      String?
   observacao String?
-  ordem     Int      @default(0)
-  createdAt DateTime @default(now())
+  ordem      Int      @default(0)
+  createdAt  DateTime @default(now())
 }
 
 // Link de vídeo chamada com verificação prévia (item novo): antes de entrar
@@ -1231,14 +1231,14 @@ model AtribuicaoLog {
 
 // Etiqueta (tag) atribuível a leads
 model Tag {
-  id        String        @id @default(cuid())
-  name      String        @unique
-  color     String        @default("#6366f1") // cor do badge
-  contacts  Contact[]     @relation("ContactTags")
+  id           String        @id @default(cuid())
+  name         String        @unique
+  color        String        @default("#6366f1") // cor do badge
+  contacts     Contact[]     @relation("ContactTags")
   // Custo por lead desta etiqueta (R$) — base do CAC por etiqueta nos Relatórios.
   custoPorLead Float?
-  rules     AutoTagRule[]
-  createdAt DateTime      @default(now())
+  rules        AutoTagRule[]
+  createdAt    DateTime      @default(now())
 }
 
 // Regra de auto-tag: se a 1ª mensagem do cliente contém o texto, atribui a tag.
@@ -1328,7 +1328,46 @@ model Lancamento {
   // transferência entre contas (item 133) — mesmo valor nos dois, pra achar
   // o par e não deixar editar um lado sem o outro.
   transferenciaId String?
+  // Quando o lançamento foi conferido com o extrato do banco (OFX) — casado com um movimento ou marcado como conferido à mão.
+  conciliadoEm    DateTime?
   createdAt       DateTime             @default(now())
+}
+
+// Movimento do extrato bancário importado por OFX. status: "conciliado" (casou com um lançamento) | "pendente" (o gestor precisa olhar)
+// | "lancado" (virou lançamento a partir daqui) | "ignorado" (não é da operação, ex.: transferência própria).
+model ExtratoMovimento {
+  id           String    @id @default(cuid())
+  chave        String    @unique // conta|FITID — impede importar o mesmo movimento duas vezes
+  bancoId      String?
+  data         DateTime
+  valor        Float // sempre positivo
+  tipo         String // "entrada" | "saida"
+  descricao    String?
+  status       String    @default("pendente")
+  lancamentoId String?
+  observacao   String?
+  resolvidoPor String?
+  resolvidoEm  DateTime?
+  importacaoId String?
+  createdAt    DateTime  @default(now())
+
+  @@index([status])
+  @@index([data])
+}
+
+// Cada arquivo OFX importado: período coberto e saldo final do extrato (para fechar o caixa).
+model ExtratoImportacao {
+  id           String    @id @default(cuid())
+  bancoId      String?
+  arquivo      String?
+  de           DateTime
+  ate          DateTime
+  saldoFinal   Float?
+  saldoData    DateTime?
+  qtdMov       Int       @default(0)
+  novos        Int       @default(0)
+  importadoPor String?
+  createdAt    DateTime  @default(now())
 }
 
 // Meta específica de um dia da semana (item 118) — sábado não rende igual a
@@ -1835,7 +1874,7 @@ model ComissaoPercentualSemana {
 
 // Chips (linhas de celular) usados pela operação: controle de recarga e se ficam no roteador.
 model Chip {
-  id                 String    @id @default(cuid())
+  id                 String        @id @default(cuid())
   numero             String // telefone do chip
   apelido            String?
   operadora          String?
@@ -1843,19 +1882,19 @@ model Chip {
   whatsappAi         String? // qual WhatsApp (AI) está conectado neste chip, opcional
   ultimaRecargaEm    DateTime?
   ultimaRecargaValor Float?
-  roteador           Boolean   @default(false)
+  roteador           Boolean       @default(false)
   observacao         String?
   recargas           ChipRecarga[]
-  createdAt          DateTime  @default(now())
+  createdAt          DateTime      @default(now())
 }
 
 // Histórico de recargas de um chip; a mais recente também fica em Chip.ultimaRecarga*.
 model ChipRecarga {
-  id     String   @id @default(cuid())
-  chipId String
-  chip   Chip     @relation(fields: [chipId], references: [id], onDelete: Cascade)
-  data   DateTime
-  valor  Float
+  id        String   @id @default(cuid())
+  chipId    String
+  chip      Chip     @relation(fields: [chipId], references: [id], onDelete: Cascade)
+  data      DateTime
+  valor     Float
   createdAt DateTime @default(now())
 
   @@index([chipId])
