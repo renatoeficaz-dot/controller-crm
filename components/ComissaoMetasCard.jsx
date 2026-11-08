@@ -99,6 +99,12 @@ function Cartao({ r }) {
             {h?.conta === false ? `começa em ${r.desde.split("-").reverse().join("/")}` : `${h?.pctTotal || 0}% de ${money(h?.recebido)} recebidos (máx. ${r.maxPct}%)`}
           </p>
         </div>
+        {h?.conta !== false && (
+          <div className="hidden md:flex items-stretch gap-2 text-[11px] shrink-0">
+            <div className="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1.5"><p className="text-slate-400">Recebimento</p><p className="font-medium text-slate-700">{h?.faixaRec ? `meta ${NOME_FAIXA[h.faixaRec]} · +${h.pctRec}%` : "meta não batida · 0%"}</p></div>
+            <div className="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1.5"><p className="text-slate-400">Liberação</p><p className="font-medium text-slate-700">{h?.faixaLib ? `meta ${NOME_FAIXA[h.faixaLib]} · +${h.pctLib}%` : "meta não batida · 0%"}</p></div>
+          </div>
+        )}
         <div className="text-right shrink-0">
           <p className="text-[11px] text-slate-400">na semana</p>
           <p className="text-sm font-semibold text-slate-700">{money(r.totalSemana)}</p>
@@ -107,15 +113,9 @@ function Cartao({ r }) {
       </button>
 
       {h?.conta !== false && (
-        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
-          <div className="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1.5">
-            <p className="text-slate-400">Recebimento</p>
-            <p className="font-medium text-slate-700">{h?.faixaRec ? `meta ${NOME_FAIXA[h.faixaRec]} · +${h.pctRec}%` : "meta não batida · 0%"}</p>
-          </div>
-          <div className="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1.5">
-            <p className="text-slate-400">Liberação</p>
-            <p className="font-medium text-slate-700">{h?.faixaLib ? `meta ${NOME_FAIXA[h.faixaLib]} · +${h.pctLib}%` : "meta não batida · 0%"}</p>
-          </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] md:hidden">
+          <div className="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1.5"><p className="text-slate-400">Recebimento</p><p className="font-medium text-slate-700">{h?.faixaRec ? `meta ${NOME_FAIXA[h.faixaRec]} · +${h.pctRec}%` : "meta não batida · 0%"}</p></div>
+          <div className="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1.5"><p className="text-slate-400">Liberação</p><p className="font-medium text-slate-700">{h?.faixaLib ? `meta ${NOME_FAIXA[h.faixaLib]} · +${h.pctLib}%` : "meta não batida · 0%"}</p></div>
         </div>
       )}
 
@@ -165,5 +165,5 @@ export default function ComissaoMetasCard() {
     return () => clearInterval(t);
   }, [load]);
   if (!lista.length) return null;
-  return <div className="grid gap-3 md:grid-cols-2">{lista.map((r) => <Cartao key={r.userId} r={r} />)}</div>;
+  return <div className={`grid gap-3 ${lista.length > 1 ? "md:grid-cols-2" : ""}`}>{lista.map((r) => <Cartao key={r.userId} r={r} />)}</div>;
 }
