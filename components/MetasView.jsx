@@ -569,7 +569,7 @@ export default function MetasView() {
             Acima de 100% ela cresce — o ciclo seguinte recebe mais.
           </p>
           {sabado && (
-            <p className="text-[11px] text-amber-600 mt-1">Sábado: a meta de liberação vale a metade ({r.metaPctLiberacao}% × ½).</p>
+            <p className="text-[11px] text-amber-600 mt-1">Sábado: a meta de liberação vale a metade ({r.metaPctLiberacao}% × ½). Na comissão, a semana fecha às 17h: o que entrar depois conta na segunda.</p>
           )}
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver as vendas fechadas →</p>
         </button>

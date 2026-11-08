@@ -140,7 +140,8 @@ export async function register() {
     if (ultimaConferenciaMetas !== chaveHora) {
       ultimaConferenciaMetas = chaveHora;
       const n8 = await rodar("conferenciaMetas", checarConsistenciaMetas);
-      if (n8) console.log("[conferenciaMetas] " + n8 + " divergência(s) avisada(s)");
+      // Sempre registra (1 linha por hora): prova no log que a conferência está rodando, mesmo quando está tudo certo.
+      console.log("[conferenciaMetas] " + (n8 === undefined ? "falhou (ver erro acima)" : n8 ? n8 + " divergência(s) avisada(s)" : "ok, sem divergências"));
     }
 
     if (ehSabado && horaLocal >= 17 && ultimoSabadoPagamento !== hoje) {
