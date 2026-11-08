@@ -260,9 +260,11 @@ export function PlacarEquipe({ placar, onUsuario }) {
 /* ---------------- 10. Sequência de dias batendo ---------------- */
 export function Sequencia({ seq }) {
   if (!seq || seq.diasAvaliados === 0) return null;
+  // As metas valem em R$: liberação de capital e recebimento (a contagem de vendas não é mais perseguida).
   const itens = [
-    { n: seq.vendasCheia, label: "meta cheia de vendas", cor: "text-emerald-600" },
-    { n: seq.vendasMinima, label: "mínima de vendas", cor: "text-amber-600" },
+    { n: seq.liberacaoCheia, label: "meta cheia de liberação", cor: "text-emerald-600" },
+    { n: seq.liberacaoMinima, label: "mínima de liberação", cor: "text-amber-600" },
+    { n: seq.recebimentosCheia, label: "meta cheia de recebimento", cor: "text-emerald-600" },
     { n: seq.recebimentosMinima, label: "mínima de recebimento", cor: "text-sky-600" },
   ].filter((x) => x.n > 0);
 

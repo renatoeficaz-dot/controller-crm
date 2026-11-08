@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { lerCorpo, texto } from "@/lib/corpo";
 import { calcularComissaoMetas } from "@/lib/comissaoMetas";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 const num = (v, padrao) => {
   const n = Number(String(v ?? "").replace(",", "."));
@@ -56,6 +57,23 @@ export async function PUT(req) {
     pctMaxima: num(body.pctMaxima, 3),
     ativo: body.ativo !== false,
   };
+  // Os três % são de comissão sobre o recebido (somam recebimento + liberação): precisam crescer e ter teto razoável. Um 30 no lugar de
+  // 3 pagava dez vezes mais, e uma faixa menor que a anterior invertia o prêmio de quem batia a meta cheia.
+  if (!(dados.pctMinima <= dados.pctMedia && dados.pctMedia <= dados.pctMaxima)) {
+    return NextResponse.json({ error: "Os percentuais precisam crescer: mínima ≤ média ≤ máxima." }, { status: 400 });
+  }
+  if (dados.pctMaxima > 20) {
+    return NextResponse.json({ error: "Percentual máximo acima de 20% — confira se não foi erro de digitação." }, { status: 400 });
+  }
+  const antes = await prisma.comissaoMetasConfig.findUnique({ where: { userId } });
   const config = await prisma.comissaoMetasConfig.upsert({ where: { userId }, create: { userId, ...dados }, update: dados });
+  // Mexe em salário: fica registrado quem mudou e de quanto para quanto.
+  registrarAuditoria({
+    usuario: user?.name,
+    acao: "alterar_comissao_metas",
+    entidade: "ComissaoMetasConfig",
+    entidadeId: config.id,
+    detalhe: `${alvo.id}: ${antes ? `${antes.pctMinima}/${antes.pctMedia}/${antes.pctMaxima}% desde ${antes.desde.toISOString().slice(0, 10)}${antes.ativo ? "" : " (inativa)"}` : "nova"} → ${dados.pctMinima}/${dados.pctMedia}/${dados.pctMaxima}% desde ${desde}${dados.ativo ? "" : " (inativa)"}`,
+  });
   return NextResponse.json(config);
 }

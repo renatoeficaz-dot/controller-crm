@@ -7,6 +7,7 @@ import { resumoMetas } from "@/lib/metasResumo";
 //   ?dia=YYYY-MM-DD  — dia consultado (padrão hoje; futuro é travado em hoje)
 //   ?usuario=Nome    — recorte por pessoa; vazio = empresa toda
 //   ?equipe=id       — recorte por equipe (item 117), só admin
+//   ?leve=1          — só os cartões do dia e os níveis (indicador do topo e avisos): sem séries, placar, listas e projeção
 //
 // Quem não é admin só vê o próprio recorte: sem `usuario` a resposta já vem
 // filtrada nele, e pedir outra pessoa é recusado.
@@ -18,6 +19,7 @@ export async function GET(req) {
   const dia = sp.get("dia");
   const pedido = sp.get("usuario");
   const equipeId = sp.get("equipe");
+  const leve = sp.get("leve") === "1";
 
   let usuario = null;
   let equipeMeta = null;
@@ -39,6 +41,6 @@ export async function GET(req) {
     usuario = user.name;
   }
 
-  const resumo = await resumoMetas(dia, usuario, equipeMeta);
+  const resumo = await resumoMetas(dia, usuario, equipeMeta, { leve });
   return NextResponse.json({ ...resumo, podeVerTotal: isAdmin(user), equipeNome });
 }

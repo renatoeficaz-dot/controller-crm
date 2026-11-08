@@ -234,7 +234,7 @@ function EquipesConfig() {
             {abertaId === eq.id && (
               <div className="px-3 pb-3 space-y-3 border-t border-slate-100 pt-3">
                 <div hidden>
-                  <p className="text-xs text-slate-500 mb-1.5">Meta de vendas do dia (vazio = meta global)</p>
+                  <p className="text-xs text-slate-500 mb-1.5">Meta de vendas do dia (contagem antiga — não é mais usada nas telas)</p>
                   <div className="grid grid-cols-3 gap-2">
                     <input type="number" min={0} placeholder="Mínima" value={form.metaVendasMinima} onChange={(e) => setForm((f) => ({ ...f, metaVendasMinima: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
                     <input type="number" min={0} placeholder="Média" value={form.metaVendasMedia} onChange={(e) => setForm((f) => ({ ...f, metaVendasMedia: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
@@ -242,7 +242,7 @@ function EquipesConfig() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 mb-1.5">Meta de recebimento (% da carteira, vazio = meta global)</p>
+                  <p className="text-xs text-slate-500 mb-1.5">Meta de recebimento (% das parcelas que vencem no dia, vazio = meta global)</p>
                   <div className="grid grid-cols-3 gap-2">
                     <input type="number" min={0} max={1000} placeholder="Mínima %" value={form.metaPctRecebimentoMinima} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimentoMinima: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />
                     <input type="number" min={0} max={1000} placeholder="Média %" value={form.metaPctRecebimentoMedia} onChange={(e) => setForm((f) => ({ ...f, metaPctRecebimentoMedia: e.target.value }))} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5" />

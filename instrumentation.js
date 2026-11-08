@@ -127,23 +127,20 @@ export async function register() {
     // getUTCDay() num servidor em UTC-3, sábado às 21h já era "domingo" em UTC
     // e o fechamento cristalizava a semana ANTES dela terminar — baixa feita
     // no fim do sábado ficava fora da comissão pra sempre.
-    // Acerto do cobrador: sábado a partir das 16h. A hora sai do relógio
-    // LOCAL (o servidor roda em UTC), senão "16h" seria 13h no Brasil.
-    // O tick é de 5 min, então a checagem é ">= 16h" + trava por dia — não
-    // dá pra exigir 16:00 exato.
+    // Acerto do cobrador: sábado a partir das 17h — o mesmo fechamento da semana de comissão (lib/comissao.js, diaComissao). Às 16h o
+    // acerto saía antes do fechamento e deixava de fora a última hora do sábado. A hora sai do relógio de Brasília (timeZone fixo).
+    // O tick é de 5 min, então a checagem é ">= 17h" + trava por dia — não dá pra exigir 17:00 exato.
     const agora = new Date();
     const ehSabado = new Date(hoje + "T00:00:00.000Z").getUTCDay() === 6;
     const horaLocal = Number(String(agora.toLocaleTimeString("pt-BR", { hour: "2-digit", hour12: false, timeZone: "America/Sao_Paulo" })).replace(/\D/g, ""));
-    if (ehSabado && horaLocal >= 16 && ultimoSabadoPagamento !== hoje) {
+    if (ehSabado && horaLocal >= 17 && ultimoSabadoPagamento !== hoje) {
       ultimoSabadoPagamento = hoje;
       const n5 = await rodar("pagamentoCobrador", gerarRelatoriosPagamentoSabado);
       if (n5) console.log(`[pagamentoCobrador] ${n5} acerto(s) da semana entregue(s)`);
     }
 
     // Comissão percentual (ex.: Arthur 2% do recebimento, Hulk 1% + 50% extra
-    // sobre os juros): fecha às 17h, uma hora depois do acerto de cobrador,
-    // pra dar tempo da última baixa do sábado (até 16h) já estar contabilizada
-    // nos dois relatórios sem depender de rodarem no mesmo instante.
+    // sobre os juros): fecha às 17h, junto com o acerto do cobrador — mesmo corte da semana de comissão (diaComissao).
     if (ehSabado && horaLocal >= 17 && ultimoSabadoComissaoPct !== hoje) {
       ultimoSabadoComissaoPct = hoje;
       const n7 = await rodar("comissaoPercentual", gerarRelatoriosComissaoPercentualSabado);

@@ -179,14 +179,17 @@ function ComparativoPeriodos({ usuario }) {
   const [de2, setDe2] = useState(quatorzeDiasAtras);
   const [ate2, setAte2] = useState(seteDiasAtras);
   const [dados, setDados] = useState(null);
+  const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function comparar() {
     setLoading(true);
+    setErro("");
     const qs = new URLSearchParams({ de1, ate1, de2, ate2 });
     if (usuario) qs.set("usuario", usuario);
     const d = await fetch(`/api/metas/comparar?${qs}`).then((r) => r.json()).catch(() => null);
     setDados(d?.periodo1 ? d : null);
+    if (!d?.periodo1) setErro(d?.error || "Não foi possível comparar agora.");
     setLoading(false);
   }
 
@@ -228,6 +231,7 @@ function ComparativoPeriodos({ usuario }) {
             {loading ? "Comparando…" : "Comparar"}
           </button>
 
+          {erro && <p className="text-xs text-red-500">{erro}</p>}
           {dados && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -428,6 +432,7 @@ export default function MetasView() {
 
   const r = resumo;
   const ehHoje = r.dia === hojeStr();
+  const sabado = !!r.dia && new Date(r.dia + "T12:00:00Z").getUTCDay() === 6; // sábado: a meta de liberação vale a metade
   const mes = r.mes || {};
   const proj = r.projecao || {};
   const med = r.mediaMesmoDiaSemana;
@@ -512,7 +517,7 @@ export default function MetasView() {
           {fmtDiaLongo(r.dia)}
           {r.equipeNome && <> · <strong className="text-slate-600">Equipe {r.equipeNome}</strong></>}
           {!r.equipeNome && usuario && <> · <strong className="text-slate-600">{usuario}</strong></>}
-          {" · "}Regra: <strong>{r.metaPctRecebimento}%</strong> de {money(r.valorEsperadoDia || 0)} {(usuario || r.equipeNome) ? "(parcelas que vencem hoje dos leads dele(a))" : "(soma das parcelas que vencem no dia, sem juros)"}
+          {" · "}Regra: <strong>{r.metaPctRecebimento}%</strong> de {money(r.valorEsperadoDia || 0)} {(usuario || r.equipeNome) ? "(parcelas que vencem no dia dos leads dele(a))" : "(soma das parcelas que vencem no dia, sem juros)"}
           <a href="/configuracoes?tab=metas" className="text-emerald-600 hover:underline ml-1">Configurar</a>
         </p>
 
@@ -542,7 +547,7 @@ export default function MetasView() {
           className="text-left bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 hover:border-emerald-300 transition-colors"
         >
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-semibold text-slate-700">Liberação de capital ({r.metaPctLiberacao}%)</p>
+            <p className="text-sm font-semibold text-slate-700">Liberação de capital ({sabado ? Math.round((r.metaPctLiberacao || 0) * 50) / 100 : r.metaPctLiberacao}%)</p>
             <div className="text-right">
               <p className="text-sm text-slate-500">{money(r.liberadoHoje)} / {money(r.metaLiberacaoDia)}</p>
               <p className="text-[11px] text-slate-400">
@@ -563,8 +568,8 @@ export default function MetasView() {
             100% = liberar o <strong>capital que volta</strong> no dia (parte do que vence sem os honorários): a operação se mantém do mesmo tamanho.
             Acima de 100% ela cresce — o ciclo seguinte recebe mais.
           </p>
-          {r.dia && new Date(r.dia + "T12:00:00Z").getUTCDay() === 6 && (
-            <p className="text-[11px] text-amber-600 mt-1">Sábado: a meta de liberação vale a metade.</p>
+          {sabado && (
+            <p className="text-[11px] text-amber-600 mt-1">Sábado: a meta de liberação vale a metade ({r.metaPctLiberacao}% × ½).</p>
           )}
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver as vendas fechadas →</p>
         </button>
@@ -594,11 +599,6 @@ export default function MetasView() {
             Conta <strong>tudo que entrou no dia</strong> (atrasadas, juros e multa inclusive), contra a soma das parcelas que vencem no dia
             (de clientes em Recebimento, sem juros). Receber tudo que vence = 100%.
           </p>
-          {(r.valorRecebidoHoje || 0) - (r.recebimentosHoje || 0) > 0.009 && (
-            <p className="text-[11px] text-slate-500 mt-1.5">
-              Entrou no caixa <strong>{money(r.valorRecebidoHoje)}</strong> = {money(r.recebimentosHoje)} das parcelas do dia + {money((r.valorRecebidoHoje || 0) - (r.recebimentosHoje || 0))} de atrasadas, juros/multa e outras etapas (não entram na meta).
-            </p>
-          )}
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver o que foi recebido →</p>
         </button>
 
@@ -615,7 +615,7 @@ export default function MetasView() {
             <p className="text-sm font-semibold text-emerald-700">{money(r.valorLiberadoTotalHoje)}</p>
           </div>
           <p className="text-[11px] text-slate-400">
-            Venda nova ({money(r.valorVendidoHoje)}) + renovação ({money(r.valorLiberadoTotalHoje - r.valorVendidoHoje)}), somadas.
+            Venda nova ({money(r.liberadoNovo)}) + renovação ({money(r.liberadoRenovacao)}), somadas.
           </p>
           <p className="text-[11px] text-emerald-600 mt-1.5">Clique para ver quem foi liberado →</p>
         </button>
@@ -625,10 +625,10 @@ export default function MetasView() {
           <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-semibold text-slate-700">Capital liberado</p>
-              <p className="text-sm text-slate-500">{money(r.valorVendidoHoje)}</p>
+              <p className="text-sm text-slate-500">{money(r.liberadoHoje)}</p>
             </div>
             <NivelBar
-              atual={r.valorVendidoHoje}
+              atual={r.liberadoHoje}
               minima={r.metaValorVendasMinima}
               media={r.metaValorVendasMedia}
               meta={r.metaValorVendasDia}
@@ -697,8 +697,8 @@ export default function MetasView() {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <Card titulo="Baixas de parcela" valor={r.baixasHoje} cor="emerald" />
         <Card titulo="Valor recebido" valor={money(r.valorRecebidoHoje)} cor="emerald" />
-        <Card titulo="Capital liberado" valor={money(r.valorVendidoHoje)} sub={`${r.vendasHoje} venda${r.vendasHoje === 1 ? "" : "s"}`} cor="violet" />
-        <Card titulo="Carteira em Recebimento" valor={(usuario || r.equipeNome) ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento} sub="Base do cálculo da meta" cor="sky" />
+        <Card titulo="Capital liberado" valor={money(r.liberadoHoje)} sub={`${r.vendasHoje} venda${r.vendasHoje === 1 ? "" : "s"} nova${r.vendasHoje === 1 ? "" : "s"} + renovações`} cor="violet" />
+        <Card titulo="Carteira em Recebimento" valor={(usuario || r.equipeNome) ? r.carteiraDoUsuario ?? 0 : r.totalEmRecebimento} sub="Clientes na etapa (quem entrou hoje só paga amanhã)" cor="sky" />
       </div>
 
       {/* -------- 7 e 8: comparativo e projeção -------- */}
@@ -786,8 +786,8 @@ export default function MetasView() {
           </p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <BarraMes label="Liberação de capital" atual={mes.liberado} meta={mes.metaLiberacao} fmt={money} />
-          <BarraMes label="Recebimento (sem juros)" atual={mes.recebimentos} meta={mes.metaRecebimentos} fmt={money} />
+          <BarraMes label="Liberação de capital (dias úteis)" atual={mes.liberadoUteis} meta={mes.metaLiberacao} fmt={money} />
+          <BarraMes label="Recebimento (dias com meta)" atual={mes.recebimentosComMeta} meta={mes.metaRecebimentos} fmt={money} />
           <BarraMes label="Recuperado de atrasados" atual={mes.valorRecuperado} meta={mes.metaRecuperacao} fmt={money} />
           <div>
             <div className="flex items-baseline justify-between gap-2">

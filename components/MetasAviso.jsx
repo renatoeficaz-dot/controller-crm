@@ -35,7 +35,10 @@ function metricas(r) {
   return [
     { id: "receb", titulo: "Recebimentos", atual: r.recebimentosHoje || 0, metas: { minima: r.metaRecebimentosMinima, media: r.metaRecebimentosMedia, meta: r.metaRecebimentosDia } },
     { id: "lib", titulo: "Liberação", atual: r.liberadoHoje || 0, metas: { minima: r.metaLiberacaoMinima, media: r.metaLiberacaoMedia, meta: r.metaLiberacaoDia }, porVenda: VALOR_VENDA },
-  ].map((m) => ({ ...m, prox: proximaMeta(m.atual, m.metas) }));
+  ]
+    // Dia sem meta (domingo, sem parcelas a vencer): não há o que perseguir — antes saía "todas as metas batidas" sem nenhuma meta.
+    .filter((m) => [m.metas.minima, m.metas.media, m.metas.meta].some((v) => Number(v) > 0))
+    .map((m) => ({ ...m, prox: proximaMeta(m.atual, m.metas) }));
 }
 
 function textoFaltam(m) {
@@ -68,7 +71,7 @@ export default function MetasAviso() {
     async function buscar() {
       const agora = Date.now();
       if (ultimoDado.current.r && agora - ultimoDado.current.t < ATUALIZA - 1000) return ultimoDado.current.r;
-      const r = await fetch("/api/metas/resumo").then((x) => (x.ok ? x.json() : null)).catch(() => null);
+      const r = await fetch("/api/metas/resumo?leve=1").then((x) => (x.ok ? x.json() : null)).catch(() => null);
       if (r && !r.error) ultimoDado.current = { t: agora, r };
       return ultimoDado.current.r;
     }

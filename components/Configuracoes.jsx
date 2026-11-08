@@ -2901,6 +2901,7 @@ function MetasConfig() {
   const [rnMedia, setRnMedia] = useState(0);
   const [rnMeta, setRnMeta] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState("");
 
   useEffect(() => {
     fetch("/api/config").then((r) => r.json()).then((c) => {
@@ -2924,7 +2925,8 @@ function MetasConfig() {
 
   async function save(e) {
     e.preventDefault();
-    await fetch("/api/config", {
+    setErroSalvar("");
+    const resp = await fetch("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2944,7 +2946,12 @@ function MetasConfig() {
         metaRenovacaoMedia: rnMedia,
         metaRenovacaoDia: rnMeta,
       }),
-    });
+    }).catch(() => null);
+    // Antes mostrava "Salvo ✓" mesmo quando o servidor recusava (valor inválido, sessão caída): a meta ficava como estava sem aviso.
+    if (!resp?.ok) {
+      setErroSalvar((await resp?.json().catch(() => ({})))?.error || "Não foi possível salvar. Confira os valores e tente de novo.");
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -2998,7 +3005,7 @@ function MetasConfig() {
         <SectionHeader
           icon="dinheiro"
           title="Meta diária de recebimento"
-          subtitle='Regra: X% do valor das parcelas que vencem no dia (sem juros) precisa ser recebido. Receber tudo que vence = 100%. 3 níveis: mínima, média e meta cheia.'
+          subtitle='Regra: X% do valor das parcelas que vencem no dia (sem juros, só de clientes que estavam em Recebimento) precisa entrar no caixa — o que entra no dia conta inteiro (atrasadas, juros e multa inclusive). Receber tudo que vence = 100%. 3 níveis: mínima, média e meta cheia.'
         />
         <div className="grid grid-cols-3 gap-3">
           <label className="block">
@@ -3044,7 +3051,7 @@ function MetasConfig() {
         <SectionHeader
           icon="carteira"
           title="Meta diária de capital liberado (R$)"
-          subtitle="Meta em dinheiro, além da meta por quantidade: 3 empréstimos de R$300 e 3 de R$900 contam igual na quantidade, mas não no caixa. Deixe 0 para desligar."
+          subtitle="Meta extra em dinheiro (R$ de capital liberado no dia, novo + renovação), além da meta de liberação em %. Deixe 0 para desligar."
         />
         <div className="grid grid-cols-3 gap-3">
           <label className="block">
@@ -3146,6 +3153,7 @@ function MetasConfig() {
         </div>
       </div>
 
+      {erroSalvar && <p className="text-xs text-red-600">{erroSalvar}</p>}
       <button className="w-full bg-emerald-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-600">
         {saved ? "Salvo ✓" : "Salvar"}
       </button>

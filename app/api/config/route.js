@@ -43,7 +43,25 @@ const CAMPOS_SECRETOS = [
 // integração — mesmo só admin conseguindo (o middleware já trava isso),
 // não tinha NENHUM registro de quem mudou o quê. Com 2+ admins, "os
 // honorários foram de 30% pra 1%" ficava sem rastro nenhum de autoria.
-const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", "iaGlobalPausada", "dataApiAtivo", "snoopAtivo", "snoopOpcoes", ...CAMPOS_SECRETOS];
+// Metas entram aqui também: mudar a % de uma meta muda a faixa do dia e, com ela, a comissão paga — precisa ter autor registrado.
+const CAMPOS_METAS = [
+  "metaPctRecebimentoMinima", "metaPctRecebimentoMedia", "metaPctRecebimento",
+  "metaPctLiberacaoMinima", "metaPctLiberacaoMedia", "metaPctLiberacao",
+  "metaValorVendasMinima", "metaValorVendasMedia", "metaValorVendasDia",
+  "metaRecuperacaoMinima", "metaRecuperacaoMedia", "metaRecuperacaoDia",
+  "metaRenovacaoMinima", "metaRenovacaoMedia", "metaRenovacaoDia",
+];
+const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", "iaGlobalPausada", "dataApiAtivo", "snoopAtivo", "snoopOpcoes", ...CAMPOS_METAS, ...CAMPOS_SECRETOS];
+
+// Cada meta tem 3 níveis que precisam crescer: mínima <= média <= meta cheia (0 = nível desligado). Fora de ordem, o dia "bate a média"
+// sem ter batido a mínima e as faixas (e a comissão) saem trocadas — acontecia com um zero a mais ou a menos na digitação.
+const GRUPOS_META = [
+  ["recebimento (%)", ["metaPctRecebimentoMinima", "metaPctRecebimentoMedia", "metaPctRecebimento"]],
+  ["liberação (%)", ["metaPctLiberacaoMinima", "metaPctLiberacaoMedia", "metaPctLiberacao"]],
+  ["capital liberado (R$)", ["metaValorVendasMinima", "metaValorVendasMedia", "metaValorVendasDia"]],
+  ["recuperação (R$)", ["metaRecuperacaoMinima", "metaRecuperacaoMedia", "metaRecuperacaoDia"]],
+  ["renovação", ["metaRenovacaoMinima", "metaRenovacaoMedia", "metaRenovacaoDia"]],
+];
 
 export async function GET() {
   let cfg = await getConfig();
@@ -233,6 +251,18 @@ export async function PATCH(req) {
   // A mensagem do Pix automático NÃO é editável: é montada pelo código (lib/pixAdimplentes.js)
   // a partir da chave, do recebedor e do banco — texto digitado à mão já saiu com a chave errada.
   if ("pixBanco" in body) data.pixBanco = texto(body.pixBanco) || "Infinitepay";
+
+  // Valida a ordem dos níveis juntando o que veio com o que já está salvo (o PATCH pode mandar só um campo).
+  if (GRUPOS_META.some(([, campos]) => campos.some((c) => c in data))) {
+    const atual = await getConfig();
+    for (const [nome, campos] of GRUPOS_META) {
+      if (!campos.some((c) => c in data)) continue;
+      const [min, med, meta] = campos.map((c) => Number(c in data ? data[c] : atual[c]) || 0);
+      if (meta > 0 && (min > med || med > meta)) {
+        return NextResponse.json({ error: `Meta de ${nome}: a mínima precisa ser menor ou igual à média, e a média menor ou igual à meta cheia (hoje: ${min} / ${med} / ${meta}).` }, { status: 400 });
+      }
+    }
+  }
 
   const mudouSensivel = CAMPOS_AUDITADOS.some((c) => c in data);
   const antes = mudouSensivel ? await prisma.config.findUnique({ where: { id: "singleton" } }) : null;

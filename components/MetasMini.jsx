@@ -24,7 +24,8 @@ export default function MetasMini() {
   const [resumo, setResumo] = useState(null);
 
   const load = useCallback(async () => {
-    const data = await fetch("/api/metas/resumo").then((r) => r.json()).catch(() => null);
+    // leve=1: só os cartões do dia e os níveis — o resumo completo (séries, placar, listas) custava ~600 ms a cada 30 s em toda aba aberta.
+    const data = await fetch("/api/metas/resumo?leve=1").then((r) => r.json()).catch(() => null);
     setResumo(data);
   }, []);
 
