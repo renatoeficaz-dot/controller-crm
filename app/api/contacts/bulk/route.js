@@ -88,7 +88,7 @@ export async function POST(req) {
       const hoje = hojeUTC();
       let moved = 0;
       for (const id of alvo) {
-        const contact = await prisma.contact.findUnique({ where: { id }, include: { parcelas: true } });
+        const contact = await prisma.contact.findUnique({ where: { id }, include: { parcelas: true, stage: { select: { name: true } } } });
         if (!contact || contact.stageId === value) continue;
 
         const last = await prisma.contact.findFirst({ where: { stageId: value }, orderBy: { order: "desc" } });
@@ -102,6 +102,9 @@ export async function POST(req) {
         if (!contact.entrouRecebimentoEm) data.entrouRecebimentoEm = new Date();
 
         const updated = await prisma.contact.update({ where: { id }, data });
+        // Toda mudança de etapa precisa de registro: o histórico (EtapaLog) é o que diz em que etapa o cliente estava em cada dia — base da
+        // meta de recebimento, da linha do tempo da ficha e da comissão por análise. O bulk mudava a etapa sem gravar nada.
+        await prisma.etapaLog.create({ data: { contactId: id, deEtapa: contact.stage?.name || null, paraEtapa: stage.name, usuario: user.name || null } }).catch(() => {});
         if (updated.valorCapital && updated.pagamentoCapital && aindaSemPlano) {
           await regenerarParcelas(id);
         }
@@ -123,10 +126,15 @@ export async function POST(req) {
         : { stageId: value, entrouEtapaEm: new Date() };
     // updateMany não deixa filtrar "só quem mudou de coluna", então exclui quem
     // já está na etapa — senão o cronômetro deles zeraria sem nada ter mudado.
+    const mudam = await prisma.contact.findMany({ where: { id: { in: alvo }, NOT: { stageId: value } }, select: { id: true, stage: { select: { name: true } } } });
     const r = await prisma.contact.updateMany({
       where: { id: { in: alvo }, NOT: { stageId: value } },
       data: bulkData,
     });
+    // Registro de cada mudança (ver o comentário do caminho de Recebimento acima).
+    if (mudam.length) {
+      await prisma.etapaLog.createMany({ data: mudam.map((c) => ({ contactId: c.id, deEtapa: c.stage?.name || null, paraEtapa: stage.name, usuario: user.name || null })) }).catch(() => {});
+    }
     return NextResponse.json({ ok: true, moved: r.count, skipped });
   }
 

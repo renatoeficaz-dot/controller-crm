@@ -2,61 +2,55 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { NUM_PARCELAS } from "@/lib/finance";
-import { chaveDia, hojeStr, ehDiaUtil, whereCarteiraRecebimento } from "@/lib/metas";
+import { chaveDia, hojeStr, ehDiaUtil, somarDias, esperadoPorDia, metaLiberacaoDe, whereCarteiraRecebimento } from "@/lib/metas";
 
 const r2 = (n) => Math.round(n * 100) / 100;
+const DATA = /^\d{4}-\d{2}-\d{2}$/;
+const PADRAO_DIAS = 30; // sem "até": 30 dias a partir de "de"
+const MAX_DIAS = 120;
 
 // Projeção de recebimento e lucro SE as metas forem batidas.
 //
-// Duas perguntas diferentes, respondidas juntas:
-//  1. "quanto entra por dia" — vem da meta de RECEBIMENTO (nº de clientes
-//     pagando no dia) × valor médio da parcela. É caixa.
-//  2. "quanto sobra" — vem da meta de VENDAS, porque o lucro nasce dos
-//     honorários do capital que sai agora e volta nas 10 diárias.
-//
-// As metas de vendas futuras saem de MetaVendasData (a curva planejada), com o
-// mesmo encadeamento de fallback que lib/metas.js usa pro dia corrente — se eu
-// resolvesse diferente aqui, a projeção mostraria uma meta e a tela de Metas
-// mostraria outra.
+// As metas são as MESMAS da tela de Metas, em R$ (a curva antiga de metas de vendas por quantidade não é mais perseguida por ninguém):
+//  • recebimento: X% das parcelas que vencem em cada dia (ver esperadoPorDia);
+//  • liberação: Y% do capital que volta em cada dia (sábado vale a metade — metaLiberacaoDe).
+// Cada nível (mínima, média, meta cheia) usa os 3 % configurados. A simulação anda dia a dia: o que vence vem da carteira de hoje (parcelas
+// já geradas) MAIS as parcelas dos empréstimos que a própria meta de liberação cria — cada empréstimo novo deve NUM_PARCELAS diárias a
+// partir do próximo dia de cobrança, e o capital delas volta a alimentar a meta de liberação dos dias seguintes.
 export async function GET(req) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   const url = new URL(req.url);
-  const de = url.searchParams.get("de") || hojeStr();
-  const ate = url.searchParams.get("ate") || null;
+  const hoje = hojeStr();
+  const dePedido = url.searchParams.get("de");
+  const atePedido = url.searchParams.get("ate");
+  // Projeção olha pra frente: o início nunca é antes de hoje (a carteira e as parcelas de dias passados já são fato).
+  const de = DATA.test(dePedido || "") && dePedido > hoje ? dePedido : hoje;
+  let ate = DATA.test(atePedido || "") ? atePedido : somarDias(de, PADRAO_DIAS - 1);
+  if (ate < de) ate = de;
+  if (ate > somarDias(de, MAX_DIAS - 1)) ate = somarDias(de, MAX_DIAS - 1);
 
-  const [cfg, metasData, porDiaSemana, stageReceb] = await Promise.all([
+  const [cfg, stageReceb] = await Promise.all([
     prisma.config.findUnique({ where: { id: "singleton" } }),
-    prisma.metaVendasData.findMany({
-      where: { data: { gte: chaveDia(de), ...(ate ? { lte: chaveDia(ate) } : {}) } },
-      orderBy: { data: "asc" },
-    }),
-    prisma.metaDiaSemana.findMany(),
     prisma.stage.findFirst({ where: { name: "Recebimento" } }),
   ]);
-
-  if (!metasData.length) {
-    return NextResponse.json({ premissas: { diasComMeta: 0 }, niveis: [] });
-  }
-
-  const overrideDow = new Map(porDiaSemana.map((d) => [d.diaSemana, d]));
   const honorariosPct = cfg?.honorariosPct ?? 30;
 
-  const [carteira, vendasRecentes, historico] = await Promise.all([
-    // Mesmo recorte da meta de recebimento: quem foi liberado hoje só começa a
-    // pagar amanhã, então não é base de recebimento de hoje.
-    // Além de quantos são, PRECISO saber quando cada um sai — é a última
-    // parcela em aberto dele. Sem isso a carteira ficaria congelada no número
-    // de hoje e a projeção não enxergaria ninguém entrando nem saindo.
+  const diasDoPeriodo = [];
+  for (let d = de; d <= ate; d = somarDias(d, 1)) if (ehDiaUtil(d)) diasDoPeriodo.push(d);
+  if (!diasDoPeriodo.length) return NextResponse.json({ premissas: { diasComMeta: 0, diasUteis: 0, de, ate }, niveis: [] });
+
+  const [carteira, vendasRecentes, historico, esperados] = await Promise.all([
+    // Carteira de hoje: quem foi liberado hoje só começa a pagar amanhã, então não é base de recebimento de hoje. Precisa saber quando cada um
+    // sai — a última parcela em aberto dele — senão a carteira ficaria congelada e a projeção não veria ninguém saindo.
     stageReceb
       ? prisma.contact.findMany({
           where: whereCarteiraRecebimento(stageReceb.id, de),
           select: { id: true, parcelas: { select: { dueDate: true, paid: true } } },
         })
       : [],
-    // Ticket médio: liberações dos últimos 90 dias. Média mais velha que isso
-    // não representa o que a operação empresta hoje.
+    // Ticket médio: liberações dos últimos 90 dias. Média mais velha que isso não representa o que a operação empresta hoje.
     prisma.contact.findMany({
       where: {
         entrouRecebimentoEm: { gte: new Date(Date.now() - 90 * 86400000) },
@@ -74,20 +68,16 @@ export async function GET(req) {
         parcelas: { select: { ciclo: true, amount: true, amountPago: true, paid: true, valorPago: true } },
       },
     }),
+    // O que vence em cada dia do período (valor e parte de capital): a base das duas metas, igual à tela de Metas.
+    esperadoPorDia(de, ate),
   ]);
 
-  const ticketMedio = vendasRecentes.length
-    ? vendasRecentes.reduce((s, c) => s + c.valorCapital, 0) / vendasRecentes.length
-    : 0;
+  const ticketMedio = vendasRecentes.length ? vendasRecentes.reduce((s, c) => s + c.valorCapital, 0) / vendasRecentes.length : 0;
   const parcelaMedia = (ticketMedio * (1 + honorariosPct / 100)) / NUM_PARCELAS;
 
-  // Taxa de perda: DINHEIRO QUE SAIU x DINHEIRO QUE VOLTOU, os dois em capital.
-  //
-  // A primeira versão comparava "parcelas em aberto" (que embutem honorários e
-  // se repetem a cada renovação) contra um único valorCapital, e dava 174% —
-  // um número impossível que denunciava a conta errada. Aqui cada contrato
-  // conta o capital emprestado em cada ciclo, e a perda nunca passa do que foi
-  // emprestado àquele cliente.
+  // Taxa de perda: DINHEIRO QUE SAIU x DINHEIRO QUE VOLTOU, os dois em capital. Cada contrato conta o capital emprestado em cada ciclo, e a
+  // perda nunca passa do que foi emprestado àquele cliente (a primeira versão comparava parcelas com honorários contra um único capital e
+  // dava 174%, um número impossível).
   let capitalTotal = 0;
   let perdido = 0;
   for (const c of historico) {
@@ -95,143 +85,101 @@ export async function GET(req) {
     const emprestado = c.valorCapital * ciclos;
     capitalTotal += emprestado;
     if (!c.deuCalote) continue;
-    const recebido = c.parcelas.reduce(
-      (s, p) => s + (p.paid ? (p.amountPago ?? p.amount) : p.valorPago || 0),
-      0
-    );
+    const recebido = c.parcelas.reduce((s, p) => s + (p.paid ? (p.amountPago ?? p.amount) : p.valorPago || 0), 0);
     perdido += Math.min(emprestado, Math.max(0, emprestado - recebido));
   }
   const taxaPerda = capitalTotal > 0 ? Math.min(1, perdido / capitalTotal) : 0;
 
-  const pct = {
+  const pctRec = {
     minima: cfg?.metaPctRecebimentoMinima ?? 40,
     media: cfg?.metaPctRecebimentoMedia ?? 55,
     maxima: cfg?.metaPctRecebimento ?? 70,
   };
 
-  // O eixo da simulação é TODO dia de cobrança (seg a sáb) do intervalo, não
-  // só os dias que têm meta cadastrada.
-  //
-  // A curva cadastrada aqui vai de segunda a sexta, mas as parcelas vencem
-  // até sábado. Percorrendo só os dias com meta, as saídas que caíam num
-  // sábado nunca aconteciam: ninguém largava a carteira e ela inflava
-  // (a máxima terminava com 351 clientes onde o certo é ~229 — a soma das
-  // vendas dos últimos 10 dias).
-  const primeiroDia = metasData[0].data.toISOString().slice(0, 10);
-  const ultimoDia = metasData[metasData.length - 1].data.toISOString().slice(0, 10);
-  const diasDoPeriodo = [];
-  for (let d = chaveDia(primeiroDia); d.toISOString().slice(0, 10) <= ultimoDia; d = new Date(d.getTime() + 86400000)) {
-    const dia = d.toISOString().slice(0, 10);
-    if (ehDiaUtil(dia)) diasDoPeriodo.push(dia);
-  }
-  const diasUteis = diasDoPeriodo.length;
-
-  // Avança N dias de cobrança pulando domingo — mesma regra do gerarParcelas,
-  // pra o cliente sair da carteira no dia em que a 10ª parcela realmente vence.
-  function somarDiasCobranca(dia, n) {
-    let d = chaveDia(dia);
-    for (let i = 0; i < n; i++) {
-      d = new Date(d.getTime() + 86400000);
-      if (d.getUTCDay() === 0) d = new Date(d.getTime() + 86400000);
-    }
+  // Próximo dia de cobrança: nunca cai domingo (mesma regra do gerarParcelas).
+  function proximoDiaCobranca(dia) {
+    let d = new Date(chaveDia(dia).getTime() + 86400000);
+    if (d.getUTCDay() === 0) d = new Date(d.getTime() + 86400000);
     return d.toISOString().slice(0, 10);
   }
 
-  // Quando cada cliente ATUAL termina: a última parcela ainda em aberto. Quem
-  // já quitou e continua na etapa sai logo no começo — senão ficaria pagando
-  // pra sempre na simulação.
+  // Quando cada cliente ATUAL termina: a última parcela ainda em aberto. Quem já quitou e continua na etapa sai logo no começo — senão
+  // ficaria pagando pra sempre na simulação.
   const saidaDosAtuais = carteira.map((c) => {
     const abertas = c.parcelas.filter((p) => !p.paid).map((p) => p.dueDate.toISOString().slice(0, 10));
     return abertas.length ? abertas.sort().at(-1) : null;
   });
 
-  // Simula a carteira dia a dia. Um cliente liberado no dia D deve as 10
-  // diárias de D+1 até o 10º dia de cobrança — então ele ENTRA na conta de
-  // quem paga em D+1 e SAI depois do 10º. Somar a entrada no próprio dia D
-  // contaria alguém que ainda não tem parcela vencida.
-  function simular(vendasPorDia) {
+  // Quantos clientes ativos há por dia: os de hoje saem na última parcela; cada empréstimo novo entra no próximo dia de cobrança e sai depois
+  // da última parcela.
+  function clientesAtivosPorDia(emprestimosPorDia) {
     const entram = new Map();
     const saem = new Map();
-
-    // Os que já estão na carteira contam desde o primeiro dia.
-    let ativosIniciais = 0;
     for (const saida of saidaDosAtuais) {
-      ativosIniciais += 1;
-      // Sem parcela em aberto: sai no primeiro dia. Última parcela no passado:
-      // idem — não há mais o que cobrar dele daqui pra frente.
       const fim = saida && saida >= diasDoPeriodo[0] ? saida : diasDoPeriodo[0];
-      const depois = somarDiasCobranca(fim, 1);
+      const depois = proximoDiaCobranca(fim);
       saem.set(depois, (saem.get(depois) || 0) + 1);
     }
-
-    for (const [dia, qtd] of vendasPorDia) {
+    for (const [dia, qtd] of emprestimosPorDia) {
       if (!qtd) continue;
-      const inicio = somarDiasCobranca(dia, 1);
-      const depoisDaUltima = somarDiasCobranca(dia, 11);
-      entram.set(inicio, (entram.get(inicio) || 0) + qtd);
-      saem.set(depoisDaUltima, (saem.get(depoisDaUltima) || 0) + qtd);
+      let ultima = dia;
+      for (let i = 0; i < NUM_PARCELAS; i++) ultima = proximoDiaCobranca(ultima);
+      entram.set(proximoDiaCobranca(dia), (entram.get(proximoDiaCobranca(dia)) || 0) + qtd);
+      saem.set(proximoDiaCobranca(ultima), (saem.get(proximoDiaCobranca(ultima)) || 0) + qtd);
     }
-
-    let ativos = ativosIniciais;
-    const serie = [];
-    for (const dia of diasDoPeriodo) {
+    let ativos = saidaDosAtuais.length;
+    return diasDoPeriodo.map((dia) => {
       ativos += entram.get(dia) || 0;
       ativos -= saem.get(dia) || 0;
       if (ativos < 0) ativos = 0;
-      serie.push({ dia, ativos, pagantes: ativos });
-    }
-    return serie;
+      return ativos;
+    });
   }
-
-  // Exatamente o mesmo encadeamento que registrarMetaDoDia usa: a meta que a
-  // projeção mostra tem que ser a meta ESTIPULADA, não uma derivada.
-  //
-  // (Uma versão anterior inventava mínima/média como proporção da máxima, pra
-  // os três níveis "ficarem comparáveis". Isso mostrava número que não estava
-  // configurado em lugar nenhum — projeção que não bate com a meta real não
-  // serve pra decidir nada.)
-  const vendasDe = (m, nivel) => {
-    const ov = overrideDow.get(m.data.getUTCDay());
-    if (nivel === "maxima") {
-      return m.metaVendasDia ?? ov?.metaVendasDia ?? cfg?.metaVendasDia ?? 5;
-    }
-    if (nivel === "media") return ov?.metaVendasMedia ?? cfg?.metaVendasMedia ?? 3;
-    return ov?.metaVendasMinima ?? cfg?.metaVendasMinima ?? 2;
-  };
-
-  // Mínima/média vêm de valor FIXO enquanto a máxima segue a curva por data?
-  // Então os três níveis não são comparáveis, e é preciso dizer isso na tela
-  // em vez de deixar o usuário achar que a conta está errada.
-  const temCurvaPorData = metasData.some((m) => m.metaVendasDia != null);
-  const minimaMediaSaoFixas = !porDiaSemana.length;
 
   const niveis = ["minima", "media", "maxima"].map((chave) => {
     const rotulo = { minima: "Mínima", media: "Média", maxima: "Máxima" }[chave];
-    const vendas = metasData.reduce((s, m) => s + vendasDe(m, chave), 0);
-    const capital = vendas * ticketMedio;
+    // Parcelas dos empréstimos simulados: valor que vence e parte de capital, por dia de cobrança.
+    const venceNovo = new Map();
+    const capitalNovo = new Map();
+    const emprestimosPorDia = new Map();
+    let capital = 0;
+    let recebTotal = 0;
+    const recebDiario = [];
+
+    for (const dia of diasDoPeriodo) {
+      const g = esperados.get(dia);
+      // Meta de liberação do dia = Y% do capital que volta (carteira de hoje + empréstimos simulados que vencem nesse dia).
+      const capitalQueVolta = (g?.capital || 0) + (capitalNovo.get(dia) || 0);
+      const ml = metaLiberacaoDe(capitalQueVolta, cfg, dia);
+      const liberar = { minima: ml.minima, media: ml.media, maxima: ml.dia }[chave] || 0;
+      capital += liberar;
+      emprestimosPorDia.set(dia, ticketMedio > 0 ? liberar / ticketMedio : 0);
+      if (liberar > 0) {
+        const parcela = (liberar * (1 + honorariosPct / 100)) / NUM_PARCELAS;
+        let d = dia;
+        for (let i = 1; i <= NUM_PARCELAS; i++) {
+          d = proximoDiaCobranca(d);
+          venceNovo.set(d, (venceNovo.get(d) || 0) + parcela);
+          capitalNovo.set(d, (capitalNovo.get(d) || 0) + liberar / NUM_PARCELAS);
+        }
+      }
+      // Recebimento do dia = X% do que vence (carteira de hoje + parcelas dos empréstimos simulados).
+      const receber = (pctRec[chave] / 100) * ((g?.total || 0) + (venceNovo.get(dia) || 0));
+      recebDiario.push(receber);
+      recebTotal += receber;
+    }
+
     const retorno = capital * (1 + honorariosPct / 100);
     const lucroBruto = retorno - capital;
     const perda = capital * taxaPerda;
-
-    // Carteira dia a dia neste cenário: entra quem é liberado, sai quem fecha
-    // as 10 diárias.
-    const vendasPorDia = new Map(
-      metasData.map((m) => [m.data.toISOString().slice(0, 10), vendasDe(m, chave)])
-    );
-    const serie = simular(vendasPorDia);
-    const ativos = serie.map((d) => d.ativos);
+    const ativos = clientesAtivosPorDia(emprestimosPorDia);
     const mediaAtivos = ativos.length ? ativos.reduce((a, b) => a + b, 0) / ativos.length : 0;
-
-    // Recebimento sai da carteira SIMULADA de cada dia, não da de hoje parada:
-    // com a carteira crescendo, usar o número de hoje subestimava o caixa.
-    const recebDiario = serie.map((d) => Math.ceil((d.pagantes * pct[chave]) / 100) * parcelaMedia);
-    const recebTotal = recebDiario.reduce((a, b) => a + b, 0);
     const recebMedio = recebDiario.length ? recebTotal / recebDiario.length : 0;
 
     return {
       chave,
       rotulo,
-      vendas,
+      vendas: ticketMedio > 0 ? Math.round(capital / ticketMedio) : 0, // nº aproximado de empréstimos (capital ÷ ticket médio)
       capitalALiberar: r2(capital),
       retornoEsperado: r2(retorno),
       lucroBruto: r2(lucroBruto),
@@ -239,15 +187,12 @@ export async function GET(req) {
       lucroLiquido: r2(lucroBruto - perda),
       recebimentoMedioDia: r2(recebMedio),
       recebimentoTotalPeriodo: r2(recebTotal),
-      clientesPagandoDia: Math.round(
-        serie.length ? serie.reduce((s, d) => s + Math.ceil((d.pagantes * pct[chave]) / 100), 0) / serie.length : 0
-      ),
-      // "Quantos clientes vão estar ativos" — o que foi pedido.
+      clientesPagandoDia: parcelaMedia > 0 ? Math.round(recebMedio / parcelaMedia) : 0,
       clientesAtivos: {
-        inicio: ativos[0] ?? 0,
-        fim: ativos.at(-1) ?? 0,
+        inicio: Math.round(ativos[0] ?? 0),
+        fim: Math.round(ativos.at(-1) ?? 0),
         media: Math.round(mediaAtivos),
-        pico: ativos.length ? Math.max(...ativos) : 0,
+        pico: ativos.length ? Math.round(Math.max(...ativos)) : 0,
       },
     };
   });
@@ -255,15 +200,17 @@ export async function GET(req) {
   return NextResponse.json({
     // Premissas à vista: projeção sem premissa é número que ninguém confere.
     premissas: {
-      // Avisa quando mínima/média são um número fixo por dia e a máxima segue
-      // a curva por data: sem isso os totais parecem errados.
-      niveisIncomparaveis: temCurvaPorData && minimaMediaSaoFixas,
-      minimaPorDia: cfg?.metaVendasMinima ?? 2,
-      mediaPorDia: cfg?.metaVendasMedia ?? 3,
-      diasComMeta: metasData.length,
-      diasUteis,
-      de: metasData[0].data.toISOString().slice(0, 10),
-      ate: metasData[metasData.length - 1].data.toISOString().slice(0, 10),
+      modelo: "metas em R$ (as mesmas da tela de Metas)",
+      pctRecebimento: pctRec,
+      pctLiberacao: {
+        minima: cfg?.metaPctLiberacaoMinima ?? 80,
+        media: cfg?.metaPctLiberacaoMedia ?? 100,
+        maxima: cfg?.metaPctLiberacao ?? 110,
+      },
+      diasComMeta: diasDoPeriodo.length,
+      diasUteis: diasDoPeriodo.length,
+      de,
+      ate,
       ticketMedio: r2(ticketMedio),
       baseTicket: vendasRecentes.length,
       honorariosPct,

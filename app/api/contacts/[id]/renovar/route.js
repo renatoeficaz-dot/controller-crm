@@ -75,6 +75,8 @@ export async function POST(req, { params }) {
   // Kabrito liberar o novo valor. Agora a renovação manda o lead de volta pra
   // "Liberação pagamento" e recria a tarefa, igual a um empréstimo novo.
   const stageLiberacao = await prisma.stage.findFirst({ where: { name: "Liberação pagamento" } });
+  const etapaAntes = contact.stageId ? await prisma.stage.findUnique({ where: { id: contact.stageId }, select: { name: true } }) : null;
+  const quemRenovou = await getCurrentUser().catch(() => null);
 
   // Atualiza o contato (novo ciclo + novos valores de capital)
   await prisma.contact.update({
@@ -87,6 +89,10 @@ export async function POST(req, { params }) {
       ...(stageLiberacao ? { stageId: stageLiberacao.id } : {}),
     },
   });
+  // A renovação muda a etapa do lead: sem este registro o histórico ficava dizendo que ele continuava em "Pago"/"Recebimento".
+  if (stageLiberacao && etapaAntes?.name !== stageLiberacao.name) {
+    await prisma.etapaLog.create({ data: { contactId: id, deEtapa: etapaAntes?.name || null, paraEtapa: stageLiberacao.name, usuario: quemRenovou?.name || null } }).catch(() => {});
+  }
   if (stageLiberacao) await criarTarefaLiberarPagamento(id).catch(() => {});
 
   // Limpa tarefas do ciclo anterior (mantém as parcelas como histórico)

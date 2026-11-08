@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "node scripts-check-ctrl.js && prisma generate && next build",
     "start": "next start",
+    "test": "node --import ./tests/aliasRegister.mjs --test \"tests/*.test.mjs\"",
     "postinstall": "prisma generate"
   },
   "dependencies": {

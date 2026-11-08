@@ -163,8 +163,8 @@ export default function Relatorios() {
   );
   const [detalheCustoAberto, setDetalheCustoAberto] = useState(null); // "contas" | "saidas" | null
 
-  // Projeção: precisa das metas FUTURAS, que não vêm no /api/stages.
-  // O período é escolhido na tela; vazio = de hoje até a última meta cadastrada.
+  // Projeção: simulada no servidor a partir das metas em R$ (as mesmas da tela de Metas).
+  // O período é escolhido na tela; vazio = os próximos 30 dias a partir de hoje.
   const [projecao, setProjecao] = useState(null);
   const [projDe, setProjDe] = useState("");
   const [projAte, setProjAte] = useState("");
@@ -2585,7 +2585,7 @@ export default function Relatorios() {
             <h2 className="text-sm font-semibold text-slate-700">
               Projeção — se bater as metas{" "}
               <span className="text-slate-400 font-normal">
-                — {projecao.premissas?.diasComMeta || 0} dia(s) com meta cadastrada
+                — {projecao.premissas?.diasUteis || 0} dia(s) de cobrança
                 {projecao.premissas?.de ? `, de ${fmtDia(projecao.premissas.de)} a ${fmtDia(projecao.premissas.ate)}` : ""}
               </span>
             </h2>
@@ -2620,20 +2620,9 @@ export default function Relatorios() {
             </div>
           </div>
 
-          {projecao.premissas?.diasComMeta === 0 && (
+          {projecao.premissas?.diasUteis === 0 && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-              Nenhuma meta de vendas cadastrada nesse período. Cadastre em Metas, ou amplie as datas.
-            </p>
-          )}
-
-          {projecao.premissas?.niveisIncomparaveis && (
-            <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
-              A meta <strong>máxima</strong> segue a curva que você cadastrou dia a dia, mas a{" "}
-              <strong>mínima e a média</strong> são um número fixo por dia (
-              {projecao.premissas.minimaPorDia} e {projecao.premissas.mediaPorDia}), vindo das
-              Configurações. Por isso os três totais ficam tão distantes — os números abaixo são
-              exatamente os que estão estipulados hoje. Pra mínima e média acompanharem a curva, elas
-              precisam ser cadastradas por data também.
+              Nenhum dia de cobrança nesse período (só domingo?). Amplie as datas.
             </p>
           )}
 
@@ -2674,7 +2663,7 @@ export default function Relatorios() {
                 )}
 
                 <div className="grid grid-cols-2 gap-y-1 text-xs text-slate-600 border-t border-slate-200 pt-2">
-                  <span>Vendas</span>
+                  <span>Empréstimos (≈)</span>
                   <span className="text-right font-medium">{n.vendas}</span>
                   <span>Capital a liberar</span>
                   <span className="text-right font-medium">{money(n.capitalALiberar)}</span>
@@ -2696,17 +2685,15 @@ export default function Relatorios() {
           {/* Premissas à vista: projeção sem premissa é número que ninguém
               consegue conferir — e que envelhece sem avisar. */}
           <p className="mt-2 text-[11px] text-slate-400">
-            Sobre médias históricas: ticket médio {money(projecao.premissas.ticketMedio)} (
-            {projecao.premissas.baseTicket} liberações dos últimos 90 dias), honorários{" "}
-            {projecao.premissas.honorariosPct}%, parcela média {money(projecao.premissas.parcelaMedia)} (
-            {projecao.premissas.numParcelas}× diárias), {projecao.premissas.diasUteis} dias úteis no período. As metas de vendas seguem a curva
-            planejada dia a dia; mínima e média são a mesma proporção que a configuração define entre
-            os níveis.
-            O lucro já desconta {projecao.premissas.taxaPerdaPct}% de perda — capital que saiu e não
-            voltou de quem deu calote. A carteira é simulada dia a dia a partir dos{" "}
-            {projecao.premissas.carteiraAtual} clientes de hoje: cada liberação entra e sai 10 diárias
-            depois (a saída dos atuais sai da última parcela em aberto de cada um). O recebimento por
-            dia vem da carteira de cada dia, não do número de hoje parado.
+            Metas usadas: as mesmas da tela de Metas, em R$. Recebimento = {projecao.premissas.pctRecebimento?.minima}% / {projecao.premissas.pctRecebimento?.media}% / {projecao.premissas.pctRecebimento?.maxima}% das
+            parcelas que vencem em cada dia; liberação = {projecao.premissas.pctLiberacao?.minima}% / {projecao.premissas.pctLiberacao?.media}% / {projecao.premissas.pctLiberacao?.maxima}% do capital que volta
+            (sábado vale a metade). Sobre médias históricas: ticket médio {money(projecao.premissas.ticketMedio)} (
+            {projecao.premissas.baseTicket} liberações dos últimos 90 dias), honorários {projecao.premissas.honorariosPct}%, parcela média{" "}
+            {money(projecao.premissas.parcelaMedia)} ({projecao.premissas.numParcelas}× diárias), {projecao.premissas.diasUteis} dias de cobrança no período.
+            O lucro já desconta {projecao.premissas.taxaPerdaPct}% de perda — capital que saiu e não voltou de quem deu calote. A simulação anda dia a dia
+            a partir das parcelas já geradas dos {projecao.premissas.carteiraAtual} clientes de hoje, mais as parcelas dos empréstimos que a própria meta de
+            liberação cria (cada um deve {projecao.premissas.numParcelas} diárias a partir do próximo dia de cobrança, e o capital delas volta a alimentar a meta
+            dos dias seguintes). O número de empréstimos é aproximado (capital ÷ ticket médio).
           </p>
         </Secao>
       )}
