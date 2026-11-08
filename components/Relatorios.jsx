@@ -15,6 +15,7 @@ import HorarioRecebimento from "@/components/HorarioRecebimento";
 import Secao from "@/components/SecaoColapsavel";
 import GraficoEntrouSoltou from "@/components/GraficoEntrouSoltou";
 import GraficoLiquidezProjetada from "@/components/GraficoLiquidezProjetada";
+import GraficosPainel from "@/components/GraficosPainel";
 
 const money = (n) =>
   "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2871,6 +2872,8 @@ export default function Relatorios() {
         leadFim={preset === "tudo" ? (criacaoFim || fim) : fim}
         coorte={preset === "tudo" && !!(criacaoIni || criacaoFim)}
       />
+
+      <GraficosPainel />
 
       {openContactId && (
         <ContactModal
