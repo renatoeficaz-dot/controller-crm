@@ -23,7 +23,7 @@ export default function ConciliacaoView() {
   const [msg, setMsg] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [categorias, setCategorias] = useState([]);
-  const [lancando, setLancando] = useState(null); // { id, descricao, categoriaId }
+  const [edicoes, setEdicoes] = useState({}); // id do movimento -> { descricao, categoriaId } (o que o gestor mudou antes de lançar)
   const [salvando, setSalvando] = useState(false);
   const arquivoRef = useRef(null);
 
@@ -61,7 +61,7 @@ export default function ConciliacaoView() {
     const j = await r.json().catch(() => ({}));
     setSalvando(false);
     if (!r.ok) { setErro(j.error || "Não foi possível."); return; }
-    setErro(""); setLancando(null);
+    setErro("");
     carregar();
   }
 
@@ -124,7 +124,10 @@ export default function ConciliacaoView() {
             <div className="divide-y divide-slate-100">
               {estado.movPendentes.map((m) => {
                 const candidatos = estado.lancSemExtrato.filter((l) => l.type === m.tipo && Math.abs(l.amount - m.valor) < 0.01);
-                const abrindo = lancando?.id === m.id;
+                const ed = edicoes[m.id] || {};
+                const descricao = ed.descricao ?? m.descricao ?? "";
+                const categoriaId = ed.categoriaId ?? "";
+                const mudar = (campo, v) => setEdicoes((e) => ({ ...e, [m.id]: { ...e[m.id], [campo]: v } }));
                 return (
                   <div key={m.id} className="p-3 md:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -137,7 +140,7 @@ export default function ConciliacaoView() {
                         <div className="text-sm text-slate-600 mt-0.5 break-words">{m.descricao || "(sem descrição no extrato)"}</div>
                       </div>
                       <div className="flex gap-2 shrink-0 flex-wrap">
-                        <button disabled={salvando} onClick={() => setLancando(abrindo ? null : { id: m.id, descricao: m.descricao || "", categoriaId: "" })} className="text-xs font-medium bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600">Lançar</button>
+                        <button disabled={salvando} onClick={() => agir(m.id, { acao: "lancar", descricao, categoriaId })} className="text-xs font-medium bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600">Lançar</button>
                         {candidatos.length > 0 && (
                           <select defaultValue="" onChange={(e) => e.target.value && agir(m.id, { acao: "vincular", lancamentoId: e.target.value })} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 max-w-[190px]">
                             <option value="">Vincular a lançamento…</option>
@@ -147,16 +150,13 @@ export default function ConciliacaoView() {
                         <button disabled={salvando} onClick={() => { const o = window.prompt("Por que ignorar? (ex.: transferência entre minhas contas)"); if (o !== null) agir(m.id, { acao: "ignorar", observacao: o }); }} className="text-xs font-medium border border-slate-200 text-slate-600 rounded-lg px-3 py-1.5 hover:bg-slate-50">Ignorar</button>
                       </div>
                     </div>
-                    {abrindo && (
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-[1fr_200px_auto] gap-2">
-                        <input value={lancando.descricao} onChange={(e) => setLancando({ ...lancando, descricao: e.target.value })} placeholder="Descrição do lançamento" className="text-sm border border-slate-200 rounded-lg px-3 py-2" />
-                        <select value={lancando.categoriaId} onChange={(e) => setLancando({ ...lancando, categoriaId: e.target.value })} className="text-sm border border-slate-200 rounded-lg px-2 py-2">
-                          <option value="">Sem categoria</option>
-                          {categorias.filter((x) => x.type === m.tipo).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-                        </select>
-                        <button disabled={salvando} onClick={() => agir(m.id, { acao: "lancar", descricao: lancando.descricao, categoriaId: lancando.categoriaId })} className="text-sm font-medium bg-emerald-600 text-white rounded-lg px-4 py-2 hover:bg-emerald-700">Confirmar lançamento</button>
-                      </div>
-                    )}
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-2">
+                      <input value={descricao} onChange={(e) => mudar("descricao", e.target.value)} placeholder="Nome do lançamento (ex.: Venda de móvel, Aporte do sócio)" className="text-sm border border-slate-200 rounded-lg px-3 py-1.5" />
+                      <select value={categoriaId} onChange={(e) => mudar("categoriaId", e.target.value)} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5">
+                        <option value="">Sem categoria</option>
+                        {categorias.filter((x) => x.type === m.tipo).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                      </select>
+                    </div>
                   </div>
                 );
               })}
