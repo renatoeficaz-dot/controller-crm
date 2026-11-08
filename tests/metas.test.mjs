@@ -232,3 +232,29 @@ test("fechamento do sábado às 17h: o que entra depois conta na segunda da sema
   assert.equal((await M.resultadoDoDia(SAB)).recebimentos, 160);
   assert.equal((await M.resultadoDoDia(SAB)).liberado, 250);
 });
+
+test("divergência achada pela conferência vira aviso DENTRO do sistema (faixa dos admins), mesmo sem número de WhatsApp", async () => {
+  const A = await import("../lib/auditoriaMetas.js");
+  // Sem número de alertas no banco (o caso de produção): nada pode sair por WhatsApp, o aviso tem que ficar visível por aqui.
+  await prisma.config.update({ where: { id: "singleton" }, data: { alertaCriticos: true, alertaWhatsapp: null } });
+  assert.deepEqual(await A.divergenciasRecentes(24), [], "sem divergência não há nada a mostrar");
+
+  // Um lead que foi para Cravo agora sem registro no histórico de etapas (o defeito que o bulk e a renovação já tiveram).
+  await contato("Lead Sem Log", "Cravo", { entrouEtapaEm: new Date() });
+  const achados = await A.checarConsistenciaMetas();
+  assert.ok(achados >= 1, "a conferência precisa achar a etapa sem registro");
+  assert.equal(await A.checarConsistenciaMetas(), 0, "cada problema avisa uma vez só (a faixa não se repete a cada hora)");
+
+  const lista = await A.divergenciasRecentes(24);
+  assert.equal(lista.length, 1, "uma rodada da conferência = uma linha");
+  assert.equal(lista[0].itens.length, achados);
+  assert.ok(lista[0].itens.some((t) => t.includes("Lead Sem Log") && t.includes("Cravo")), "o texto diz qual lead e para onde ele foi");
+  assert.ok(lista[0].quando instanceof Date);
+
+  // Janela de 24 h e só a ação certa: linha de 30 h atrás e outra ação não entram.
+  await prisma.auditLog.create({ data: { acao: "inconsistencia_metas", entidade: "Metas", detalhe: "antigo", createdAt: new Date(Date.now() - 30 * 3600e3) } });
+  await prisma.auditLog.create({ data: { acao: "mover_etapa", entidade: "Contact", detalhe: "outra coisa" } });
+  assert.equal((await A.divergenciasRecentes(24)).length, 1);
+  assert.equal((await A.divergenciasRecentes(48)).length, 2);
+  assert.equal((await A.divergenciasRecentes(48))[1].itens[0], "antigo", "mais novo primeiro");
+});

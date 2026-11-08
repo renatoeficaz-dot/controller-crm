@@ -11,6 +11,7 @@ import ChamadaWatcher from "@/components/ChamadaWatcher";
 import ChamadasHasos from "@/components/ChamadasHasos";
 import TravaCalculadora from "@/components/TravaCalculadora";
 import MetasAviso from "@/components/MetasAviso";
+import ConferenciaMetasAviso from "@/components/ConferenciaMetasAviso";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -71,6 +72,7 @@ export default function RootLayout({ children }) {
           </div>
           <ConnectionStatusBanner />
           <DeepInfraBalanceBanner />
+          <ConferenciaMetasAviso />
           <UsoAtivoTracker />
           <TaskReminderWatcher />
           <ChatInternoWatcher />
