@@ -20,6 +20,7 @@ export async function register() {
   const { enviarPixAdimplentes } = await import("@/lib/pixAdimplentes");
   const { gerarRelatoriosPagamentoSabado } = await import("@/lib/relatorioPagamentoSabado");
   const { gerarRelatoriosComissaoPercentualSabado } = await import("@/lib/relatorioComissaoPercentualSabado");
+  const { checarConsistenciaMetas } = await import("@/lib/auditoriaMetas");
   const CINCO_MIN = 5 * 60 * 1000;
 
   // Roda uma tarefa e só volta depois dela terminar (ou falhar) — nunca lança.
@@ -41,6 +42,7 @@ export async function register() {
   let ultimaSemanaComissao = null; // guarda a segunda-feira da última semana já fechada
   let ultimoSabadoPagamento = null; // dia do último acerto de cobrador entregue
   let ultimoSabadoComissaoPct = null; // dia da última comissão percentual entregue (17h)
+  let ultimaConferenciaMetas = null; // "dia-hora" da última conferência automática das metas (1x por hora)
 
   // Grava o retrato do dia (metas vigentes + tamanho da carteira + resultado).
   // Roda logo ao subir e a cada 5 min, então a última gravação antes da
@@ -133,6 +135,14 @@ export async function register() {
     const agora = new Date();
     const ehSabado = new Date(hoje + "T00:00:00.000Z").getUTCDay() === 6;
     const horaLocal = Number(String(agora.toLocaleTimeString("pt-BR", { hour: "2-digit", hour12: false, timeZone: "America/Sao_Paulo" })).replace(/\D/g, ""));
+    // Conferência das metas: uma vez por hora, compara cartão × calendário × listas × placar e procura caixa em dobro (avisa o dono se divergir).
+    const chaveHora = hoje + "-" + horaLocal;
+    if (ultimaConferenciaMetas !== chaveHora) {
+      ultimaConferenciaMetas = chaveHora;
+      const n8 = await rodar("conferenciaMetas", checarConsistenciaMetas);
+      if (n8) console.log("[conferenciaMetas] " + n8 + " divergência(s) avisada(s)");
+    }
+
     if (ehSabado && horaLocal >= 17 && ultimoSabadoPagamento !== hoje) {
       ultimoSabadoPagamento = hoje;
       const n5 = await rodar("pagamentoCobrador", gerarRelatoriosPagamentoSabado);
