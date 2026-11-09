@@ -151,3 +151,26 @@ test("categoria parecida: reconhece o mesmo estabelecimento/pessoa mesmo com tex
   assert.equal(categoriaParecida("Pix JOAO DA SILVA — Enviado", hist), null); // "silva" sozinho não conta
   assert.equal(categoriaParecida("Tarifa", hist), null);
 });
+
+test("conciliar: um Pix dividido pela IA em vários lançamentos (mesmo cliente ou clientes diferentes no mesmo minuto)", () => {
+  const L = (id, h, amount, contactId) => ({ id, data: `2026-11-07T${h}Z`, amount, type: "entrada", description: "x", contactId });
+  const M = (id, h, valor, descricao) => ({ id, data: `2026-11-07T${h}Z`, valor, tipo: "entrada", descricao });
+  const lancs = [
+    L("t1", "14:19:30", 54, "tai"), L("t2", "14:19:31", 46, "tai"),            // Pix de 100 (Tai)
+    L("h1", "22:05:00", 81, "th"), L("h2", "22:05:01", 19, "th"),              // Pix de 100 (Thiego)
+    L("r1", "22:48:00", 6, "reis"), L("n1", "22:48:02", 48, "nai"), L("n2", "22:48:03", 6, "nai"), // Pix de 60 paga dois clientes
+    L("z1", "22:50:00", 10, "zz"),                                               // sem Pix
+  ];
+  const movs = [
+    M("pTai", "14:19:00", 100, "Pix Tai Lara"), M("pTh", "22:05:00", 100, "Pix THIEGO"), M("pKa", "22:47:00", 60, "Pix Karine"), M("pSolto", "23:00:00", 33.33, "Pix X"),
+  ];
+  const r = conciliar(movs, lancs);
+  const por = {};
+  for (const p of r.pares) (por[p.movId] ||= []).push(p.lancId);
+  assert.deepEqual(por.pTai.sort(), ["t1", "t2"]);
+  assert.deepEqual(por.pTh.sort(), ["h1", "h2"]);
+  assert.deepEqual(por.pKa.sort(), ["n1", "n2", "r1"]);
+  assert.deepEqual(r.movsSemLanc, ["pSolto"]);
+  assert.deepEqual(r.lancsSemMov, ["z1"]);
+  assert.ok(r.pares.filter((p) => p.movId === "pTai").every((p) => p.soma));
+});

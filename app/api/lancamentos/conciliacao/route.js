@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { lerFormulario, lerCorpo, texto } from "@/lib/corpo";
 import { decodificarOfx } from "@/lib/conciliacaoOfx";
-import { importarOfx, estadoConciliacao } from "@/lib/conciliacaoServidor";
+import { importarOfx, estadoConciliacao, rodarConciliacao } from "@/lib/conciliacaoServidor";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -54,6 +54,12 @@ export async function PATCH(req) {
   const { user, erro } = await exigirAdmin();
   if (erro) return erro;
   const body = await lerCorpo(req);
+  if (body.reconferir) {
+    // Roda o casamento de novo sobre o que está pendente (depois de melhorias na conferência ou de lançamentos novos).
+    const bancoId = await bancoPadrao(texto(body.bancoId));
+    if (!bancoId) return NextResponse.json({ error: "Cadastre uma conta (banco) antes." }, { status: 400 });
+    return NextResponse.json({ ok: true, ...(await rodarConciliacao(bancoId)) });
+  }
   const id = texto(body.lancamentoId);
   if (!id) return NextResponse.json({ error: "Informe o lançamento." }, { status: 400 });
   const l = await prisma.lancamento.findUnique({ where: { id }, select: { id: true } });

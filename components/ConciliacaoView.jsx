@@ -132,6 +132,16 @@ export default function ConciliacaoView() {
     carregar();
   }
 
+  async function reconferir() {
+    setEnviando(true); setMsg(""); setErro("");
+    const r = await fetch("/api/lancamentos/conciliacao", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reconferir: true }) });
+    const j = await r.json().catch(() => ({}));
+    setEnviando(false);
+    if (!r.ok) { setErro(j.error || "Não consegui conferir."); return; }
+    setMsg(j.casados ? `${j.casados} movimento(s) do extrato conferido(s) agora (${j.lancamentosCasados} lançamentos).` : "Nada novo para conferir.");
+    carregar();
+  }
+
   async function conferirManual(id) {
     const observacao = window.prompt("Como você conferiu? (ex.: pago em dinheiro, caiu em outra conta)") ;
     if (observacao === null) return;
@@ -149,11 +159,25 @@ export default function ConciliacaoView() {
           <div className="text-sm font-semibold text-slate-800">Extrato do banco (OFX)</div>
           <p className="text-xs text-slate-500 mt-0.5">Baixe o extrato do dia no app do banco em formato OFX e envie aqui. O sistema confere cada baixa com o dinheiro que entrou, e as saídas também.</p>
         </div>
+        {estado && !semArquivo && <button onClick={reconferir} disabled={enviando} className="shrink-0 text-sm font-medium border border-slate-200 text-slate-600 rounded-lg px-4 py-2 hover:bg-slate-50 disabled:opacity-50">Conferir de novo</button>}
         <label className={`shrink-0 text-center text-sm font-medium rounded-lg px-4 py-2 cursor-pointer transition-colors ${enviando ? "bg-slate-200 text-slate-500" : "bg-emerald-500 text-white hover:bg-emerald-600"}`}>
           {enviando ? "Conferindo..." : "Enviar OFX do dia"}
           <input ref={arquivoRef} type="file" accept=".ofx,.OFX,application/x-ofx,text/plain" className="hidden" disabled={enviando} onChange={enviar} />
         </label>
       </div>
+
+      {estado?.semCobertura?.length > 0 && (
+        <div className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <div className="font-medium">Faltam extratos destes dias (há lançamentos que passam pelo banco e ainda não foram conferidos):</div>
+          <ul className="mt-1 space-y-0.5 text-xs">
+            {estado.semCobertura.map((g) => (
+              <li key={g.dia}>
+                <b>{g.dia.split("-").reverse().join("/")}</b>: {g.qtdEntradas > 0 && `${g.qtdEntradas} entrada(s) ${money(g.entradas)}`}{g.qtdEntradas > 0 && g.qtdSaidas > 0 && " · "}{g.qtdSaidas > 0 && `${g.qtdSaidas} saída(s) ${money(g.saidas)}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {estado?.caixa && (() => {
         const hojeBR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
