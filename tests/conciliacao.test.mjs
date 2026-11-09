@@ -174,3 +174,15 @@ test("conciliar: um Pix dividido pela IA em vários lançamentos (mesmo cliente 
   assert.deepEqual(r.lancsSemMov, ["z1"]);
   assert.ok(r.pares.filter((p) => p.movId === "pTai").every((p) => p.soma));
 });
+
+test("soma de pedaços respeita o horário: Pix da manhã não leva os pedaços do mesmo cliente de horas depois", () => {
+  const L = (id, h, amount, contactId) => ({ id, data: `2026-11-07T${h}Z`, amount, type: "entrada", description: "x", contactId });
+  const M = (id, h, valor) => ({ id, data: `2026-11-07T${h}Z`, valor, tipo: "entrada", descricao: "Pix" });
+  const lancs = [L("a", "14:19:30", 54, "tai"), L("b", "14:19:31", 46, "tai"), L("c", "14:21:00", 54, "tai"), L("d", "14:21:01", 46, "tai")];
+  const r = conciliar([M("manha", "09:59:00", 100), M("tai1", "14:19:00", 100), M("tai2", "14:21:00", 100)], lancs);
+  const por = {};
+  for (const p of r.pares) (por[p.movId] ||= []).push(p.lancId);
+  assert.deepEqual(por.tai1.sort(), ["a", "b"]);
+  assert.deepEqual(por.tai2.sort(), ["c", "d"]);
+  assert.deepEqual(r.movsSemLanc, ["manha"]);
+});

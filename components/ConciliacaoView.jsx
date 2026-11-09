@@ -370,6 +370,22 @@ export default function ConciliacaoView() {
             </div>
           </div>
 
+          {estado.casadosPorSoma?.length > 0 && (
+            <details className="bg-white rounded-2xl border border-slate-200/70 shadow-sm">
+              <summary className="px-4 py-3 text-sm font-semibold text-slate-800 cursor-pointer">Pix conferidos pela soma de vários lançamentos ({estado.casadosPorSoma.length}) — dê uma olhada</summary>
+              <div className="divide-y divide-slate-100 border-t border-slate-100">
+                {estado.casadosPorSoma.map((m) => (
+                  <div key={m.id} className="px-4 py-2 text-sm">
+                    <div className="font-medium text-slate-800">{money(m.valor)} <span className="text-xs font-normal text-slate-400">{quando(m.data)} · {m.descricao}</span></div>
+                    <ul className="text-xs text-slate-500 mt-0.5 space-y-0.5">
+                      {m.lancs.map((l) => <li key={l.id}>{money(l.amount)} · {l.description}</li>)}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
           <div className="text-xs text-slate-400">
             Últimos arquivos: {estado.importacoes.slice(0, 5).map((i) => `${i.arquivo || "OFX"} (${dia(i.de)}–${dia(i.ate)}, ${i.qtdMov} mov.)`).join(" · ")}
           </div>

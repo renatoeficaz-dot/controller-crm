@@ -1345,6 +1345,8 @@ model ExtratoMovimento {
   descricao    String?
   status       String    @default("pendente")
   lancamentoId String?
+  // Quando um Pix casou com a SOMA de vários lançamentos: os ids de todos (separados por vírgula), para o gestor revisar.
+  lancamentoIds String?
   observacao   String?
   resolvidoPor String?
   resolvidoEm  DateTime?
