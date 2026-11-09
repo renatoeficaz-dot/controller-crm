@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { planoBaixa, sugerirParcelas } from "@/lib/conciliacaoOfx";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const quando = (d) => new Date(d).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -26,6 +27,44 @@ export default function ConciliacaoView() {
   const [edicoes, setEdicoes] = useState({}); // id do movimento -> { descricao, categoriaId } (o que o gestor mudou antes de lançar)
   const [salvando, setSalvando] = useState(false);
   const arquivoRef = useRef(null);
+  // Painel "cliente e parcelas" de uma entrada: { movId, busca, resultados, cliente, parcelas, marcadas:Set }
+  const [vinc, setVinc] = useState(null);
+  const buscaTimer = useRef(null);
+
+  function abrirVinculo(m) {
+    setVinc(vinc?.movId === m.id ? null : { movId: m.id, busca: "", resultados: [], cliente: null, parcelas: [], marcadas: [] });
+  }
+  function digitarBusca(texto) {
+    setVinc((v) => ({ ...v, busca: texto }));
+    clearTimeout(buscaTimer.current);
+    if (texto.trim().length < 2) { setVinc((v) => v && { ...v, resultados: [] }); return; }
+    buscaTimer.current = setTimeout(async () => {
+      const r = await fetch(`/api/lancamentos/conciliacao/cliente?q=${encodeURIComponent(texto.trim())}`).then((x) => x.json()).catch(() => []);
+      setVinc((v) => v && { ...v, resultados: Array.isArray(r) ? r : [] });
+    }, 250);
+  }
+  async function escolherCliente(c, valor) {
+    const r = await fetch(`/api/lancamentos/conciliacao/cliente?contactId=${c.id}`);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErro(j.error || "Não consegui abrir o cliente."); return; }
+    setErro("");
+    setVinc((v) => v && { ...v, cliente: j.cliente, parcelas: j.parcelas, resultados: [], marcadas: sugerirParcelas(j.parcelas, valor) });
+  }
+  function alternarParcela(id) {
+    setVinc((v) => {
+      const tem = v.marcadas.includes(id);
+      return { ...v, marcadas: tem ? v.marcadas.filter((x) => x !== id) : [...v.marcadas, id] };
+    });
+  }
+  async function baixarParcelas(m) {
+    setSalvando(true);
+    const r = await fetch(`/api/lancamentos/conciliacao/${m.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "baixar", contactId: vinc.cliente.id, parcelaIds: vinc.marcadas }) });
+    const j = await r.json().catch(() => ({}));
+    setSalvando(false);
+    if (!r.ok) { setErro(j.error || "Não foi possível dar a baixa."); return; }
+    setErro(""); setMsg(`Baixa dada em ${j.parcelas} parcela(s) de ${vinc.cliente.name} e conferida com o extrato.`); setVinc(null);
+    carregar();
+  }
 
   const carregar = useCallback(async () => {
     const r = await fetch("/api/lancamentos/conciliacao");
@@ -140,6 +179,7 @@ export default function ConciliacaoView() {
                         <div className="text-sm text-slate-600 mt-0.5 break-words">{m.descricao || "(sem descrição no extrato)"}</div>
                       </div>
                       <div className="flex gap-2 shrink-0 flex-wrap">
+                        {m.tipo === "entrada" && <button disabled={salvando} onClick={() => abrirVinculo(m)} className="text-xs font-medium bg-sky-500 text-white rounded-lg px-3 py-1.5 hover:bg-sky-600">Cliente e parcelas</button>}
                         <button disabled={salvando} onClick={() => agir(m.id, { acao: "lancar", descricao, categoriaId })} className="text-xs font-medium bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600">Lançar</button>
                         {candidatos.length > 0 && (
                           <select defaultValue="" onChange={(e) => e.target.value && agir(m.id, { acao: "vincular", lancamentoId: e.target.value })} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 max-w-[190px]">
@@ -157,6 +197,48 @@ export default function ConciliacaoView() {
                         {categorias.filter((x) => x.type === m.tipo).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
                       </select>
                     </div>
+                    {vinc?.movId === m.id && (() => {
+                      const sel = vinc.parcelas.filter((p) => vinc.marcadas.includes(p.id));
+                      const plano = planoBaixa(sel, m.valor);
+                      const aplicado = Math.round((m.valor - plano.sobra) * 100) / 100;
+                      return (
+                        <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50/50 p-3 space-y-2">
+                          {!vinc.cliente ? (
+                            <>
+                              <input autoFocus value={vinc.busca} onChange={(e) => digitarBusca(e.target.value)} placeholder="Buscar cliente por nome ou telefone" className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white" />
+                              {vinc.resultados.map((c) => (
+                                <button key={c.id} onClick={() => escolherCliente(c, m.valor)} className="w-full text-left text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 hover:border-sky-400">
+                                  <span className="font-medium text-slate-800">{c.name}</span> <span className="text-xs text-slate-400">{c.etapa}{c.phone ? ` · ${c.phone}` : ""}</span>
+                                </button>
+                              ))}
+                              {vinc.busca.trim().length >= 2 && vinc.resultados.length === 0 && <div className="text-xs text-slate-400">Nenhum cliente encontrado.</div>}
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="text-sm font-medium text-slate-800">{vinc.cliente.name}</div>
+                                <button onClick={() => setVinc({ ...vinc, cliente: null, parcelas: [], marcadas: [] })} className="text-xs text-slate-500 underline">trocar cliente</button>
+                              </div>
+                              {vinc.parcelas.length === 0 && <div className="text-xs text-slate-500">Esse cliente não tem parcelas em aberto no ciclo atual.</div>}
+                              <div className="space-y-1">
+                                {vinc.parcelas.map((p) => (
+                                  <label key={p.id} className="flex items-center gap-2 text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 cursor-pointer">
+                                    <input type="checkbox" checked={vinc.marcadas.includes(p.id)} onChange={() => alternarParcela(p.id)} />
+                                    <span className="flex-1">Parcela {p.number}ª · vence {new Date(p.dueDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}</span>
+                                    <span className="text-slate-700">{money(p.amount - p.valorPago)}</span>
+                                    {p.devido > p.amount + 0.01 && <span className="text-xs text-red-600">com multa {money(p.devido - p.valorPago)}</span>}
+                                  </label>
+                                ))}
+                              </div>
+                              <div className={`text-xs ${plano.sobra > 0.01 ? "text-red-600" : "text-slate-600"}`}>
+                                Pix de {money(m.valor)} · aplicado nas parcelas marcadas: {money(aplicado)}{plano.sobra > 0.01 ? ` · sobram ${money(plano.sobra)}: marque mais parcelas` : plano.itens.some((i) => i.semJuros) ? " · quitando sem multa" : ""}
+                              </div>
+                              <button disabled={salvando || !sel.length || plano.sobra > 0.01} onClick={() => baixarParcelas(m)} className="text-sm font-medium bg-sky-600 text-white rounded-lg px-4 py-2 hover:bg-sky-700 disabled:opacity-40">Dar baixa nas parcelas marcadas</button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}

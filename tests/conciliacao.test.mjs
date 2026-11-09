@@ -90,3 +90,20 @@ test("fechar caixa: totais do extrato x sistema, diferença do período e do sal
   assert.deepEqual(c, { extEnt: 500, extSai: 120, sisEnt: 450, sisSai: 120, difEntradas: 50, difSaidas: 0, difPeriodo: 50, difSaldo: 60, bate: false });
   assert.equal(fecharCaixa({ movs: [], lancs: [], saldoExtrato: null, saldoSistema: 5 }).bate, true);
 });
+
+test("baixa pelo extrato: sem multa quando fecha com o valor base; senão com multa em ordem e a última parcial; sobra avisa", async () => {
+  const { planoBaixa, sugerirParcelas } = await import("../lib/conciliacaoOfx.js");
+  const ps = [
+    { id: "a", amount: 100, valorPago: 0, devido: 150 },
+    { id: "b", amount: 100, valorPago: 0, devido: 150 },
+    { id: "c", amount: 100, valorPago: 20, devido: 100 },
+  ];
+  assert.deepEqual(planoBaixa(ps.slice(0, 2), 200), { itens: [{ id: "a", valor: 100, semJuros: true }, { id: "b", valor: 100, semJuros: true }], sobra: 0 });
+  assert.deepEqual(planoBaixa(ps.slice(0, 2), 300), { itens: [{ id: "a", valor: 150, semJuros: false }, { id: "b", valor: 150, semJuros: false }], sobra: 0 });
+  assert.deepEqual(planoBaixa(ps.slice(0, 2), 220), { itens: [{ id: "a", valor: 150, semJuros: false }, { id: "b", valor: 70, semJuros: false }], sobra: 0 }); // última parcial
+  assert.equal(planoBaixa(ps.slice(0, 1), 400).sobra, 250); // Pix maior que o marcado
+  assert.deepEqual(planoBaixa([ps[2]], 80).itens, [{ id: "c", valor: 80, semJuros: true }]); // já tinha R$ 20 pagos
+  assert.deepEqual(sugerirParcelas(ps, 200), ["a", "b"]);
+  assert.deepEqual(sugerirParcelas(ps, 150), ["a"]);
+  assert.deepEqual(sugerirParcelas(ps, 77), []);
+});
