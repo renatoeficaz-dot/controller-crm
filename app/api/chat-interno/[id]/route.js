@@ -209,6 +209,7 @@ export async function POST(req, { params }) {
     },
     include: INCLUI_MENSAGEM,
   });
+  import("@/lib/avisoChatInterno").then((m) => m.avisarChatInterno()).catch(() => {});
   // updatedAt da conversa é o que ordena a lista por "mais recente".
   await prisma.conversaInterna.update({ where: { id }, data: { updatedAt: new Date() } }).catch(() => {});
   await prisma.conversaInternaMembro
