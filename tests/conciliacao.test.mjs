@@ -107,3 +107,10 @@ test("baixa pelo extrato: sem multa quando fecha com o valor base; senão com mu
   assert.deepEqual(sugerirParcelas(ps, 150), ["a"]);
   assert.deepEqual(sugerirParcelas(ps, 77), []);
 });
+
+test("chave do pagador: mesmo nome em formatos diferentes do extrato dá a mesma chave", async () => {
+  const { chaveDescricao } = await import("../lib/conciliacaoOfx.js");
+  assert.equal(chaveDescricao("Pix Marileide Gonçalves de Lima Silva — Recebido"), chaveDescricao("Pix recebido — MARILEIDE GONCALVES DE LIMA"));
+  assert.notEqual(chaveDescricao("Pix recebido — JOAO PEREIRA"), chaveDescricao("Pix recebido — MARIA PEREIRA"));
+  assert.equal(chaveDescricao("Tarifa 12345"), "tarifa");
+});

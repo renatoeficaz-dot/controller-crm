@@ -25,6 +25,7 @@ export async function PATCH(req, { params }) {
     if (mov.status !== "pendente") return jaResolvido();
     const categoriaId = texto(body.categoriaId) || null;
     const contactId = texto(body.contactId) || null;
+    if (!categoriaId) return NextResponse.json({ error: "Escolha a categoria do lançamento." }, { status: 400 });
     if (categoriaId && !(await prisma.lancamentoCategoria.findUnique({ where: { id: categoriaId }, select: { id: true } }))) return NextResponse.json({ error: "Categoria não encontrada." }, { status: 400 });
     if (contactId && !(await prisma.contact.findUnique({ where: { id: contactId }, select: { id: true } }))) return NextResponse.json({ error: "Cliente não encontrado." }, { status: 400 });
     const descricao = texto(body.descricao) || mov.descricao || (mov.tipo === "entrada" ? "Entrada conferida no extrato" : "Saída conferida no extrato");

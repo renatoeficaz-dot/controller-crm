@@ -31,6 +31,17 @@ export default function ConciliacaoView() {
   const [vinc, setVinc] = useState(null);
   const buscaTimer = useRef(null);
 
+  async function novaCategoria(m, mudar) {
+    const nome = window.prompt(`Nome da nova categoria de ${m.tipo === "entrada" ? "entrada" : "saída"}:`);
+    if (!nome || !nome.trim()) return;
+    const r = await fetch("/api/lancamentos/categorias", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: nome.trim(), type: m.tipo }) });
+    if (!r.ok) { setErro("Não consegui criar a categoria."); return; }
+    const lista = await fetch("/api/lancamentos/categorias").then((x) => x.json()).catch(() => []);
+    setCategorias(Array.isArray(lista) ? lista : []);
+    const criada = (Array.isArray(lista) ? lista : []).find((x) => x.name === nome.trim() && x.type === m.tipo);
+    if (criada) mudar("categoriaId", criada.id);
+  }
+
   function abrirVinculo(m) {
     setVinc(vinc?.movId === m.id ? null : { movId: m.id, busca: "", resultados: [], cliente: null, parcelas: [], marcadas: [] });
   }
@@ -127,6 +138,17 @@ export default function ConciliacaoView() {
         </label>
       </div>
 
+      {estado?.caixa && (() => {
+        const hojeBR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+        const ontem = new Date(new Date(hojeBR + "T12:00:00Z").getTime() - 86400e3).toISOString().slice(0, 10);
+        const ate = new Date(estado.caixa.periodo.ate).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+        return ate < ontem ? (
+          <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            O extrato mais recente vai até {ate.split("-").reverse().join("/")}. Envie o extrato de {ontem.split("-").reverse().join("/")} (ontem) para conferir as baixas de lá.
+          </div>
+        ) : null;
+      })()}
+
       {erro && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erro}</div>}
       {msg && <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">{msg}</div>}
 
@@ -165,7 +187,8 @@ export default function ConciliacaoView() {
                 const candidatos = estado.lancSemExtrato.filter((l) => l.type === m.tipo && Math.abs(l.amount - m.valor) < 0.01);
                 const ed = edicoes[m.id] || {};
                 const descricao = ed.descricao ?? m.descricao ?? "";
-                const categoriaId = ed.categoriaId ?? "";
+                const categoriaId = ed.categoriaId ?? m.categoriaSugerida ?? "";
+                const sugerida = !ed.categoriaId && !!m.categoriaSugerida;
                 const mudar = (campo, v) => setEdicoes((e) => ({ ...e, [m.id]: { ...e[m.id], [campo]: v } }));
                 return (
                   <div key={m.id} className="p-3 md:p-4">
@@ -180,7 +203,7 @@ export default function ConciliacaoView() {
                       </div>
                       <div className="flex gap-2 shrink-0 flex-wrap">
                         {m.tipo === "entrada" && <button disabled={salvando} onClick={() => abrirVinculo(m)} className="text-xs font-medium bg-sky-500 text-white rounded-lg px-3 py-1.5 hover:bg-sky-600">Cliente e parcelas</button>}
-                        <button disabled={salvando} onClick={() => agir(m.id, { acao: "lancar", descricao, categoriaId })} className="text-xs font-medium bg-emerald-500 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-600">Lançar</button>
+                        <button disabled={salvando} onClick={() => (categoriaId ? agir(m.id, { acao: "lancar", descricao, categoriaId }) : setErro("Escolha a categoria do lançamento antes de lançar."))} title={categoriaId ? "" : "Escolha a categoria"} className={`text-xs font-medium text-white rounded-lg px-3 py-1.5 ${categoriaId ? "bg-emerald-500 hover:bg-emerald-600" : "bg-slate-300"}`}>Lançar</button>
                         {candidatos.length > 0 && (
                           <select defaultValue="" onChange={(e) => e.target.value && agir(m.id, { acao: "vincular", lancamentoId: e.target.value })} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 max-w-[190px]">
                             <option value="">Vincular a lançamento…</option>
@@ -192,9 +215,10 @@ export default function ConciliacaoView() {
                     </div>
                     <div className="mt-2 grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-2">
                       <input value={descricao} onChange={(e) => mudar("descricao", e.target.value)} placeholder="Nome do lançamento (ex.: Venda de móvel, Aporte do sócio)" className="text-sm border border-slate-200 rounded-lg px-3 py-1.5" />
-                      <select value={categoriaId} onChange={(e) => mudar("categoriaId", e.target.value)} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5">
-                        <option value="">Sem categoria</option>
-                        {categorias.filter((x) => x.type === m.tipo).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                      <select value={categoriaId} onChange={(e) => (e.target.value === "__nova" ? novaCategoria(m, mudar) : mudar("categoriaId", e.target.value))} className={`text-sm border rounded-lg px-2 py-1.5 ${categoriaId ? "border-slate-200" : "border-amber-300 bg-amber-50"}`}>
+                        <option value="">Escolha a categoria…</option>
+                        {categorias.filter((x) => x.type === m.tipo).map((x) => <option key={x.id} value={x.id}>{x.name}{sugerida && x.id === categoriaId ? " (usada antes)" : ""}</option>)}
+                        <option value="__nova">+ Nova categoria…</option>
                       </select>
                     </div>
                     {vinc?.movId === m.id && (() => {
