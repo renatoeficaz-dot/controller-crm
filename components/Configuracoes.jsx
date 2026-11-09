@@ -341,7 +341,7 @@ export default function Configuracoes() {
                 <AgentesIa />
               </div>
             )}
-            {tab === "metaads" && <MetaAdsConfig />}
+            {tab === "metaads" && (<div className="space-y-6"><MetaAdsConfig /><MetaCapiConfig /></div>)}
             {tab === "alertas" && <AlertasWhatsapp />}
             {tab === "backup" && <BackupBanco />}
             {tab === "regua" && <ReguaCobranca />}
@@ -5617,5 +5617,52 @@ function EstadosSeletor({ value, onChange }) {
         </div>
       )}
     </div>
+  );
+}
+
+
+function MetaCapiConfig() {
+  const [f, setF] = useState({ ativo: false, datasetId: "", token: "", etapa: "Análise", evento: "LeadEmAnalise", testeCodigo: "" });
+  const [temToken, setTemToken] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    fetch("/api/config/meta-capi").then((r) => r.json()).then((d) => {
+      if (d && !d.error) { setF((x) => ({ ...x, ativo: d.ativo, datasetId: d.datasetId, etapa: d.etapa, evento: d.evento, testeCodigo: d.testeCodigo })); setTemToken(d.temToken); }
+    }).catch(() => {});
+  }, []);
+  async function salvar(e) {
+    e.preventDefault();
+    const r = await fetch("/api/config/meta-capi", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f) });
+    const d = await r.json().catch(() => ({}));
+    setMsg(r.ok ? "Salvo." : d.error || "Erro ao salvar.");
+    if (r.ok && f.token) { setTemToken(true); setF((x) => ({ ...x, token: "" })); }
+    setTimeout(() => setMsg(""), 2500);
+  }
+  const campo = "w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm";
+  return (
+    <form onSubmit={salvar} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 max-w-lg space-y-3">
+      <div>
+        <h2 className="font-semibold text-slate-800">Meta — avanço da lead no funil (Conversions API)</h2>
+        <p className="text-xs text-slate-400 mt-1">Quando uma lead entra na etapa abaixo, avisa o Meta (só telefone/e-mail com hash, nunca valor nem dados financeiros) para ele aprender a trazer leads melhores.</p>
+      </div>
+      <label className="block text-xs text-slate-500">ID do conjunto de dados (dataset/pixel)
+        <input className={campo} value={f.datasetId} onChange={(e) => setF({ ...f, datasetId: e.target.value })} inputMode="numeric" />
+      </label>
+      <label className="block text-xs text-slate-500">Token de acesso {temToken && <span className="text-emerald-600">(já salvo, criptografado — deixe vazio para manter)</span>}
+        <input className={campo} type="password" autoComplete="new-password" value={f.token} onChange={(e) => setF({ ...f, token: e.target.value })} />
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block text-xs text-slate-500">Etapa que dispara<input className={campo} value={f.etapa} onChange={(e) => setF({ ...f, etapa: e.target.value })} /></label>
+        <label className="block text-xs text-slate-500">Nome do evento<input className={campo} value={f.evento} onChange={(e) => setF({ ...f, evento: e.target.value })} /></label>
+      </div>
+      <label className="block text-xs text-slate-500">Código de teste (aba "Eventos de teste"; vazio = envio real)
+        <input className={campo} value={f.testeCodigo} onChange={(e) => setF({ ...f, testeCodigo: e.target.value })} />
+      </label>
+      <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={f.ativo} onChange={(e) => setF({ ...f, ativo: e.target.checked })} /> Enviar eventos ao Meta</label>
+      <div className="flex items-center gap-3">
+        <button className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm">Salvar</button>
+        {msg && <span className="text-xs text-slate-500">{msg}</span>}
+      </div>
+    </form>
   );
 }

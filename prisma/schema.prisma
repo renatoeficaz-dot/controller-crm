@@ -89,6 +89,8 @@ model Contact {
   metaFormId         String?
   metaAdId           String?
   metaCampaignId     String?
+  // Eventos de funil já enviados ao Meta (CAPI), JSON {"LeadEmAnalise":"<data ISO>"} — evita reenviar se a lead voltar à etapa.
+  metaEventos        String?
   notes              String?
   order              Int               @default(0)
   stage              Stage             @relation(fields: [stageId], references: [id])
@@ -664,6 +666,13 @@ model Config {
   // Gerado automaticamente na primeira vez que a tela é aberta — é o valor que
   // vai no campo "Verify Token" ao configurar o Webhook no Meta for Developers.
   metaAdsVerifyToken String?
+  // Conversions API (avanço da lead no funil -> Meta). Token guardado CRIPTOGRAFADO (lib/segredo.js), nunca devolvido pela API.
+  metaCapiAtivo       Boolean @default(false)
+  metaCapiDatasetId   String?
+  metaCapiTokenEnc    String?
+  metaCapiEtapa       String? // etapa que dispara (padrão "Análise")
+  metaCapiEvento      String? // nome do evento (padrão "LeadEmAnalise")
+  metaCapiTesteCodigo String? // código da aba "Eventos de teste" (vazio = envio real)
   // Novo lead da Meta entra atribuído a este número (mesmo sem nenhuma
   // mensagem de WhatsApp ainda) — decide quem cobra, qual IA atende se o
   // cliente escrever depois, etc.
