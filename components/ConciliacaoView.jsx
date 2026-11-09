@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { planoBaixa, sugerirParcelas } from "@/lib/conciliacaoOfx";
+import ContactModal from "./ContactModal";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const quando = (d) => new Date(d).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -13,6 +14,16 @@ function Cartao({ titulo, valor, cor, sub }) {
       <div className="text-xs text-slate-500">{titulo}</div>
       <div className={`text-2xl font-semibold mt-1 ${cor}`}>{valor}</div>
       {sub && <div className="text-xs text-slate-400 mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+function CabGrupo({ tipo, itens, valor }) {
+  const ent = tipo === "entrada";
+  return (
+    <div className={`px-4 py-2 text-xs font-semibold flex items-center justify-between ${ent ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+      <span>{ent ? "Entradas" : "Saídas"} ({itens})</span>
+      <span>{money(valor)}</span>
     </div>
   );
 }
@@ -29,7 +40,10 @@ export default function ConciliacaoView() {
   const arquivoRef = useRef(null);
   // Painel "cliente e parcelas" de uma entrada: { movId, busca, resultados, cliente, parcelas, marcadas:Set }
   const [vinc, setVinc] = useState(null);
+  const [tipoFiltro, setTipoFiltro] = useState("todos"); // "todos" | "entrada" | "saida"
   const buscaTimer = useRef(null);
+  const buscaSeq = useRef(0); // só a última busca digitada pode atualizar a lista (respostas antigas chegavam depois e a sobrescreviam)
+  const [cardId, setCardId] = useState(null); // lead aberto para conferir se é o cliente certo
 
   async function novaCategoria(m, mudar) {
     const nome = window.prompt(`Nome da nova categoria de ${m.tipo === "entrada" ? "entrada" : "saída"}:`);
@@ -48,11 +62,14 @@ export default function ConciliacaoView() {
   function digitarBusca(texto) {
     setVinc((v) => ({ ...v, busca: texto }));
     clearTimeout(buscaTimer.current);
-    if (texto.trim().length < 2) { setVinc((v) => v && { ...v, resultados: [] }); return; }
+    const minhaVez = ++buscaSeq.current;
+    if (texto.trim().length < 3) { setVinc((v) => v && { ...v, resultados: [], buscando: false }); return; }
+    setVinc((v) => v && { ...v, buscando: true });
     buscaTimer.current = setTimeout(async () => {
       const r = await fetch(`/api/lancamentos/conciliacao/cliente?q=${encodeURIComponent(texto.trim())}`).then((x) => x.json()).catch(() => []);
-      setVinc((v) => v && { ...v, resultados: Array.isArray(r) ? r : [] });
-    }, 250);
+      if (minhaVez !== buscaSeq.current) return;
+      setVinc((v) => v && { ...v, resultados: Array.isArray(r) ? r : [], buscando: false });
+    }, 350);
   }
   async function escolherCliente(c, valor) {
     const r = await fetch(`/api/lancamentos/conciliacao/cliente?contactId=${c.id}`);
@@ -179,11 +196,29 @@ export default function ConciliacaoView() {
             </div>
           )}
 
+          {(() => {
+            const n = (t) => estado.movPendentes.filter((x) => x.tipo === t).length + estado.lancSemExtrato.filter((x) => x.type === t).length;
+            return (
+              <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5 w-fit max-w-full overflow-x-auto">
+                {[["todos", "Entradas e saídas", n("entrada") + n("saida")], ["entrada", "Só entradas", n("entrada")], ["saida", "Só saídas", n("saida")]].map(([k, rot, q]) => (
+                  <button key={k} onClick={() => setTipoFiltro(k)} className={`text-xs px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${tipoFiltro === k ? "bg-white shadow-sm text-slate-700 font-medium" : "text-slate-500 hover:text-slate-700"}`}>{rot} ({q})</button>
+                ))}
+              </div>
+            );
+          })()}
+
           <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm">
             <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">No extrato, sem lançamento ({estado.movPendentes.length})</div>
-            {estado.movPendentes.length === 0 && <div className="p-4 text-sm text-slate-400">Tudo que entrou e saiu da conta está lançado.</div>}
-            <div className="divide-y divide-slate-100">
-              {estado.movPendentes.map((m) => {
+            {estado.movPendentes.filter((x) => tipoFiltro === "todos" || x.tipo === tipoFiltro).length === 0 && <div className="p-4 text-sm text-slate-400">{tipoFiltro === "entrada" ? "Nenhuma entrada sem lançamento." : tipoFiltro === "saida" ? "Nenhuma saída sem lançamento." : "Tudo que entrou e saiu da conta está lançado."}</div>}
+            <div>
+              {["entrada", "saida"].filter((t) => tipoFiltro === "todos" || tipoFiltro === t).map((tipoG) => {
+              const grupo = estado.movPendentes.filter((x) => x.tipo === tipoG);
+              if (!grupo.length) return null;
+              return (
+              <div key={tipoG}>
+              {tipoFiltro === "todos" && <CabGrupo tipo={tipoG} itens={grupo.length} valor={grupo.reduce((a, x) => a + x.valor, 0)} />}
+              <div className="divide-y divide-slate-100">
+              {grupo.map((m) => {
                 const candidatos = estado.lancSemExtrato.filter((l) => l.type === m.tipo && Math.abs(l.amount - m.valor) < 0.01);
                 const ed = edicoes[m.id] || {};
                 const descricao = ed.descricao ?? m.descricao ?? "";
@@ -230,12 +265,19 @@ export default function ConciliacaoView() {
                           {!vinc.cliente ? (
                             <>
                               <input autoFocus value={vinc.busca} onChange={(e) => digitarBusca(e.target.value)} placeholder="Buscar cliente por nome ou telefone" className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white" />
+                              <div className="text-xs text-slate-400">Procura no nome, no telefone e dentro da conversa. Clique no nome para abrir o card e conferir.</div>
+                              {vinc.buscando && <div className="text-xs text-slate-400">Buscando…</div>}
                               {vinc.resultados.map((c) => (
-                                <button key={c.id} onClick={() => escolherCliente(c, m.valor)} className="w-full text-left text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 hover:border-sky-400">
-                                  <span className="font-medium text-slate-800">{c.name}</span> <span className="text-xs text-slate-400">{c.etapa}{c.phone ? ` · ${c.phone}` : ""}</span>
-                                </button>
+                                <div key={c.id} className="flex items-stretch gap-2">
+                                  <button onClick={() => setCardId(c.id)} className="flex-1 min-w-0 text-left text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 hover:border-sky-400">
+                                    <div className="font-medium text-slate-800 truncate">{c.name} {!c.completo && <span className="text-[10px] font-normal text-amber-600">(parcial)</span>}</div>
+                                    <div className="text-xs text-slate-400 truncate">{c.etapa}{c.phone ? ` · ${c.phone}` : ""}</div>
+                                    {c.trecho && <div className="text-xs text-sky-700 mt-0.5 break-words">na conversa: “{c.trecho}”</div>}
+                                  </button>
+                                  <button onClick={() => escolherCliente(c, m.valor)} className="shrink-0 text-xs font-medium bg-sky-600 text-white rounded-lg px-3 hover:bg-sky-700">É ela(e)<br />Confirmar</button>
+                                </div>
                               ))}
-                              {vinc.busca.trim().length >= 2 && vinc.resultados.length === 0 && <div className="text-xs text-slate-400">Nenhum cliente encontrado.</div>}
+                              {!vinc.buscando && vinc.busca.trim().length >= 3 && vinc.resultados.length === 0 && <div className="text-xs text-slate-400">Nenhum cliente encontrado.</div>}
                             </>
                           ) : (
                             <>
@@ -266,14 +308,25 @@ export default function ConciliacaoView() {
                   </div>
                 );
               })}
+              </div>
+              </div>
+              );
+              })}
             </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm">
             <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">Lançamentos sem Pix no extrato ({estado.lancSemExtrato.length})</div>
-            {estado.lancSemExtrato.length === 0 && <div className="p-4 text-sm text-slate-400">Todos os lançamentos do período foram achados no extrato.</div>}
-            <div className="divide-y divide-slate-100">
-              {estado.lancSemExtrato.map((l) => (
+            {estado.lancSemExtrato.filter((x) => tipoFiltro === "todos" || x.type === tipoFiltro).length === 0 && <div className="p-4 text-sm text-slate-400">{tipoFiltro === "todos" ? "Todos os lançamentos do período foram achados no extrato." : "Nada nesse filtro."}</div>}
+            <div>
+              {["entrada", "saida"].filter((t) => tipoFiltro === "todos" || tipoFiltro === t).map((tipoG) => {
+              const grupo = estado.lancSemExtrato.filter((x) => x.type === tipoG);
+              if (!grupo.length) return null;
+              return (
+              <div key={tipoG}>
+              {tipoFiltro === "todos" && <CabGrupo tipo={tipoG} itens={grupo.length} valor={grupo.reduce((a, x) => a + x.amount, 0)} />}
+              <div className="divide-y divide-slate-100">
+              {grupo.map((l) => (
                 <div key={l.id} className="p-3 md:p-4 flex flex-col sm:flex-row sm:items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -286,6 +339,10 @@ export default function ConciliacaoView() {
                   <button onClick={() => conferirManual(l.id)} className="shrink-0 text-xs font-medium border border-slate-200 text-slate-600 rounded-lg px-3 py-1.5 hover:bg-slate-50">Conferido à mão</button>
                 </div>
               ))}
+              </div>
+              </div>
+              );
+              })}
             </div>
           </div>
 
@@ -294,6 +351,7 @@ export default function ConciliacaoView() {
           </div>
         </>
       )}
+      {cardId && <ContactModal contactId={cardId} onClose={() => setCardId(null)} onChanged={() => {}} />}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdmin } from "@/lib/session";
+import { palavrasDaBusca, rankearClientes } from "@/lib/buscaCliente";
 import { valorParcelaAtual, horaLimiteEfetiva } from "@/lib/finance";
 
 // Apoio da conciliação: ?q=nome busca clientes; ?contactId=... lista as parcelas em aberto do ciclo atual (com o valor devido hoje, multa inclusa).
@@ -25,13 +26,13 @@ export async function GET(req) {
       })),
     });
   }
-  const q = (sp.get("q") || "").trim();
-  if (q.length < 2) return NextResponse.json([]);
-  const lista = await prisma.contact.findMany({
-    where: { excluidoEm: null, OR: [{ name: { contains: q } }, { phone: { contains: q.replace(/\D/g, "") || "\u0000" } }] },
-    select: { id: true, name: true, phone: true, stage: { select: { name: true } } },
-    orderBy: { name: "asc" },
-    take: 8,
-  });
-  return NextResponse.json(lista.map((c) => ({ id: c.id, name: c.name, phone: c.phone, etapa: c.stage?.name || "" })));
+  const tokens = palavrasDaBusca(sp.get("q") || "");
+  if (!tokens.length || tokens.join("").length < 3) return NextResponse.json([]);
+  // Nome/telefone de todos os clientes + mensagens dos últimos 120 dias: a comparação é feita sem acento e sem maiúscula (o SQLite não faz isso sozinho).
+  const desde = new Date(Date.now() - 120 * 86400e3);
+  const [contatos, mensagens] = await Promise.all([
+    prisma.contact.findMany({ where: { excluidoEm: null }, select: { id: true, name: true, phone: true, stage: { select: { name: true } } } }),
+    prisma.message.findMany({ where: { apagada: false, createdAt: { gte: desde }, NOT: { body: "" } }, select: { contactId: true, body: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 60000 }),
+  ]);
+  return NextResponse.json(rankearClientes(tokens, contatos.map((c) => ({ id: c.id, name: c.name, phone: c.phone, etapa: c.stage?.name || "" })), mensagens));
 }

@@ -114,3 +114,27 @@ test("chave do pagador: mesmo nome em formatos diferentes do extrato dá a mesma
   assert.notEqual(chaveDescricao("Pix recebido — JOAO PEREIRA"), chaveDescricao("Pix recebido — MARIA PEREIRA"));
   assert.equal(chaveDescricao("Tarifa 12345"), "tarifa");
 });
+
+test("busca de cliente: sem acento, várias palavras, acha pela conversa e põe o mais provável primeiro", async () => {
+  const { palavrasDaBusca, rankearClientes } = await import("../lib/buscaCliente.js");
+  const tokens = palavrasDaBusca("Marileide Gonçalves");
+  assert.deepEqual(tokens, ["marileide", "goncalves"]);
+  const contatos = [
+    { id: "1", name: "Antonella Silva Atacado", phone: "5516993099884", etapa: "Venda perdida" },
+    { id: "2", name: "Marileide Gonçalves de Lima", phone: "5571999990000", etapa: "Recebimento" },
+    { id: "3", name: "Bia Doces", phone: "5584999990000", etapa: "Recebimento" },
+    { id: "4", name: "Marileide Souza", phone: "5511999990000", etapa: "Recebimento" },
+  ];
+  const mensagens = [
+    { contactId: "3", body: "Oi, quem vai pagar é a Marileide Goncalves, minha mãe", createdAt: "2026-11-05" },
+    { contactId: "1", body: "bom dia", createdAt: "2026-11-05" },
+  ];
+  const r = rankearClientes(tokens, contatos, mensagens);
+  assert.deepEqual(r.map((x) => x.id), ["2", "3", "4"]); // nome completo > palavras na conversa > só uma palavra no nome
+  assert.equal(r[0].completo, true);
+  assert.equal(r[1].completo, true);
+  assert.match(r[1].trecho, /Marileide Goncalves/);
+  assert.equal(r[2].completo, false);
+  assert.deepEqual(rankearClientes(palavrasDaBusca("5571999"), contatos, []).map((x) => x.id), ["2"]); // por telefone
+  assert.deepEqual(rankearClientes([], contatos, []), []);
+});
