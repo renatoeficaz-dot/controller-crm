@@ -271,6 +271,13 @@ async function mover(req, { params }) {
       await criarTarefaCobrancaRecebimento(id).catch(() => {});
     }
 
+    // "Renovação" também é cobrança de verdade (parcelas reais). Quando o gestor tira o cliente de "Liberação pagamento" direto para ela,
+    // o dinheiro saiu do mesmo jeito: sem lançar a saída, o "Liberado no dia" das Metas ficava sem esse capital (caso Gustavo, R$ 700, 09/11).
+    // lancarLiberacaoCapital não duplica (confere pela descrição), então é seguro.
+    if (stage.name === "Renovação" && trocandoDeEtapa && stageAnterior?.name === "Liberação pagamento") {
+      await lancarLiberacaoCapital(updated).catch(() => {});
+    }
+
     // Ao ENTRAR em "Liberação pagamento": cria sozinho o lembrete de fazer o
     // Pix — sem isso dependia de alguém lembrar de criar a tarefa na mão.
     if (stage.name === "Liberação pagamento" && trocandoDeEtapa) {
