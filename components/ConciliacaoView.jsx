@@ -142,11 +142,14 @@ export default function ConciliacaoView() {
     carregar();
   }
 
-  async function conferirManual(id) {
-    const observacao = window.prompt("Como você conferiu? (ex.: pago em dinheiro, caiu em outra conta)") ;
+  async function conferirManual(ids) {
+    const observacao = window.prompt("Como você conferiu? (ex.: pago em dinheiro, caiu em outra conta)");
     if (observacao === null) return;
-    const r = await fetch("/api/lancamentos/conciliacao", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lancamentoId: id, observacao }) });
-    if (r.ok) carregar(); else setErro("Não foi possível marcar.");
+    for (const id of [].concat(ids)) {
+      const r = await fetch("/api/lancamentos/conciliacao", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lancamentoId: id, observacao }) });
+      if (!r.ok) { setErro("Não foi possível marcar."); return; }
+    }
+    carregar();
   }
 
   const c = estado?.caixa;
@@ -227,6 +230,46 @@ export default function ConciliacaoView() {
                 {[["todos", "Entradas e saídas", n("entrada") + n("saida")], ["entrada", "Só entradas", n("entrada")], ["saida", "Só saídas", n("saida")]].map(([k, rot, q]) => (
                   <button key={k} onClick={() => setTipoFiltro(k)} className={`text-xs px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${tipoFiltro === k ? "bg-white shadow-sm text-slate-700 font-medium" : "text-slate-500 hover:text-slate-700"}`}>{rot} ({q})</button>
                 ))}
+              </div>
+            );
+          })()}
+
+          {(() => {
+            // Baixas/lançamentos que passam pelo banco e NÃO acharam o Pix no extrato. A IA divide uma baixa em vários lançamentos (parcela + adiantamentos),
+            // então agrupa por cliente/tipo em até 10 minutos para aparecer como UMA baixa.
+            const lista = estado.lancSemExtrato.filter((x) => tipoFiltro === "todos" || x.type === tipoFiltro).sort((x, y) => new Date(x.date) - new Date(y.date));
+            const grupos = [];
+            for (const l of lista) {
+              const g = l.contactId ? grupos.find((x) => x.contactId === l.contactId && x.type === l.type && Math.abs(new Date(l.date) - new Date(x.fim)) <= 10 * 60e3) : null;
+              if (g) { g.itens.push(l); g.total += l.amount; g.fim = l.date; }
+              else grupos.push({ contactId: l.contactId, contato: l.contato, type: l.type, inicio: l.date, fim: l.date, total: l.amount, itens: [l] });
+            }
+            const total = grupos.reduce((a, g) => a + g.total, 0);
+            return (
+              <div className="bg-white rounded-2xl border border-amber-200 shadow-sm">
+                <div className="px-4 py-3 border-b border-amber-100 bg-amber-50/60 rounded-t-2xl flex items-center justify-between gap-2 flex-wrap">
+                  <div className="text-sm font-semibold text-amber-900">Baixas e lançamentos sem Pix no extrato ({grupos.length}{lista.length !== grupos.length ? ` baixas, ${lista.length} lançamentos` : ""})</div>
+                  <div className="text-xs text-amber-800">{money(total)} que o sistema registrou e o banco não mostra</div>
+                </div>
+                {grupos.length === 0 && <div className="p-4 text-sm text-slate-400">{tipoFiltro === "todos" ? "Todos os lançamentos do período foram achados no extrato." : "Nada nesse filtro."}</div>}
+                <div className="divide-y divide-slate-100">
+                  {grupos.map((g) => (
+                    <div key={g.itens[0].id} className="p-3 md:p-4 flex flex-col sm:flex-row sm:items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-xs font-medium rounded px-1.5 py-0.5 ${g.type === "entrada" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>{g.type === "entrada" ? "Entrada" : "Saída"}</span>
+                          <span className="font-semibold text-slate-800">{money(g.total)}</span>
+                          <span className="text-xs text-slate-400">{quando(g.inicio)}</span>
+                          {g.contato && <span className="text-sm font-medium text-slate-700">{g.contato}</span>}
+                        </div>
+                        <ul className="text-xs text-slate-500 mt-0.5 space-y-0.5">
+                          {g.itens.map((l) => <li key={l.id} className="break-words">{money(l.amount)} · {l.description || "(sem descrição)"}</li>)}
+                        </ul>
+                      </div>
+                      <button onClick={() => conferirManual(g.itens.map((l) => l.id))} className="shrink-0 text-xs font-medium border border-slate-200 text-slate-600 rounded-lg px-3 py-1.5 hover:bg-slate-50">Conferido à mão</button>
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           })()}
@@ -332,37 +375,6 @@ export default function ConciliacaoView() {
                   </div>
                 );
               })}
-              </div>
-              </div>
-              );
-              })}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm">
-            <div className="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800">Lançamentos sem Pix no extrato ({estado.lancSemExtrato.length})</div>
-            {estado.lancSemExtrato.filter((x) => tipoFiltro === "todos" || x.type === tipoFiltro).length === 0 && <div className="p-4 text-sm text-slate-400">{tipoFiltro === "todos" ? "Todos os lançamentos do período foram achados no extrato." : "Nada nesse filtro."}</div>}
-            <div>
-              {["entrada", "saida"].filter((t) => tipoFiltro === "todos" || tipoFiltro === t).map((tipoG) => {
-              const grupo = estado.lancSemExtrato.filter((x) => x.type === tipoG);
-              if (!grupo.length) return null;
-              return (
-              <div key={tipoG}>
-              {tipoFiltro === "todos" && <CabGrupo tipo={tipoG} itens={grupo.length} valor={grupo.reduce((a, x) => a + x.amount, 0)} />}
-              <div className="divide-y divide-slate-100">
-              {grupo.map((l) => (
-                <div key={l.id} className="p-3 md:p-4 flex flex-col sm:flex-row sm:items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-medium rounded px-1.5 py-0.5 ${l.type === "entrada" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>{l.type === "entrada" ? "Entrada" : "Saída"}</span>
-                      <span className="font-semibold text-slate-800">{money(l.amount)}</span>
-                      <span className="text-xs text-slate-400">{quando(l.date)}</span>
-                    </div>
-                    <div className="text-sm text-slate-600 mt-0.5 break-words">{l.contato ? `${l.contato} — ` : ""}{l.description || "(sem descrição)"}</div>
-                  </div>
-                  <button onClick={() => conferirManual(l.id)} className="shrink-0 text-xs font-medium border border-slate-200 text-slate-600 rounded-lg px-3 py-1.5 hover:bg-slate-50">Conferido à mão</button>
-                </div>
-              ))}
               </div>
               </div>
               );
