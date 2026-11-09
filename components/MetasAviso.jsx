@@ -13,6 +13,8 @@ const LS_ULTIMO = "metasAviso_ultimo";
 const LS_LIMIARES = "metasAviso_limiares";
 const LS_NIVEIS = "metasAviso_niveis";
 const LS_OK_OCULTO = "metasAviso_okOculto";
+const SOME_ALERTA_CELULAR = 8 * 1000; // no celular os avisos somem sozinhos
+const ehCelular = () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
 
 // Mesmas cores da tela de Metas: vermelho = abaixo da mínima, âmbar = mínima, azul = média, verde = meta cheia.
 const COR_BARRA = { abaixo: "bg-red-500", minima: "bg-amber-500", media: "bg-sky-500", meta: "bg-emerald-500" };
@@ -98,14 +100,16 @@ export default function MetasAviso() {
         if (res.alertas.length) {
           setAlertas((a) => juntarAlertas(a, res.alertas));
           tocarAlerta();
+          const celular = ehCelular();
           for (const a of res.alertas) {
             if (a.tipo === "bateu") setTimeout(() => setAlertas((x) => x.filter((i) => i.id !== a.id)), SOME_COMEMORACAO);
+            else if (celular) setTimeout(() => setAlertas((x) => x.filter((i) => i.id !== a.id)), SOME_ALERTA_CELULAR);
           }
         }
 
         // Cartão aberto de 30 em 30 minutos, até bater todas.
         const venceu = forcarPeriodico || agora - Number(lerLS(LS_ULTIMO, 0)) >= A_CADA;
-        if (venceu && visivel && ms.some((m) => m.prox)) {
+        if (venceu && visivel && !ehCelular() && ms.some((m) => m.prox)) {
           manual.current = false;
           setAberto(true);
           gravarLS(LS_ULTIMO, agora);
@@ -188,7 +192,10 @@ export default function MetasAviso() {
           </div>
         )
       ) : (
-        <button type="button" onClick={abrir} aria-expanded="false" title="Ver as metas de hoje" className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg px-3.5 py-2 text-left hover:border-slate-300">
+        <button type="button" onClick={abrir} aria-expanded="false" title="Ver as metas de hoje" className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-full border border-slate-200 bg-white text-slate-500 shadow-md opacity-80"><Icone nome="trofeu" className="w-4 h-4" /></button>
+      ))}
+      {temMeta && !aberto && !tudoBatido && (
+        <button type="button" onClick={abrir} aria-expanded="false" title="Ver as metas de hoje" className="hidden md:inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg px-3.5 py-2 text-left hover:border-slate-300">
           {ms.map((m, i) => (
             <Fragment key={m.id}>
               {i > 0 && <span className="w-px h-6 bg-slate-200" />}
@@ -207,7 +214,7 @@ export default function MetasAviso() {
           ))}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-slate-400"><polyline points="18 15 12 9 6 15" /></svg>
         </button>
-      ))}
+      )}
     </div>
   );
 }
