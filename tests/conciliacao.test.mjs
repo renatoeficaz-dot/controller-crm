@@ -138,3 +138,16 @@ test("busca de cliente: sem acento, várias palavras, acha pela conversa e põe 
   assert.deepEqual(rankearClientes(palavrasDaBusca("5571999"), contatos, []).map((x) => x.id), ["2"]); // por telefone
   assert.deepEqual(rankearClientes([], contatos, []), []);
 });
+
+test("categoria parecida: reconhece o mesmo estabelecimento/pessoa mesmo com texto diferente, sem confundir sobrenome comum", async () => {
+  const { categoriaParecida } = await import("../lib/conciliacaoOfx.js");
+  const hist = [
+    { descricao: "99Food *Cacique Burger — laplatainfinitcr", categoriaId: "alimentacao" },
+    { descricao: "Pix HENRIQUE GEFFE MEDEIROS — Enviado", categoriaId: "kabrito" },
+    { descricao: "Pix MARIA DA SILVA — Enviado", categoriaId: "outra" },
+  ];
+  assert.equal(categoriaParecida("99Food *Marmitas Fei — laplatainfinitcr", hist), "alimentacao");
+  assert.equal(categoriaParecida("Pix recebido — HENRIQUE G MEDEIROS", hist), "kabrito");
+  assert.equal(categoriaParecida("Pix JOAO DA SILVA — Enviado", hist), null); // "silva" sozinho não conta
+  assert.equal(categoriaParecida("Tarifa", hist), null);
+});
