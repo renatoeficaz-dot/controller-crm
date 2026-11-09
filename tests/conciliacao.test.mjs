@@ -186,3 +186,10 @@ test("soma de pedaços respeita o horário: Pix da manhã não leva os pedaços 
   assert.deepEqual(por.tai2.sort(), ["c", "d"]);
   assert.deepEqual(r.movsSemLanc, ["manha"]);
 });
+
+test("soma de pedaços nunca casa com lançamentos de 9 horas antes, mesmo que a soma feche", () => {
+  const L = (id, h, amount) => ({ id, data: `2026-11-07T${h}Z`, amount, type: "entrada", description: "x", contactId: "tayna" });
+  const r = conciliar([{ id: "p", data: "2026-11-07T18:57:00Z", valor: 350, tipo: "entrada", descricao: "Pix JOAO" }], [L("a", "10:03:00", 90), L("b", "10:03:01", 90), L("c", "10:03:02", 90), L("d", "10:03:03", 80)]);
+  assert.deepEqual(r.movsSemLanc, ["p"]);
+  assert.equal(r.pares.length, 0);
+});
