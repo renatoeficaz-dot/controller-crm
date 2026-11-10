@@ -50,8 +50,9 @@ const proxCobranca = (dia) => { let d = somar(dia, 1); if (dowDe(d) === 0) d = s
 const r2 = (n) => Math.round(n * 100) / 100;
 const venc = (dia) => new Date(dia + "T00:00:00.000Z");
 const perto = (a, b, msg) => assert.ok(Math.abs((a || 0) - (b || 0)) <= 0.011, `${msg}: sistema ${a} ≠ esperado ${b} (semente ${SEMENTE})`);
-// Dia de COMISSÃO (oráculo independente do código): sábado a partir das 17h conta na segunda seguinte; domingo fica fora.
-const diaComissaoOr = (t) => { const d = diaBRT(t); return dowDe(d) === 6 && horaBRT(t) >= 17 ? somar(d, 2) : d; };
+// Dia de COMISSÃO do VALOR recebido (oráculo independente do código): sábado a partir das 17h e domingo contam na segunda seguinte.
+// A meta (%) e o liberado usam o dia do calendário.
+const diaComissaoOr = (t) => { const d = diaBRT(t); if (dowDe(d) === 0) return somar(d, 1); return dowDe(d) === 6 && horaBRT(t) >= 17 ? somar(d, 2) : d; };
 const inicioSemana = (dia) => { const w = dowDe(dia); return somar(dia, w === 0 ? -6 : 1 - w); };
 
 /* ------------------------------ estado e oráculo ------------------------------ */
@@ -324,18 +325,20 @@ async function verificarSemana(D, userId) {
   for (let i = 0; i < 6; i++) {
     const d = somar(seg, i);
     const det = c.detalhe.find((x) => x.dia === d);
-    const rec = somaCaixa((x) => diaComissaoOr(x.t) === d);
-    const lib = somaLib((x) => diaComissaoOr(x.t) === d);
+    const rec = somaCaixa((x) => diaComissaoOr(x.t) === d); // valor
+    const recDia = somaCaixa((x) => diaBRT(x.t) === d); // decide a faixa
+    const lib = somaLib((x) => diaBRT(x.t) === d);
     const lim = limiares(d, D);
-    const fr = banda(rec, ...lim.rec);
+    const fr = banda(recDia, ...lim.rec);
     const fl = banda(lib, ...lim.lib);
     const esperado = r2((rec * ((fr ? pcts[fr] : 0) + (fl ? pcts[fl] : 0))) / 100);
-    perto(det.recebido, rec, `comissão ${d} recebido (dia de comissão)`);
-    perto(det.liberado, lib, `comissão ${d} liberado (dia de comissão)`);
+    perto(det.recebido, rec, `comissão ${d} valor recebido (dia de comissão)`);
+    perto(det.recebidoDia, recDia, `comissão ${d} recebido do dia (meta)`);
+    perto(det.liberado, lib, `comissão ${d} liberado do dia`);
     assert.equal(det.faixaRec, fr, `comissão ${d} faixa de recebimento (semente ${SEMENTE})`);
     assert.equal(det.faixaLib, fl, `comissão ${d} faixa de liberação (semente ${SEMENTE})`);
     perto(det.comissao, esperado, `comissão ${d}`);
-    perto(det.ajusteRec, rec - somaCaixa((x) => diaBRT(x.t) === d), `comissão ${d} ajuste do corte de sábado`);
+    perto(det.ajusteRec, rec - recDia, `comissão ${d} ajuste sábado/domingo`);
     sistemaComissaoRec += det.recebido;
     total += esperado;
   }
@@ -481,11 +484,11 @@ test(`simulação de ${SEMANAS} semanas a partir de ${INICIO}: o sistema bate co
   // passou da última segunda simulada).
   const ate = somar(INICIO, totalDias - 1);
   const noPeriodo = caixa.filter((x) => diaBRT(x.t) <= ate);
-  const contado = noPeriodo.filter((x) => { const d = diaComissaoOr(x.t); return dowDe(diaBRT(x.t)) !== 0 && d <= ate; });
-  const domingos = noPeriodo.filter((x) => dowDe(diaBRT(x.t)) === 0);
-  const sabadoNoite = noPeriodo.filter((x) => dowDe(diaBRT(x.t)) === 6 && horaBRT(x.t) >= 17 && diaComissaoOr(x.t) > ate);
-  perto(r2(contado.reduce((s, x) => s + x.v, 0) + domingos.reduce((s, x) => s + x.v, 0) + sabadoNoite.reduce((s, x) => s + x.v, 0)), r2(noPeriodo.reduce((s, x) => s + x.v, 0)), "conservação do oráculo");
-  // A conservação do SISTEMA: o que as semanas de comissão atribuíram (somando todas) = tudo que entrou, menos domingo e o sábado à noite da última semana.
+  const contado = noPeriodo.filter((x) => diaComissaoOr(x.t) <= ate);
+  const depois = noPeriodo.filter((x) => diaComissaoOr(x.t) > ate);
+  perto(r2(contado.reduce((s, x) => s + x.v, 0) + depois.reduce((s, x) => s + x.v, 0)), r2(noPeriodo.reduce((s, x) => s + x.v, 0)), "conservação do oráculo");
+  // A conservação do SISTEMA: o que as semanas de comissão atribuíram (somando todas) = tudo que entrou (domingo inclusive), menos o
+  // fim de semana da última semana (que é da segunda seguinte, fora da simulação).
   perto(r2(sistemaComissaoRec), r2(contado.reduce((s, x) => s + x.v, 0)), "conservação: nenhum real some nem conta duas vezes entre as semanas de comissão");
   // Mudança de etapa SEM registro (o defeito que o bulk e a renovação tinham): a conferência avisa.
   // Com o aviso ligado (e sem número de WhatsApp no banco de teste, então nada é enviado) o caminho do alerta roda inteiro sem erro.

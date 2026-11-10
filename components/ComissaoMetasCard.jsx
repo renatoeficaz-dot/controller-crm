@@ -7,13 +7,14 @@ const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFra
 const DIA_CURTO = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 const labelDia = (iso) => `${DIA_CURTO[new Date(iso + "T00:00:00.000Z").getUTCDay()]} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 const NOME_FAIXA = { minima: "mínima", media: "média", maxima: "máxima" };
-// Corte do fechamento (sábado 17h): mostra o quanto foi pra segunda (sábado) ou veio do sábado anterior (segunda), pra o número bater com o Metas.
+// A faixa sai do recebido do dia; o valor da comissão pode ser diferente: na segunda soma sábado depois das 17h + domingo, no sábado
+// sai o que passou das 17h (vai pra segunda).
 function corteTexto(d) {
-  const partes = [];
-  const sinal = (v) => (v > 0 ? "+" : "−") + money(Math.abs(v));
-  if (Math.abs(d.ajusteRec || 0) > 0.009) partes.push(`${sinal(d.ajusteRec)} rec.`);
-  if (Math.abs(d.ajusteLib || 0) > 0.009) partes.push(`${sinal(d.ajusteLib)} lib.`);
-  return partes.length ? `${partes.join(" e ")} pelo corte de sábado 17h` : "";
+  const a = d.ajusteRec || 0;
+  if (Math.abs(a) <= 0.009) return "";
+  return a > 0
+    ? `% sobre ${money(d.recebido)} (+${money(a)} de sábado após 17h e domingo, não conta pra meta)`
+    : `% sobre ${money(d.recebido)} (−${money(-a)} depois das 17h vai pra segunda)`;
 }
 
 // Adiantamentos e descontos a abater dos próximos pagamentos de comissão. Quem lança é outro admin (não o próprio colaborador).
@@ -124,7 +125,7 @@ function Cartao({ r }) {
       {aberto && (
         <div className="mt-3 border-t border-slate-100 pt-3 space-y-1">
           <p className="text-[11px] text-slate-400 mb-1">
-            Semana {r.inicio.slice(8, 10)}/{r.inicio.slice(5, 7)} a {r.fim.slice(8, 10)}/{r.fim.slice(5, 7)} · fechamento sábado às 17:00 (o que entrar depois conta na segunda seguinte) · cada meta rende {r.pcts.minima}% / {r.pcts.media}% / {r.pcts.maxima}% (mínima / média / máxima)
+            Semana {r.inicio.slice(8, 10)}/{r.inicio.slice(5, 7)} a {r.fim.slice(8, 10)}/{r.fim.slice(5, 7)} · a meta (%) conta só o que entrou no próprio dia; no valor, o recebido de sábado após 17h e de domingo soma na segunda · cada meta rende {r.pcts.minima}% / {r.pcts.media}% / {r.pcts.maxima}% (mínima / média / máxima)
           </p>
           {r.detalhe.map((d) => (
             <div key={d.dia} className="flex items-center justify-between text-xs gap-2">
@@ -132,8 +133,8 @@ function Cartao({ r }) {
               {d.conta ? (
                 <>
                   <span className="text-slate-600 flex-1 truncate" title={corteTexto(d)}>
-                    {money(d.recebido)} rec. ({d.faixaRec ? NOME_FAIXA[d.faixaRec] : "—"}) · {money(d.liberado)} lib. ({d.faixaLib ? NOME_FAIXA[d.faixaLib] : "—"})
-                    {(Math.abs(d.ajusteRec || 0) > 0.009 || Math.abs(d.ajusteLib || 0) > 0.009) && <span className="text-amber-600"> · {corteTexto(d)}</span>}
+                    {money(d.recebidoDia ?? d.recebido)} rec. ({d.faixaRec ? NOME_FAIXA[d.faixaRec] : "—"}) · {money(d.liberado)} lib. ({d.faixaLib ? NOME_FAIXA[d.faixaLib] : "—"})
+                    {corteTexto(d) && <span className="text-amber-600"> · {corteTexto(d)}</span>}
                   </span>
                   <span className="text-slate-400 shrink-0">{d.pctTotal}%</span>
                   <span className="font-medium text-emerald-600 w-24 text-right shrink-0">{money(d.comissao)}</span>
