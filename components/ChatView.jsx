@@ -194,6 +194,13 @@ export default function ChatView() {
   const [encaminharMsg, setEncaminharMsg] = useState(null); // mensagem sendo encaminhada | null
   const [enviarCampoMsg, setEnviarCampoMsg] = useState(null); // mensagem sendo mandada pra um campo do lead | null
   const [contact, setContact] = useState(null);
+  // Link direto para uma lead: /chat?c=<id do contato> já abre a conversa dela.
+  useEffect(() => {
+    try {
+      const c = new URLSearchParams(window.location.search).get("c");
+      if (c) setSelectedId(c);
+    } catch {}
+  }, []);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
