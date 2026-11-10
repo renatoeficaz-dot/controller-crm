@@ -193,3 +193,24 @@ test("soma de pedaços nunca casa com lançamentos de 9 horas antes, mesmo que a
   assert.deepEqual(r.movsSemLanc, ["p"]);
   assert.equal(r.pares.length, 0);
 });
+
+test("Pix enviados x liberações: casa pelo NOME antes do valor; Pix sem nome do cliente longe da hora não vira liberação (caso 09/11/2026)", () => {
+  const t = (h, m) => new Date(`2026-11-09T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-03:00`);
+  const movs = [
+    { id: "fb", data: t(0, 35), valor: 300, tipo: "saida", descricao: "Pix FACEBOOK SERVICOS ONLINE DO BRASIL LTDA. — Enviado" },
+    { id: "renata", data: t(11, 47), valor: 300, tipo: "saida", descricao: "Pix RENATA BATISTA ALVES — Enviado" },
+    { id: "sabrina", data: t(22, 33), valor: 400, tipo: "saida", descricao: "Pix SABRINA DA SILVA SANTOS — Enviado" },
+  ];
+  const lancs = [
+    { id: "L-renata", data: t(11, 47), amount: 300, type: "saida", description: "Liberação de capital — Renata Batista alves", contactId: "c1" },
+    { id: "L-bruna", data: t(15, 9), amount: 300, type: "saida", description: "Liberação de capital — Bruna Maria Cola", contactId: "c2" },
+    { id: "L-rafaela", data: t(22, 33), amount: 400, type: "saida", description: "Liberação de capital — Rafaela da silva (ciclo 2)", contactId: "c3" },
+  ];
+  const r = conciliar(movs, lancs);
+  const par = Object.fromEntries(r.pares.map((p) => [p.movId, p.lancId]));
+  assert.equal(par.renata, "L-renata", "o Pix da Renata é da liberação da Renata");
+  assert.equal(par.sabrina, "L-rafaela", "nome em comum (silva) e mesma hora");
+  assert.equal(par.fb, undefined, "Facebook de madrugada não pode virar a liberação de ninguém");
+  assert.deepEqual(r.movsSemLanc, ["fb"]);
+  assert.deepEqual(r.lancsSemMov, ["L-bruna"], "a liberação da Bruna fica sem Pix no extrato");
+});
