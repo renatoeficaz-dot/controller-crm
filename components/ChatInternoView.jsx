@@ -17,6 +17,8 @@ const EMOJIS = [
 ];
 
 const fmtHora = (d) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+// Busca sem acento e sem diferença de maiúscula ("liberacao" acha "Liberação").
+const normalizarBusca = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
 // Não tem "entrega" separada aqui (não é WhatsApp — a mensagem já cai direto
@@ -196,6 +198,8 @@ export default function ChatInternoView() {
   const [pendencias, setPendencias] = useState([]);
   const [listaPendAberta, setListaPendAberta] = useState(false);
   const [destacada, setDestacada] = useState(null);
+  // Procurar mensagem na conversa aberta: null = barra fechada; texto = filtra as mensagens.
+  const [busca, setBusca] = useState(null);
   const fimRef = useRef(null);
   const conversaRoladaRef = useRef(null);
   const destacadaAntesRef = useRef(null);
@@ -247,6 +251,7 @@ export default function ChatInternoView() {
     if (selecionada) {
       setDetalhe(null);
       setRespondendo(null);
+      setBusca(null);
       carregarDetalhe(selecionada);
     }
   }, [selecionada, carregarDetalhe]);
@@ -507,6 +512,12 @@ export default function ChatInternoView() {
 
   const mensagensVisiveis = useMemo(() => {
     const ms = detalhe?.mensagens || [];
+    const termo = normalizarBusca(busca || "");
+    if (termo) {
+      return ms.filter((m) =>
+        normalizarBusca([m.body, m.autor?.name, m.contact?.name, m.mediaNome, m.respondeA?.body, m.atribuidoA?.name].filter(Boolean).join(" ")).includes(termo)
+      );
+    }
     if (!soPendentes) return ms;
     // No modo "só pendentes" o que importa é o que queima primeiro, não a
     // ordem cronológica: urgente no topo, depois média, depois baixa.
@@ -514,7 +525,15 @@ export default function ChatInternoView() {
     return ms
       .filter((m) => m.atribuidoAId && !m.resolvido)
       .sort((a, b) => (peso[a.prioridade] ?? 1) - (peso[b.prioridade] ?? 1));
-  }, [detalhe, soPendentes]);
+  }, [detalhe, soPendentes, busca]);
+  const buscando = !!normalizarBusca(busca || "");
+
+  // Resultado da busca clicado: fecha a busca e leva até a mensagem na conversa inteira.
+  function irParaMensagem(id) {
+    setBusca(null);
+    setSoPendentes(false);
+    setDestacada(id);
+  }
 
   const totalPendentes = conversas.reduce((s, c) => s + (c.pendentes || 0), 0);
   const tituloAberta = conversas.find((c) => c.id === selecionada)?.titulo || "Conversa";
@@ -709,6 +728,13 @@ export default function ChatInternoView() {
                 </button>
               )}
               <button
+                onClick={() => setBusca((b) => (b === null ? "" : null))}
+                title="Procurar mensagem nesta conversa"
+                className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-full border ${busca !== null ? "bg-sky-50 text-sky-700 border-sky-200" : "border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-300"}`}
+              >
+                <Icone nome="lupa" className="w-4 h-4" />
+              </button>
+              <button
                 onClick={excluirConversa}
                 title="Excluir esta conversa"
                 className="shrink-0 text-xs rounded-full px-2.5 py-1 border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-300"
@@ -774,11 +800,30 @@ export default function ChatInternoView() {
               </div>
             )}
 
+            {busca !== null && (
+              <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-slate-100 bg-slate-50">
+                <Icone nome="lupa" className="w-4 h-4 text-slate-400" />
+                <input
+                  autoFocus
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Escape") setBusca(null); }}
+                  placeholder="Procurar na conversa (texto, nome, lead, arquivo)…"
+                  className="flex-1 min-w-0 bg-transparent text-sm outline-none"
+                />
+                {buscando && <span className="shrink-0 text-xs text-slate-500">{mensagensVisiveis.length} resultado{mensagensVisiveis.length === 1 ? "" : "s"}</span>}
+                <button onClick={() => setBusca(null)} title="Fechar a busca" className="shrink-0 text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto thin-scroll p-4 space-y-2">
               {!detalhe && <p className="text-center text-xs text-slate-400">Carregando…</p>}
+              {buscando && mensagensVisiveis.length > 0 && (
+                <p className="text-center text-[11px] text-slate-400">Clique numa mensagem para vê-la no meio da conversa.</p>
+              )}
               {detalhe && mensagensVisiveis.length === 0 && (
                 <p className="text-center text-xs text-slate-400 mt-4">
-                  {soPendentes ? "Nenhum pedido pendente." : "Nenhuma mensagem ainda. Diga olá!"}
+                  {buscando ? "Nenhuma mensagem com esse texto nesta conversa." : soPendentes ? "Nenhum pedido pendente." : "Nenhuma mensagem ainda. Diga olá!"}
                 </p>
               )}
               {mensagensVisiveis.map((m) => {
@@ -789,7 +834,8 @@ export default function ChatInternoView() {
                   <div
                     key={m.id}
                     id={`msg-${m.id}`}
-                    className={`group flex ${minha ? "justify-end" : "justify-start"} ${
+                    onClick={buscando ? () => irParaMensagem(m.id) : undefined}
+                    className={`group flex ${buscando ? "cursor-pointer" : ""} ${minha ? "justify-end" : "justify-start"} ${
                       destacada === m.id ? "ring-2 ring-sky-400 rounded-xl" : ""
                     }`}
                   >
