@@ -201,6 +201,7 @@ const TABS = [
   { key: "automacao", label: "Automação", desc: "Responsáveis automáticos por etapa" },
   { key: "ia", label: "IA", desc: "Agentes, modelos e chaves de API" },
   { key: "integracoes", label: "Integrações", desc: "Puxadas: consultas, campos e chave da API" },
+  { key: "contabancaria", label: "Conta bancária", desc: "Conectar o banco (Pluggy) e trazer os lançamentos direto" },
   { key: "regua", label: "Régua de cobrança", desc: "Mensagem por faixa de atraso" },
   { key: "desconto", label: "Quitação à vista", desc: "Oferta de desconto pra quem está atrasado" },
   { key: "alteracoes", label: "Alterações", desc: "Log de mudanças em baixas já registradas" },
@@ -331,6 +332,7 @@ export default function Configuracoes() {
             {tab === "mensagens" && <MensagensProntas />}
             {tab === "automacao" && <AutomacaoFunil />}
             {tab === "integracoes" && <SnoopConfiguracao />}
+            {tab === "contabancaria" && <PluggyConfig />}
             {tab === "ia" && (
               <div className="space-y-6">
                 <InterruptorGlobalIa />
@@ -5664,5 +5666,145 @@ function MetaCapiConfig() {
         {msg && <span className="text-xs text-slate-500">{msg}</span>}
       </div>
     </form>
+  );
+}
+
+// Conta bancária pela Pluggy (Open Finance): credenciais (secret criptografado, nunca volta) + "Conectar conta" (widget da Pluggy) +
+// contas conectadas. As transações caem sozinhas em Lançamentos › Conciliação a cada 15 min (e na hora, pelo webhook).
+const PLUGGY_SDK = "https://cdn.pluggy.ai/pluggy-connect/v2.8.2/pluggy-connect.js";
+function carregarPluggySdk() {
+  if (typeof window === "undefined") return Promise.reject(new Error("sem navegador"));
+  if (window.PluggyConnect) return Promise.resolve();
+  return new Promise((ok, falha) => {
+    const s = document.createElement("script");
+    s.src = PLUGGY_SDK;
+    s.onload = () => ok();
+    s.onerror = () => falha(new Error("Não consegui carregar o Pluggy Connect."));
+    document.head.appendChild(s);
+  });
+}
+function PluggyConfig() {
+  const [d, setD] = useState({ clientId: "", temSecret: false, contas: [], bancos: [] });
+  const [f, setF] = useState({ clientId: "", clientSecret: "" });
+  const [bancoNovo, setBancoNovo] = useState("");
+  const [msg, setMsg] = useState("");
+  const [ocupado, setOcupado] = useState(false);
+  const carregar = useCallback(async () => {
+    const r = await fetch("/api/config/pluggy").then((x) => x.json()).catch(() => null);
+    if (r && !r.error) {
+      setD(r);
+      setF((x) => ({ ...x, clientId: x.clientId || r.clientId }));
+      setBancoNovo((b) => b || r.bancos[0]?.id || "");
+    }
+  }, []);
+  useEffect(() => { carregar(); }, [carregar]);
+  const aviso = (t) => { setMsg(t); setTimeout(() => setMsg(""), 8000); };
+  async function salvar(e) {
+    e.preventDefault();
+    setOcupado(true);
+    const r = await fetch("/api/config/pluggy", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f) });
+    const j = await r.json().catch(() => ({}));
+    setOcupado(false);
+    if (!r.ok) return aviso(j.error || "Erro ao salvar.");
+    setF((x) => ({ ...x, clientSecret: "" }));
+    aviso(j.valido ? "Salvo — credenciais aceitas pela Pluggy." : `Salvo, mas a Pluggy recusou: ${j.aviso}`);
+    carregar();
+  }
+  async function conectar(itemId) {
+    setOcupado(true);
+    try {
+      const r = await fetch("/api/pluggy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "token", itemId }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Não consegui abrir a conexão.");
+      await carregarPluggySdk();
+      const w = new window.PluggyConnect({
+        connectToken: j.accessToken,
+        ...(itemId ? { updateItem: itemId } : {}),
+        language: "pt",
+        onSuccess: async (dados) => {
+          const id = dados?.item?.id;
+          aviso("Conta conectada. Buscando os lançamentos…");
+          const r2 = await fetch("/api/pluggy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "registrar", itemId: id, bancoId: bancoNovo }) });
+          const j2 = await r2.json().catch(() => ({}));
+          aviso(r2.ok ? `Conectado: ${j2.contas} conta(s). Os lançamentos já estão na Conciliação.` : j2.error || "Erro ao registrar a conta.");
+          carregar();
+        },
+        onError: (e) => aviso(`A conexão não terminou: ${e?.message || "erro"}`),
+      });
+      w.init();
+    } catch (e) {
+      aviso(e.message);
+    } finally {
+      setOcupado(false);
+    }
+  }
+  async function sincronizar() {
+    setOcupado(true);
+    const r = await fetch("/api/pluggy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "sincronizar", atualizarBanco: true }) });
+    const j = await r.json().catch(() => ({}));
+    setOcupado(false);
+    if (j.ocupado) aviso("Já está sincronizando, aguarde.");
+    else if (j.semConfig) aviso("Preencha e salve as credenciais primeiro.");
+    else aviso((j.contas || []).map((c) => (c.erro ? `${c.conta}: ${c.erro}` : `${c.conta}: ${c.novos} novo(s), ${c.casados} conferido(s)`)).join(" · ") || "Nenhuma conta ativa.");
+    carregar();
+  }
+  async function alterar(id, dados) {
+    await fetch("/api/pluggy", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...dados }) });
+    carregar();
+  }
+  const campo = "w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm";
+  const quando = (t) => (t ? new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "nunca");
+  const pronto = !!(d.clientId && d.temSecret);
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <form onSubmit={salvar} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
+        <div>
+          <h2 className="font-semibold text-slate-800">Conta bancária — Pluggy (Open Finance)</h2>
+          <p className="text-xs text-slate-400 mt-1">Conecta a conta do banco e traz as entradas e saídas direto para Lançamentos › Conciliação (a cada 15 min), sem baixar OFX. Credenciais em dashboard.pluggy.ai › Aplicações.</p>
+        </div>
+        <label className="block text-xs text-slate-500">Client ID
+          <input className={campo} value={f.clientId} onChange={(e) => setF({ ...f, clientId: e.target.value })} autoComplete="off" />
+        </label>
+        <label className="block text-xs text-slate-500">Client Secret {d.temSecret && <span className="text-emerald-600">(já salvo, criptografado — deixe vazio para manter)</span>}
+          <input className={campo} type="password" autoComplete="new-password" value={f.clientSecret} onChange={(e) => setF({ ...f, clientSecret: e.target.value })} />
+        </label>
+        <button disabled={ocupado} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm disabled:opacity-50">Salvar credenciais</button>
+      </form>
+
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
+        <h3 className="font-semibold text-slate-800 text-sm">Contas conectadas</h3>
+        {d.contas.length === 0 && <p className="text-xs text-slate-400">Nenhuma conta conectada ainda.</p>}
+        {d.contas.map((c) => (
+          <div key={c.id} className={`rounded-xl border p-3 text-sm ${c.ativo ? "border-slate-200" : "border-slate-100 opacity-60"}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium text-slate-700">{c.nome || "Conta"}{c.numero ? ` · ${c.numero}` : ""}</span>
+              {c.saldo != null && <span className="text-xs text-slate-500">saldo R$ {Number(c.saldo).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span>Conferir na conta do sistema:</span>
+              <select value={c.bancoId || ""} onChange={(e) => alterar(c.id, { bancoId: e.target.value })} className="border border-slate-200 rounded px-2 py-1 bg-white">
+                <option value="">— escolha —</option>
+                {d.bancos.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+              <span>· última sincronização: {quando(c.ultimaSync)}</span>
+            </div>
+            {c.ultimoErro && <p className="mt-1 text-xs text-red-600">{c.ultimoErro}</p>}
+            <div className="mt-2 flex gap-3 text-xs">
+              <button type="button" onClick={() => conectar(c.itemId)} className="text-emerald-700 hover:underline">Reconectar (login do banco)</button>
+              <button type="button" onClick={() => alterar(c.id, { ativo: !c.ativo })} className="text-slate-500 hover:underline">{c.ativo ? "Pausar" : "Reativar"}</button>
+            </div>
+          </div>
+        ))}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <select value={bancoNovo} onChange={(e) => setBancoNovo(e.target.value)} className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white" title="Conta do sistema onde os lançamentos dessa conexão serão conferidos">
+            {d.bancos.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <button type="button" disabled={!pronto || ocupado} onClick={() => conectar(null)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm disabled:opacity-50">+ Conectar conta</button>
+          {d.contas.some((c) => c.ativo) && <button type="button" disabled={ocupado} onClick={sincronizar} className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-700 disabled:opacity-50">Sincronizar agora</button>}
+        </div>
+        {!pronto && <p className="text-xs text-amber-600">Salve o Client ID e o Client Secret para liberar o botão de conectar.</p>}
+        {msg && <p className="text-xs text-slate-600">{msg}</p>}
+      </div>
+    </div>
   );
 }

@@ -36,6 +36,7 @@ export async function register() {
 
   // Rotinas de 1x por dia guardam aqui o dia da última execução — o intervalo
   // é de 5 min, então sem essa trava rodariam 288 vezes por dia.
+  let ultimaPluggy = 0;
   let ultimoDiaScores = null;
   let ultimoDiaBackup = null;
   let ultimoDiaPurga = null;
@@ -85,6 +86,12 @@ export async function register() {
     await rodar("campanhasMassa", processarCampanhasMassa);
     // Lotes pequenos; a reserva persistida impede cobrar outra vez após reinícios.
     await rodar("puxadas", varrerPuxadasPendentes);
+    // Pluggy (Open Finance): traz os lançamentos do banco para a Conciliação a cada 15 min (o webhook adianta quando chega).
+    // Sem await: espera a API do banco; tem trava própria contra rodada dupla e não faz nada sem conta conectada.
+    if (Date.now() - ultimaPluggy >= 15 * 60 * 1000) {
+      ultimaPluggy = Date.now();
+      import("@/lib/pluggyServidor").then((m) => m.sincronizarPluggy()).catch((err) => console.error("[pluggy]", err.message));
+    }
 
     const hoje = new Date().toLocaleDateString("en-CA");
     if (ultimoDiaScores !== hoje) {

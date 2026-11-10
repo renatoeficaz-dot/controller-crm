@@ -63,7 +63,7 @@ const nextConfig = {
           // console do navegador pra decidir a política definitiva sem risco.
           {
             key: "Content-Security-Policy-Report-Only",
-            value: "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://phone.hasos.com.br; style-src 'self' 'unsafe-inline'; connect-src 'self' https://phone.hasos.com.br wss://phone.hasos.com.br; frame-src 'self' https://phone.hasos.com.br; frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
+            value: "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://phone.hasos.com.br https://cdn.pluggy.ai; style-src 'self' 'unsafe-inline'; connect-src 'self' https://phone.hasos.com.br wss://phone.hasos.com.br https://*.pluggy.ai; frame-src 'self' https://phone.hasos.com.br https://connect.pluggy.ai; frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
           },
         ],
       },

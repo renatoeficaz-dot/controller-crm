@@ -214,3 +214,22 @@ test("Pix enviados x liberações: casa pelo NOME antes do valor; Pix sem nome d
   assert.deepEqual(r.movsSemLanc, ["fb"]);
   assert.deepEqual(r.lancsSemMov, ["L-bruna"], "a liberação da Bruna fica sem Pix no extrato");
 });
+
+test("Pluggy: transação vira movimento no formato do OFX; mesmo Pix vindo por OFX e Pluggy é reconhecido como o mesmo", async () => {
+  const { movimentoDaPluggy, mesmoMovimento } = await import("../lib/conciliacaoOfx.js");
+  const env = movimentoDaPluggy({ id: "t1", amount: -300, type: "DEBIT", date: "2026-11-09T14:47:09.000Z", description: "PIX ENVIADO", paymentData: { paymentMethod: "PIX", receiver: { name: "RENATA BATISTA ALVES" } } });
+  assert.equal(env.chave, "pluggy|t1");
+  assert.equal(env.tipo, "saida");
+  assert.equal(env.valor, 300);
+  assert.match(env.descricao, /^Pix RENATA BATISTA ALVES — Enviado/);
+  const rec = movimentoDaPluggy({ id: "t2", amount: 54, type: "CREDIT", date: "2026-11-09T12:00:00.000Z", description: "Transferência recebida", paymentData: { payer: { name: "Vivian Silva" } } });
+  assert.equal(rec.tipo, "entrada");
+  assert.match(rec.descricao, /Vivian Silva — Recebido/);
+  assert.equal(movimentoDaPluggy({ id: "z", amount: 0, date: "2026-11-09" }), null);
+  // OFX do mesmo Pix (descrição diferente, 1 min de diferença) = mesmo movimento; outro valor/dia/nome = outro
+  const ofx = { tipo: "saida", valor: 300, data: new Date("2026-11-09T14:48:00.000Z"), descricao: "Pix RENATA BATISTA ALVES — Enviado" };
+  assert.equal(mesmoMovimento(env, ofx), true);
+  assert.equal(mesmoMovimento(env, { ...ofx, valor: 301 }), false);
+  assert.equal(mesmoMovimento(env, { ...ofx, data: new Date("2026-11-09T20:00:00.000Z"), descricao: "Pix FACEBOOK — Enviado" }), false, "mesmo valor, outra hora e outro nome");
+  assert.equal(mesmoMovimento(env, { ...ofx, data: new Date("2026-11-09T20:00:00.000Z") }), true, "mesmo nome no mesmo dia (Open Finance às vezes não traz a hora)");
+});

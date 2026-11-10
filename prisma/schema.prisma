@@ -673,6 +673,10 @@ model Config {
   metaCapiEtapa       String? // etapa que dispara (padrão "Análise")
   metaCapiEvento      String? // nome do evento (padrão "LeadEmAnalise")
   metaCapiTesteCodigo String? // código da aba "Eventos de teste" (vazio = envio real)
+  // Pluggy (Open Finance): lançamentos do banco direto na conciliação. Secret CRIPTOGRAFADO (lib/segredo.js), nunca volta na API.
+  pluggyClientId      String?
+  pluggySecretEnc     String?
+  pluggyWebhookToken  String? // vai na URL do webhook (?t=) — a Pluggy não assina o payload
   // Novo lead da Meta entra atribuído a este número (mesmo sem nenhuma
   // mensagem de WhatsApp ainda) — decide quem cobra, qual IA atende se o
   // cliente escrever depois, etc.
@@ -1364,6 +1368,23 @@ model ExtratoMovimento {
 
   @@index([status])
   @@index([data])
+}
+
+// Conta bancária conectada pela Pluggy (Open Finance). Cada sincronização grava as transações como ExtratoMovimento (chave "pluggy|<id>")
+// e roda a mesma conciliação do OFX.
+model PluggyConta {
+  id         String    @id @default(cuid())
+  itemId     String
+  accountId  String    @unique
+  nome       String?
+  numero     String?
+  bancoId    String? // conta do sistema (Banco) onde os lançamentos são conferidos
+  ativo      Boolean   @default(true)
+  saldo      Float?
+  ultimaSync DateTime?
+  ultimoRefresh DateTime? // último pedido de atualização do item ao banco
+  ultimoErro String?
+  createdAt  DateTime  @default(now())
 }
 
 // Cada arquivo OFX importado: período coberto e saldo final do extrato (para fechar o caixa).
