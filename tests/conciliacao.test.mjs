@@ -233,3 +233,27 @@ test("Pluggy: transação vira movimento no formato do OFX; mesmo Pix vindo por 
   assert.equal(mesmoMovimento(env, { ...ofx, data: new Date("2026-11-09T20:00:00.000Z"), descricao: "Pix FACEBOOK — Enviado" }), false, "mesmo valor, outra hora e outro nome");
   assert.equal(mesmoMovimento(env, { ...ofx, data: new Date("2026-11-09T20:00:00.000Z") }), true, "mesmo nome no mesmo dia (Open Finance às vezes não traz a hora)");
 });
+
+test("conciliar (caso 09/11): mesma hora vence nome parecido; sobrenome comum não é nome; Pix sem nome longe da hora não leva baixa de outro", () => {
+  const t = (h, m) => new Date(`2026-11-09T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-03:00`);
+  const movs = [
+    { id: "iego", data: t(18, 55), valor: 59.4, tipo: "entrada", descricao: "Pix IEGO GONCALVES FRITSCHE 45556132879 — Recebido" },
+    { id: "ana", data: t(8, 57), valor: 72, tipo: "entrada", descricao: "Pix Ana Julia Naneti Borges — Recebido" },
+    { id: "rog", data: t(17, 31), valor: 54, tipo: "entrada", descricao: "Pix 52.745.595 ROGERIO SILVANO DA SILVA — Recebido" },
+  ];
+  const lancs = [
+    { id: "yego1", data: t(18, 55), amount: 53, type: "entrada", description: "Baixa parcial — parcela 6ª — Yego Fritsche", contactId: "y" },
+    { id: "yego2", data: t(18, 55), amount: 6.4, type: "entrada", description: "Pagamento adiantado — parcela 7ª — Yego Fritsche", contactId: "y" },
+    { id: "marina", data: t(19, 20), amount: 59.4, type: "entrada", description: "Baixa parcial — parcela 9ª — Marina Gonçalves da Silva", contactId: "m" },
+    { id: "joao1", data: t(8, 57), amount: 64.8, type: "entrada", description: "Baixa parcial — parcela 2ª — João Vitor", contactId: "j" },
+    { id: "joao2", data: t(8, 57), amount: 7.2, type: "entrada", description: "Pagamento adiantado — parcela 3ª — João Vitor", contactId: "j" },
+    { id: "gab", data: t(12, 57), amount: 72, type: "entrada", description: "Baixa parcial — parcela 8ª — Gabriella Rocha", contactId: "g" },
+    { id: "viv", data: new Date("2026-11-10T11:09:00-03:00"), amount: 54, type: "entrada", description: "Parcela 8ª — Vivian Silva", contactId: "v" },
+  ];
+  const r = conciliar(movs, lancs);
+  const de = (id) => r.pares.filter((p) => p.movId === id).map((p) => p.lancId).sort();
+  assert.deepEqual(de("iego"), ["yego1", "yego2"], "pedaços do Yego no mesmo minuto, não a Marina 25 min depois");
+  assert.deepEqual(de("ana"), ["joao1", "joao2"], "pagadora com outro nome, mas no mesmo minuto");
+  assert.deepEqual(de("rog"), [], "'silva' sozinho não liga Rogério à Vivian, e a baixa dela é do dia seguinte");
+  assert.ok(r.lancsSemMov.includes("gab") && r.lancsSemMov.includes("marina") && r.lancsSemMov.includes("viv"));
+});
