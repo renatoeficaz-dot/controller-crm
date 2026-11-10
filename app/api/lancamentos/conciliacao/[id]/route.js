@@ -63,8 +63,10 @@ export async function PATCH(req, { params }) {
     }
     // Os lançamentos que a baixa acabou de criar passam a valer na data do Pix, na conta do extrato, e já contam como conferidos.
     const novos = await prisma.lancamento.findMany({ where: { parcelaId: { in: plano.itens.map((i) => i.id) }, type: "entrada", createdAt: { gte: t0 }, conciliadoEm: null }, select: { id: true }, orderBy: { createdAt: "asc" } });
-    if (novos.length) await prisma.lancamento.updateMany({ where: { id: { in: novos.map((l) => l.id) } }, data: { date: mov.data, bancoId: mov.bancoId, conciliadoEm: agora } });
-    await prisma.extratoMovimento.update({ where: { id }, data: { status: "lancado", lancamentoId: novos[0]?.id || null, ...base, observacao: base.observacao || `Baixa de ${contato.name}` } });
+    // createdAt também: Metas e comissão contam o recebido pela hora do lançamento, e o dinheiro entrou na hora do Pix — baixa dada hoje
+    // de um Pix de ontem é recebido de ONTEM (10/11/2026: três baixas de 09/11 iam cair no dia 10).
+    if (novos.length) await prisma.lancamento.updateMany({ where: { id: { in: novos.map((l) => l.id) } }, data: { date: mov.data, createdAt: mov.data, bancoId: mov.bancoId, conciliadoEm: agora } });
+    await prisma.extratoMovimento.update({ where: { id }, data: { status: "lancado", lancamentoId: novos[0]?.id || null, lancamentoIds: novos.length > 1 ? novos.map((l) => l.id).join(",") : null, ...base, observacao: base.observacao || `Baixa de ${contato.name}` } });
     await fecharTarefasConferidas([contactId]);
     await prisma.auditLog.create({ data: { usuario: user.name, acao: "baixar_do_extrato", entidade: "ExtratoMovimento", entidadeId: id, detalhe: `${contato.name}: R$ ${mov.valor.toFixed(2)} em ${plano.itens.length} parcela(s)` } }).catch(() => {});
     return NextResponse.json({ ok: true, parcelas: plano.itens.length });
