@@ -264,3 +264,14 @@ test("divergência achada pela conferência vira aviso DENTRO do sistema (faixa 
   assert.equal((await A.divergenciasRecentes(48)).length, 2);
   assert.equal((await A.divergenciasRecentes(48))[1].itens[0], "antigo", "mais novo primeiro");
 });
+
+test("base da meta: quem estava em Renovação (coluna antiga) à meia-noite conta como Recebimento", async () => {
+  const D = "2026-04-07";
+  const antes = (await M.esperadoPorDia(D, D)).get(D)?.total || 0;
+  const g = await contato("Renovou", "Recebimento");
+  await log(g.id, "Liberação pagamento", "Renovação", brt("2026-04-06", 11, 45));
+  await log(g.id, "Renovação", "Recebimento", brt(D, 11, 22));
+  await parcela(g.id, { dueDia: D, amount: 126 });
+  const depois = (await M.esperadoPorDia(D, D)).get(D)?.total || 0;
+  assert.equal(r2c(depois - antes), 126);
+});
