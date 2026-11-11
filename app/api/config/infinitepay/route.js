@@ -26,6 +26,8 @@ export async function GET() {
     autoAtivo: !!c?.infinitepayAutoAtivo,
     enviarChave: c?.infinitepayEnviarChave !== false,
     avisoPago: !!c?.infinitepayAvisoPago,
+    emailPadrao: c?.infinitepayEmailPadrao || "",
+    cepPadrao: c?.infinitepayCepPadrao || "",
     ultimos: ultimos.map((l) => ({ id: l.id, cliente: (nomes.get(l.contactId) || "").split("\n")[0], valor: l.valor, status: l.status, origem: l.origem, metodo: l.metodo, criadoEm: l.createdAt, pagoEm: l.pagoEm, erro: l.erro, url: l.url })),
   });
 }
@@ -48,6 +50,16 @@ export async function PUT(req) {
   if (b.autoAtivo !== undefined) data.infinitepayAutoAtivo = !!b.autoAtivo;
   if (b.enviarChave !== undefined) data.infinitepayEnviarChave = !!b.enviarChave;
   if (b.avisoPago !== undefined) data.infinitepayAvisoPago = !!b.avisoPago;
+  if (b.emailPadrao !== undefined) {
+    const e = texto(b.emailPadrao).trim().toLowerCase();
+    if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return NextResponse.json({ error: "E-mail inválido." }, { status: 400 });
+    data.infinitepayEmailPadrao = e || null;
+  }
+  if (b.cepPadrao !== undefined) {
+    const c = texto(b.cepPadrao).replace(/\D/g, "");
+    if (c && c.length !== 8) return NextResponse.json({ error: "CEP precisa ter 8 números." }, { status: 400 });
+    data.infinitepayCepPadrao = c || null;
+  }
   await prisma.config.upsert({ where: { id: "singleton" }, update: data, create: { id: "singleton", ...data } });
   registrarAuditoria({ usuario: user.name, acao: "config_infinitepay", entidade: "Config", entidadeId: "singleton", detalhe: `campos: ${Object.keys(data).join(", ")}${key ? " (chave atualizada)" : ""}` });
   return NextResponse.json({ ok: true });

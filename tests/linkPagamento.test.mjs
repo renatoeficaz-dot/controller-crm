@@ -1,7 +1,7 @@
 // Regras puras do link de pagamento InfinitePay (lib/linkPagamento.js).
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizarHandle, montarCorpoLink, extrairLink, lerWebhook, valorParaBaixa, mensagemLink, comprovanteDeLinkPago, centavos } from "../lib/linkPagamento.js";
+import { cepDoEndereco, normalizarHandle, montarCorpoLink, extrairLink, lerWebhook, valorParaBaixa, mensagemLink, comprovanteDeLinkPago, centavos } from "../lib/linkPagamento.js";
 
 test("InfiniteTag: tira $/@, minúsculas, recusa inválida", () => {
   assert.equal(normalizarHandle("$Capcred"), "capcred");
@@ -71,4 +71,18 @@ test("comprovante do mesmo pagamento de um link pago não vira outra baixa", () 
   assert.equal(comprovanteDeLinkPago({ valorComprovante: 54, linksPagos: links, agora }), true);
   assert.equal(comprovanteDeLinkPago({ valorComprovante: 60, linksPagos: links, agora }), false);
   assert.equal(comprovanteDeLinkPago({ valorComprovante: 54, linksPagos: [{ ...links[0], pagoEm: "2026-11-10T10:00:00Z" }], agora }), false, "pagamento de ontem é outro");
+});
+
+test("checkout preenchido: e-mail padrão e CEP do endereço do cliente (ou o padrão)", () => {
+  assert.equal(cepDoEndereco("Av Joaquim Alves 18 Jardim primavera 14802424"), "14802424");
+  assert.equal(cepDoEndereco("Rua X, 10 - CEP 13.010-120"), null, "CEP com ponto não é aceito como número solto");
+  assert.equal(cepDoEndereco("Rua Y 99, 13010-120 Campinas"), "13010120");
+  assert.equal(cepDoEndereco("sem cep", "Comercial 01310100"), "01310100");
+  assert.equal(cepDoEndereco("tel 11999998888"), null, "telefone não vira CEP");
+  const { corpo } = montarCorpoLink({ handle: "capcred", orderNsu: "o", contato: { name: "Ana", phone: "11999998888", endereco: "Rua A 1 14802424" }, parcelas: [{ number: 1, valor: 54 }], emailPadrao: "Pagamentos@Empresa.com", cepPadrao: "01310100" });
+  assert.equal(corpo.customer.email, "pagamentos@empresa.com");
+  assert.deepEqual(corpo.address, { cep: "14802424" });
+  const sem = montarCorpoLink({ handle: "capcred", orderNsu: "o", contato: { name: "Ana" }, parcelas: [{ number: 1, valor: 54 }], cepPadrao: "01310-100" }).corpo;
+  assert.deepEqual(sem.address, { cep: "01310100" });
+  assert.equal(sem.customer.email, undefined);
 });

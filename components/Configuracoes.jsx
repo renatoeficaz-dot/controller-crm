@@ -5813,11 +5813,11 @@ function PluggyConfig() {
 // pelo webhook. A chave de API (inchk_...) é opcional, fica criptografada e nunca volta para a tela.
 function LinkPagamentoConfig() {
   const [d, setD] = useState(null);
-  const [f, setF] = useState({ handle: "", apiKey: "", autoAtivo: false, enviarChave: true, avisoPago: false });
+  const [f, setF] = useState({ handle: "", apiKey: "", autoAtivo: false, enviarChave: true, avisoPago: false, emailPadrao: "", cepPadrao: "" });
   const [msg, setMsg] = useState("");
   const carregar = useCallback(async () => {
     const r = await fetch("/api/config/infinitepay").then((x) => x.json()).catch(() => null);
-    if (r && !r.error) { setD(r); setF((x) => ({ ...x, handle: r.handle, autoAtivo: r.autoAtivo, enviarChave: r.enviarChave, avisoPago: r.avisoPago })); }
+    if (r && !r.error) { setD(r); setF((x) => ({ ...x, handle: r.handle, autoAtivo: r.autoAtivo, enviarChave: r.enviarChave, avisoPago: r.avisoPago, emailPadrao: r.emailPadrao, cepPadrao: r.cepPadrao })); }
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
   async function salvar(e) {
@@ -5845,6 +5845,15 @@ function LinkPagamentoConfig() {
           <input className={campo} type="password" autoComplete="new-password" value={f.apiKey} onChange={(e) => setF({ ...f, apiKey: e.target.value })} />
           <span className="block text-[11px] text-slate-400 mt-0.5">Com a chave, o link vence no fim do dia seguinte e aceita um pagamento só.</span>
         </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <label className="block text-xs text-slate-500">E-mail preenchido no link (a InfinitePay exige; recibos vão para ele)
+            <input className={campo} value={f.emailPadrao} onChange={(e) => setF({ ...f, emailPadrao: e.target.value })} placeholder="ex.: pagamentos@..." autoComplete="off" />
+          </label>
+          <label className="block text-xs text-slate-500">CEP padrão (quando o cadastro não tem CEP)
+            <input className={campo} value={f.cepPadrao} onChange={(e) => setF({ ...f, cepPadrao: e.target.value })} inputMode="numeric" placeholder="00000-000" />
+          </label>
+        </div>
+        <p className="text-[11px] text-slate-400 -mt-1">Nome e telefone vêm do cadastro; o CEP sai do endereço do cliente. Assim o cliente só toca em Continuar até o Pix.</p>
         <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={f.autoAtivo} onChange={(e) => setF({ ...f, autoAtivo: e.target.checked })} /> Mandar o link sozinho junto do Pix automático do dia (perto do horário de cada cliente)</label>
         <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={f.enviarChave} onChange={(e) => setF({ ...f, enviarChave: e.target.checked })} /> Continuar mandando a chave Pix junto do link</label>
         <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={f.avisoPago} onChange={(e) => setF({ ...f, avisoPago: e.target.checked })} /> Avisar o cliente no WhatsApp quando o pagamento cair</label>

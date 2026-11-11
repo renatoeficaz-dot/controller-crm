@@ -684,6 +684,8 @@ model Config {
   infinitepayAutoAtivo    Boolean @default(false) // manda o link junto do Pix automático do dia
   infinitepayEnviarChave  Boolean @default(true) // continua mandando a chave Pix junto do link
   infinitepayAvisoPago    Boolean @default(false) // avisa o cliente no WhatsApp quando o link é pago
+  infinitepayEmailPadrao  String? // e-mail preenchido no checkout de todos os links (a InfinitePay exige e-mail)
+  infinitepayCepPadrao    String? // CEP preenchido quando o cadastro do cliente não tem CEP no endereço
   // Novo lead da Meta entra atribuído a este número (mesmo sem nenhuma
   // mensagem de WhatsApp ainda) — decide quem cobra, qual IA atende se o
   // cliente escrever depois, etc.
