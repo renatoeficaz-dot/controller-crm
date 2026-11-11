@@ -332,7 +332,7 @@ export default function Configuracoes() {
             {tab === "mensagens" && <MensagensProntas />}
             {tab === "automacao" && <AutomacaoFunil />}
             {tab === "integracoes" && <SnoopConfiguracao />}
-            {tab === "contabancaria" && <PluggyConfig />}
+            {tab === "contabancaria" && (<div className="space-y-6"><LinkPagamentoConfig /><PluggyConfig /></div>)}
             {tab === "ia" && (
               <div className="space-y-6">
                 <InterruptorGlobalIa />
@@ -5805,6 +5805,71 @@ function PluggyConfig() {
         {!pronto && <p className="text-xs text-amber-600">Salve o Client ID e o Client Secret para liberar o botão de conectar.</p>}
         {msg && <p className="text-xs text-slate-600">{msg}</p>}
       </div>
+    </div>
+  );
+}
+
+// Link de pagamento InfinitePay (Checkout Integrado): o cliente paga por Pix (QR Code ou copia e cola) no link e a baixa sai sozinha
+// pelo webhook. A chave de API (inchk_...) é opcional, fica criptografada e nunca volta para a tela.
+function LinkPagamentoConfig() {
+  const [d, setD] = useState(null);
+  const [f, setF] = useState({ handle: "", apiKey: "", autoAtivo: false, enviarChave: true, avisoPago: false });
+  const [msg, setMsg] = useState("");
+  const carregar = useCallback(async () => {
+    const r = await fetch("/api/config/infinitepay").then((x) => x.json()).catch(() => null);
+    if (r && !r.error) { setD(r); setF((x) => ({ ...x, handle: r.handle, autoAtivo: r.autoAtivo, enviarChave: r.enviarChave, avisoPago: r.avisoPago })); }
+  }, []);
+  useEffect(() => { carregar(); }, [carregar]);
+  async function salvar(e) {
+    e.preventDefault();
+    const r = await fetch("/api/config/infinitepay", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f) });
+    const j = await r.json().catch(() => ({}));
+    setMsg(r.ok ? "Salvo." : j.error || "Erro ao salvar.");
+    if (r.ok) { setF((x) => ({ ...x, apiKey: "" })); carregar(); }
+    setTimeout(() => setMsg(""), 4000);
+  }
+  const campo = "w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm";
+  const brl = (v) => "R$ " + Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+  const cor = { pago: "text-emerald-600", aberto: "text-slate-500", erro: "text-red-600" };
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <form onSubmit={salvar} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
+        <div>
+          <h2 className="font-semibold text-slate-800">Link de pagamento — InfinitePay</h2>
+          <p className="text-xs text-slate-400 mt-1">O cliente paga por Pix (QR Code ou copia e cola) no link e a baixa sai sozinha, já lançada. Botão "Gerar link" ao lado de cada parcela na ficha do cliente. O cartão sempre aparece no link (a InfinitePay não deixa desligar).</p>
+        </div>
+        <label className="block text-xs text-slate-500">InfiniteTag (o @ da conta, sem o $)
+          <input className={campo} value={f.handle} onChange={(e) => setF({ ...f, handle: e.target.value })} placeholder="ex.: capcred" autoComplete="off" />
+        </label>
+        <label className="block text-xs text-slate-500">Chave de API (opcional, começa com inchk_) {d?.temApiKey && <span className="text-emerald-600">(já salva, criptografada — deixe vazio para manter)</span>}
+          <input className={campo} type="password" autoComplete="new-password" value={f.apiKey} onChange={(e) => setF({ ...f, apiKey: e.target.value })} />
+          <span className="block text-[11px] text-slate-400 mt-0.5">Com a chave, o link vence no fim do dia seguinte e aceita um pagamento só.</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={f.autoAtivo} onChange={(e) => setF({ ...f, autoAtivo: e.target.checked })} /> Mandar o link sozinho junto do Pix automático do dia (perto do horário de cada cliente)</label>
+        <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={f.enviarChave} onChange={(e) => setF({ ...f, enviarChave: e.target.checked })} /> Continuar mandando a chave Pix junto do link</label>
+        <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={f.avisoPago} onChange={(e) => setF({ ...f, avisoPago: e.target.checked })} /> Avisar o cliente no WhatsApp quando o pagamento cair</label>
+        <div className="flex items-center gap-3">
+          <button className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm">Salvar</button>
+          {msg && <span className="text-xs text-slate-500">{msg}</span>}
+        </div>
+      </form>
+      {d?.ultimos?.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
+          <h3 className="font-semibold text-slate-800 text-sm mb-2">Últimos links</h3>
+          <ul className="space-y-1 text-xs">
+            {d.ultimos.map((l) => (
+              <li key={l.id} className="flex flex-wrap items-center gap-2">
+                <span className="text-slate-400 w-24">{new Date(l.criadoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                <span className="text-slate-700 flex-1 min-w-0 truncate">{l.cliente}</span>
+                <span className="text-slate-600">{brl(l.valor)}</span>
+                <span className={cor[l.status] || "text-slate-500"}>{l.status}{l.metodo ? ` (${l.metodo === "credit_card" ? "cartão" : "pix"})` : ""}</span>
+                <span className="text-slate-400">{l.origem === "auto" ? "automático" : "manual"}</span>
+                {l.erro && <span className="text-red-500 w-full">{l.erro}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

@@ -677,6 +677,13 @@ model Config {
   pluggyClientId      String?
   pluggySecretEnc     String?
   pluggyWebhookToken  String? // vai na URL do webhook (?t=) — a Pluggy não assina o payload
+  // Link de pagamento InfinitePay (Checkout Integrado): cobrança por link com baixa automática pelo webhook.
+  infinitepayHandle       String? // InfiniteTag sem o "$"
+  infinitepayApiKeyEnc    String? // chave inchk_... (opcional; libera validade/uso único). CRIPTOGRAFADA
+  infinitepayWebhookToken String? // vai na URL do webhook (?t=) — o webhook da InfinitePay não tem assinatura
+  infinitepayAutoAtivo    Boolean @default(false) // manda o link junto do Pix automático do dia
+  infinitepayEnviarChave  Boolean @default(true) // continua mandando a chave Pix junto do link
+  infinitepayAvisoPago    Boolean @default(false) // avisa o cliente no WhatsApp quando o link é pago
   // Novo lead da Meta entra atribuído a este número (mesmo sem nenhuma
   // mensagem de WhatsApp ainda) — decide quem cobra, qual IA atende se o
   // cliente escrever depois, etc.
@@ -1368,6 +1375,32 @@ model ExtratoMovimento {
 
   @@index([status])
   @@index([data])
+}
+
+// Link de pagamento (Checkout Integrado InfinitePay) gerado para uma ou mais parcelas. O id é o order_nsu enviado à InfinitePay: o webhook
+// devolve esse id e a baixa cai exatamente nessas parcelas.
+model CobrancaLink {
+  id             String    @id @default(cuid())
+  contactId      String
+  parcelaIds     String // ids separados por vírgula, na ordem de baixa
+  valor          Float // valor cobrado no link (R$)
+  descricao      String?
+  url            String?
+  slug           String? // invoice_slug
+  status         String    @default("aberto") // aberto | pago | erro
+  origem         String // auto | manual
+  criadoPor      String?
+  dia            String // AAAA-MM-DD (Brasília) em que foi gerado
+  transactionNsu String?   @unique
+  metodo         String? // pix | credit_card
+  valorPago      Float?
+  pagoEm         DateTime?
+  receiptUrl     String?
+  erro           String?
+  createdAt      DateTime  @default(now())
+
+  @@index([contactId])
+  @@index([status])
 }
 
 // Conta bancária conectada pela Pluggy (Open Finance). Cada sincronização grava as transações como ExtratoMovimento (chave "pluggy|<id>")

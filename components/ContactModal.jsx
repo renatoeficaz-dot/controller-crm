@@ -193,6 +193,14 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   const [confirmarPagamento, setConfirmarPagamento] = useState(null);
   const [pixAberto, setPixAberto] = useState(null); // parcela | null
   const [baixaParcialAberta, setBaixaParcialAberta] = useState(null); // parcela | null
+  // Link de pagamento InfinitePay: { parcelaIds, rotulo, carregando, url, valor, erro, envio }
+  const [linkPg, setLinkPg] = useState(null);
+  async function gerarLinkPg(parcelaIds, rotulo, enviar = false) {
+    setLinkPg((x) => ({ ...(x || {}), parcelaIds, rotulo, carregando: true, erro: "", envio: null }));
+    const r = await fetch("/api/link-pagamento", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contactId, parcelaIds, enviar }) });
+    const j = await r.json().catch(() => ({}));
+    setLinkPg((x) => ({ ...(x || {}), parcelaIds, rotulo, carregando: false, ...(r.ok ? { url: j.url, valor: j.valor, envio: j.envio } : { erro: j.error || "Não foi possível gerar o link." }) }));
+  }
   const [parcelaAvulsaAberta, setParcelaAvulsaAberta] = useState(null); // { valor, vencimento, descricao } | null
   const [salvandoAvulsa, setSalvandoAvulsa] = useState(false);
   const [editandoVencimento, setEditandoVencimento] = useState(null); // { parcela, novoVencimento, motivo } | null
@@ -2346,6 +2354,14 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                               <>
                                 <button
                                   type="button"
+                                  onClick={() => gerarLinkPg([p.id], `parcela ${p.number}ª`)}
+                                  title="Gerar link de pagamento (InfinitePay) — a baixa sai sozinha quando o cliente pagar"
+                                  className="text-emerald-400 hover:text-emerald-600"
+                                >
+                                  <Icone nome="link" className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => setBaixaParcialAberta(p)}
                                   title="Registrar baixa parcial"
                                   className="text-amber-400 hover:text-amber-600"
@@ -2408,6 +2424,19 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                           className="mt-1 w-full text-xs bg-emerald-500 text-white rounded-lg py-1.5 hover:bg-emerald-600"
                         >
                           Dar baixa em valor único · {marcadas.length} parcela{marcadas.length > 1 ? "s" : ""} · {money(total)}
+                        </button>
+                      );
+                    })()}
+                    {juntando && juntarSel.length > 0 && (() => {
+                      const marcadas = parcelasAtuais.filter((x) => juntarSel.includes(x.id) && !x.paid);
+                      if (!marcadas.length) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => gerarLinkPg(marcadas.map((x) => x.id), `parcelas ${marcadas.map((x) => x.number + "ª").join(", ")}`)}
+                          className="mt-1 w-full text-xs border border-emerald-300 text-emerald-700 rounded-lg py-1.5 hover:bg-emerald-50"
+                        >
+                          Gerar link de pagamento · {marcadas.length} parcela{marcadas.length > 1 ? "s" : ""}
                         </button>
                       );
                     })()}
@@ -2916,6 +2945,35 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
 
       {/* Alterar valor de uma baixa já registrada, ou desmarcá-la — sempre
           pede o motivo (fica logado em Configurações > Alterações). */}
+      {linkPg && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setLinkPg(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-slate-800 text-sm">Link de pagamento · {linkPg.rotulo}</h3>
+              <button onClick={() => setLinkPg(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            {linkPg.carregando && <p className="text-sm text-slate-500">Gerando o link na InfinitePay…</p>}
+            {linkPg.erro && <p className="text-sm text-red-600">{linkPg.erro}</p>}
+            {linkPg.url && !linkPg.carregando && (
+              <>
+                <p className="text-sm text-slate-700">Valor: <b>{money(linkPg.valor)}</b> · Pix (QR Code ou copia e cola) ou cartão. A baixa sai sozinha quando o cliente pagar.</p>
+                <div className="flex items-center gap-2">
+                  <input readOnly value={linkPg.url} className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-600" onFocus={(e) => e.target.select()} />
+                  <button type="button" onClick={() => navigator.clipboard?.writeText(linkPg.url)} className="shrink-0 text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50">Copiar</button>
+                </div>
+                {linkPg.envio === "enviado" ? (
+                  <p className="text-xs text-emerald-600">Enviado no WhatsApp do cliente.</p>
+                ) : (
+                  <button type="button" onClick={() => gerarLinkPg(linkPg.parcelaIds, linkPg.rotulo, true)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg py-2">
+                    Enviar no WhatsApp do cliente
+                  </button>
+                )}
+                {linkPg.envio === "falhou" && <p className="text-xs text-red-600">O WhatsApp não enviou. Copie o link e mande pela conversa.</p>}
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {baixaParcialAberta && (
         <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setBaixaParcialAberta(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
