@@ -1397,6 +1397,7 @@ model CobrancaLink {
   pagoEm         DateTime?
   receiptUrl     String?
   erro           String?
+  enviadoEm      DateTime? // quando foi mandado no WhatsApp do cliente
   createdAt      DateTime  @default(now())
 
   @@index([contactId])

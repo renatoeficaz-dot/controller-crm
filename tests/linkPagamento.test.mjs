@@ -59,6 +59,9 @@ test("baixa: nunca mais que o valor do link (taxa do cartão repassada não vira
 test("mensagem do link: parcelas, valor com vírgula, sem emoji", () => {
   const m = mensagemLink({ url: "https://pay.x/1", total: 113.4, parcelas: [{ number: 2 }, { number: 3 }] });
   assert.match(m, /parcelas 2ª, 3ª - R\$ 113,40:\nhttps:\/\/pay\.x\/1/);
+  assert.equal(m.startsWith("Agora"), false, "nos dias seguintes vai só o link");
+  const p1 = mensagemLink({ url: "https://pay.x/1", total: 54, parcelas: [{ number: 5 }], primeira: true });
+  assert.match(p1, /^Agora estamos enviando o link de pagamento para você\. Segue o seu link abaixo, todo dia vou te enviar assim\.\n\nLink para pagamento da parcela 5ª - R\$ 54,00:/);
   assert.equal(/[\u{1F300}-\u{1FAFF}]/u.test(m), false);
 });
 

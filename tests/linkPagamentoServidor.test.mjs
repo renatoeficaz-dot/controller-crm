@@ -66,6 +66,18 @@ test("gera o link (itens em centavos, order_nsu = id, webhook com token) e reapr
   assert.equal(de_novo.link.id, r.link.id);
 });
 
+test("primeiro link enviado ao cliente leva o aviso; o seguinte vai só com o link", async () => {
+  const link = await prisma.cobrancaLink.findFirst({ where: { contactId: contato.id } });
+  // WhatsApp sem configuração no teste = envio simulado; o texto fica gravado na conversa
+  await LP.enviarLinkWhatsapp({ link, parcelas: [{ number: 1 }], contato });
+  const depois = await prisma.cobrancaLink.findUnique({ where: { id: link.id } });
+  await LP.enviarLinkWhatsapp({ link: depois, parcelas: [{ number: 1 }], contato });
+  const msgs = await prisma.message.findMany({ where: { contactId: contato.id }, orderBy: { createdAt: "asc" } });
+  assert.equal(msgs.length, 2);
+  assert.match(msgs[0].body, /^Agora estamos enviando o link de pagamento/);
+  assert.match(msgs[1].body, /^Link para pagamento da parcela 1ª/);
+});
+
 test("webhook sem confirmação no payment_check NÃO dá baixa", async () => {
   const link = await prisma.cobrancaLink.findFirst({ where: { contactId: contato.id } });
   const r = await LP.processarWebhook({ order_nsu: link.id, transaction_nsu: "falso", invoice_slug: link.slug, amount: 5400, capture_method: "pix" });
