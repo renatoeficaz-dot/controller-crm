@@ -1,7 +1,7 @@
 // Regras puras do link de pagamento InfinitePay (lib/linkPagamento.js).
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cepDoEndereco, normalizarHandle, montarCorpoLink, extrairLink, lerWebhook, valorParaBaixa, mensagemLink, comprovanteDeLinkPago, centavos } from "../lib/linkPagamento.js";
+import { numeroDoEndereco, cepDoEndereco, normalizarHandle, montarCorpoLink, extrairLink, lerWebhook, valorParaBaixa, mensagemLink, comprovanteDeLinkPago, centavos } from "../lib/linkPagamento.js";
 
 test("InfiniteTag: tira $/@, minúsculas, recusa inválida", () => {
   assert.equal(normalizarHandle("$Capcred"), "capcred");
@@ -81,8 +81,17 @@ test("checkout preenchido: e-mail padrão e CEP do endereço do cliente (ou o pa
   assert.equal(cepDoEndereco("tel 11999998888"), null, "telefone não vira CEP");
   const { corpo } = montarCorpoLink({ handle: "capcred", orderNsu: "o", contato: { name: "Ana", phone: "11999998888", endereco: "Rua A 1 14802424" }, parcelas: [{ number: 1, valor: 54 }], emailPadrao: "Pagamentos@Empresa.com", cepPadrao: "01310100" });
   assert.equal(corpo.customer.email, "pagamentos@empresa.com");
-  assert.deepEqual(corpo.address, { cep: "14802424" });
+  assert.deepEqual(corpo.address, { cep: "14802424", number: "1" });
   const sem = montarCorpoLink({ handle: "capcred", orderNsu: "o", contato: { name: "Ana" }, parcelas: [{ number: 1, valor: 54 }], cepPadrao: "01310-100" }).corpo;
-  assert.deepEqual(sem.address, { cep: "01310100" });
+  assert.deepEqual(sem.address, { cep: "01310100", number: "S/N" });
   assert.equal(sem.customer.email, undefined);
+});
+
+test("número da casa: tira do endereço (fora o CEP), senão S/N", () => {
+  assert.equal(numeroDoEndereco("Av Joaquim Alves 18 Jardim primavera 14802424"), "18");
+  assert.equal(numeroDoEndereco("Rua das Flores, 250 - Centro"), "250");
+  assert.equal(numeroDoEndereco("Rua X nº 7, CEP 13010-120"), "7");
+  assert.equal(numeroDoEndereco("Rua sem número, 13010-120"), "S/N");
+  assert.equal(numeroDoEndereco("", null), "S/N");
+  assert.equal(numeroDoEndereco(null, "Av Comercial 99"), "99");
 });
