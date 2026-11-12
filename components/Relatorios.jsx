@@ -12,6 +12,7 @@ import RelatoriosAvancado from "@/components/RelatoriosAvancado";
 import CacEtiquetas from "@/components/CacEtiquetas";
 import HorarioCriacao from "@/components/HorarioCriacao";
 import HorarioRecebimento from "@/components/HorarioRecebimento";
+import RecebimentoVsTrabalho from "@/components/RecebimentoVsTrabalho";
 import Secao from "@/components/SecaoColapsavel";
 import GraficoEntrouSoltou from "@/components/GraficoEntrouSoltou";
 import GraficoLiquidezProjetada from "@/components/GraficoLiquidezProjetada";
@@ -2859,6 +2860,8 @@ export default function Relatorios() {
       )}
 
       <HorarioRecebimento ini={ini} fim={fim} />
+
+      <RecebimentoVsTrabalho ini={ini} fim={fim} />
 
       <HorarioCriacao
         ini={preset === "tudo" ? (criacaoIni || ini) : ini}

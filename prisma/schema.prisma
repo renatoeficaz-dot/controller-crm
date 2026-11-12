@@ -504,6 +504,19 @@ model UsoDiario {
   @@unique([usuario, dia])
 }
 
+// Mesmo tempo de uso do UsoDiario, quebrado por hora do dia (Brasília), pro gráfico "Recebimento x horas trabalhadas"
+// por hora. Gravado pelo mesmo heartbeat (só os aceitos). Começou em 12/11/2026: antes disso só existe o total do dia.
+model UsoHora {
+  id       String   @id @default(cuid())
+  usuario  String
+  dia      DateTime // mesma convenção do UsoDiario: dia civil de Brasília como meia-noite UTC
+  hora     Int // 0..23, Brasília
+  segundos Int      @default(0)
+
+  @@unique([usuario, dia, hora])
+  @@index([dia])
+}
+
 // Item 191: histórico de quem já foi responsável por esse lead — sem isso,
 // depois de uma transferência (item 185) ou edição manual, ninguém consegue
 // dizer quem cuidava do cliente antes.

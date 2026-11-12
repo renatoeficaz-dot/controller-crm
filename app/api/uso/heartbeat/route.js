@@ -31,5 +31,12 @@ export async function POST() {
     update: { segundos: { increment: INTERVALO_S }, ultimoEm: agora },
     create: { usuario: user.name, dia: hoje, segundos: INTERVALO_S, ultimoEm: agora },
   });
+  // Por hora do dia também (gráfico Recebimento x horas trabalhadas). Falha aqui nunca derruba o heartbeat.
+  const hora = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hourCycle: "h23" }).format(agora));
+  await prisma.usoHora.upsert({
+    where: { usuario_dia_hora: { usuario: user.name, dia: hoje, hora } },
+    update: { segundos: { increment: INTERVALO_S } },
+    create: { usuario: user.name, dia: hoje, hora, segundos: INTERVALO_S },
+  }).catch(() => {});
   return NextResponse.json({ ok: true });
 }
