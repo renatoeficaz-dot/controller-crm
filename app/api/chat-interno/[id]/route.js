@@ -191,7 +191,7 @@ export async function POST(req, { params }) {
 
   const membros = await prisma.conversaInternaMembro.findMany({
     where: { conversaId: id },
-    select: { user: { select: { id: true, name: true } } },
+    select: { user: { select: { id: true, name: true, login: true } } },
   });
   const mencoes = acharMencionados(corpo, membros.map((m) => m.user));
 
@@ -209,7 +209,7 @@ export async function POST(req, { params }) {
     },
     include: INCLUI_MENSAGEM,
   });
-  import("@/lib/avisoChatInterno").then((m) => m.avisarChatInterno(id)).catch(() => {});
+  import("@/lib/avisoChatInterno").then((m) => m.avisarChatInterno(id, { autorLogin: user.login, membrosLogins: membros.map((x) => x.user.login) })).catch(() => {});
   // updatedAt da conversa é o que ordena a lista por "mais recente".
   await prisma.conversaInterna.update({ where: { id }, data: { updatedAt: new Date() } }).catch(() => {});
   await prisma.conversaInternaMembro
