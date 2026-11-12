@@ -48,7 +48,7 @@ export async function GET(req) {
   const recebido = r2(dias.reduce((s, d) => s + d.recebido, 0));
   const segundos = dias.reduce((s, d) => s + d.segundos, 0);
   return NextResponse.json({
-    usuarios: nomes.map((n) => n.usuario).filter((n) => !/^Claudeb/.test(n)).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    usuarios: nomes.map((n) => n.usuario).filter((n) => !n.startsWith("Claude ")).sort((a, b) => a.localeCompare(b, "pt-BR")),
     dias,
     horas,
     // Por hora só existe desde 12/11/2026 (antes o sistema guardava só o total do dia).
