@@ -125,7 +125,7 @@ const cacheRevogadas = new Map();
 async function sessaoRevogada(jti) {
   if (!jti) return false;
   const c = cacheRevogadas.get(jti);
-  if (c && (c.revogada || Date.now() - c.em < CACHE_MS)) return c.revogada;
+  if (c && (c.revogada || Date.now() - c.em < 5000)) return c.revogada; // "não revogada" vale só 5 s: o Sair tem que pegar logo
   try {
     const { prisma } = await import("@/lib/prisma");
     const revogada = !!(await prisma.sessaoRevogada.findUnique({ where: { jti }, select: { jti: true } }));
