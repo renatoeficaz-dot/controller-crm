@@ -2,10 +2,22 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
+import { registrarAuditoria } from "@/lib/auditoria";
+
+// Documento é do cliente: só mexe quem pode ver o cliente (antes qualquer usuário logado apagava o RG de qualquer lead pelo id).
+async function negarDoc(id) {
+  const d = await prisma.documento.findUnique({ where: { id }, select: { contactId: true, tipo: true, fileName: true } });
+  if (!d) return { resp: respostaNaoEncontrado() };
+  const negado = await negarSeNaoPodeVerContato(d.contactId);
+  return negado ? { resp: negado } : { doc: d };
+}
 
 export async function PATCH(req, { params }) {
   try {
     const { id } = await params;
+    const { resp } = await negarDoc(id);
+    if (resp) return resp;
     const user = await getCurrentUser();
     const { tipo, conferido } = await lerCorpo(req);
   
@@ -30,7 +42,12 @@ export async function PATCH(req, { params }) {
 export async function DELETE(_req, { params }) {
   try {
     const { id } = await params;
+    const { resp, doc } = await negarDoc(id);
+    if (resp) return resp;
     await prisma.documento.delete({ where: { id } }).catch(() => {});
+    // Apagar documento de cliente não deixava rastro nenhum.
+    const user = await getCurrentUser();
+    registrarAuditoria({ usuario: user?.name, acao: "excluir_documento", entidade: "Contact", entidadeId: doc.contactId, detalhe: `${doc.tipo || "documento"} ${doc.fileName || ""}`.trim() });
     return NextResponse.json({ ok: true });
   } catch (err) {
     // Registro do `where` não existe (link velho, dois cliques, id

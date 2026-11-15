@@ -967,6 +967,8 @@ model User {
   paginasVisiveis String?
   // Acesso suspenso até esta data/hora (null = não suspenso). Vencido o prazo, volta sozinho.
   suspensoAte     DateTime?
+  // Sessões emitidas ANTES desta data deixam de valer (troca de senha derruba todos os aparelhos logados).
+  sessoesValidasDesde DateTime?
 
   // Meta de vendas individual (vendedor) — null em qualquer um dos 3 campos
   // significa "usa a meta global" (Config.metaVendas*).
@@ -1979,4 +1981,12 @@ model ChipRecarga {
   createdAt DateTime @default(now())
 
   @@index([chipId])
+}
+
+// "Sair" derruba de verdade a sessão: o cookie é assinado e valia até vencer (30 dias) mesmo depois do logout — quem copiasse o
+// cookie continuava entrando. O id da sessão (jti) fica aqui até a data em que ela venceria.
+model SessaoRevogada {
+  jti String   @id
+  exp DateTime
+  @@index([exp])
 }

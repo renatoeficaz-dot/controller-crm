@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { sessaoPorToken, ehImagem } from "@/lib/videoChamadaSessao";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
 import { lerCorpo, texto } from "@/lib/corpo";
 
@@ -9,13 +10,19 @@ import { lerCorpo, texto } from "@/lib/corpo";
 // só no front pra isso.
 export async function POST(req, { params }) {
   const { token } = await params;
-  const sessao = await prisma.videoChamadaSessao.findUnique({ where: { token } });
+  const sessao = await sessaoPorToken(token);
   if (!sessao) return NextResponse.json({ error: "Link inválido ou expirado." }, { status: 404 });
   if (!sessao.aceitoEm) {
     return NextResponse.json({ error: "É preciso aceitar antes de continuar." }, { status: 400 });
   }
 
+  // Captura é uma vez só: antes o mesmo link regravava foto e localização quantas vezes quisessem (e cada vez criava documentos novos
+  // no cadastro do cliente), dava pra trocar a selfie conferida por outra depois.
+  if (sessao.capturadoEm) return NextResponse.json({ error: "As fotos deste link já foram enviadas." }, { status: 409 });
   const body = await lerCorpo(req);
+  if ((body.fotoTrasBase64 && !ehImagem(body.fotoTrasBase64)) || (body.fotoFrenteBase64 && !ehImagem(body.fotoFrenteBase64))) {
+    return NextResponse.json({ error: "Foto inválida." }, { status: 400 });
+  }
   const data = {};
 
   if (body.fotoTrasBase64) {

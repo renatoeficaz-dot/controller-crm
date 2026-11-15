@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { lerCorpo, texto } from "@/lib/corpo";
+import { ipDoCliente } from "@/lib/ipCliente";
+import crypto from "crypto";
 
 // Tela de entrada disfarçada de calculadora.
 //
@@ -28,8 +30,16 @@ export async function POST(req) {
   // que ninguém tenha configurado nada.
   if (!cfg?.codigoCalculadora) return NextResponse.json({ ok: true });
 
+  // Tentativas ilimitadas (só 400 ms de espera, e em paralelo nem isso) deixavam varrer o código por força bruta. Agora: 10 erros por
+  // IP em 15 minutos, contados na mesma tabela das tentativas de login. E comparação em tempo constante.
+  const ip = ipDoCliente(req);
+  const desde = new Date(Date.now() - 15 * 60e3);
+  const erros = await prisma.loginTentativa.count({ where: { login: "(calculadora)", ip, createdAt: { gte: desde } } }).catch(() => 0);
+  if (erros >= 10) return NextResponse.json({ ok: false, error: "Muitas tentativas. Espere 15 minutos." }, { status: 429 });
   const codigo = texto((await lerCorpo(req)).codigo);
-  const ok = codigo === cfg.codigoCalculadora;
+  const a = Buffer.from(codigo), b = Buffer.from(String(cfg.codigoCalculadora));
+  const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+  if (!ok) await prisma.loginTentativa.create({ data: { login: "(calculadora)", ip } }).catch(() => {});
   // Atraso fixo no erro: sem ele, dava pra medir o tempo de resposta e
   // descobrir o tamanho do código. É barato e não atrapalha quem acerta.
   if (!ok) await new Promise((r) => setTimeout(r, 400));

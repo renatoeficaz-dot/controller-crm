@@ -11,6 +11,13 @@ function appWebhookUrl(req, provider) {
   const path = provider === "waha" ? "/api/webhook/waha" : "/api/webhook/evolution";
   return host ? `${proto}://${host}${path}` : "";
 }
+// Com o token do webhook ligado, a URL entregue à Evolution/WAHA precisa levar ?t= — senão reconectar um número cortava a entrada de
+// mensagens (o webhook passa a recusar quem chega sem token).
+async function comToken(url) {
+  if (!url) return url;
+  const cfg = await prisma.config.findUnique({ where: { id: "singleton" }, select: { webhookToken: true } });
+  return cfg?.webhookToken ? `${url}?t=${encodeURIComponent(cfg.webhookToken)}` : url;
+}
 
 async function creds() {
   const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
@@ -29,7 +36,7 @@ export async function POST(req, { params }) {
   if (!num) return NextResponse.json({ error: "Número não encontrado" }, { status: 404 });
 
   const { base, apikey, wahaBase, wahaApikey } = await creds();
-  const webhookUrl = appWebhookUrl(req, num.provider);
+  const webhookUrl = await comToken(appWebhookUrl(req, num.provider));
   const proxy = num.proxyServer ? { server: num.proxyServer, username: num.proxyUsername, password: num.proxyPassword } : null;
 
   if (num.provider === "waba") {

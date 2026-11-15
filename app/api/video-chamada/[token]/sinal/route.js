@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { sessaoPorToken } from "@/lib/videoChamadaSessao";
 import { lerCorpo } from "@/lib/corpo";
 
 // GET é consultado por polling durante a chamada — nunca pode reaproveitar
@@ -15,7 +16,7 @@ const TIPOS_VALIDOS = new Set(["pronto", "oferta", "resposta", "candidato", "enc
 // rotas dessa sessão) — sem isso não tem vídeo chamada pra sinalizar.
 export async function GET(req, { params }) {
   const { token } = await params;
-  const sessao = await prisma.videoChamadaSessao.findUnique({ where: { token } });
+  const sessao = await sessaoPorToken(token);
   if (!sessao) return NextResponse.json({ error: "Link inválido ou expirado." }, { status: 404 });
 
   const apos = Number(new URL(req.url).searchParams.get("apos")) || 0;
@@ -29,7 +30,7 @@ export async function GET(req, { params }) {
 
 export async function POST(req, { params }) {
   const { token } = await params;
-  const sessao = await prisma.videoChamadaSessao.findUnique({ where: { token } });
+  const sessao = await sessaoPorToken(token);
   if (!sessao) return NextResponse.json({ error: "Link inválido ou expirado." }, { status: 404 });
   if (!sessao.aceitoEm || !sessao.capturadoEm) {
     return NextResponse.json({ error: "Verificação ainda não concluída." }, { status: 400 });

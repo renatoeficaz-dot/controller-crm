@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { sessaoPorToken } from "@/lib/videoChamadaSessao";
 
 // Rota PÚBLICA — libera a sala de vídeo só depois do aceite + captura já
 // terem acontecido (mesma trava do lado do servidor, não só escondendo botão
@@ -8,7 +9,7 @@ import { NextResponse } from "next/server";
 // token, então ninguém adivinha um nome de sala alheio).
 export async function POST(_req, { params }) {
   const { token } = await params;
-  const sessao = await prisma.videoChamadaSessao.findUnique({ where: { token } });
+  const sessao = await sessaoPorToken(token);
   if (!sessao) return NextResponse.json({ error: "Link inválido ou expirado." }, { status: 404 });
   if (!sessao.aceitoEm) return NextResponse.json({ error: "É preciso aceitar antes de continuar." }, { status: 400 });
   if (!sessao.capturadoEm) return NextResponse.json({ error: "Verificação ainda não concluída." }, { status: 400 });

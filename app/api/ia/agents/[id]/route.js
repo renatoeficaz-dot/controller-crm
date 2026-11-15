@@ -4,6 +4,8 @@ import { normalizeBrPhone } from "@/lib/evolution";
 import { lerCorpo, texto, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
 
 export async function GET(_req, { params }) {
+  const { getCurrentUser, isAdmin } = await import("@/lib/session");
+  if (!isAdmin(await getCurrentUser())) return NextResponse.json({ error: "Só o administrador." }, { status: 403 }); // prompt completo do agente
   const { id } = await params;
   const agent = await prisma.iaAgent.findUnique({ where: { id } });
   if (!agent) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });

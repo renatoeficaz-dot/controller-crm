@@ -108,9 +108,9 @@ async function permissoesAtuais(uid) {
     const { prisma } = await import("@/lib/prisma");
     const u = await prisma.user.findUnique({
       where: { id: uid },
-      select: { role: true, somenteLeitura: true, paginasVisiveis: true, suspensoAte: true },
+      select: { role: true, somenteLeitura: true, paginasVisiveis: true, suspensoAte: true, sessoesValidasDesde: true },
     });
-    valor = u ? { role: u.role, somenteLeitura: !!u.somenteLeitura, paginas: u.paginasVisiveis || null, suspensoAte: u.suspensoAte ? u.suspensoAte.getTime() : null } : null;
+    valor = u ? { role: u.role, somenteLeitura: !!u.somenteLeitura, paginas: u.paginasVisiveis || null, suspensoAte: u.suspensoAte ? u.suspensoAte.getTime() : null, validasDesde: u.sessoesValidasDesde ? u.sessoesValidasDesde.getTime() : null } : null;
   } catch {
     // Banco fora do ar não pode derrubar o sistema inteiro: mantém o que o
     // token diz (é o comportamento antigo) em vez de bloquear todo mundo.
@@ -119,6 +119,27 @@ async function permissoesAtuais(uid) {
   cachePermissoes.set(uid, { em: agora, valor });
   return valor;
 }
+
+// Sessões encerradas no "Sair". Cache curto do "não revogada" (a resposta positiva fica pra sempre: revogada não volta).
+const cacheRevogadas = new Map();
+async function sessaoRevogada(jti) {
+  if (!jti) return false;
+  const c = cacheRevogadas.get(jti);
+  if (c && (c.revogada || Date.now() - c.em < CACHE_MS)) return c.revogada;
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const revogada = !!(await prisma.sessaoRevogada.findUnique({ where: { jti }, select: { jti: true } }));
+    cacheRevogadas.set(jti, { em: Date.now(), revogada });
+    return revogada;
+  } catch {
+    return false;
+  }
+}
+setInterval(() => {
+  const agora = Date.now();
+  for (const [k, v] of cacheRevogadas) if (agora - v.em > CACHE_MS * 4 && !v.revogada) cacheRevogadas.delete(k);
+  if (cacheRevogadas.size > 20000) cacheRevogadas.clear();
+}, 5 * 60_000);
 
 // Limpeza do cache, pra memória não crescer sem fim.
 setInterval(() => {
@@ -145,7 +166,10 @@ export async function middleware(req) {
     }
   }
 
-  if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p))) {
+  // Casamento exato ou pelo prefixo + "/": o startsWith(p) solto fazia "/api/video-chamada" liberar também "/api/video-chamada-staff/..."
+  // (a sala do OPERADOR) sem passar por sessão, suspensão e somente-leitura daqui de baixo.
+  const ehPublica = (p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : p + "/");
+  if (PUBLIC_PREFIXES.some(ehPublica)) {
     // se já está logado e tenta abrir /login, manda pra home
     if (pathname === "/login") {
       const token = req.cookies.get(SESSION_COOKIE)?.value;
@@ -171,6 +195,14 @@ export async function middleware(req) {
       // usuário não existe mais: derruba a sessão
       const resposta = pathname.startsWith("/api/")
         ? NextResponse.json({ error: "Sessão inválida." }, { status: 401 })
+        : NextResponse.redirect(new URL("/login", req.url));
+      resposta.cookies.delete(SESSION_COOKIE);
+      return resposta;
+    }
+    // Sessão anterior à troca de senha, ou encerrada no "Sair" (jti na lista de revogadas): derruba.
+    if ((atual?.validasDesde && !(session.iat >= atual.validasDesde)) || (await sessaoRevogada(session.jti))) {
+      const resposta = pathname.startsWith("/api/")
+        ? NextResponse.json({ error: "Sessão encerrada. Entre de novo." }, { status: 401 })
         : NextResponse.redirect(new URL("/login", req.url));
       resposta.cookies.delete(SESSION_COOKIE);
       return resposta;
@@ -221,6 +253,8 @@ export async function middleware(req) {
       // Dispara na hora a régua de cobrança (a mesma do job de 5 em 5 min).
       // Aberto, virava um botão de spam pra carteira toda.
       "/api/lembretes/run",
+      // Chips e recargas (despesa da empresa): editar/apagar ficava aberto pra qualquer usuário logado.
+      "/api/chips",
     ];
     const ehApiSoAdmin = apisSoAdmin.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (ehApiSoAdmin && req.method !== "GET" && session.role !== "admin") {

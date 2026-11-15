@@ -51,6 +51,11 @@ const CAMPOS_METAS = [
   "metaRecuperacaoMinima", "metaRecuperacaoMedia", "metaRecuperacaoDia",
   "metaRenovacaoMinima", "metaRenovacaoMedia", "metaRenovacaoDia",
 ];
+// Chaves que nem o admin vê depois de salvas (URLs, código da calculadora e verify tokens que a pessoa precisa copiar continuam visíveis).
+const SEGREDOS_MASCARADOS_ADMIN = [
+  "evolutionApiKey", "wahaApiKey", "deepinfraApiKey", "fishAudioApiKey", "elevenLabsApiKey", "cattaApiKey", "wavoipToken",
+  "hasosApiKey", "cnpjaApiKey", "dataApiKey", "snoopApiKey", "webhookToken", "wabaAppSecret", "metaAdsAppSecret", "metaAdsPageToken",
+];
 const CAMPOS_AUDITADOS = ["honorariosPct", "multaPct", "iaGlobalPausada", "dataApiAtivo", "snoopAtivo", "snoopOpcoes", ...CAMPOS_METAS, ...CAMPOS_SECRETOS];
 
 // Cada meta tem 3 níveis que precisam crescer: mínima <= média <= meta cheia (0 = nível desligado). Fora de ordem, o dia "bate a média"
@@ -77,7 +82,14 @@ export async function GET() {
     cfg = await prisma.config.update({ where: { id: "singleton" }, data: { wabaVerifyToken: crypto.randomBytes(24).toString("hex") } });
   }
   const user = await getCurrentUser().catch(() => null);
-  if (isAdmin(user)) return NextResponse.json({ ...cfg, dataApiKey: cfg.dataApiKey ? "***" : null, snoopApiKey: cfg.snoopApiKey ? "***" : null, wabaAppSecret: cfg.wabaAppSecret ? "***" : null });
+  if (isAdmin(user)) {
+    // Nem o admin recebe a chave de volta: a tela só precisa saber se está configurada ("***"). Antes toda chave (Evolution, DeepInfra,
+    // Hasos, ElevenLabs, token da página do Meta...) ia em texto puro pro navegador de qualquer admin — sessão roubada, extensão
+    // maliciosa ou print da tela entregavam todas as integrações. Pra trocar, digita a nova; "***" no PATCH mantém a atual.
+    const mascarado = { ...cfg };
+    for (const campo of SEGREDOS_MASCARADOS_ADMIN) if (mascarado[campo]) mascarado[campo] = "***";
+    return NextResponse.json(mascarado);
+  }
 
   const seguro = { ...cfg };
   for (const campo of CAMPOS_SECRETOS) {
@@ -91,6 +103,8 @@ export async function GET() {
 // Atualiza configurações globais (ex.: % de honorários)
 export async function PATCH(req) {
   const body = await lerCorpo(req);
+  // "***" é a máscara que o GET devolve: voltar com ela significa "não mexi nessa chave".
+  for (const campo of SEGREDOS_MASCARADOS_ADMIN) if (body[campo] === "***") delete body[campo];
   await getConfig();
   const data = {};
   // Estes dois definem TODO o dinheiro do sistema (parcela = capital x

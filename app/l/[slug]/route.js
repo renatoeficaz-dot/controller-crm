@@ -3,6 +3,9 @@ import { onlyDigits } from "@/lib/evolution";
 import { parseUserAgent } from "@/lib/userAgent";
 import { geoFromIp } from "@/lib/geoip";
 import { NextResponse } from "next/server";
+import { ipDoCliente } from "@/lib/ipCliente";
+
+const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 // Loga o clique (dispositivo, navegador, região por geoip, UTMs da própria
 // URL) em segundo plano — não bloqueia o redirecionamento, o lead não deve
@@ -10,7 +13,8 @@ import { NextResponse } from "next/server";
 async function logClique(req, campanhaId) {
   const ua = req.headers.get("user-agent") || "";
   const { dispositivo, navegador } = parseUserAgent(ua);
-  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || req.headers.get("x-real-ip") || "";
+  // Último item do x-forwarded-for (o primeiro é inventável e enchia o relatório de região com dado falso).
+  const ip = ipDoCliente(req);
   const url = new URL(req.url);
   const regiao = await geoFromIp(ip);
   await Promise.all([
@@ -72,8 +76,8 @@ export async function GET(req, { params }) {
   <div class="card">
     <h1>Como você prefere continuar?</h1>
     <p>Leva menos de 1 minuto dos dois jeitos.</p>
-    <a class="principal" href="/f/${slug}">Preencher um formulário rápido</a>
-    <a class="secundario" href="${waUrl}">Prefiro conversar pelo WhatsApp</a>
+    <a class="principal" href="/f/${escHtml(encodeURIComponent(slug))}">Preencher um formulário rápido</a>
+    <a class="secundario" href="${escHtml(waUrl)}">Prefiro conversar pelo WhatsApp</a>
   </div>
 </body></html>`;
     return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });

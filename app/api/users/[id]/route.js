@@ -37,6 +37,8 @@ export async function PATCH(req, { params }) {
         return NextResponse.json({ error: "A senha precisa ter pelo menos 6 caracteres." }, { status: 400 });
       }
       data.passwordHash = await bcrypt.hash(body.password, 10);
+      // Senha nova derruba todas as sessões abertas dessa conta (quem tinha a senha antiga, ou o cookie dela, sai na hora).
+      data.sessoesValidasDesde = new Date();
     }
   
     const ROLES = ["admin", "vendedor", "cobrador"];

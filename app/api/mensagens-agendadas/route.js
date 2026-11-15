@@ -2,13 +2,21 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { lerCorpo, texto } from "@/lib/corpo";
 import { saveMediaBase64 } from "@/lib/mediaStorage";
+import { getCurrentUser, veTodosLeads } from "@/lib/session";
+import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 
 const TIPOS_MIDIA = new Set(["audio", "image", "document"]);
 
 export async function GET(req) {
   const contactId = new URL(req.url).searchParams.get("contactId");
+  // Só agendamentos de leads que a pessoa pode ver (antes listava os de todo mundo, com nome e telefone).
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  if (contactId) { const negado = await negarSeNaoPodeVerContato(contactId); if (negado) return negado; }
+  const where = contactId ? { contactId } : { enviado: false };
+  if (!veTodosLeads(user)) where.contact = { responsavel: user.name };
   const lista = await prisma.mensagemAgendada.findMany({
-    where: contactId ? { contactId } : { enviado: false },
+    where,
     orderBy: { dataHora: "asc" },
     include: { contact: { select: { id: true, name: true, phone: true } }, template: { select: { title: true } } },
     take: 200,
@@ -25,6 +33,8 @@ export async function POST(req) {
   if (!body.templateId && !texto(body.corpo) && !temMidiaPropria) {
     return NextResponse.json({ error: "Escolha uma mensagem pronta, escreva o texto, grave um áudio ou escolha uma imagem." }, { status: 400 });
   }
+  const negadoPost = await negarSeNaoPodeVerContato(String(body.contactId));
+  if (negadoPost) return negadoPost; // agendar mensagem pra lead de outro vendedor
   if (Number.isNaN(new Date(body.dataHora).getTime())) {
     return NextResponse.json({ error: "Data e hora inválidas." }, { status: 400 });
   }

@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { lerCorpo } from "@/lib/corpo";
+import { getCurrentUser, isAdmin } from "@/lib/session";
 import { dadosChip } from "@/lib/chips";
 
 export async function GET() {
+  // Custos de chip e recargas são despesa da empresa — só Configurações (admin) usa.
+  if (!isAdmin(await getCurrentUser())) return NextResponse.json({ error: "Só o administrador." }, { status: 403 });
   const chips = await prisma.chip.findMany({ orderBy: { createdAt: "asc" }, include: { recargas: { orderBy: { data: "desc" } } } });
   return NextResponse.json(chips);
 }

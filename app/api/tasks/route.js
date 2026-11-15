@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { lerCorpo, texto } from "@/lib/corpo";
+import { getCurrentUser, veTodosLeads } from "@/lib/session";
 
 // Lista tarefas (com filtros opcionais) — usado na aba "Tarefas" e no card do lead.
 export async function GET(req) {
@@ -22,6 +23,12 @@ export async function GET(req) {
   if (responsavel) {
     where.OR = [{ responsavel }, { responsavel: null, contact: { responsavel } }];
   }
+
+  // Quem não vê todos os leads só lista tarefas dos leads seus (ou atribuídas a ele). Antes a lista trazia nome e telefone de toda a
+  // carteira — e ?contactId= abria as tarefas de qualquer cliente.
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  if (!veTodosLeads(user)) where.AND = [{ OR: [{ responsavel: user.name }, { contact: { responsavel: user.name } }] }];
 
   const tasks = await prisma.task.findMany({
     where,
@@ -46,6 +53,9 @@ export async function POST(req) {
   if (!contactId) {
     return NextResponse.json({ error: "Informe o lead." }, { status: 400 });
   }
+  const { negarSeNaoPodeVerContato } = await import("@/lib/contatoAcesso");
+  const negado = await negarSeNaoPodeVerContato(String(contactId));
+  if (negado) return negado; // criar tarefa em lead de outro vendedor
   // Repetição no período (ex.: das 13:00 às 17:00, a cada 60 min): cria uma
   // tarefa por horário, no mesmo dia, pro mesmo lead.
   const rep = body.repetir;
