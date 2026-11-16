@@ -189,6 +189,16 @@ export async function POST(req, { params }) {
     }
   }
 
+  // Mesmo texto, mesma pessoa, mesma conversa em menos de 20 s = clique/Enter repetido enquanto o envio demorava (16/11: a mesma
+  // mensagem saiu 5 vezes). Devolve a que já existe em vez de duplicar.
+  if (corpo && !midia) {
+    const igual = await prisma.mensagemInterna.findFirst({
+      where: { conversaId: id, autorId: user.id, body: corpo, createdAt: { gte: new Date(Date.now() - 20000) } },
+      select: { id: true },
+    });
+    if (igual) return NextResponse.json({ ok: true, duplicada: true, id: igual.id });
+  }
+
   const membros = await prisma.conversaInternaMembro.findMany({
     where: { conversaId: id },
     select: { user: { select: { id: true, name: true, login: true } } },

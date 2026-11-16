@@ -313,11 +313,16 @@ export default function ChatInternoView() {
 
   // Envio único pra texto e anexo: com arquivo vai multipart, sem arquivo vai
   // JSON. Nos dois casos leva junto a citação e o "cobrar de".
+  const enviandoRef = useRef(false);
   async function enviarMensagem({ file = null, corpo = "" } = {}) {
     if (!selecionada) return;
+    // Trava síncrona: o Enter não olhava o "enviando" e, com o envio lento, cada Enter mandava a mesma mensagem de novo.
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
     setEnviando(true);
     setErro("");
     let res;
+    try {
     if (file) {
       const fd = new FormData();
       fd.append("file", file);
@@ -337,7 +342,13 @@ export default function ChatInternoView() {
         }),
       });
     }
-    setEnviando(false);
+    } catch {
+      // Sem rede/servidor: antes o botão ficava em "…" pra sempre e a mensagem sumia sem aviso.
+      res = { ok: false, json: async () => ({ error: "Sem conexão. A mensagem não foi enviada — tente de novo." }) };
+    } finally {
+      enviandoRef.current = false;
+      setEnviando(false);
+    }
     const d = await res.json().catch(() => ({}));
     if (!res.ok) {
       setErro(d.error || "Não foi possível enviar.");
