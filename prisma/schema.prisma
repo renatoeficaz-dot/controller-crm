@@ -1990,3 +1990,14 @@ model SessaoRevogada {
   exp DateTime
   @@index([exp])
 }
+
+// Meta em R$ de um dia específico do calendário, por cima da regra de % (ex.: 17/11/2026: liberação 1.800 e recebimento 4.450).
+// O valor é a meta CHEIA; mínima e média saem proporcionais às % configuradas (ex.: liberação 80/100/120 → 1.200 / 1.500 / 1.800).
+model MetaValorData {
+  id             String   @id @default(cuid())
+  data           DateTime @unique // meia-noite UTC do dia (mesma convenção de MetaDiaria.dia)
+  recebimentoDia Float?
+  liberacaoDia   Float?
+  motivo         String?
+  createdAt      DateTime @default(now())
+}
