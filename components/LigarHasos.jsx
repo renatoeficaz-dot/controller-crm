@@ -13,6 +13,10 @@ const mascara = (p) => {
   const d = soDigitos(p).replace(/^55/, "");
   return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}` : p || "";
 };
+// Conta o clique em "Ligar" pro relatório de ligações por colaborador (Relatórios / Configurações). Falha aqui não atrapalha a ligação.
+const registrarDisparo = (instanceId, telefone, ok, erro) => {
+  fetch("/api/hasos/disparo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instanceId, telefone, ok, erro: erro || null }) }).catch(() => {});
+};
 const lerSalvo = () => { try { return localStorage.getItem("hasosInstancia") || ""; } catch { return ""; } };
 const gravarSalvo = (v) => { try { localStorage.setItem("hasosInstancia", v); } catch {} };
 
@@ -89,7 +93,9 @@ export default function LigarHasos({ phone, name, fallback, className = "", titl
       mostrar({ ...base, estado: "chamando" });
       // O discador NÃO rejeita quando falha: devolve { call: null, err: { message } } (ex.: "Assine o Pro para ligar.").
       const r = await d.call.start(numero);
-      if (r?.err || r?.call === null) {
+      const falhou = !!(r?.err || r?.call === null);
+      registrarDisparo(inst.id, numero, !falhou, r?.err?.message);
+      if (falhou) {
         baseRef.current = null;
         mostrar({ ...base, estado: "erro", msg: r?.err?.message || "A Hasos não iniciou a ligação." }, 12000);
       }

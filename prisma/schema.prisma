@@ -2001,3 +2001,35 @@ model MetaValorData {
   motivo         String?
   createdAt      DateTime @default(now())
 }
+
+// Histórico das ligações da Hasos (WhatsApp), copiado da API (GET /v1/calls): a Hasos só devolve as ~150 mais recentes,
+// então guardamos aqui pra o relatório de ligações por dia não perder o passado. userId: quem clicou em "Ligar" (casado com HasosDisparo).
+model HasosChamada {
+  id             String    @id
+  whatsappCallId String?
+  instanceId     String
+  direction      String
+  status         String?
+  endReason      String?
+  peerPhone      String?
+  startedAt      DateTime
+  endedAt        DateTime?
+  durationSec    Int?
+  userId         String?
+  sincronizadaEm DateTime  @default(now())
+
+  @@index([startedAt])
+}
+
+// Cada clique em "Ligar" (Hasos) no sistema: quem ligou, por qual número e se a Hasos aceitou iniciar.
+model HasosDisparo {
+  id         String   @id @default(cuid())
+  userId     String
+  instanceId String
+  fone       String
+  ok         Boolean  @default(true)
+  erro       String?
+  criadoEm   DateTime @default(now())
+
+  @@index([criadoEm])
+}

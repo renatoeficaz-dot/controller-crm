@@ -1,5 +1,6 @@
 "use client";
 
+import LigacoesHasos from "@/components/LigacoesHasos";
 import { CartaoWabaApp, PainelWabaNumero } from "@/components/WabaPaineis";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
@@ -4839,6 +4840,7 @@ function TokenDeepInfra() {
         </p>
         <Field label="Chave de API — Hasos" value={tokens.hasosApiKey} onChange={(v) => setTokens((t) => ({ ...t, hasosApiKey: v }))} placeholder="hs_live_..." />
         <Field label="Token do dispositivo — Wavoip (antigo, reserva)" value={tokens.wavoipToken} onChange={(v) => setTokens((t) => ({ ...t, wavoipToken: v }))} placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" />
+        {tokens.hasosApiKey ? <LigacoesHasos aberta /> : null}
       </div>
       <div className="border-t border-slate-100 pt-3 space-y-2">
         <p className="text-xs font-medium text-slate-600">Catta — dono do telefone dos contatos de referência</p>
