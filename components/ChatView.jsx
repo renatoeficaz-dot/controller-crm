@@ -111,6 +111,25 @@ function semPagarHoje(c) {
   return !(c.parcelas || []).some((p) => dia(p.paidAt) === hoje || dia(p.valorPagoEm) === hoje);
 }
 
+// Há quantos dias (calendário de Brasília) foi a data: 0 = hoje, 1 = ontem…; null = nunca.
+function diasDesde(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  if (isNaN(d)) return null;
+  const dia = d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  return Math.round((new Date(hoje + "T00:00:00Z") - new Date(dia + "T00:00:00Z")) / 86400000);
+}
+// Filtro de dias: "" = todos; "0".. "7" = exatamente N dias atrás; "8" = mais de 7; "nunca" = nunca houve.
+function bateDias(filtro, data) {
+  if (!filtro) return true;
+  const d = diasDesde(data);
+  if (filtro === "nunca") return d == null;
+  if (d == null) return false;
+  return filtro === "8" ? d > 7 : d === Number(filtro);
+}
+const OPCOES_DIAS_MSG = [["", "Todos"], ["0", "Hoje"], ["1", "Ontem"], ["2", "2 dias"], ["3", "3"], ["4", "4"], ["5", "5"], ["6", "6"], ["7", "7"], ["8", "+7"], ["nunca", "Nunca"]];
+
 // Há quantos dias o cliente não paga nada (total ou parcial); null = nunca pagou ou sem parcela em aberto no ciclo atual.
 function diasSemPagar(c) {
   const ciclo = c.cicloAtual || 1;
@@ -309,6 +328,8 @@ export default function ChatView() {
   const [stageFiltro, setStageFiltro] = useState([]); // várias etapas ao mesmo tempo (lista de ids; vazia = todas)
   // "" = todas | "naolidas" | "semresposta" | "ambas" (notificadas E sem resposta)
   const [filtroMsgs, setFiltroMsgs] = useState("");
+  const [enviadaFiltro, setEnviadaFiltro] = useState(""); // última mensagem NOSSA: "" | "0" hoje | "1" ontem | … | "8" +7 | "nunca"
+  const [recebidaFiltro, setRecebidaFiltro] = useState(""); // última mensagem do CLIENTE, mesmas opções
   const [instanceFiltro, setInstanceFiltro] = useState(""); // número/instância que está conversando
   const [ordem, setOrdem] = useState("recentes"); // "recentes" | "antigas" | "nome"
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -584,7 +605,7 @@ export default function ChatView() {
   }
 
   const chatFiltrosAtivosCount =
-    (statusFiltro ? 1 : 0) + (semPagarFiltro ? 1 : 0) + (stageFiltro.length ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0) + (tarefaFiltro ? 1 : 0);
+    (statusFiltro ? 1 : 0) + (semPagarFiltro ? 1 : 0) + (stageFiltro.length ? 1 : 0) + (tagFiltro ? 1 : 0) + (instanceFiltro ? 1 : 0) + (filtroMsgs ? 1 : 0) + (tarefaFiltro ? 1 : 0) + (enviadaFiltro ? 1 : 0) + (recebidaFiltro ? 1 : 0);
 
   // Filtros da lista lembrados no navegador: o chat abre sempre com o último filtro escolhido (busca e "arquivadas" não entram).
   const [filtrosCarregados, setFiltrosCarregados] = useState(false);
@@ -598,6 +619,8 @@ export default function ChatView() {
         if (Array.isArray(f.stageFiltro)) setStageFiltro(f.stageFiltro.filter((x) => typeof x === "string"));
         else if (typeof f.stageFiltro === "string" && f.stageFiltro) setStageFiltro([f.stageFiltro]); // formato antigo (uma etapa só)
         if (typeof f.filtroMsgs === "string") setFiltroMsgs(f.filtroMsgs);
+        if (typeof f.enviadaFiltro === "string") setEnviadaFiltro(f.enviadaFiltro);
+        if (typeof f.recebidaFiltro === "string") setRecebidaFiltro(f.recebidaFiltro);
         if (typeof f.instanceFiltro === "string") setInstanceFiltro(f.instanceFiltro);
         if (typeof f.ordem === "string") setOrdem(f.ordem);
       }
@@ -607,11 +630,11 @@ export default function ChatView() {
   useEffect(() => {
     if (!filtrosCarregados) return;
     try {
-      localStorage.setItem("chat:filtros", JSON.stringify({ statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, filtroMsgs, instanceFiltro, ordem }));
+      localStorage.setItem("chat:filtros", JSON.stringify({ statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, filtroMsgs, enviadaFiltro, recebidaFiltro, instanceFiltro, ordem }));
     } catch {}
-  }, [filtrosCarregados, statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, filtroMsgs, instanceFiltro, ordem]);
+  }, [filtrosCarregados, statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, filtroMsgs, enviadaFiltro, recebidaFiltro, instanceFiltro, ordem]);
 
-  useEffect(() => { setLimiteLista(80); }, [busca, statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, ordem, mostrarArquivadas, modoBusca]);
+  useEffect(() => { setLimiteLista(80); }, [busca, statusFiltro, tarefaFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, enviadaFiltro, recebidaFiltro, ordem, mostrarArquivadas, modoBusca]);
 
   const conversasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -642,6 +665,8 @@ export default function ChatView() {
       if (filtroMsgs === "naolidas" && !naoLida) return false;
       if (filtroMsgs === "semresposta" && !semResposta) return false;
       if (filtroMsgs === "ambas" && !(naoLida && semResposta)) return false;
+      if (!bateDias(enviadaFiltro, c.ultimaEnviadaEm)) return false;
+      if (!bateDias(recebidaFiltro, c.ultimaRecebidaEm)) return false;
       return true;
     });
     if (ordem === "nome") {
@@ -654,7 +679,7 @@ export default function ChatView() {
       });
     }
     return out;
-  }, [conversations, busca, statusFiltro, semPagarFiltro, tarefaFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, ordem]);
+  }, [conversations, busca, statusFiltro, semPagarFiltro, tarefaFiltro, tagFiltro, stageFiltro, instanceFiltro, filtroMsgs, enviadaFiltro, recebidaFiltro, ordem]);
 
   const loadTasks = useCallback(async () => {
     if (!selectedId) return;
@@ -1482,7 +1507,7 @@ export default function ChatView() {
                 <div className="flex items-center gap-3">
                   {chatFiltrosAtivosCount > 0 && (
                     <button
-                      onClick={() => { setStatusFiltro(""); setSemPagarFiltro(""); setStageFiltro([]); setTagFiltro(""); setInstanceFiltro(""); setFiltroMsgs(""); setTarefaFiltro(""); }}
+                      onClick={() => { setStatusFiltro(""); setSemPagarFiltro(""); setStageFiltro([]); setTagFiltro(""); setInstanceFiltro(""); setFiltroMsgs(""); setTarefaFiltro(""); setEnviadaFiltro(""); setRecebidaFiltro(""); }}
                       className="text-xs text-red-400 hover:text-red-600"
                     >
                       Limpar tudo
@@ -1515,6 +1540,19 @@ export default function ChatView() {
                     ))}
                   </div>
                 </div>
+                {[
+                  ["Última mensagem enviada (nossa)", enviadaFiltro, setEnviadaFiltro],
+                  ["Última mensagem recebida (do cliente)", recebidaFiltro, setRecebidaFiltro],
+                ].map(([titulo, valor, setValor]) => (
+                  <div key={titulo}>
+                    <span className="text-xs text-slate-400">{titulo}</span>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {OPCOES_DIAS_MSG.map(([v, t]) => (
+                        <button key={v || "todos"} type="button" onClick={() => setValor(v)} className={`text-xs rounded-full px-3 py-1 border transition-colors ${valor === v ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}>{t}</button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
                 <div>
                   <span className="text-xs text-slate-400">Dias sem pagar nada</span>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">

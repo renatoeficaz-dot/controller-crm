@@ -33,6 +33,13 @@ export async function GET(req) {
   return new Response(ent.corpo, { headers: base });
 }
 
+// MAX() no SQL cru volta como número (ms), BigInt ou texto, dependendo de como o SQLite guardou: normaliza pra Date.
+function comoData(v) {
+  if (v == null) return null;
+  const d = v instanceof Date ? v : new Date(typeof v === "bigint" ? Number(v) : v);
+  return isNaN(d) ? null : d;
+}
+
 async function montarLista(user, mostrarArquivadas) {
   // Conversas fechadas "para voltar daqui X": chegou a hora, reabre.
   await prisma.contact.updateMany({ where: { chatArquivado: true, chatVoltaEm: { lte: new Date() } }, data: { chatArquivado: false, chatVoltaEm: null } }).catch(() => {});
@@ -77,15 +84,16 @@ async function montarLista(user, mostrarArquivadas) {
     ? Prisma.sql`WHERE (instance IS NULL OR instance IN (${Prisma.join(inst.length ? inst : [""])}))`
     : Prisma.empty;
   const ultimas = await prisma.$queryRaw`
-    SELECT m.contactId, m.body, m.kind, m.fromMe, m.createdAt, m.instance
+    SELECT m.contactId, m.body, m.kind, m.fromMe, m.createdAt, m.instance, x.env, x.rec
     FROM Message m
-    JOIN (SELECT contactId, MAX(createdAt) mx FROM Message ${filtroInst} GROUP BY contactId) x
+    JOIN (SELECT contactId, MAX(createdAt) mx, MAX(CASE WHEN fromMe = 1 THEN createdAt END) env, MAX(CASE WHEN fromMe = 0 THEN createdAt END) rec
+          FROM Message ${filtroInst} GROUP BY contactId) x
       ON x.contactId = m.contactId AND x.mx = m.createdAt
     ${inst ? Prisma.sql`WHERE (m.instance IS NULL OR m.instance IN (${Prisma.join(inst.length ? inst : [""])}))` : Prisma.empty}`;
   const ultimaPorContato = new Map();
   for (const m of ultimas) {
     if (!ultimaPorContato.has(m.contactId)) {
-      ultimaPorContato.set(m.contactId, { body: m.body, kind: m.kind, fromMe: !!m.fromMe, createdAt: m.createdAt, instance: m.instance });
+      ultimaPorContato.set(m.contactId, { body: m.body, kind: m.kind, fromMe: !!m.fromMe, createdAt: m.createdAt, instance: m.instance, env: comoData(m.env), rec: comoData(m.rec) });
     }
   }
 
@@ -105,7 +113,10 @@ async function montarLista(user, mostrarArquivadas) {
       chatArquivado: c.chatArquivado,
       tarefasPendentes: c.tasks || [],
       instance: ultimaPorContato.get(c.id)?.instance || null,
-      lastMessage: ultimaPorContato.get(c.id) || null,
+      lastMessage: ultimaPorContato.get(c.id) ? { ...ultimaPorContato.get(c.id), env: undefined, rec: undefined } : null,
+      // Última mensagem NOSSA e última do CLIENTE (filtros "Última enviada" / "Última recebida" do Chat).
+      ultimaEnviadaEm: ultimaPorContato.get(c.id)?.env || null,
+      ultimaRecebidaEm: ultimaPorContato.get(c.id)?.rec || null,
       unreadCount: c._count?.messages || 0,
     }))
     .sort((a, b) => {
