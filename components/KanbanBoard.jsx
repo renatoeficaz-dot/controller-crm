@@ -1,6 +1,7 @@
 "use client";
 
 import RenovacaoRapida from "./RenovacaoRapida";
+import { fetchAvisando } from "@/lib/fetchAvisando";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import ContactModal from "./ContactModal";
@@ -358,9 +359,9 @@ export default function KanbanBoard() {
   }, [load, dragging]);
 
   useEffect(() => {
-    fetch("/api/users").then((r) => r.json()).then(setUsuarios).catch(() => {});
-    fetch("/api/tags").then((r) => r.json()).then(setTags).catch(() => {});
-    fetch("/api/motivos-perda").then((r) => r.json()).then(setMotivosPerda).catch(() => {});
+    fetch("/api/users").then((r) => r.json()).then((d) => setUsuarios(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch("/api/tags").then((r) => r.json()).then((d) => setTags(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch("/api/motivos-perda").then((r) => r.json()).then((d) => setMotivosPerda(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   async function moveContact(contactId, toStageId, forcar = false, motivoPerda = null) {
@@ -408,22 +409,23 @@ export default function KanbanBoard() {
 
   async function toggleFixado(c) {
     setStages((prev) => prev.map((s) => ({ ...s, contacts: s.contacts.map((x) => (x.id === c.id ? { ...x, fixado: !c.fixado } : x)) })));
-    await fetch(`/api/contacts/${c.id}`, {
+    const _r = await fetchAvisando(`/api/contacts/${c.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fixado: !c.fixado }),
-    });
+    }, "salvar");
     load();
   }
 
   async function setCorCard(c, cor) {
     setStages((prev) => prev.map((s) => ({ ...s, contacts: s.contacts.map((x) => (x.id === c.id ? { ...x, corCard: cor } : x)) })));
-    await fetch(`/api/contacts/${c.id}`, {
+    const _r = await fetchAvisando(`/api/contacts/${c.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ corCard: cor || null }),
-    });
+    }, "salvar");
+    if (!_r) load(); // falhou: o card volta para a cor gravada de verdade
   }
 
   async function abrirDuplicados(c) {
     const lista = await fetch(`/api/contacts/${c.id}/duplicados`).then((r) => r.json()).catch(() => []);
-    setDuplicadosDe({ contact: c, lista });
+    setDuplicadosDe({ contact: c, lista: Array.isArray(lista) ? lista : [] }); // erro da API ({ error }) quebrava o modal
   }
 
   async function mesclar(principalId, outroId) {
@@ -581,21 +583,32 @@ export default function KanbanBoard() {
       delete: "EXCLUIR",
     }[bulkAction];
     if (!confirm(`Confirmar: ${labelAcao} de ${ids.length} lead(s) do filtro?`)) return;
+    // Venda perdida em massa precisa do motivo, igual a mover um card só (o servidor recusa sem ele).
+    let motivoPerda;
+    if (bulkAction === "stage" && stages.find((s) => s.id === bulkValue)?.name === "Venda perdida") {
+      const opcoes = (motivosPerda || []).map((m) => m.nome).filter(Boolean);
+      motivoPerda = (prompt(`Motivo da perda${opcoes.length ? ` (${opcoes.join(", ")})` : ""}:`) || "").trim();
+      if (!motivoPerda) return;
+    }
 
     setBulkBusy(true);
     const res = await fetch("/api/contacts/bulk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids, action: bulkAction, value: bulkValue || null }),
-    });
+      body: JSON.stringify({ ids, action: bulkAction, value: bulkValue || null, motivoPerda }),
+    }).catch(() => null);
     setBulkBusy(false);
+    // Sem conexão o fetch lançava e o botão ficava travado em "processando".
+    if (!res) { flash("Sem conexão com o servidor: nada foi alterado."); return; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       flash(data.error || "Falha na ação em massa.");
       return;
     }
     if (data.skipped) {
-      flash(`${data.moved} movido(s); ${data.skipped} sem Valor do capital foram ignorados.`);
+      // Mostra o motivo real de cada lead que ficou (antes dizia sempre "sem Valor do capital", mesmo quando era outra coisa).
+      const motivos = Object.entries(data.motivos || {}).map(([m, n]) => `${n}: ${m}`).join(" · ");
+      flash(`${data.moved} movido(s); ${data.skipped} não foram${motivos ? ` — ${motivos}` : " (já estavam na coluna ou faltava Valor do capital/Pix)"}.`);
     }
     setBulkAction("");
     setBulkValue("");

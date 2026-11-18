@@ -26,13 +26,21 @@ export async function POST(req) {
   const phoneDigits = texto(body.phone).replace(/\D/g, "");
   if (phoneDigits) {
     const tail = phoneDigits.slice(-8);
-    const existing = await prisma.contact.findFirst({ where: { phone: { endsWith: tail } } });
+    // Só cadastro ativo (o excluído na lixeira não é "o mesmo lead que já existe" — a pessoa não conseguia abrir o card devolvido).
+    const existing = await prisma.contact.findFirst({ where: { phone: { endsWith: tail }, excluidoEm: null } });
     if (existing) {
+      // Lead de outro vendedor: avisa que existe sem entregar a ficha inteira (nome, CPF, telefone) de quem não pode vê-la.
+      const { negarSeNaoPodeVerContato } = await import("@/lib/contatoAcesso");
+      if (await negarSeNaoPodeVerContato(existing.id)) return NextResponse.json({ error: "Esse telefone já está cadastrado na carteira de outra pessoa." }, { status: 409 });
       return NextResponse.json({ existing: true, contact: existing });
     }
   }
 
-  let stageId = body.stageId;
+  let stageId = typeof body.stageId === "string" ? body.stageId : null;
+  // Coluna inexistente dava erro de chave (500).
+  if (stageId && !(await prisma.stage.findUnique({ where: { id: stageId }, select: { id: true } }))) {
+    return NextResponse.json({ error: "Coluna não encontrada." }, { status: 400 });
+  }
   if (!stageId) {
     const first = await prisma.stage.findFirst({ orderBy: { order: "asc" } });
     if (!first) {
@@ -48,12 +56,14 @@ export async function POST(req) {
 
   const contact = await prisma.contact.create({
     data: {
-      name: body.name || "Sem nome",
-      phone: body.phone || null,
-      notes: body.notes || null,
-      estado: body.estado || ufFromPhone(body.phone),
-      genero: body.genero || null,
-      tipoCliente: body.tipoCliente || null,
+      // Texto sempre (número/objeto derrubava o Prisma) e telefone só com dígitos: gravado com parênteses e traço, a busca de lead
+      // repetido (pelos últimos 8 dígitos) e o casamento com o WhatsApp não achavam o cadastro e nascia um lead duplicado.
+      name: texto(body.name) || "Sem nome",
+      phone: phoneDigits || null,
+      notes: texto(body.notes) || null,
+      estado: /^[A-Z]{2}$/.test(texto(body.estado).toUpperCase()) ? texto(body.estado).toUpperCase() : ufFromPhone(phoneDigits),
+      genero: ["masculino", "feminino"].includes(body.genero) ? body.genero : null,
+      tipoCliente: ["motoboy", "uber", "comerciante"].includes(body.tipoCliente) ? body.tipoCliente : null,
       stageId,
       order: (last?.order ?? -1) + 1,
     },

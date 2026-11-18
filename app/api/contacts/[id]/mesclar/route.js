@@ -16,7 +16,10 @@ export async function POST(req, { params }) {
   }
 
   const { comId } = await lerCorpo(req);
-  if (!comId) return NextResponse.json({ error: "Informe o cadastro a mesclar." }, { status: 400 });
+  if (typeof comId !== "string" || !comId) return NextResponse.json({ error: "Informe o cadastro a mesclar." }, { status: 400 });
+  // O cadastro que vai ser absorvido também precisa ser visível para quem mescla (antes dava para puxar para si o lead de outra pessoa).
+  const negadoOutro = await negarSeNaoPodeVerContato(comId);
+  if (negadoOutro) return negadoOutro;
 
   try {
     const contato = await mesclarContatos(id, comId, user.name);

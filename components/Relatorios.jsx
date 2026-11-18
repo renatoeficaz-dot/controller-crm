@@ -1269,7 +1269,11 @@ export default function Relatorios() {
           const d = diaBR(c.entrouRecebimentoEm);
           if (d >= ini && d <= fim) vendas++;
         }
-        if ((c.cicloAtual || 1) > 1 && c.pagamentoCapital) {
+        // Renovação pelo marcador renovadoEm (o mesmo das Metas); cadastros antigos sem ele caem na data da liberação.
+        if (c.renovadoEm) {
+          const d = diaBR(c.renovadoEm);
+          if (d >= ini && d <= fim) ren++;
+        } else if ((c.cicloAtual || 1) > 1 && c.pagamentoCapital) {
           const d = String(c.pagamentoCapital).slice(0, 10);
           if (d >= ini && d <= fim) ren++;
         }

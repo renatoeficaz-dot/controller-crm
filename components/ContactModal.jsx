@@ -1,6 +1,7 @@
 "use client";
 
 import LigarHasos from "./LigarHasos";
+import { fetchAvisando } from "@/lib/fetchAvisando";
 import { pressLongo } from "./pressLongo";
 import RenovacaoRapida from "./RenovacaoRapida";
 import TarefaBarra from "./TarefaBarra";
@@ -228,11 +229,11 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
     const m = enviarCampoMsg;
     setEnviarCampoMsg(null);
     if (!m || !(m.body || "").trim()) return;
-    await fetch(`/api/contacts/${contactId}`, {
+    const _r = await fetchAvisando(`/api/contacts/${contactId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [campo]: m.body.trim() }),
-    });
+    }, "salvar");
     loadContact();
   }
 
@@ -476,7 +477,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
 
   async function cancelarAgendamento(id) {
     if (!confirm("Cancelar esse agendamento?")) return;
-    await fetch(`/api/mensagens-agendadas/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/mensagens-agendadas/${id}`, { method: "DELETE" }, "excluir");
     loadAgendamentos();
   }
 
@@ -561,13 +562,13 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
 
   // Usuários (responsável), etapas (mudar de coluna) e mensagens prontas
   useEffect(() => {
-    fetch("/api/users").then((r) => r.json()).then(setUsers).catch(() => {});
+    fetch("/api/users").then((r) => r.json()).then((d) => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
     fetch("/api/stages?leve=1")
       .then((r) => r.json())
       .then((d) => setStagesList(d.map((s) => ({ id: s.id, name: s.name }))))
       .catch(() => {});
-    fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
-    fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
+    fetch("/api/templates").then((r) => r.json()).then((d) => setTemplates(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch("/api/tags").then((r) => r.json()).then((d) => setAllTags(Array.isArray(d) ? d : [])).catch(() => {});
     fetch("/api/task-types").then((r) => r.json()).then((t) => setTaskTypes(Array.isArray(t) ? t : [])).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
     fetch("/api/campos-personalizados").then((r) => r.json()).then((c) => setCamposDef(Array.isArray(c) ? c : [])).catch(() => {});
@@ -659,11 +660,11 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
     setMoveErr("");
     // salva os campos antes (capital/responsável) p/ as regras de movimentação valerem
     if (!forcar && !motivoPerda) {
-      await fetch(`/api/contacts/${contactId}`, {
+      const _r = await fetchAvisando(`/api/contacts/${contactId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
-      });
+      }, "salvar");
     }
     const res = await fetch(`/api/contacts/${contactId}/move`, {
       method: "PATCH",
@@ -781,11 +782,11 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   // render, que chamava de novo. Ver comentário em parcelasSimuladas.
   async function regerarParcelasNoServidor() {
     setCobrancaMsg("");
-    await fetch(`/api/contacts/${contactId}`, {
+    const _r = await fetchAvisando(`/api/contacts/${contactId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
-    });
+    }, "salvar");
     const res = await fetch(`/api/contacts/${contactId}/parcelas`, { method: "POST" });
     const data = await res.json();
     if (!res.ok) {
@@ -925,17 +926,17 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
 
   async function toggleTaskDone(t) {
     setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)));
-    await fetch(`/api/tasks/${t.id}`, {
+    const _r = await fetchAvisando(`/api/tasks/${t.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ done: !t.done }),
-    });
+    }, "salvar");
     onChanged?.();
   }
 
   async function removeTask(id) {
     if (!confirm("Excluir esta tarefa?")) return;
-    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/tasks/${id}`, { method: "DELETE" }, "excluir");
     loadTasks();
     onChanged?.();
   }
@@ -1053,11 +1054,11 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   async function toggleTag(tagId) {
     const has = contactTags.includes(tagId);
     setContactTags((prev) => (has ? prev.filter((id) => id !== tagId) : [...prev, tagId]));
-    await fetch(`/api/contacts/${contactId}/tags`, {
+    const _r = await fetchAvisando(`/api/contacts/${contactId}/tags`, {
       method: has ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tagId }),
-    });
+    }, "excluir");
     onChanged?.();
   }
 
@@ -1140,11 +1141,11 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
   async function toggleIaPausada() {
     const iaPausada = !contact.iaPausada;
     setContact((c) => ({ ...c, iaPausada }));
-    await fetch(`/api/contacts/${contactId}`, {
+    const _r = await fetchAvisando(`/api/contacts/${contactId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ iaPausada }),
-    });
+    }, "salvar");
     onChanged?.();
   }
 

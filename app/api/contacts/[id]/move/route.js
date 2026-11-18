@@ -43,7 +43,7 @@ async function mover(req, { params }) {
     const { id } = await params;
     const negado = await negarSeNaoPodeVerContato(id);
     if (negado) return negado;
-    const { stageId, forcar: forcarPedido, motivoPerda } = await lerCorpo(req);
+    const { stageId, forcar: forcarPedido, motivoPerda, emMassa } = await lerCorpo(req);
     const session = await getSession();
     // Cargo direto no banco, não no cookie de sessão: o cookie grava o
     // cargo de quando a pessoa LOGOU (dura até 30 dias) — promovido a
@@ -285,7 +285,8 @@ async function mover(req, { params }) {
     }
 
     // Entrou em "Análise" fora do horário do setor (sábado 14h → segunda 8h): avisa o cliente.
-    if (stage.name === "Análise" && trocandoDeEtapa) {
+    // emMassa: não manda mensagem ao cliente, não aciona o cobrador e não roda as consultas PAGAS (Catta/CNPJá) para cada lead do lote.
+    if (stage.name === "Análise" && trocandoDeEtapa && !emMassa) {
       const { avisarAnaliseForaDoHorario } = await import("@/lib/fluxoDuvida");
       const inst = await resolveInstanceForContact(id).catch(() => null);
       if (inst) after(async () => { await avisarAnaliseForaDoHorario(updated, inst).catch(() => {}); });
@@ -295,19 +296,22 @@ async function mover(req, { params }) {
     // tarefa que normalmente precisa acontecer logo ao chegar nessa etapa.
     if (stage.name === "Vídeo chamada" && trocandoDeEtapa) {
       await criarTarefaVideoChamada(id).catch(() => {});
-      await enviarCobradorVideoChamada(id).catch(() => {});
+      if (!emMassa) await enviarCobradorVideoChamada(id).catch(() => {});
     }
     if (stage.name === "Análise" && trocandoDeEtapa) {
       await criarTarefaPuxada(id).catch(() => {});
-      // Catta: dono dos telefones de referência (em segundo plano).
-      import("@/lib/catta").then((m) => m.consultarDonosDoContato(id)).catch(() => {});
-      import("@/lib/cnpja").then(async (m) => { await m.consultarCnpjDoContato(id); await m.perderSeEnderecoDivergente(id); }).catch(() => {});
+      if (!emMassa) {
+        // Catta: dono dos telefones de referência (em segundo plano).
+        import("@/lib/catta").then((m) => m.consultarDonosDoContato(id)).catch(() => {});
+        import("@/lib/cnpja").then(async (m) => { await m.consultarCnpjDoContato(id); await m.perderSeEnderecoDivergente(id); }).catch(() => {});
+      }
     }
 
     // Cada motivo de perda pode ter sua própria mensagem automática
     // (configurada em Configurações > Motivos de perda, selecionando uma
     // mensagem pronta). Sem mensagem vinculada ao motivo, não manda nada.
-    if (stage.name === "Venda perdida" && trocandoDeEtapa && motivoPerda) {
+    // Em massa (Kanban › ação no filtro) não dispara a mensagem do motivo para cada cliente do lote — antes o em massa nunca mandava.
+    if (stage.name === "Venda perdida" && trocandoDeEtapa && motivoPerda && !emMassa) {
       const motivo = await prisma.motivoPerda.findUnique({ where: { nome: motivoPerda }, include: { template: true } });
       if (motivo?.template) {
         const tituloMsg = motivo.template.title;

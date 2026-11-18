@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { lerCorpo } from "@/lib/corpo";
 import { getCurrentUser, isAdmin, veTodosLeads } from "@/lib/session";
+import { PATCH as moverContato } from "@/app/api/contacts/[id]/move/route";
 
 // Data local de hoje como UTC-midnight (evita drift de fuso nas parcelas)
 function hojeUTC() {
@@ -14,10 +15,13 @@ function hojeUTC() {
 // Ações em massa sobre um conjunto de leads (os que estão no filtro do funil).
 // body: { ids: string[], action: "stage" | "responsavel" | "delete", value?: string }
 export async function POST(req) {
-  let { ids, action, value } = await lerCorpo(req);
+  let { ids, action, value, motivoPerda } = await lerCorpo(req);
   if (!Array.isArray(ids) || ids.length === 0) {
     return NextResponse.json({ error: "Nenhuma lead selecionada." }, { status: 400 });
   }
+  // Só ids em texto, sem repetidos; valor em texto (número/objeto derrubava o Prisma com 500).
+  ids = [...new Set(ids.filter((x) => typeof x === "string" && x))];
+  value = typeof value === "string" ? value.trim() : value == null ? null : String(value);
 
   const user = await getCurrentUser().catch(() => null);
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
@@ -37,10 +41,20 @@ export async function POST(req) {
     }
   }
 
-  const where = { id: { in: ids } };
+  // Lead excluído (na lixeira de 24h) não entra em ação em massa.
+  const where = { id: { in: ids }, excluidoEm: null };
 
   if (action === "responsavel") {
+    // Responsável precisa ser alguém da equipe: nome digitado errado deixava os leads invisíveis para todo mundo que não é admin.
+    if (value && !(await prisma.user.findFirst({ where: { name: value }, select: { id: true } }))) {
+      return NextResponse.json({ error: "Responsável não encontrado na equipe." }, { status: 400 });
+    }
+    // Registra o histórico de responsável de cada lead (a troca individual já registrava; a em massa trocava sem rastro).
+    const antes = await prisma.contact.findMany({ where: { ...where, NOT: { responsavel: value || null } }, select: { id: true, responsavel: true } });
     const r = await prisma.contact.updateMany({ where, data: { responsavel: value || null } });
+    if (antes.length) {
+      await prisma.responsavelLog.createMany({ data: antes.map((c) => ({ contactId: c.id, de: c.responsavel || null, para: value || null, usuario: user.name || null })) }).catch(() => {});
+    }
     return NextResponse.json({ ok: true, updated: r.count });
   }
 
@@ -60,6 +74,30 @@ export async function POST(req) {
 
   if (action === "stage") {
     if (!value) return NextResponse.json({ error: "Escolha a coluna de destino." }, { status: 400 });
+    const stage = await prisma.stage.findUnique({ where: { id: value } });
+    if (!stage) return NextResponse.json({ error: "Coluna não encontrada." }, { status: 404 });
+    // Mover em massa passa pela MESMA regra do mover individual (bloqueio de CPF que deu calote, limite do capital escalonado, Pix e
+    // capital obrigatórios, motivo da perda, tarefas de Análise/Vídeo chamada/Liberação, parcelas de quem foi perdido saindo da cobrança,
+    // renovação de quem volta do Pago). Antes o em massa pulava tudo isso: dava para liberar um CPF bloqueado arrastando em lote.
+    if (stage.name === "Venda perdida" && !motivoPerda) return NextResponse.json({ error: "Informe o motivo da perda." }, { status: 400 });
+    const ativos = (await prisma.contact.findMany({ where: { ...where, NOT: { stageId: value } }, select: { id: true } })).map((c) => c.id);
+    let moved = 0;
+    const recusas = new Map();
+    for (const cid of ativos) {
+      const r = await moverContato(
+        new Request(req.url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stageId: value, motivoPerda: motivoPerda || undefined, emMassa: true }) }),
+        { params: Promise.resolve({ id: cid }) }
+      );
+      if (r.ok) { moved++; continue; }
+      const d = await r.json().catch(() => ({}));
+      const motivo = d.bloqueioCpf ? "CPF com calote em outro cadastro" : d.escalonamentoExcedido ? "capital acima do limite do ciclo" : d.error || "recusado";
+      recusas.set(motivo, (recusas.get(motivo) || 0) + 1);
+    }
+    const skipped = ids.length - moved;
+    return NextResponse.json({ ok: true, moved, skipped, motivos: Object.fromEntries(recusas) });
+  }
+
+  if (action === "stage_antigo") {
     const stage = await prisma.stage.findUnique({ where: { id: value } });
     if (!stage) return NextResponse.json({ error: "Coluna não encontrada." }, { status: 404 });
 

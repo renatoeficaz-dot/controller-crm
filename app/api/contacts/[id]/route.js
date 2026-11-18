@@ -146,7 +146,31 @@ export async function PATCH(req, { params }) {
     }
     if ("camposCustom" in body) data.camposCustom = body.camposCustom ? JSON.stringify(body.camposCustom) : null;
     if ("fixado" in body) data.fixado = !!body.fixado;
-    if ("corCard" in body) data.corCard = body.corCard || null;
+    // Cor do card: só cor hexadecimal (#abc / #aabbcc). Qualquer texto era aceito e gravado.
+    if ("corCard" in body) data.corCard = /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(texto(body.corCard)) ? texto(body.corCard) : null;
+    // Telefone só com dígitos (mesmo motivo da criação: duplicava o lead e não casava com o WhatsApp).
+    if ("phone" in data && data.phone) data.phone = data.phone.replace(/\D/g, "") || null;
+    // As validações abaixo só valem para o que MUDOU: a ficha reenvia todos os campos ao salvar, e um valor antigo (ex.: responsável que
+    // saiu da equipe) não pode impedir de salvar o resto.
+    const atualCt = await prisma.contact.findUnique({ where: { id }, select: { horarioRecebimento: true, tipoCliente: true, estado: true, responsavel: true } });
+    const mudou = (c) => c in data && data[c] !== (atualCt?.[c] ?? null);
+    // Horário de recebimento entra na conta da multa (compara "HH:MM"): "17h" ou "5 da tarde" quebrava o atraso desse cliente.
+    if (mudou("horarioRecebimento") && data.horarioRecebimento && !/^([01]\d|2[0-3]):[0-5]\d$/.test(data.horarioRecebimento)) {
+      return NextResponse.json({ error: "Horário de recebimento inválido: use HH:MM (ex.: 17:00)." }, { status: 400 });
+    }
+    // Valores fechados: gênero/tipo/estado fora da lista sumiam dos filtros e relatórios.
+    if ("genero" in data && data.genero && !["masculino", "feminino"].includes(data.genero)) data.genero = null;
+    if (mudou("tipoCliente") && data.tipoCliente && !["motoboy", "uber", "comerciante"].includes(data.tipoCliente)) {
+      return NextResponse.json({ error: "Tipo de cliente inválido." }, { status: 400 });
+    }
+    if ("estado" in data && data.estado) data.estado = data.estado.toUpperCase();
+    if (mudou("estado") && data.estado) {
+      if (!/^[A-Z]{2}$/.test(data.estado)) return NextResponse.json({ error: "Estado inválido: use a sigla (ex.: SP)." }, { status: 400 });
+    }
+    // Responsável precisa ser alguém da equipe (nome errado deixava o lead invisível para quem não é admin).
+    if (mudou("responsavel") && data.responsavel && !(await prisma.user.findFirst({ where: { name: data.responsavel }, select: { id: true } }))) {
+      return NextResponse.json({ error: "Responsável não encontrado na equipe." }, { status: 400 });
+    }
   
     // Nenhum teto de tamanho aqui: uma sessão comprometida (ou um bug de front
     // que manda o campo errado) conseguia gravar texto de qualquer tamanho em

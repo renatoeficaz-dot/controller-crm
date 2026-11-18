@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchAvisando } from "@/lib/fetchAvisando";
 import Icone from "@/components/Icones";
 
 const RELACAO_LABEL = {
@@ -68,7 +69,7 @@ export default function ReferenciasContato({ contactId, referencias, isAdmin, on
 
   async function remover(id) {
     if (!confirm("Remover este contato de referência?")) return;
-    await fetch(`/api/referencias/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/referencias/${id}`, { method: "DELETE" }, "excluir");
     onChange((referencias || []).filter((r) => r.id !== id));
   }
 
