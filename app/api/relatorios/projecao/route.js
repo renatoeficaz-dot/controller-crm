@@ -116,8 +116,8 @@ export async function GET(req) {
     const entram = new Map();
     const saem = new Map();
     for (const saida of saidaDosAtuais) {
-      const fim = saida && saida >= diasDoPeriodo[0] ? saida : diasDoPeriodo[0];
-      const depois = proximoDiaCobranca(fim);
+      // Sem parcela em aberto no período (já quitou): sai no próprio 1º dia, não no dia seguinte — antes inflava "clientes ativos no início".
+      const depois = saida && saida >= diasDoPeriodo[0] ? proximoDiaCobranca(saida) : diasDoPeriodo[0];
       saem.set(depois, (saem.get(depois) || 0) + 1);
     }
     for (const [dia, qtd] of emprestimosPorDia) {
