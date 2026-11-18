@@ -162,6 +162,17 @@ function diasSemPagar(c) {
   return Math.round((new Date(todayStr() + "T00:00:00Z") - new Date(ultimo + "T00:00:00Z")) / 86400000);
 }
 
+// Há quantos dias (calendário de Brasília) foi a última mensagem da conversa, de qualquer lado. null = nunca houve.
+function diasSemMensagem(c) {
+  if (!c.ultimaMensagemEm) return null;
+  const d = new Date(c.ultimaMensagemEm);
+  if (isNaN(d)) return null;
+  const fuso = { timeZone: "America/Sao_Paulo" };
+  const dia = d.toLocaleDateString("en-CA", fuso);
+  const hoje = new Date().toLocaleDateString("en-CA", fuso);
+  return Math.round((new Date(hoje + "T00:00:00Z") - new Date(dia + "T00:00:00Z")) / 86400000);
+}
+
 // Situação das tarefas (pendentes) do contato:
 //  "sem"      = nenhuma tarefa pendente cadastrada
 //  "atrasada" = tem tarefa pendente com prazo já vencido
@@ -242,6 +253,7 @@ export default function KanbanBoard() {
   const [etapaMulti, setEtapaMulti] = useState(false); // botão "Seleção múltipla" dos chips de etapa
   const [etapaFiltro, setEtapaFiltro] = useState([]); // stageIds selecionados; vazio = todas as colunas
   const [semPagarFiltro, setSemPagarFiltro] = useState(""); // "" = todos; "1".."7" = exatamente N dias sem pagar; "8" = mais de 7
+  const [semMsgFiltro, setSemMsgFiltro] = useState(""); // "" = todos; "1" | "2" | "3" | "5" | "7" | "15" | "30" = pelo menos N dias sem troca de mensagem; "nunca"
   const [tempoFiltro, setTempoFiltro] = useState(""); // "" = todos; "3" | "7" | "15" | "30" = pelo menos N dias parado na etapa
   const [etapaDeFiltro, setEtapaDeFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = entrou na etapa atual a partir dessa data
   const [etapaAteFiltro, setEtapaAteFiltro] = useState(""); // "" = sem teto; "AAAA-MM-DD" = entrou na etapa atual até essa data
@@ -500,6 +512,10 @@ export default function KanbanBoard() {
       if (semPagarFiltro === "8" ? d <= 7 : d !== Number(semPagarFiltro)) return false;
     }
     if (tempoFiltro && diasNaEtapa(c) < Number(tempoFiltro)) return false;
+    if (semMsgFiltro) {
+      const d = diasSemMensagem(c);
+      if (semMsgFiltro === "nunca" ? d != null : d == null || d < Number(semMsgFiltro)) return false;
+    }
     if (etapaDeFiltro || etapaAteFiltro) {
       const base = c.entrouEtapaEm || c.createdAt;
       if (!base) return false;
@@ -615,6 +631,7 @@ export default function KanbanBoard() {
     (tarefaFiltro ? 1 : 0) +
     etapaFiltro.length +
     (tempoFiltro ? 1 : 0) +
+    (semMsgFiltro ? 1 : 0) +
     (semPagarFiltro ? 1 : 0) +
     (criadoDeFiltro ? 1 : 0) +
     (criadoAteFiltro ? 1 : 0) +
@@ -754,7 +771,7 @@ export default function KanbanBoard() {
                     onClick={() => {
                       setFiltros([]); setRespFiltro(""); setTagFiltro(""); setEstadoFiltro("");
                       setGeneroFiltro(""); setTipoClienteFiltro(""); setRenovacaoFiltro(""); setTarefaFiltro("");
-                      setEtapaFiltro([]); setTempoFiltro(""); setSemPagarFiltro("");
+                      setEtapaFiltro([]); setTempoFiltro(""); setSemPagarFiltro(""); setSemMsgFiltro("");
                       setCriadoDeFiltro(""); setCriadoAteFiltro("");
                       setEtapaDeFiltro(""); setEtapaAteFiltro("");
                     }}
@@ -1009,6 +1026,15 @@ export default function KanbanBoard() {
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {[["", "Todos"], ["1", "1 dia"], ["2", "2"], ["3", "3"], ["4", "4"], ["5", "5"], ["6", "6"], ["7", "7"], ["8", "+7"]].map(([v, t]) => (
                     <button key={v || "todos"} type="button" onClick={() => setSemPagarFiltro(v)} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${semPagarFiltro === v ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>{t}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs text-slate-400">Dias sem troca de mensagem (nem nossa, nem do cliente)</span>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {[["", "Todos"], ["1", "1+ dia"], ["2", "2+"], ["3", "3+"], ["5", "5+"], ["7", "7+"], ["15", "15+"], ["30", "30+"], ["nunca", "Nunca conversou"]].map(([v, t]) => (
+                    <button key={v || "todos"} type="button" onClick={() => setSemMsgFiltro(v)} className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${semMsgFiltro === v ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>{t}</button>
                   ))}
                 </div>
               </div>

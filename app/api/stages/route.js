@@ -112,6 +112,8 @@ export async function GET(req) {
       tasksCount: c._count?.tasks || 0,
       tarefasPendentes: c.tasks || [],
       lastMessageAt: ultimaPorContato.get(c.id)?.createdAt || c.createdAt,
+      // Última mensagem de verdade (qualquer lado); null = nunca houve. Filtro "Dias sem troca de mensagem".
+      ultimaMensagemEm: ultimaPorContato.get(c.id)?.createdAt || null,
       // Quantas mensagens o CLIENTE mandou (limitado às últimas 50 da conversa).
       // Não adianta um booleano "respondeu": todo lead nasce de uma mensagem
       // recebida, então isso seria sempre true — o que separa lead real de
