@@ -93,8 +93,19 @@ export default function Relatorios() {
   const [funilExpandido, setFunilExpandido] = useState(false);
 
   const load = useCallback(async () => {
-    const data = await fetch("/api/stages").then((r) => r.json()).catch(() => []);
-    setStages(Array.isArray(data) ? data : []);
+    // O Kanban corta a coluna "Venda perdida" nos últimos 7 dias (são milhares); o relatório soma também os antigos (?antigas=1),
+    // senão recebido, LTV, leads por estado, conversão e tudo que conta lead ficavam sem ~2.700 cadastros.
+    const [data, antigas] = await Promise.all([
+      fetch("/api/stages").then((r) => r.json()).catch(() => []),
+      fetch("/api/stages?antigas=1").then((r) => (r.ok ? r.json() : [])).catch(() => []),
+    ]);
+    const extra = new Map((Array.isArray(antigas) ? antigas : []).map((st) => [st.id, st.contacts || []]));
+    setStages(Array.isArray(data) ? data.map((st) => {
+      const mais = extra.get(st.id) || [];
+      if (!mais.length) return st;
+      const ids = new Set((st.contacts || []).map((c) => c.id));
+      return { ...st, contacts: [...(st.contacts || []), ...mais.filter((c) => !ids.has(c.id))] };
+    }) : []);
     setLoading(false);
   }, []);
   useEffect(() => {
@@ -197,6 +208,20 @@ export default function Relatorios() {
   // Filtros do modal (estado, etapa, gênero, tipo de cliente, data de criação)
   // — combinados, afetam todas as métricas abaixo. Reaproveita a mesma lógica
   // que já existia só pra estado, sem precisar duplicar nada nos indicadores.
+  // Só os filtros de data estão ligados (nenhum de estado/etapa/gênero/tipo)?
+  const filtrosSoDeData = !estadoFiltro && !etapaFiltro && !generoFiltroRel && !tipoClienteFiltroRel;
+  // Liberado no período pela mesma fonte das Metas (saídas "Liberação de capital"), usado no balanço e no giro.
+  const [liberadoMetas, setLiberadoMetas] = useState(null);
+  useEffect(() => {
+    let vivo = true;
+    const ate = fim < hojeStr() ? fim : hojeStr();
+    if (ini > ate) { setLiberadoMetas(0); return; }
+    fetch(`/api/metas/periodo?de=${ini}&ate=${ate}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (vivo) setLiberadoMetas(d?.escopo === "empresa" && Array.isArray(d?.serie) ? d.serie.reduce((s, x) => s + (x.liberado || 0), 0) : null); })
+      .catch(() => { if (vivo) setLiberadoMetas(null); });
+    return () => { vivo = false; };
+  }, [ini, fim]);
   const filtrosAtivosCount =
     (estadoFiltro ? 1 : 0) +
     (etapaFiltro ? 1 : 0) +
@@ -239,7 +264,7 @@ export default function Relatorios() {
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
         let situacao = "sem-cobranca";
-        if (c.parcelas && c.parcelas.length > 0) {
+        if (c.parcelas && c.parcelas.length > 0 && s.name !== "Venda perdida") {
           situacao = s.name === "Cravo" ? "inadimplente" : "adimplente";
         }
         out.push({ id: c.id, name: c.name, phone: c.phone, stageName: s.name, situacao });
@@ -254,7 +279,7 @@ export default function Relatorios() {
     const map = new Map();
     for (const s of lista) {
       for (const c of s.contacts || []) {
-        if (!c.parcelas || c.parcelas.length === 0) continue; // só quem tem empréstimo ativo
+        if (!c.parcelas || c.parcelas.length === 0 || s.name === "Venda perdida") continue; // só quem tem empréstimo ativo (perdido não conta)
         const chave = c[campo] || "outros";
         if (!map.has(chave)) map.set(chave, { chave, adimplentes: 0, inadimplentes: 0 });
         const row = map.get(chave);
@@ -352,8 +377,8 @@ export default function Relatorios() {
         row.clientes++;
         row.emprestado += c.valorCapital;
 
-        // Entradas (completas e parciais) em ordem de data. Antes só as quitadas contavam.
-        const entradas = (c.parcelas || []).map(entradaDaParcela).filter(Boolean).sort((a, b) => new Date(a.quando) - new Date(b.quando));
+        // Entradas (completas e parciais) do ciclo atual, em ordem de data.
+        const entradas = (c.parcelas || []).filter((p) => (p.ciclo || 1) === (c.cicloAtual || 1)).map(entradaDaParcela).filter(Boolean).sort((a, b) => new Date(a.quando) - new Date(b.quando));
         let acumulado = 0;
         let fechou = false;
         const inicio = new Date(c.pagamentoCapital);
@@ -399,7 +424,7 @@ export default function Relatorios() {
   // se o cliente ainda não devolveu o capital emprestado).
   function diasPaybackDe(c) {
     if (!c.valorCapital || !c.pagamentoCapital) return null;
-    const entradas = (c.parcelas || []).map(entradaDaParcela).filter(Boolean).sort((a, b) => new Date(a.quando) - new Date(b.quando));
+    const entradas = (c.parcelas || []).filter((p) => (p.ciclo || 1) === (c.cicloAtual || 1)).map(entradaDaParcela).filter(Boolean).sort((a, b) => new Date(a.quando) - new Date(b.quando));
     let acumulado = 0;
     const inicio = new Date(String(c.pagamentoCapital).slice(0, 10));
     for (const e of entradas) {
@@ -511,12 +536,13 @@ export default function Relatorios() {
         if (d >= ini && d <= fim) emprestadoNoPeriodo += c.valorCapital;
       }
     }
+    const emprestado = liberadoMetas != null && filtrosSoDeData && !criacaoIni && !criacaoFim ? liberadoMetas : emprestadoNoPeriodo;
     return {
       capitalNaRua,
-      emprestadoNoPeriodo,
-      giro: capitalNaRua > 0 ? Math.round((emprestadoNoPeriodo / capitalNaRua) * 10) / 10 : 0,
+      emprestadoNoPeriodo: emprestado,
+      giro: capitalNaRua > 0 ? Math.round((emprestado / capitalNaRua) * 10) / 10 : 0,
     };
-  }, [contatosFiltrados, ini, fim]);
+  }, [contatosFiltrados, ini, fim, liberadoMetas, filtrosSoDeData, criacaoIni, criacaoFim]);
 
   // 5. Faixa de ticket: acima de certo valor o calote costuma disparar — é o
   // dado que define o limite de crédito, hoje decidido no feeling.
@@ -535,7 +561,7 @@ export default function Relatorios() {
       faixa.clientes++;
       faixa.emprestado += capitalEmprestadoDe(c);
       faixa.recebido += recebidoDe(c);
-      if ((c.parcelas || []).length > 0) {
+      if ((c.parcelas || []).length > 0 && c._stage !== "Venda perdida") {
         faixa.comParcelas++;
         if (c._stage === "Cravo") faixa.inadimplentes++;
       }
@@ -564,7 +590,7 @@ export default function Relatorios() {
       row.clientes++;
       row.emprestado += capitalEmprestadoDe(c);
       row.recebido += recebidoDe(c);
-      if ((c.parcelas || []).length > 0) {
+      if ((c.parcelas || []).length > 0 && c._stage !== "Venda perdida") {
         row.comParcelas++;
         if (c._stage === "Cravo") row.inadimplentes++;
       }
@@ -697,7 +723,7 @@ export default function Relatorios() {
         }
         const row = map.get(chave);
         row.leads++;
-        if (c.parcelas && c.parcelas.length > 0) {
+        if (c.parcelas && c.parcelas.length > 0 && s.name !== "Venda perdida") {
           if (s.name === "Cravo") row.inadimplentes++; else row.adimplentes++;
         }
       }
@@ -737,7 +763,7 @@ export default function Relatorios() {
     const map = new Map();
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
-        if (!c.parcelas || c.parcelas.length === 0 || !c.createdAt) continue;
+        if (!c.parcelas || c.parcelas.length === 0 || !c.createdAt || s.name === "Venda perdida") continue;
         const k = keyFn(new Date(c.createdAt));
         if (!map.has(k)) map.set(k, { adimplentes: 0, inadimplentes: 0 });
         const row = map.get(k);
@@ -789,7 +815,8 @@ export default function Relatorios() {
         if (!map.has(k)) map.set(k, { total: 0, venda: 0, cravo: 0 });
         const row = map.get(k);
         row.total++;
-        if (c.entrouRecebimentoEm) row.venda++;
+        // Venda = entrou em Recebimento com capital e não foi perdida depois (antes o lead perdido contava como venda).
+        if (c.entrouRecebimentoEm && (Number(c.valorCapital) || 0) > 0 && s.name !== "Venda perdida") row.venda++;
         if (c.deuCalote) row.cravo++;
       }
     }
@@ -833,7 +860,7 @@ export default function Relatorios() {
         // desiste de tentar receber por bem) — não é só "tem parcela
         // atrasada", que também pega quem ainda está sendo cobrado
         // normalmente em Recebimento e só está alguns dias em atraso.
-        if (c.parcelas && c.parcelas.length > 0) {
+        if (c.parcelas && c.parcelas.length > 0 && s.name !== "Venda perdida") {
           if (s.name === "Cravo") row.inadimplentes++; else row.adimplentes++;
         }
       }
@@ -903,7 +930,8 @@ export default function Relatorios() {
   }, [fim]);
   const balancoPeriodo = useMemo(() => {
     const planejado = planejadoNoPeriodo(stagesFiltrados, ini, fim);
-    const liberado = liberadoNoPeriodo(stagesFiltrados, ini, fim);
+    // Sem filtro de lead, usa o liberado das Metas (inclui renovações já sobrescritas); com filtro, a conta por contato.
+    const liberado = liberadoMetas != null && filtrosSoDeData ? liberadoMetas : liberadoNoPeriodo(stagesFiltrados, ini, fim);
     const dias = Math.max(1, Math.round((new Date(fim) - new Date(ini)) / 86400000) + 1);
     // custoMedioDiario = capital das leads em Recebimento ÷ nº de parcelas.
     const custoMedioDiario = capitalEmRecebimento / NUM_PARCELAS;
@@ -939,7 +967,7 @@ export default function Relatorios() {
       lucroLiquido,
       dias,
     };
-  }, [stagesFiltrados, ini, fim, recebido, capitalEmRecebimento, comissaoCfg, totalContasPagar, totalOutrasSaidas]);
+  }, [stagesFiltrados, ini, fim, recebido, capitalEmRecebimento, comissaoCfg, totalContasPagar, totalOutrasSaidas, liberadoMetas, filtrosSoDeData]);
 
   // Simulador "e se eu tivesse X clientes em Recebimento" — pega a MÉDIA por
   // cliente de hoje (ticket, planejado por dia, taxa de recebimento) e projeta
@@ -1009,7 +1037,7 @@ export default function Relatorios() {
     const adLista = [], inadLista = [];
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
-        if (!c.parcelas || c.parcelas.length === 0) continue;
+        if (!c.parcelas || c.parcelas.length === 0 || s.name === "Venda perdida") continue;
         (s.name === "Cravo" ? inadLista : adLista).push({ id: c.id, name: c.name, phone: c.phone });
       }
     }
@@ -1032,7 +1060,8 @@ export default function Relatorios() {
     const counts = Array.from({ length: NUM_PARCELAS }, () => 0);
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
-        const atrasadas = (c.parcelas || []).filter((p) => parcelaAtrasada(p, hoje));
+        // Ciclo atual: parcela esquecida de um ciclo antigo não diz onde o cliente parou agora.
+        const atrasadas = (c.parcelas || []).filter((p) => (p.ciclo || 1) === (c.cicloAtual || 1) && parcelaAtrasada(p, hoje));
         if (atrasadas.length === 0) continue;
         const stopAt = Math.min(...atrasadas.map((p) => p.number));
         if (stopAt >= 1 && stopAt <= NUM_PARCELAS) counts[stopAt - 1]++;
@@ -1088,7 +1117,7 @@ export default function Relatorios() {
       for (const c of s.contacts || []) {
         if (!c.valorCapital || !c.pagamentoCapital) continue;
         // Entradas completas e parciais, em ordem de data (antes a parcial não contava como recuperado).
-        const pagas = (c.parcelas || []).map(entradaDaParcela).filter(Boolean).sort((a, b) => new Date(a.quando) - new Date(b.quando));
+        const pagas = (c.parcelas || []).filter((p) => (p.ciclo || 1) === (c.cicloAtual || 1)).map(entradaDaParcela).filter(Boolean).sort((a, b) => new Date(a.quando) - new Date(b.quando));
         const recuperado = pagas.reduce((sum, e) => sum + e.valor, 0);
         // Projetado: quanto ainda falta voltar desse cliente — soma das
         // parcelas em aberto (não pagas, e não substituídas por acordo).
@@ -1267,9 +1296,9 @@ export default function Relatorios() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `relatorio-${hojeStr()}.pdf`;
+      a.download = `relatorio-${ini}-a-${fim}.pdf`;
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000); // revogar na hora cancelava o download em alguns navegadores
     } finally {
       setGerandoPdf(false);
     }
@@ -1933,7 +1962,7 @@ export default function Relatorios() {
           </h2>
           {recebidoPorEstado.length > 0 && (
             <button
-              onClick={() => baixarCsv("recebido-por-estado", [
+              onClick={() => baixarCsv(`recebido-por-estado-${ini}-a-${fim}`, [
                 { label: "Estado", chave: "label" },
                 { label: "Clientes", chave: "clientes" },
                 { label: "Recebido", valor: (r) => numeroCsv(r.recebido) },
@@ -1961,7 +1990,7 @@ export default function Relatorios() {
           </h2>
           {safras.length > 0 && (
             <button
-              onClick={() => baixarCsv("safras", [
+              onClick={() => baixarCsv(`safras-${hojeStr()}`, [
                 { label: "Safra", chave: "mes" },
                 { label: "Clientes", chave: "clientes" },
                 { label: "Emprestado", valor: (r) => numeroCsv(r.emprestado) },
@@ -2549,7 +2578,7 @@ export default function Relatorios() {
           </h2>
           {comparativoMensal.length > 0 && (
             <button
-              onClick={() => baixarCsv("comparativo-mensal", [
+              onClick={() => baixarCsv(`comparativo-mensal-${hojeStr()}`, [
                 { label: "Mes", chave: "mes" },
                 { label: "Vendas", chave: "vendas" },
                 { label: "Liberado", valor: (r) => numeroCsv(r.liberado) },
@@ -2871,7 +2900,7 @@ export default function Relatorios() {
                         {detalheCustoAberto === "contas" ? item.descricao : item.description || "Sem descrição"}
                       </p>
                       <p className="text-xs text-slate-400 truncate">
-                        Venc. {fmtDia(String(item.vencimento).slice(0, 10))} · {money(item.valor)} cheio ÷ {item.diasUteisMes} dias úteis do mês
+                        {detalheCustoAberto === "contas" ? "Venc." : "Data"} {fmtDia(String(item.vencimento).slice(0, 10))} · {money(item.valor)} cheio ÷ {item.diasUteisMes} dias úteis do mês
                         {detalheCustoAberto === "contas" && item.categoria?.name ? ` · ${item.categoria.name}` : ""}
                       </p>
                     </div>

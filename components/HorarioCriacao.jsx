@@ -24,7 +24,8 @@ export default function HorarioCriacao({ ini, fim }) {
       .then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => null) }))
       .then(({ ok, d }) => {
         if (!vivo) return;
-        if (!ok) { setErro(d?.error || "Não foi possível calcular."); return; }
+        // Sem apagar, o gráfico do período anterior ficava na tela embaixo do erro, como se fosse do período novo.
+        if (!ok) { setErro(d?.error || "Não foi possível calcular."); setDados(null); return; }
         setErro("");
         setDados(d);
       })

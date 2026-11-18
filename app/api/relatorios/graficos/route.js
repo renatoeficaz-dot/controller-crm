@@ -37,7 +37,14 @@ export async function GET() {
     recebidosNoPeriodo(semanas[0] < `${mesAtual}-01` ? semanas[0] : `${mesAtual}-01`, hoje),
     // Recebido dos 6 meses pela MESMA fonte das Metas (corta baixa lançada em dobro): o mapa de calor e o resultado mensal somavam os
     // lançamentos crus e saíam maiores que o recebido da tela de Metas.
-    recebidosNoPeriodo(meses[0] + "-01", hoje).then(({ itens }) => itens.flatMap((it) => (it.partes || []).map((pt) => ({ amount: pt.valor || 0, createdAt: pt.hora })))),
+    // chave = cliente + minuto (um pagamento que quitou duas parcelas conta UMA vez no mapa de calor); extra = parte que é multa
+    // (o que passou do valor da parcela é lucro inteiro, não "capital + honorários").
+    recebidosNoPeriodo(meses[0] + "-01", hoje).then(({ itens }) => itens.flatMap((it) => (it.partes || []).map((pt) => ({
+      amount: pt.valor || 0,
+      createdAt: pt.hora,
+      chave: it.contactId + "|" + Math.floor(new Date(pt.hora).getTime() / 60000),
+      extra: it.valor > (it.amount || 0) && it.valor > 0 ? ((it.valor - (it.amount || 0)) * (pt.valor || 0)) / it.valor : 0,
+    })))),
     prisma.lancamento.findMany({
       where: { type: "saida", description: { startsWith: "Liberação de capital" }, createdAt: { gte: desde } },
       select: { amount: true, createdAt: true, contact: { select: { responsavel: true } } },

@@ -84,11 +84,12 @@ function RoiCapital() {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <p className="text-[11px] text-slate-400">No período</p>
-          <p className="text-xl font-bold text-emerald-600">{dados.roiPeriodoPct}%</p>
+          {/* Vermelho quando negativo, vírgula decimal e "—" sem capital liberado (antes "null%" e sempre verde). */}
+          <p className={`text-xl font-bold ${dados.roiPeriodoPct < 0 ? "text-red-600" : "text-emerald-600"}`}>{dados.roiPeriodoPct == null ? "—" : `${String(dados.roiPeriodoPct).replace(".", ",")}%`}</p>
         </div>
         <div>
           <p className="text-[11px] text-slate-400">Anualizado</p>
-          <p className="text-xl font-bold text-emerald-600">{dados.roiAnualizadoPct}%</p>
+          <p className={`text-xl font-bold ${dados.roiAnualizadoPct < 0 ? "text-red-600" : "text-emerald-600"}`}>{dados.roiAnualizadoPct == null ? "—" : `${String(dados.roiAnualizadoPct).replace(".", ",")}%`}</p>
         </div>
       </div>
       <p className="text-[11px] text-slate-400 mt-2">Capital médio empatado: {moneyCurto(dados.capitalMedio)} · Lucro do período: {moneyCurto(dados.lucroPeriodo)}</p>

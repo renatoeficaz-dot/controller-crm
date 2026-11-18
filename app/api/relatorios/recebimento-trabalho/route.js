@@ -18,7 +18,10 @@ export async function GET(req) {
   if (!user || !isAdmin(user)) return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
   const { searchParams } = new URL(req.url);
   const ini = searchParams.get("ini");
-  const fim = searchParams.get("fim");
+  // Período que termina no futuro (ex.: "Este mês") parava nos dias que ainda não aconteceram, todos zerados no gráfico.
+  const hojeBR = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+  const fimPedido = searchParams.get("fim");
+  const fim = diaValido(fimPedido) && fimPedido > hojeBR ? hojeBR : fimPedido;
   const usuario = (searchParams.get("usuario") || "").trim();
   if (!diaValido(ini) || !diaValido(fim) || fim < ini) return NextResponse.json({ error: "Período inválido." }, { status: 400 });
   const de = new Date(`${ini}T00:00:00-03:00`);

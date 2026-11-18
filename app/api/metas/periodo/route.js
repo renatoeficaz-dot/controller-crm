@@ -55,6 +55,7 @@ export async function GET(req) {
   const recebidoComMeta = comMeta.reduce((s, d) => s + (d.recebimentos || 0), 0);
   return NextResponse.json({
     de, ate, dias: serie.length,
+    escopo: usuario ? "usuario" : "empresa", // quem usa o total da empresa (Relatórios) confere que não veio recortado por pessoa
     vendas: somar("vendas"),
     valorVendido: r2(somar("valorVendido")),
     baixas: somar("baixas"),

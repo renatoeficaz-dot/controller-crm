@@ -14,9 +14,11 @@ export async function GET() {
   noventaDiasAtras.setDate(noventaDiasAtras.getDate() - 90);
 
   const [liberados, recebido] = await Promise.all([
-    prisma.contact.findMany({
-      where: { pagamentoCapital: { gte: noventaDiasAtras }, valorCapital: { not: null } },
-      select: { valorCapital: true, pagamentoCapital: true },
+    // Liberado pelas saídas "Liberação de capital" (mesma fonte das Metas): pagamentoCapital guarda só a ÚLTIMA liberação do cliente,
+    // então quem renovou duas vezes nos 90 dias contava uma só.
+    prisma.lancamento.findMany({
+      where: { type: "saida", description: { startsWith: "Liberação de capital" }, createdAt: { gte: noventaDiasAtras } },
+      select: { amount: true },
     }),
     // amountPago só é preenchido quando o cobrador digita um valor diferente
     // do previsto; somar só ele fazia toda baixa normal valer zero aqui.
@@ -26,7 +28,7 @@ export async function GET() {
     }),
   ]);
 
-  const capitalLiberado = liberados.reduce((s, c) => s + (c.valorCapital || 0), 0);
+  const capitalLiberado = liberados.reduce((s, l) => s + (l.amount || 0), 0);
   const valorRecebido = recebido.reduce((s, p) => s + valorRecebidoDe(p), 0);
   // Lucro = o que voltou acima do que saiu (aproximação: recebido - liberado
   // no período; negativo é normal em carteira em crescimento, onde se libera
@@ -35,10 +37,11 @@ export async function GET() {
 
   // Capital médio empatado: aproximação pela metade do capital liberado no
   // período (ele fica emprestado por ~10 dias corridos, uma fração dos 90).
-  const capitalMedio = capitalLiberado / 2 || 1;
+  const capitalMedio = capitalLiberado / 2;
 
-  const roiPeriodoPct = Math.round((lucroPeriodo / capitalMedio) * 1000) / 10;
-  const roiAnualizadoPct = Math.round(roiPeriodoPct * (365 / 90) * 10) / 10;
+  // Sem capital liberado na janela não há ROI (antes dividia por 1 e mostrava milhares de %).
+  const roiPeriodoPct = capitalMedio > 0 ? Math.round((lucroPeriodo / capitalMedio) * 1000) / 10 : null;
+  const roiAnualizadoPct = roiPeriodoPct != null ? Math.round(roiPeriodoPct * (365 / 90) * 10) / 10 : null;
 
   return NextResponse.json({
     capitalLiberado: Math.round(capitalLiberado * 100) / 100,

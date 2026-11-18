@@ -42,7 +42,7 @@ export default function LigacoesHasos({ ini: iniProp, fim: fimProp, titulo = "Li
       .then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => null) }))
       .then(({ ok, d }) => {
         if (!vivo) return;
-        if (!ok) { setErro(d?.error || "Não foi possível carregar as ligações."); return; }
+        if (!ok) { setErro(d?.error || "Não foi possível carregar as ligações."); setDados(null); return; } // sem os números do período anterior
         setErro(""); setDados(d);
       })
       .catch(() => vivo && setErro("Não foi possível carregar as ligações."))

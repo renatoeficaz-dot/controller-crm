@@ -18,7 +18,7 @@ export default function HorarioRecebimento({ ini, fim }) {
       .then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => null) }))
       .then(({ ok, d }) => {
         if (!vivo) return;
-        if (!ok) { setErro(d?.error || "Não foi possível calcular."); return; }
+        if (!ok) { setErro(d?.error || "Não foi possível calcular."); setDados(null); return; } // não deixa o gráfico do período anterior
         setErro(""); setDados(d);
       })
       .catch(() => vivo && setErro("Não foi possível calcular."));
@@ -68,7 +68,7 @@ export default function HorarioRecebimento({ ini, fim }) {
           {[0, 0.25, 0.5, 0.75, 1].map((f) => (
             <g key={f}>
               <line x1={PL} x2={W - PR} y1={y(max * f)} y2={y(max * f)} stroke="#e2e8f0" strokeWidth="1" />
-              <text x={PL - 4} y={y(max * f) + 3} textAnchor="end" fontSize="9" fill="#94a3b8">{metrica === "valor" ? Math.round(max * f) : Math.round(max * f * 10) / 10}</text>
+              <text x={PL - 4} y={y(max * f) + 3} textAnchor="end" fontSize="9" fill="#94a3b8">{metrica === "valor" ? (max * f >= 1000 ? `${(max * f / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k` : Math.round(max * f)) : Number.isInteger(max * f) ? max * f : ""}</text>
             </g>
           ))}
           {horas.map((h) => (h.hora % 2 === 0) && (

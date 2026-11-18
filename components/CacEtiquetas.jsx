@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Secao from "@/components/SecaoColapsavel";
+import { numeroBR } from "@/lib/numeroBR";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -34,12 +35,15 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
   async function salvarCusto(l) {
     const txt = rascunho[l.id];
     if (txt === undefined) return;
-    const limpo = txt.replace(/\./g, "").replace(",", ".").trim();
-    const valor = limpo === "" ? null : Number(limpo);
+    // "1.5" virava 15 (o ponto era tirado como milhar); numeroBR só trata como milhar quando também há vírgula.
+    const valor = txt.trim() === "" ? null : numeroBR(txt);
     if (valor != null && (!Number.isFinite(valor) || valor < 0)) { setErro("Custo inválido."); return; }
     setSalvando(l.id);
-    await fetch(`/api/tags/${l.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ custoPorLead: valor }) });
+    const res = await fetch(`/api/tags/${l.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ custoPorLead: valor }) }).catch(() => null);
     setSalvando(null);
+    // Antes a falha ao salvar sumia em silêncio e o campo voltava ao valor antigo sem explicação.
+    if (!res || !res.ok) { setErro((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar o custo."); return; }
+    setErro("");
     setRascunho((r) => { const n = { ...r }; delete n[l.id]; return n; });
     carregar();
   }
@@ -48,14 +52,14 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
   async function salvarTotal(l) {
     const txt = rascunhoTotal[l.id];
     if (txt === undefined) return;
-    const limpo = txt.replace(/\./g, "").replace(",", ".").trim();
-    const total = limpo === "" ? null : Number(limpo);
+    const total = txt.trim() === "" ? null : numeroBR(txt);
     if (total != null && (!Number.isFinite(total) || total < 0)) { setErro("Custo total inválido."); return; }
     if (total != null && l.leads === 0) { setErro("Essa etiqueta não tem leads no período — não dá para calcular o custo por lead."); return; }
     const porLead = total == null ? null : Math.round((total / l.leads) * 100) / 100;
     setSalvando(l.id);
-    await fetch(`/api/tags/${l.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ custoPorLead: porLead }) });
+    const res = await fetch(`/api/tags/${l.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ custoPorLead: porLead }) }).catch(() => null);
     setSalvando(null);
+    if (!res || !res.ok) { setErro((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar o custo."); return; }
     setRascunhoTotal((r) => { const n = { ...r }; delete n[l.id]; return n; });
     setErro("");
     carregar();
@@ -122,7 +126,7 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
                   />
                 </td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.vendas}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{l.conversao != null ? (l.conversao * 100).toFixed(1) + "%" : "—"}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{l.conversao != null ? (l.conversao * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%" : "—"}</td>
                 <td className="pl-3 py-1.5 text-right tabular-nums font-medium">{l.cac != null ? money(l.cac) : l.custo != null ? "sem vendas" : "—"}</td>
               </tr>
             ))}

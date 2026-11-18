@@ -15,7 +15,7 @@ export async function GET(req) {
   if (Number.isNaN(corte.getTime())) return NextResponse.json({ error: "informe ?data=YYYY-MM-DD" }, { status: 400 });
 
   const [contatos, logs] = await Promise.all([
-    prisma.contact.findMany({ where: { valorCapital: { gt: 0 }, excluidoEm: null }, select: { id: true, valorCapital: true } }), // lead excluído não é carteira
+    prisma.contact.findMany({ where: { valorCapital: { gt: 0 }, excluidoEm: null }, select: { id: true, valorCapital: true, createdAt: true, stage: { select: { name: true } } } }), // lead excluído não é carteira
     prisma.etapaLog.findMany({
       where: { createdAt: { lte: corte } },
       orderBy: { createdAt: "desc" },
@@ -32,7 +32,9 @@ export async function GET(req) {
 
   let capitalEmRecebimento = 0;
   for (const c of contatos) {
-    if (etapaNaData.get(c.id) === "Recebimento") capitalEmRecebimento += c.valorCapital;
+    // Lead sem nenhuma mudança de etapa registrada até a data (importado, criado direto na etapa): vale a etapa atual, se já existia.
+    const etapa = etapaNaData.has(c.id) ? etapaNaData.get(c.id) : new Date(c.createdAt) <= corte ? c.stage?.name : null;
+    if (etapa === "Recebimento") capitalEmRecebimento += c.valorCapital;
   }
 
   return NextResponse.json({ capitalEmRecebimento });

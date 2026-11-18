@@ -26,7 +26,7 @@ export default function RecebimentoVsTrabalho({ ini, fim }) {
       .then(({ ok, st, d }) => {
         if (!vivo) return;
         if (st === 403) { setSemAcesso(true); return; }
-        if (!ok) { setErro(d?.error || "Não foi possível calcular."); return; }
+        if (!ok) { setErro(d?.error || "Não foi possível calcular."); setDados(null); return; } // não deixa o gráfico do período anterior
         setErro(""); setDados(d);
       })
       .catch(() => vivo && setErro("Não foi possível calcular."));
@@ -75,7 +75,8 @@ export default function RecebimentoVsTrabalho({ ini, fim }) {
         <div className="flex flex-wrap gap-4 text-xs text-slate-600 mb-2">
           <span>Recebido: <b className="text-emerald-700">{money(t.recebido)}</b></span>
           <span>Horas trabalhadas: <b className="text-indigo-700">{horasTxt(t.segundos)}</b></span>
-          <span>Recebido por hora trabalhada: <b className="text-slate-800">{t.porHora != null ? money(t.porHora) : "—"}</b></span>
+          {/* O recebido é da operação inteira: com um colaborador escolhido, deixa claro que é o recebido total ÷ as horas DELE. */}
+          <span>{usuario ? `Recebido da operação ÷ horas de ${usuario}` : "Recebido por hora trabalhada"}: <b className="text-slate-800">{t.porHora != null ? money(t.porHora) : "—"}</b></span>
         </div>
       )}
       {erro && <p className="text-xs text-red-500 mb-2">{erro}</p>}

@@ -36,9 +36,15 @@ export async function GET(req) {
     const atual = l.stage?.name;
     const linha = horas[h];
     linha.leads++;
-    if (set.has("Documentação") || atual === "Documentação") linha.docs++;
-    if (set.has("Análise") || atual === "Análise") linha.analise++;
-    if (set.has("Vídeo chamada") || atual === "Vídeo chamada") linha.video++;
+    // Funil acumulado: quem chegou em Análise passou por Documentação mesmo sem o registro (lead antigo/importado). Antes a coluna de
+    // uma etapa podia ficar MENOR que a seguinte.
+    const chegou = (etapa) => set.has(etapa) || atual === etapa;
+    const vendeu = !(atual === "Venda perdida") && (Number(l.valorCapital) || 0) > 0 && (chegou("Recebimento") || !!l.entrouRecebimentoEm);
+    const foiVideo = chegou("Vídeo chamada") || vendeu;
+    const foiAnalise = chegou("Análise") || foiVideo;
+    if (chegou("Documentação") || foiAnalise) linha.docs++;
+    if (foiAnalise) linha.analise++;
+    if (foiVideo) linha.video++;
     // Venda = mesma regra das Metas e do CAC: entrou em Recebimento com capital e não está em Venda perdida. Antes o lead que chegou a
     // Recebimento e depois foi perdido contava como venda E como perda ao mesmo tempo.
     const perdido = atual === "Venda perdida";

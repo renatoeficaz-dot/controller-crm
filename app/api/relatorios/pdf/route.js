@@ -32,20 +32,28 @@ function tabela(doc, colunas, linhas) {
   const larguras = colunas.map((c) => c.largura || 90);
   const x0 = doc.x;
 
-  const escreverLinha = (valores, negrito, cor) => {
-    if (doc.y > 760) doc.addPage();
+  const cabecalho = colunas.map((c) => c.label);
+  const escreverLinha = (valores, negrito, cor, ehCabecalho) => {
+    doc.font(negrito ? "Helvetica-Bold" : "Helvetica").fontSize(8);
+    // Altura da linha = a célula mais alta (texto longo quebra em 2 linhas e antes passava por cima da linha de baixo).
+    const altura = Math.max(13, ...valores.map((v, i) => doc.heightOfString(String(v ?? ""), { width: larguras[i] }) + 3));
+    if (doc.y + altura > 790) {
+      doc.addPage();
+      if (!ehCabecalho) escreverLinha(cabecalho, true, "#374151", true); // tabela que continua na página seguinte repete o cabeçalho
+      doc.font(negrito ? "Helvetica-Bold" : "Helvetica").fontSize(8);
+    }
     const y = doc.y;
     let x = x0;
-    doc.font(negrito ? "Helvetica-Bold" : "Helvetica").fontSize(8).fillColor(cor || "#111827");
+    doc.fillColor(cor || "#111827");
     valores.forEach((v, i) => {
       doc.text(String(v ?? ""), x, y, { width: larguras[i], align: i === 0 ? "left" : "right" });
       x += larguras[i];
     });
     doc.x = x0;
-    doc.y = y + 13;
+    doc.y = y + altura;
   };
 
-  escreverLinha(colunas.map((c) => c.label), true, "#374151");
+  escreverLinha(cabecalho, true, "#374151", true);
   for (const l of linhas) escreverLinha(colunas.map((c) => l[c.chave]), false);
 }
 
