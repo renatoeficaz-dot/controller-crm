@@ -50,6 +50,13 @@ export async function GET(req) {
     if (valorMax) where.amount.lte = Number(valorMax);
   }
 
+  // Relatório de custos (Relatórios › "O período compensou?"): sem o teto de 500 da tela e sem a saída que nasceu do pagamento de uma
+  // conta a pagar (ela já entra no custo como conta a pagar — contada aqui também, saía em dobro).
+  const paraRelatorio = searchParams.get("relatorio") === "1";
+  if (paraRelatorio) {
+    const ligados = await prisma.contaPagar.findMany({ where: { lancamentoId: { not: null } }, select: { lancamentoId: true } });
+    if (ligados.length) where.id = { notIn: ligados.map((c) => c.lancamentoId) };
+  }
   const lancamentos = await prisma.lancamento.findMany({
     where,
     orderBy: order,
@@ -58,7 +65,7 @@ export async function GET(req) {
       banco: { select: { id: true, name: true } },
       contact: { select: { id: true, name: true, responsavel: true } },
     },
-    take: 500,
+    take: paraRelatorio ? 5000 : 500,
   });
 
   // Saldo da conta logo APÓS cada lançamento — precisa do histórico completo

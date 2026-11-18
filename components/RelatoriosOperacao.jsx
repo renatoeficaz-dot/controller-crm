@@ -19,18 +19,22 @@ function FluxoCaixa() {
   const [dias, setDias] = useState(30);
 
   useEffect(() => {
-    fetch(`/api/fluxo-caixa?dias=${dias}`).then((r) => r.json()).then(setDados).catch(() => {});
+    // Resposta de erro ({ error }) virava "dados" e a tela quebrava em dados.serie.map.
+    fetch(`/api/fluxo-caixa?dias=${dias}`).then((r) => r.json()).then((d) => setDados(Array.isArray(d?.serie) ? d : { serie: [], saldoAtual: 0, taxaRealista: 0 })).catch(() => setDados({ serie: [], saldoAtual: 0, taxaRealista: 0 }));
   }, [dias]);
 
   if (!dados) return <p className="text-sm text-slate-400">Carregando…</p>;
 
-  const max = Math.max(...dados.serie.map((d) => Math.abs(d.saldoOtimista)), Math.abs(dados.saldoAtual), 1);
-  const min = Math.min(...dados.serie.map((d) => d.saldoRealista), 0);
+  // Escala com as DUAS linhas (otimista também pode ficar negativa e saía para fora do gráfico) e o saldo de hoje.
+  const valoresY = [...dados.serie.flatMap((d) => [d.saldoOtimista, d.saldoRealista]), dados.saldoAtual];
+  const max = Math.max(...valoresY, 1);
+  const min = Math.min(...valoresY, 0);
   const faixa = max - min || 1;
   const y = (v) => 100 - ((v - min) / faixa) * 100;
 
-  const pathOtimista = dados.serie.map((d, i) => `${i === 0 ? "M" : "L"} ${(i / (dados.serie.length - 1)) * 100} ${y(d.saldoOtimista)}`).join(" ");
-  const pathRealista = dados.serie.map((d, i) => `${i === 0 ? "M" : "L"} ${(i / (dados.serie.length - 1)) * 100} ${y(d.saldoRealista)}`).join(" ");
+  const xi = (i) => (dados.serie.length > 1 ? (i / (dados.serie.length - 1)) * 100 : 50); // 1 ponto só dava divisão por zero (NaN)
+  const pathOtimista = dados.serie.map((d, i) => `${i === 0 ? "M" : "L"} ${xi(i)} ${y(d.saldoOtimista)}`).join(" ");
+  const pathRealista = dados.serie.map((d, i) => `${i === 0 ? "M" : "L"} ${xi(i)} ${y(d.saldoRealista)}`).join(" ");
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
@@ -98,7 +102,7 @@ function RankingEquipe() {
   const [dados, setDados] = useState(null);
 
   useEffect(() => {
-    fetch(`/api/ranking?periodo=${periodo}`).then((r) => r.json()).then(setDados).catch(() => {});
+    fetch(`/api/ranking?periodo=${periodo}`).then((r) => r.json()).then((d) => setDados({ ...d, ranking: Array.isArray(d?.ranking) ? d.ranking : [] })).catch(() => setDados({ ranking: [] }));
   }, [periodo]);
 
   return (

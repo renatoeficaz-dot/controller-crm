@@ -65,7 +65,7 @@ export default function Relatorios() {
   const [loading, setLoading] = useState(true);
   const [preset, setPreset] = useState("mes");
   const [ini, setIni] = useState(inicioMesStr());
-  const [fim, setFim] = useState(hojeStr());
+  const [fim, setFim] = useState(fimMesStr()); // igual ao preset "Este mês" que já abre marcado
   const [estadoFiltro, setEstadoFiltro] = useState("");
   const [etapaFiltro, setEtapaFiltro] = useState("");
   const [generoFiltroRel, setGeneroFiltroRel] = useState("");
@@ -75,7 +75,7 @@ export default function Relatorios() {
   // olham criacaoIni/criacaoFim) continuavam em todo o histórico até o
   // usuário clicar de novo num preset — mesmo com "Este mês" já selecionado.
   const [criacaoIni, setCriacaoIni] = useState(inicioMesStr());
-  const [criacaoFim, setCriacaoFim] = useState(hojeStr());
+  const [criacaoFim, setCriacaoFim] = useState(fimMesStr());
   // Preset da "Data de criação" É SEPARADO do preset de "Período (recebimento/
   // vendas)" — antes os dois grupos de botão chamavam a mesma aplicarPreset(),
   // que sempre setava os dois pares de data juntos, então não dava pra escolher
@@ -151,14 +151,16 @@ export default function Relatorios() {
   // exato em que foi lançado.
   const [outrasSaidasBrutas, setOutrasSaidasBrutas] = useState([]);
   useEffect(() => {
-    const qs = new URLSearchParams({ type: "saida", ini: primeiroDiaMes(ini), fim: ultimoDiaMes(fim) });
+    // relatorio=1: sem o teto de 500 da tela de Lançamentos e sem a saída gerada ao pagar uma conta a pagar (já está em "Contas a pagar").
+    const qs = new URLSearchParams({ type: "saida", ini: primeiroDiaMes(ini), fim: ultimoDiaMes(fim), relatorio: "1" });
     fetch(`/api/lancamentos?${qs}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((lista) => {
         const arr = Array.isArray(lista) ? lista : lista?.lancamentos || [];
         setOutrasSaidasBrutas(
           arr
-            .filter((l) => !(l.description || "").startsWith("Liberação de capital"))
+            // Transferência entre contas e ajuste de saldo não são gasto da operação.
+            .filter((l) => !(l.description || "").startsWith("Liberação de capital") && !(l.description || "").startsWith("Ajuste de saldo") && !l.transferenciaId)
             .map((l) => ({ ...l, valor: l.amount, vencimento: l.date }))
         );
       })
@@ -451,7 +453,7 @@ export default function Relatorios() {
   // "Aguardando Cobrador" já passaram por Recebimento; "Venda perdida" fica de
   // fora porque não dá pra saber em que etapa o lead parou.
   const conversaoFunil = useMemo(() => {
-    const SEQUENCIA = ["Novo", "Em conversa", "Documentação", "Análise", "Liberação pagamento", "Recebimento", "Pago"];
+    const SEQUENCIA = ["Novo", "Em conversa", "Documentação", "Análise", "Vídeo chamada", "Liberação pagamento", "Recebimento", "Pago"];
     const idxRecebimento = SEQUENCIA.indexOf("Recebimento");
     const indices = [];
     for (const c of contatosFiltrados) {
@@ -478,7 +480,8 @@ export default function Relatorios() {
   const tempoAteLiberacao = useMemo(() => {
     const dias = [];
     for (const c of contatosFiltrados) {
-      if (!c.createdAt || !c.pagamentoCapital) continue;
+      // Só o 1º empréstimo: em quem renovou, pagamentoCapital é a data da RENOVAÇÃO e a média saía em meses.
+      if (!c.createdAt || !c.pagamentoCapital || (c.cicloAtual || 1) > 1) continue;
       const d = Math.round(
         (new Date(String(c.pagamentoCapital).slice(0, 10)) - new Date(diaBR(c.createdAt))) / 86400000
       );
@@ -642,13 +645,15 @@ export default function Relatorios() {
   const comparativoMensal = useMemo(() => {
     const map = new Map();
     const garante = (mes) => {
-      if (!map.has(mes)) map.set(mes, { mes, vendas: 0, liberado: 0, recebido: 0 });
+      if (!map.has(mes)) map.set(mes, { mes, vendas: 0, liberado: 0, recebido: 0, liberacoes: 0 });
       return map.get(mes);
     };
     for (const c of contatosFiltrados) {
       if (c.entrouRecebimentoEm) garante(mesBR(c.entrouRecebimentoEm)).vendas++;
       if (c.pagamentoCapital && c.valorCapital) {
-        garante(String(c.pagamentoCapital).slice(0, 7)).liberado += c.valorCapital;
+        const g = garante(String(c.pagamentoCapital).slice(0, 7));
+        g.liberado += c.valorCapital;
+        g.liberacoes++;
       }
       for (const p of c.parcelas || []) {
         const e = entradaDaParcela(p); // baixa parcial também entra no mês em que foi paga
@@ -659,7 +664,8 @@ export default function Relatorios() {
     const linhas = Array.from(map.values())
       .sort((a, b) => b.mes.localeCompare(a.mes))
       .slice(0, 6)
-      .map((r) => ({ ...r, ticketMedio: r.vendas > 0 ? r.liberado / r.vendas : 0 }));
+      // Ticket = liberado ÷ liberações do mês. Antes dividia por "vendas novas", mas o liberado inclui as renovações: o ticket inflava.
+      .map((r) => ({ ...r, ticketMedio: r.liberacoes > 0 ? r.liberado / r.liberacoes : 0 }));
     // A lista está do mais recente pro mais antigo, então o mês anterior no
     // tempo é o PRÓXIMO item do array.
     return linhas.map((r, i) => {
@@ -817,10 +823,12 @@ export default function Relatorios() {
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
         const uf = c.estado || "Não identificado";
-        if (!map.has(uf)) map.set(uf, { uf, leads: 0, emRecebimento: 0, adimplentes: 0, inadimplentes: 0 });
+        if (!map.has(uf)) map.set(uf, { uf, leads: 0, emRecebimento: 0, venderam: 0, adimplentes: 0, inadimplentes: 0 });
         const row = map.get(uf);
         row.leads++;
         if (s.name === "Recebimento") row.emRecebimento++;
+        // Conversão: lead que virou venda (entrou em Recebimento com capital) — quem já quitou (Pago) ou foi para Cravo também converteu.
+        if (c.entrouRecebimentoEm && (Number(c.valorCapital) || 0) > 0 && s.name !== "Venda perdida") row.venderam++;
         // Inadimplente = está em "Cravo" (deu calote, é onde a cobrança
         // desiste de tentar receber por bem) — não é só "tem parcela
         // atrasada", que também pega quem ainda está sendo cobrado
@@ -899,7 +907,15 @@ export default function Relatorios() {
     const dias = Math.max(1, Math.round((new Date(fim) - new Date(ini)) / 86400000) + 1);
     // custoMedioDiario = capital das leads em Recebimento ÷ nº de parcelas.
     const custoMedioDiario = capitalEmRecebimento / NUM_PARCELAS;
-    const lucroBruto = recebido - custoMedioDiario;
+    // O recebido é do período inteiro; o custo também precisa ser: custo/dia × dias de cobrança (seg-sáb) do período até hoje.
+    // Antes descontava UM dia de custo de um mês inteiro de recebimento e o lucro bruto saía inflado.
+    const hojeP = hojeStr();
+    const fimEf = fim < hojeP ? fim : hojeP;
+    let diasCobranca = 0;
+    for (let t = new Date(ini + "T12:00:00Z"); t <= new Date(fimEf + "T12:00:00Z"); t = new Date(t.getTime() + 86400000)) if (t.getUTCDay() !== 0) diasCobranca++;
+    diasCobranca = Math.max(1, diasCobranca);
+    const custoMedioPeriodo = custoMedioDiario * diasCobranca;
+    const lucroBruto = recebido - custoMedioPeriodo;
     // Lucro líquido: desconta do bruto a comissão que bateu meta no período
     // (estimativa — ver custoComissaoEstimado) e a fatia das contas a pagar
     // do período, amortizada pelos dias do próprio período.
@@ -913,6 +929,8 @@ export default function Relatorios() {
       diferencaRecebido: recebido - planejado,
       pctMeta: planejado > 0 ? Math.round((recebido / planejado) * 100) : recebido > 0 ? 100 : 0,
       custoMedioDiario,
+      custoMedioPeriodo,
+      diasCobranca,
       lucroBruto,
       comissaoEstimada: comissao.total,
       custoContasPagarPeriodo,
@@ -957,7 +975,7 @@ export default function Relatorios() {
     // capital parado precisando voltar por dia, na mesma proporção X/atual.
     // Só "Contas a pagar" e "Outras saídas" continuam fixas (essas sim são
     // despesa de operação que não muda com o tamanho da carteira de crédito).
-    const custoMedioDiario = balancoPeriodo.custoMedioDiario * fator;
+    const custoMedioDiario = balancoPeriodo.custoMedioPeriodo * fator;
     // No simulador (sempre "nesse dia", nunca multiplicado por vários dias
     // como no balanço geral) o lucro bruto compara com o CUSTO MÉDIO
     // (capital que precisa voltar por dia), não com "planejado" — aqui não
@@ -1217,7 +1235,7 @@ export default function Relatorios() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          periodo: `${ini} a ${fim}`,
+          periodo: `${ini.split("-").reverse().join("/")} a ${fim.split("-").reverse().join("/")}`,
           filtros: [
             estadoFiltro && `Estado: ${estadoFiltro}`,
             etapaFiltro && `Etapa: ${stages.find((s) => s.id === etapaFiltro)?.name || ""}`,
@@ -1320,7 +1338,7 @@ export default function Relatorios() {
                   <button
                     onClick={() => {
                       setEstadoFiltro(""); setEtapaFiltro(""); setGeneroFiltroRel("");
-                      setTipoClienteFiltroRel(""); setCriacaoIni(""); setCriacaoFim("");
+                      setTipoClienteFiltroRel(""); setCriacaoIni(""); setCriacaoFim(""); setCriacaoPreset("tudo");
                     }}
                     className="text-xs text-red-400 hover:text-red-600"
                   >
@@ -1500,7 +1518,7 @@ export default function Relatorios() {
           <CardCompacto titulo={`% Inadimplente (${inadimplentes})`} valor={adimplentes + inadimplentes > 0 ? `${((inadimplentes / (adimplentes + inadimplentes)) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"} cor="text-red-500" numero />
         </div>
         <p className="text-xs text-slate-400 mt-1">
-          "A receber" = parcelas em aberto que vencem até o fim de cada período (já com multa de {multaPct}% nas vencidas).
+          "A receber" = parcelas em aberto que vencem de hoje até o fim de cada período, sem as já vencidas (essas estão em Pendente). A de hoje que passou do horário limite já entra com a multa de {multaPct}%.
           "Total recebido" = baixado entre {ini} e {fim}. "Pendente" = leads em Cravo ({inad.clientes}).
         </p>
       </Secao>
@@ -1549,7 +1567,7 @@ export default function Relatorios() {
               <p className="text-base font-semibold mt-0.5 text-slate-700">{money(balancoPeriodo.custoMedioDiario)}</p>
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <p className="text-[11px] text-slate-400">Lucro bruto (recebido − custo médio)</p>
+              <p className="text-[11px] text-slate-400">Lucro bruto (recebido − custo médio × {balancoPeriodo.diasCobranca} dia{balancoPeriodo.diasCobranca === 1 ? "" : "s"})</p>
               <p className={`text-lg font-bold mt-0.5 ${balancoPeriodo.lucroBruto >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                 {money(balancoPeriodo.lucroBruto)}
               </p>
@@ -1582,7 +1600,7 @@ export default function Relatorios() {
             </div>
             <p className="col-span-2 sm:col-span-3 text-[10px] text-slate-400 leading-relaxed">
               "Planejado" é pelo vencimento (não pelo pagamento). "Custo médio/dia" é o capital das leads em Recebimento
-              ({money(capitalEmRecebimento)}) ÷ {NUM_PARCELAS} parcelas — entra no lucro bruto (recebido − custo médio). "Comissão" usa só a
+              ({money(capitalEmRecebimento)}) ÷ {NUM_PARCELAS} parcelas — entra no lucro bruto multiplicado pelos dias de cobrança (seg-sáb) do período até hoje. "Comissão" usa só a
               meta padrão de recuperação. "Contas a pagar"/"Outras saídas" são rateadas pelos dias úteis do mês, só a fatia do período filtrado
               entra na conta.
             </p>
@@ -1609,7 +1627,7 @@ export default function Relatorios() {
                 <div className="flex justify-between"><span className="text-slate-400">Planejado</span><span className="font-medium">{money(simulacao.planejado)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Recebido</span><span className="font-medium text-emerald-400">{money(simulacao.recebido)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Bateu a meta?</span><span className="font-medium">{simulacao.pctMeta}%</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Custo médio/dia</span><span className="font-medium">{money(simulacao.custoMedioDiario)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Custo médio no período</span><span className="font-medium">{money(simulacao.custoMedioDiario)}</span></div>
                 <div className="flex justify-between border-t border-slate-700 pt-1.5"><span className="text-slate-300">Lucro bruto</span><span className={`font-semibold ${simulacao.lucroBruto >= 0 ? "text-emerald-400" : "text-red-400"}`}>{money(simulacao.lucroBruto)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Comissão est.</span><span className="font-medium text-amber-400">− {money(simulacao.comissaoEstimada)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Contas + saídas</span><span className="font-medium text-amber-400">− {money(balancoPeriodo.custoContasPagarPeriodo + balancoPeriodo.outrasSaidas)}</span></div>
@@ -1651,7 +1669,7 @@ export default function Relatorios() {
                     {(estadoExpandido ? porEstado : porEstado.slice(0, 3)).map((r) => {
                       const base = r.adimplentes + r.inadimplentes;
                       const pctInad = base > 0 ? Math.round((r.inadimplentes / base) * 100) : 0;
-                      const pctConversao = r.leads > 0 ? Math.round((r.emRecebimento / r.leads) * 100) : 0;
+                      const pctConversao = r.leads > 0 ? Math.round((r.venderam / r.leads) * 100) : 0;
                       return (
                         <tr
                           key={r.uf}
@@ -1681,7 +1699,7 @@ export default function Relatorios() {
                 {(estadoExpandido ? porEstado : porEstado.slice(0, 3)).map((r) => {
                   const base = r.adimplentes + r.inadimplentes;
                   const pctInad = base > 0 ? Math.round((r.inadimplentes / base) * 100) : 0;
-                  const pctConversao = r.leads > 0 ? Math.round((r.emRecebimento / r.leads) * 100) : 0;
+                  const pctConversao = r.leads > 0 ? Math.round((r.venderam / r.leads) * 100) : 0;
                   return (
                     <button
                       key={r.uf}
@@ -2949,7 +2967,8 @@ function CardCompacto({ titulo, valor, cor, numero }) {
 
 // Barras horizontais — boa pra rótulos longos (nomes de etapa do funil).
 function HBarChart({ data, valueFmt, onBarClick }) {
-  const max = Math.max(1, ...data.map((d) => d.value));
+  // Valor negativo (prejuízo) também tem barra, pelo tamanho: antes a largura saía negativa e a barra sumia.
+  const max = Math.max(1, ...data.map((d) => Math.abs(d.value)));
   const fmt = valueFmt || ((v) => v);
   return (
     <div className="space-y-2.5">
@@ -2968,7 +2987,7 @@ function HBarChart({ data, valueFmt, onBarClick }) {
             <div className="flex-1 h-4 rounded-full bg-slate-100 overflow-hidden">
               <div
                 className="h-full rounded-full transition-[width] duration-300"
-                style={{ width: `${Math.max(d.value > 0 ? 3 : 0, (d.value / max) * 100)}%`, background: d.color }}
+                style={{ width: `${Math.max(d.value !== 0 ? 3 : 0, (Math.abs(d.value) / max) * 100)}%`, background: d.color }}
                 title={`${d.label}: ${fmt(d.value)}`}
               />
             </div>

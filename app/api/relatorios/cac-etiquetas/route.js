@@ -21,13 +21,16 @@ export async function GET(req) {
   const leadDe = new Date(`${leadIni}T00:00:00-03:00`);
   const leadAte = new Date(new Date(`${leadFim}T00:00:00-03:00`).getTime() + 86400e3);
   const coorte = searchParams.get("coorte") === "1";
+  if (leadAte <= leadDe) return NextResponse.json({ error: "Data de criação inválida: o fim é antes do início." }, { status: 400 });
 
   const tags = await prisma.tag.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true, custoPorLead: true } });
   const linhas = [];
   for (const t of tags) {
     const baseLeads = { excluidoEm: null, createdAt: { gte: leadDe, lt: leadAte }, tags: { some: { id: t.id } } };
     // Quantos dos leads da etiqueta já passaram por cada etapa do funil (qualquer momento, pelo histórico de etapas).
-    const passou = (etapa) => prisma.contact.count({ where: { ...baseLeads, etapaLogs: { some: { paraEtapa: etapa } } } });
+    // Passou pela etapa pelo histórico OU está nela agora (lead que nasceu direto na etapa não tem registro de mudança) — mesma regra do
+    // relatório por horário de criação.
+    const passou = (etapa) => prisma.contact.count({ where: { ...baseLeads, OR: [{ etapaLogs: { some: { paraEtapa: etapa } } }, { stage: { name: etapa } }] } });
     const [leads, docs, analise, video, vendas] = await Promise.all([
       prisma.contact.count({ where: baseLeads }),
       passou("Documentação"),
@@ -43,6 +46,11 @@ export async function GET(req) {
   }
   const comCusto = linhas.filter((l) => l.custo != null);
   const custoTotal = comCusto.reduce((s, l) => s + l.custo, 0);
-  const vendasComCusto = comCusto.reduce((s, l) => s + l.vendas, 0);
+  // Venda de um lead com duas etiquetas contava duas vezes no total (e o CAC geral saía pela metade). Total = vendas DISTINTAS.
+  const vendasComCusto = comCusto.length
+    ? await prisma.contact.count({
+        where: { excluidoEm: null, valorCapital: { gt: 0 }, entrouRecebimentoEm: { gte: de, lt: ate }, ...(coorte ? { createdAt: { gte: leadDe, lt: leadAte } } : {}), stage: { name: { not: "Venda perdida" } }, tags: { some: { id: { in: comCusto.map((l) => l.id) } } } },
+      })
+    : 0;
   return NextResponse.json({ linhas, total: { custo: custoTotal, vendas: vendasComCusto, cac: vendasComCusto > 0 ? custoTotal / vendasComCusto : null } });
 }

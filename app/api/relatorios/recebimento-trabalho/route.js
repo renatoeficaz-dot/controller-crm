@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
+import { recebidosNoPeriodo } from "@/lib/metas";
 
 // Recebimento x horas trabalhadas no sistema, de um colaborador (ou de todos).
 //   Recebido = pagamentos de parcelas (lançamentos de entrada com parcelaId), pela hora em que entraram — mesma regra das Metas.
@@ -26,7 +27,7 @@ export async function GET(req) {
   const filtroUsuario = usuario ? { usuario } : {};
 
   const [ls, usoDias, usoHoras, nomes] = await Promise.all([
-    prisma.lancamento.findMany({ where: { type: "entrada", parcelaId: { not: null }, createdAt: { gte: de, lt: ate }, amount: { gt: 0 } }, select: { amount: true, createdAt: true } }),
+    recebidosNoPeriodo(ini, fim).then(({ itens }) => itens.flatMap((it) => (it.partes || []).map((pt) => ({ amount: pt.valor || 0, createdAt: pt.hora })))),
     prisma.usoDiario.findMany({ where: { dia: { gte: deDia, lte: ateDia }, ...filtroUsuario }, select: { dia: true, segundos: true } }),
     prisma.usoHora.findMany({ where: { dia: { gte: deDia, lte: ateDia }, ...filtroUsuario }, select: { hora: true, segundos: true } }),
     prisma.usoDiario.findMany({ where: { dia: { gte: new Date(Date.now() - 90 * 86400e3) } }, distinct: ["usuario"], select: { usuario: true } }),

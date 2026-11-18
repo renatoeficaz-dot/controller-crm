@@ -35,13 +35,16 @@ export async function GET() {
       select: { dueDate: true, amount: true, paid: true, paidAt: true, valorPago: true },
     }),
     recebidosNoPeriodo(semanas[0] < `${mesAtual}-01` ? semanas[0] : `${mesAtual}-01`, hoje),
-    prisma.lancamento.findMany({ where: { type: "entrada", parcelaId: { not: null }, amount: { gt: 0 }, createdAt: { gte: desde } }, select: { amount: true, createdAt: true } }),
+    // Recebido dos 6 meses pela MESMA fonte das Metas (corta baixa lançada em dobro): o mapa de calor e o resultado mensal somavam os
+    // lançamentos crus e saíam maiores que o recebido da tela de Metas.
+    recebidosNoPeriodo(meses[0] + "-01", hoje).then(({ itens }) => itens.flatMap((it) => (it.partes || []).map((pt) => ({ amount: pt.valor || 0, createdAt: pt.hora })))),
     prisma.lancamento.findMany({
       where: { type: "saida", description: { startsWith: "Liberação de capital" }, createdAt: { gte: desde } },
       select: { amount: true, createdAt: true, contact: { select: { responsavel: true } } },
     }),
     prisma.lancamento.findMany({
-      where: { type: "saida", transferenciaId: null, NOT: { description: { startsWith: "Liberação de capital" } }, createdAt: { gte: desde } },
+      // Ajuste de saldo não é despesa (é correção do saldo do caixa): entrava no "lucro do mês" como gasto.
+      where: { type: "saida", transferenciaId: null, AND: [{ NOT: { description: { startsWith: "Liberação de capital" } } }, { NOT: { description: { startsWith: "Ajuste de saldo" } } }], createdAt: { gte: desde } },
       select: { amount: true, createdAt: true },
     }),
     prisma.tentativaContato.findMany({ where: { resultado: "prometeu", dataPromessa: { not: null }, createdAt: { gte: desde } }, select: { contactId: true, usuario: true, createdAt: true, dataPromessa: true } }),
@@ -66,7 +69,8 @@ export async function GET() {
     calor: calorDiaHora(entradas), // 8
     rankingCobradores: ranking(itens.filter((i) => doMes(i.dia)), (i) => i.baixadoPor, (i) => i.valor).slice(0, 10), // 9
     rankingVendedores: ranking(liberacoes.filter((l) => l.createdAt >= inicioDoMes(mesAtual)), (l) => l.contact?.responsavel, (l) => l.amount).slice(0, 10), // 10
-    ciclos: distribuicaoCiclos(contatos.map((c) => c.cicloAtual)), // 13
+    // Só quem pegou empréstimo: os ~2.000 leads sem capital entravam como "ciclo 1" e derrubavam a % de renovação.
+    ciclos: distribuicaoCiclos(contatos.filter((c) => (Number(c.valorCapital) || 0) > 0).map((c) => c.cicloAtual)), // 13
     ticket: ticketPorMes({ meses, liberacoes }), // 14
     atraso: prazoAtrasoPorMes({ meses, pagas: parcelas.filter((p) => p.paid && p.paidAt) }), // 15
     perdas: perdasPorMes({ meses, capital, logsCravo: logs.filter((l) => l.paraEtapa === "Cravo") }), // 17

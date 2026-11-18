@@ -66,7 +66,7 @@ export async function GET() {
     const abertas = (c.parcelas || []).filter((p) => !p.paid && !p.renegociada);
     if (abertas.length === 0 && c.stage?.name !== "Cravo") continue;
     const r = garante(c.responsavel);
-    r.carteira += abertas.reduce((s, p) => s + valorEmAberto(p), 0);
+    r.carteira = Math.round((r.carteira + abertas.reduce((s, p) => s + valorEmAberto(p), 0)) * 100) / 100;
     if (c.stage?.name === "Cravo") r.calotes += 1;
     if (abertas.some((p) => parcelaAtrasada(p, hoje))) r.atrasadas += 1;
   }
@@ -103,7 +103,7 @@ export async function GET() {
 
   const provisao = {
     faixas: provisaoFaixas.map((f) => ({ ...f, provisionado: Math.round(f.valor * (f.pct / 100) * 100) / 100 })),
-    totalAtrasado: provisaoFaixas.reduce((s, f) => s + f.valor, 0),
+    totalAtrasado: Math.round(provisaoFaixas.reduce((s, f) => s + f.valor, 0) * 100) / 100,
     totalProvisionado:
       Math.round(provisaoFaixas.reduce((s, f) => s + f.valor * (f.pct / 100), 0) * 100) / 100,
   };
@@ -130,7 +130,7 @@ export async function GET() {
         recebido: Math.round(r.entradas * 100) / 100,
         emprestado: Math.round(r.saidas * 100) / 100,
         lucro: Math.round((r.entradas - r.saidas) * 100) / 100,
-        emAberto: abertas.reduce((s, p) => s + valorEmAberto(p), 0),
+        emAberto: Math.round(abertas.reduce((s, p) => s + valorEmAberto(p), 0) * 100) / 100,
       };
     })
     .filter((c) => c.recebido > 0 || c.emprestado > 0)

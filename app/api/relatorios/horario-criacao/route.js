@@ -18,7 +18,7 @@ export async function GET(req) {
   if (isNaN(de) || isNaN(ate) || ate <= de) return NextResponse.json({ error: "Período inválido." }, { status: 400 });
 
   const where = { excluidoEm: null, createdAt: { gte: de, lt: ate }, ...(tagId ? { tags: { some: { id: tagId } } } : {}) };
-  const leads = await prisma.contact.findMany({ where, select: { id: true, createdAt: true, entrouRecebimentoEm: true, stage: { select: { name: true } } } });
+  const leads = await prisma.contact.findMany({ where, select: { id: true, createdAt: true, entrouRecebimentoEm: true, valorCapital: true, stage: { select: { name: true } } } });
   const ids = leads.map((l) => l.id);
   // Etapas pelas quais cada lead passou (em lotes, para não estourar o limite de parâmetros do SQLite).
   const passou = new Map(); // id -> Set(etapas)
@@ -39,8 +39,12 @@ export async function GET(req) {
     if (set.has("Documentação") || atual === "Documentação") linha.docs++;
     if (set.has("Análise") || atual === "Análise") linha.analise++;
     if (set.has("Vídeo chamada") || atual === "Vídeo chamada") linha.video++;
-    if (set.has("Recebimento") || atual === "Recebimento" || l.entrouRecebimentoEm) linha.venda++;
-    if (set.has("Venda perdida") || atual === "Venda perdida") linha.perdida++;
+    // Venda = mesma regra das Metas e do CAC: entrou em Recebimento com capital e não está em Venda perdida. Antes o lead que chegou a
+    // Recebimento e depois foi perdido contava como venda E como perda ao mesmo tempo.
+    const perdido = atual === "Venda perdida";
+    if (!perdido && (Number(l.valorCapital) || 0) > 0 && (set.has("Recebimento") || atual === "Recebimento" || l.entrouRecebimentoEm)) linha.venda++;
+    // Perdida = está perdido hoje (quem foi perdido e depois reaberto/vendido não é perda).
+    if (perdido) linha.perdida++;
   }
   const total = horas.reduce((t, x) => ({ leads: t.leads + x.leads, docs: t.docs + x.docs, analise: t.analise + x.analise, video: t.video + x.video, venda: t.venda + x.venda, perdida: t.perdida + x.perdida }), { leads: 0, docs: 0, analise: 0, video: 0, venda: 0, perdida: 0 });
   return NextResponse.json({ horas, total });

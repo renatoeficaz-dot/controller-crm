@@ -177,7 +177,9 @@ export default function GraficosPainel() {
   if (negado) return null;
   if (!d) return <p className="text-xs text-slate-400 py-4">Carregando gráficos…</p>;
   const m = d.meses.map(rotuloMes);
-  const pctMedioRec = d.recuperacao.length ? Math.round(d.recuperacao.reduce((s, x) => s + x.pct, 0) / d.recuperacao.length) : 0;
+  // Ponderada pelo recebido: a média simples das % semanais contava semana sem recebimento (0%) com o mesmo peso de uma semana cheia.
+  const totRec = d.recuperacao.reduce((s, x) => s + (x.recebido || 0), 0);
+  const pctMedioRec = totRec > 0 ? Math.round((d.recuperacao.reduce((s, x) => s + (x.recuperado || 0), 0) / totRec) * 100) : 0;
   const ultAtraso = d.atraso[d.atraso.length - 1];
 
   return (

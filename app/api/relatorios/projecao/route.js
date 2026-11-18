@@ -47,7 +47,7 @@ export async function GET(req) {
     stageReceb
       ? prisma.contact.findMany({
           where: whereCarteiraRecebimento(stageReceb.id, de),
-          select: { id: true, parcelas: { select: { dueDate: true, paid: true } } },
+          select: { id: true, parcelas: { where: { renegociada: false }, select: { dueDate: true, paid: true } } }, // renegociada virou acordo, não é parcela a pagar
         })
       : [],
     // Ticket médio: liberações dos últimos 90 dias. Média mais velha que isso não representa o que a operação empresta hoje.
