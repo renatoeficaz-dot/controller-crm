@@ -1,6 +1,7 @@
 "use client";
 
 import LigacoesHasos from "@/components/LigacoesHasos";
+import { fetchAvisando } from "@/lib/fetchAvisando";
 import { CartaoWabaApp, PainelWabaNumero } from "@/components/WabaPaineis";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { VARIAVEIS_DISPONIVEIS } from "@/lib/variaveis";
@@ -426,7 +427,7 @@ function Honorarios() {
 
   async function save(e) {
     e.preventDefault();
-    await fetch("/api/config", {
+    const _r = await fetchAvisando("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -435,7 +436,8 @@ function Honorarios() {
         pagamentoHoraLimite: form.pagamentoHoraLimite,
         codigoCalculadora: form.codigoCalculadora,
       }),
-    });
+    }, "salvar");
+    if (!_r) { return; }
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -672,7 +674,8 @@ function Usuarios() {
   async function remove(id) {
     if (!confirm("Excluir este usuário?")) return;
     if (editId === id) closePanel();
-    await fetch(`/api/users/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/users/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 
@@ -1152,11 +1155,12 @@ function Numeros() {
 
   async function saveEvolution(e) {
     e.preventDefault();
-    await fetch("/api/config", {
+    const _r = await fetchAvisando("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(evo),
-    });
+    }, "salvar");
+    if (!_r) { return; }
     setEvoSaved(true);
     setTestResult(null);
     setTimeout(() => setEvoSaved(false), 1500);
@@ -1173,11 +1177,12 @@ function Numeros() {
 
   async function saveWaha(e) {
     e.preventDefault();
-    await fetch("/api/config", {
+    const _r = await fetchAvisando("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(waha),
-    });
+    }, "salvar");
+    if (!_r) { return; }
     setWahaSaved(true);
     setTestResultWaha(null);
     setTimeout(() => setWahaSaved(false), 1500);
@@ -1224,11 +1229,12 @@ function Numeros() {
 
   async function setPadrao(id, padrao) {
     setNumeros((prev) => prev.map((n) => ({ ...n, padrao: n.id === id ? padrao : padrao ? false : n.padrao })));
-    await fetch(`/api/numbers/${id}`, {
+    const _r = await fetchAvisando(`/api/numbers/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ padrao }),
-    });
+    }, "salvar");
+
     load();
   }
 
@@ -1274,30 +1280,33 @@ function Numeros() {
   }
 
   async function reassign(id, userId) {
-    await fetch(`/api/numbers/${id}`, {
+    const _r = await fetchAvisando(`/api/numbers/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId }),
-    });
+    }, "salvar");
+
     load();
   }
 
   async function setAgent(id, agentId) {
     setNumeros((prev) => prev.map((n) => (n.id === id ? { ...n, agentId } : n)));
-    await fetch(`/api/numbers/${id}`, {
+    const _r = await fetchAvisando(`/api/numbers/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ agentId }),
-    });
+    }, "salvar");
+
   }
 
   async function setCobranca(id, campo, valor) {
     setNumeros((prev) => prev.map((n) => (n.id === id ? { ...n, [campo]: valor } : n)));
-    await fetch(`/api/numbers/${id}`, {
+    const _r = await fetchAvisando(`/api/numbers/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [campo]: valor }),
-    });
+    }, "salvar");
+
   }
 
   // Desconecta de verdade a sessão do WhatsApp na Evolution (logout).
@@ -1317,7 +1326,8 @@ function Numeros() {
   async function remove(id) {
     if (!confirm("Remover este número? A sessão do WhatsApp também será desconectada.")) return;
     await disconnect(id); // best-effort: mesmo se falhar, segue removendo do CRM
-    await fetch(`/api/numbers/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/numbers/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 
@@ -1729,11 +1739,12 @@ function Numeros() {
                       onChange={async (e) => {
                         const provider = e.target.value;
                         setNumeros((prev) => prev.map((x) => (x.id === n.id ? { ...x, provider } : x)));
-                        await fetch(`/api/numbers/${n.id}`, {
+                        const _r = await fetchAvisando(`/api/numbers/${n.id}`, {
                           method: "PATCH",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ provider }),
-                        });
+                        }, "salvar");
+
                         load();
                       }}
                       className="mt-0.5 w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-shadow"
@@ -1955,7 +1966,8 @@ function Campanhas() {
 
   async function remover(id) {
     if (!confirm("Remover este link? Os leads já atribuídos a ele continuam no CRM, só perdem a referência.")) return;
-    await fetch(`/api/campanhas/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/campanhas/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 
@@ -2241,11 +2253,12 @@ function AlertasWhatsapp() {
 
   async function save(e) {
     e.preventDefault();
-    await fetch("/api/config", {
+    const _r = await fetchAvisando("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, alertaCapitalMin: Number(form.alertaCapitalMin) }),
-    });
+    }, "salvar");
+    if (!_r) { return; }
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -2254,11 +2267,12 @@ function AlertasWhatsapp() {
     setTestando(true);
     setMsgTeste("");
     // Salva antes: sem isso o teste usaria o número antigo se você acabou de digitar.
-    await fetch("/api/config", {
+    const _r = await fetchAvisando("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ alertaWhatsapp: form.alertaWhatsapp }),
-    });
+    }, "salvar");
+    if (!_r) { setTestando(false); return; }
     const res = await fetch("/api/alertas/teste", { method: "POST" });
     const d = await res.json().catch(() => ({}));
     setTestando(false);
@@ -2459,11 +2473,12 @@ function AquecimentoNumero({ numero, onChange }) {
   async function alternar() {
     const ativo = !numero.aquecimentoAtivo;
     onChange({ aquecimentoAtivo: ativo, aquecimentoDesde: ativo ? new Date().toISOString() : numero.aquecimentoDesde });
-    await fetch(`/api/numbers/${numero.id}`, {
+    const _r = await fetchAvisando(`/api/numbers/${numero.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ aquecimentoAtivo: ativo }),
-    });
+    }, "salvar");
+
   }
 
   return (
@@ -2577,16 +2592,18 @@ function ReguaCobranca() {
 
   async function atualizar(id, campo, valor) {
     setRegras((prev) => prev.map((r) => (r.id === id ? { ...r, [campo]: valor } : r)));
-    await fetch(`/api/regras-cobranca/${id}`, {
+    const _r = await fetchAvisando(`/api/regras-cobranca/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [campo]: valor }),
-    });
+    }, "salvar");
+
   }
 
   async function remover(id) {
     if (!confirm("Remover esta faixa da régua?")) return;
-    await fetch(`/api/regras-cobranca/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/regras-cobranca/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 
@@ -2758,7 +2775,7 @@ function QuitacaoAVista() {
 
   async function save(e) {
     e.preventDefault();
-    await fetch("/api/config", {
+    const _r = await fetchAvisando("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2767,7 +2784,8 @@ function QuitacaoAVista() {
         descontoDiasMin: Number(form.descontoDiasMin),
         descontoMensagem: form.descontoMensagem,
       }),
-    });
+    }, "salvar");
+    if (!_r) { return; }
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -3216,7 +3234,8 @@ function ChipsConfig() {
 
   async function alternarRoteador(c) {
     setChips((prev) => prev.map((x) => (x.id === c.id ? { ...x, roteador: !x.roteador } : x)));
-    await fetch(`/api/chips/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roteador: !c.roteador }) });
+    const _r = await fetchAvisando(`/api/chips/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roteador: !c.roteador }) }, "salvar");
+
     load();
   }
 
@@ -3228,7 +3247,8 @@ function ChipsConfig() {
   async function salvarRecarga(e, c) {
     e.preventDefault();
     if (!recarga.data || recarga.valor === "") return;
-    await fetch(`/api/chips/${c.id}/recargas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(recarga) });
+    const _r = await fetchAvisando(`/api/chips/${c.id}/recargas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(recarga) }, "salvar");
+
     setRecargaChip(null);
     setVerHist((v) => ({ ...v, [c.id]: true }));
     load();
@@ -3236,14 +3256,16 @@ function ChipsConfig() {
 
   async function removerRecarga(c, r) {
     if (!confirm("Remover esta recarga do histórico?")) return;
-    await fetch(`/api/chips/${c.id}/recargas/${r.id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/chips/${c.id}/recargas/${r.id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 
   async function remove(id) {
     if (!confirm("Excluir este chip?")) return;
     if (id === editId) cancelar();
-    await fetch(`/api/chips/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/chips/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 
@@ -3412,11 +3434,12 @@ function TiposTarefaConfig() {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
-    await fetch(editando ? `/api/task-types/${editId}` : "/api/task-types", {
+    const _r = await fetchAvisando(editando ? `/api/task-types/${editId}` : "/api/task-types", {
       method: editando ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
-    });
+    }, "salvar");
+    if (!_r) { setSaving(false); }
     setForm({ name: "", color: "#6366f1", emoji: "" });
     setEditId(null);
     setSaving(false);
@@ -3426,7 +3449,8 @@ function TiposTarefaConfig() {
   async function remove(id) {
     if (!confirm("Excluir este tipo de tarefa? As tarefas que usam ele ficam sem tipo.")) return;
     if (id === editId) cancelarEdicao();
-    await fetch(`/api/task-types/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/task-types/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 
@@ -3529,7 +3553,8 @@ function TagsConfig() {
 
   async function removeTag(id) {
     if (!confirm("Excluir esta tag e suas regras?")) return;
-    await fetch(`/api/tags/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/tags/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 
@@ -3543,7 +3568,8 @@ function TagsConfig() {
   }
 
   async function removeRule(id) {
-    await fetch(`/api/tags/rules/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/tags/rules/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 
@@ -3870,7 +3896,8 @@ function MensagensProntas() {
   async function remove(id) {
     if (!confirm("Excluir esta mensagem pronta?")) return;
     if (editId === id) cancelEdit();
-    await fetch(`/api/templates/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/templates/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 
@@ -4177,11 +4204,12 @@ function MensagensProntas() {
                   <button
                     onClick={async () => {
                       setMenuId(null);
-                      await fetch("/api/templates", {
+                      const _r = await fetchAvisando("/api/templates", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ ...t, title: t.title + " (cópia)" }),
-                      });
+                      }, "salvar");
+
                       load();
                     }}
                     className="w-full text-left px-3 py-1.5 text-slate-600 hover:bg-slate-50"
@@ -4252,11 +4280,12 @@ function AutomacaoFunil() {
 
   async function setAuto(stageId, autoResponsavel) {
     setStages((prev) => prev.map((s) => (s.id === stageId ? { ...s, autoResponsavel } : s)));
-    await fetch(`/api/stages/${stageId}`, {
+    const _r = await fetchAvisando(`/api/stages/${stageId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ autoResponsavel }),
-    });
+    }, "salvar");
+    if (!_r) { return; }
     setSavedId(stageId);
     setTimeout(() => setSavedId(null), 1200);
   }
@@ -4269,18 +4298,20 @@ function AutomacaoFunil() {
     const novoPool = nomes.includes(nome) ? nomes.filter((n) => n !== nome) : [...nomes, nome];
     const distribuicaoPool = novoPool.join(",") || null;
     setStages((prev) => prev.map((s) => (s.id === stageId ? { ...s, distribuicaoPool } : s)));
-    await fetch(`/api/stages/${stageId}`, {
+    const _r = await fetchAvisando(`/api/stages/${stageId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ distribuicaoPool }),
-    });
+    }, "salvar");
+
   }
 
   async function salvarHorario() {
     setSavingHorario(true);
-    await fetch("/api/config", {
+    const _r = await fetchAvisando("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(horario),
-    });
+    }, "salvar");
+    if (!_r) { setSavingHorario(false); }
     setSavingHorario(false);
     setShowHorario(false);
   }
@@ -4567,11 +4598,13 @@ function InterruptorGlobalIa() {
     const novo = !pausada;
     setSalvando(true);
     setPausada(novo);
-    await fetch("/api/config", {
+    const _r = await fetchAvisando("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ iaGlobalPausada: novo }),
-    });
+    }, "salvar");
+    // Falhou: volta o botão ao estado real (antes a tela dizia "IA desligada pra todo mundo" e a IA continuava respondendo).
+    if (!_r) setPausada(!novo);
     setSalvando(false);
   }
 
@@ -4619,9 +4652,11 @@ function MensagemInicialAuto() {
   }, []);
 
   async function salvar(novo) {
+    const anterior = cfg;
     setCfg(novo);
     setSalvando(true);
-    await fetch("/api/config", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(novo) });
+    const _r = await fetchAvisando("/api/config", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(novo) }, "salvar");
+    if (!_r) setCfg(anterior); // falhou: a tela volta para o que está gravado de verdade
     setSalvando(false);
   }
   if (!cfg) return null;
@@ -4701,11 +4736,12 @@ function MetaAdsConfig() {
   async function save(e) {
     e.preventDefault();
     setSaving(true);
-    await fetch("/api/config", {
+    const _r = await fetchAvisando("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
-    });
+    }, "salvar");
+    if (!_r) { setSaving(false); return; }
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
@@ -4808,11 +4844,12 @@ function TokenDeepInfra() {
   async function save(e) {
     e.preventDefault();
     setSaving(true);
-    await fetch("/api/config", {
+    const _r = await fetchAvisando("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(tokens),
-    });
+    }, "salvar");
+    if (!_r) { setSaving(false); return; }
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
@@ -4903,11 +4940,12 @@ function SuporteIaConfig() {
 
   async function resolver(id) {
     setSalvandoId(id);
-    await fetch(`/api/suporte-ia/${id}`, {
+    const _r = await fetchAvisando(`/api/suporte-ia/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ resolvido: true, notaResolucao: notaPorId[id] || "" }),
-    });
+    }, "salvar");
+
     setSalvandoId(null);
     carregar();
   }
@@ -5055,7 +5093,8 @@ function AgentesIa() {
 
   async function removeAgent(id) {
     if (!confirm("Excluir este agente? Números que o usam ficarão sem IA.")) return;
-    await fetch(`/api/ia/agents/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/ia/agents/${id}`, { method: "DELETE" }, "excluir");
+
     if (selectedId === id) { setSelectedId(null); setForm(emptyAgent); }
     load();
   }
@@ -5071,7 +5110,7 @@ function AgentesIa() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: `${original.name} (cópia)` }),
     }).then((r) => r.json());
-    await fetch(`/api/ia/agents/${novo.id}`, {
+    const _r = await fetchAvisando(`/api/ia/agents/${novo.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -5089,7 +5128,8 @@ function AgentesIa() {
         toolSaveCadastro: !!original.toolSaveCadastro,
         stopAtStageId: original.stopAtStageId || "",
       }),
-    });
+    }, "salvar");
+
     setDuplicando(false);
     await load();
     selectAgent(novo.id);
@@ -5110,11 +5150,12 @@ function AgentesIa() {
       body = { ...form, toolContactPhone: normalized };
     }
     setSaving(true);
-    await fetch(`/api/ia/agents/${selectedId}`, {
+    const _r = await fetchAvisando(`/api/ia/agents/${selectedId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    });
+    }, "salvar");
+    if (!_r) { setSaving(false); return; }
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
@@ -5762,7 +5803,8 @@ function PluggyConfig() {
     carregar();
   }
   async function alterar(id, dados) {
-    await fetch("/api/pluggy", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...dados }) });
+    const _r = await fetchAvisando("/api/pluggy", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...dados }) }, "salvar");
+
     carregar();
   }
   const campo = "w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm";

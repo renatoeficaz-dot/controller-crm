@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchAvisando } from "@/lib/fetchAvisando";
 import Icone from "@/components/Icones";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -186,9 +187,10 @@ function EquipesConfig() {
 
   async function salvar(id) {
     setSalvando(true);
-    await fetch(`/api/equipes/${id}`, {
+    const _r = await fetchAvisando(`/api/equipes/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
-    });
+    }, "salvar");
+    if (!_r) { setSalvando(false); }
     setSalvando(false);
     setAbertaId(null);
     load();
@@ -196,7 +198,8 @@ function EquipesConfig() {
 
   async function excluir(id) {
     if (!confirm("Excluir esta equipe? Os usuários ficam sem equipe.")) return;
-    await fetch(`/api/equipes/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/equipes/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
 

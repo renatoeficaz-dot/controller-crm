@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchAvisando } from "@/lib/fetchAvisando";
 import Icone from "@/components/Icones";
 
 function Cabecalho({ icone, titulo, subtitulo }) {
@@ -50,14 +51,16 @@ export function MotivosPerdaConfig() {
     if (res.ok) { setNovo(""); load(); }
   }
   async function remover(id) {
-    await fetch(`/api/motivos-perda/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/motivos-perda/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
   async function mudarTemplate(id, templateId) {
     setLista((ls) => ls.map((m) => (m.id === id ? { ...m, templateId, template: templates.find((t) => t.id === templateId) || null } : m)));
-    await fetch(`/api/motivos-perda/${id}`, {
+    const _r = await fetchAvisando(`/api/motivos-perda/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ templateId: templateId || null }),
-    });
+    }, "salvar");
+
   }
 
   return (
@@ -131,7 +134,8 @@ export function LinksUteisConfig() {
   async function remover(id) {
     if (!confirm("Remover este link?")) return;
     if (id === editId) cancelar();
-    await fetch(`/api/links-uteis/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/links-uteis/${id}`, { method: "DELETE" }, "excluir");
+
     load();
   }
   async function copiar(chave, valor) {

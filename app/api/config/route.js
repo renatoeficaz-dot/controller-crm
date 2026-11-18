@@ -115,6 +115,29 @@ export async function PATCH(req) {
   // O teto é folgado de propósito — 80% é o valor real de uso, 1000% é só pra
   // barrar o absurdo e o erro de digitação, não pra limitar a operação.
   const pctFinanceiro = (v) => Math.min(1000, Math.max(0, Number(v) || 0));
+  // Honorários/multa em branco ou com texto viravam 0% — e TODA parcela nova saía sem honorários. Valor que não é número é recusado.
+  for (const c of ["honorariosPct", "multaPct"]) {
+    if (c in body && (body[c] === "" || body[c] === null || !Number.isFinite(Number(body[c])))) {
+      return NextResponse.json({ error: c === "honorariosPct" ? "Informe o % de honorários (número)." : "Informe o % de multa (número)." }, { status: 400 });
+    }
+  }
+  // Horários "HH:MM": texto inválido (ex.: "17h", "abc") quebrava a comparação de atraso/multa e o horário comercial sem nenhum aviso.
+  const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
+  for (const c of ["pagamentoHoraLimite", "horarioComercialInicio", "horarioComercialFim", "alertaHora", "pixAdimplentesHora"]) {
+    if (c in body && body[c] !== null && body[c] !== "" && !HORA.test(typeof body[c] === "string" ? body[c].trim() : "")) {
+      return NextResponse.json({ error: `Horário inválido em ${c}: use o formato HH:MM (ex.: 17:00).` }, { status: 400 });
+    }
+  }
+  // Conta de liberação/recebimento que não existe (apagada, id velho) dava erro 500 ou deixava a conciliação sem conta.
+  for (const c of ["contaLiberacaoId", "contaRecebimentoId"]) {
+    if (c in body && body[c] && !(await prisma.banco.findUnique({ where: { id: String(body[c]) }, select: { id: true } }))) {
+      return NextResponse.json({ error: "Conta (banco) não encontrada." }, { status: 400 });
+    }
+  }
+  // Teto do capital escalonado com texto virava 0 e travava TODA liberação (o próprio comentário abaixo avisa disso).
+  if ("escalonamentoTeto" in body && body.escalonamentoTeto !== null && body.escalonamentoTeto !== "" && !Number.isFinite(Number(body.escalonamentoTeto))) {
+    return NextResponse.json({ error: "Teto do capital escalonado inválido." }, { status: 400 });
+  }
   // Campos inteiros (Int no schema) sem teto máximo aceitavam qualquer valor
   // — um número acima do limite de 32 bits (ex.: 999999999999) não dava erro
   // na hora, mas CORROMPIA a linha: toda leitura/escrita seguinte de Config
@@ -143,7 +166,7 @@ export async function PATCH(req) {
   if ("metaAdsAppSecret" in body) data.metaAdsAppSecret = texto(body.metaAdsAppSecret) || null;
   if ("metaAdsPageId" in body) data.metaAdsPageId = texto(body.metaAdsPageId) || null;
   if ("metaAdsPageToken" in body) data.metaAdsPageToken = texto(body.metaAdsPageToken) || null;
-  if ("metaAdsNumeroId" in body) data.metaAdsNumeroId = body.metaAdsNumeroId || null;
+  if ("metaAdsNumeroId" in body) data.metaAdsNumeroId = texto(body.metaAdsNumeroId) || null;
   if ("iaGlobalPausada" in body) data.iaGlobalPausada = !!body.iaGlobalPausada;
   if ("mensagemInicialAtiva" in body) data.mensagemInicialAtiva = !!body.mensagemInicialAtiva;
   if ("mensagemInicialTitulo" in body) data.mensagemInicialTitulo = texto(body.mensagemInicialTitulo) || "1 - Mensagem inicial";
@@ -182,8 +205,8 @@ export async function PATCH(req) {
   if ("cattaAtivo" in body) data.cattaAtivo = !!body.cattaAtivo;
   if ("fishAudioApiKey" in body) data.fishAudioApiKey = texto(body.fishAudioApiKey) || null;
   if ("elevenLabsApiKey" in body) data.elevenLabsApiKey = texto(body.elevenLabsApiKey) || null;
-  if ("contaLiberacaoId" in body) data.contaLiberacaoId = body.contaLiberacaoId || null;
-  if ("contaRecebimentoId" in body) data.contaRecebimentoId = body.contaRecebimentoId || null;
+  if ("contaLiberacaoId" in body) data.contaLiberacaoId = texto(body.contaLiberacaoId) || null;
+  if ("contaRecebimentoId" in body) data.contaRecebimentoId = texto(body.contaRecebimentoId) || null;
   if ("horarioComercialInicio" in body) data.horarioComercialInicio = texto(body.horarioComercialInicio) || null;
   if ("horarioComercialFim" in body) data.horarioComercialFim = texto(body.horarioComercialFim) || null;
   if ("metaPctRecebimentoMinima" in body) data.metaPctRecebimentoMinima = Math.min(1000, Math.max(0, Number(body.metaPctRecebimentoMinima) || 0));
@@ -261,7 +284,7 @@ export async function PATCH(req) {
   // Mensagem automática de Pix pra adimplentes.
   if ("pixAdimplentesAtivo" in body) data.pixAdimplentesAtivo = !!body.pixAdimplentesAtivo;
   if ("pixAdimplentesDiasAntes" in body) data.pixAdimplentesDiasAntes = Math.max(0, Math.min(5, Number(body.pixAdimplentesDiasAntes) || 0));
-  if ("pixAdimplentesHora" in body) data.pixAdimplentesHora = (body.pixAdimplentesHora || "08:00").trim();
+  if ("pixAdimplentesHora" in body) data.pixAdimplentesHora = texto(body.pixAdimplentesHora) || "08:00"; // número/objeto derrubava a rota no .trim()
   // A mensagem do Pix automático NÃO é editável: é montada pelo código (lib/pixAdimplentes.js)
   // a partir da chave, do recebedor e do banco — texto digitado à mão já saiu com a chave errada.
   if ("pixBanco" in body) data.pixBanco = texto(body.pixBanco) || "Infinitepay";
@@ -308,5 +331,9 @@ export async function PATCH(req) {
   // Mudou a meta de recebimento: atualiza já o retrato de hoje (senão ficaria até 5 min com o % antigo, inclusive no bônus).
   if (Object.keys(body).some((k) => k.startsWith("metaPct"))) await import("@/lib/metas").then((m) => m.registrarMetaDoDia()).catch(() => {});
 
-  return NextResponse.json({ ...config, dataApiKey: config.dataApiKey ? "***" : null, snoopApiKey: config.snoopApiKey ? "***" : null });
+  // Resposta mascarada igual ao GET: antes só duas chaves vinham com "***" e TODAS as outras (Evolution, DeepInfra, Hasos, token do
+  // webhook, segredo do Meta...) voltavam em texto puro para o navegador a cada vez que alguém salvava qualquer configuração.
+  const resposta = { ...config };
+  for (const campo of SEGREDOS_MASCARADOS_ADMIN) if (resposta[campo]) resposta[campo] = "***";
+  return NextResponse.json(resposta);
 }

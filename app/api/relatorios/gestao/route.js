@@ -35,7 +35,7 @@ export async function GET() {
     }),
     prisma.lancamento.findMany({
       where: { contactId: { not: null } },
-      select: { contactId: true, type: true, amount: true },
+      select: { contactId: true, type: true, amount: true, description: true },
     }),
   ]);
 
@@ -63,6 +63,8 @@ export async function GET() {
   // não sob quem deu a última baixa.
   for (const c of contatos) {
     if (!c.responsavel) continue;
+    // Venda perdida não é carteira de ninguém (o empréstimo não saiu ou foi cancelado).
+    if (c.stage?.name === "Venda perdida") continue;
     const abertas = (c.parcelas || []).filter((p) => !p.paid && !p.renegociada);
     if (abertas.length === 0 && c.stage?.name !== "Cravo") continue;
     const r = garante(c.responsavel);
@@ -88,6 +90,7 @@ export async function GET() {
   }));
 
   for (const c of contatos) {
+    if (c.stage?.name === "Venda perdida") continue; // parcela de lead perdido não é perda provável da carteira
     const abertas = (c.parcelas || []).filter((p) => !p.paid && !p.renegociada);
     const atrasadas = abertas.filter((p) => parcelaAtrasada(p, hoje));
     if (!atrasadas.length) continue;
@@ -120,6 +123,11 @@ export async function GET() {
   const rentabilidade = contatos
     .map((c) => {
       const r = porCliente.get(c.id) || { entradas: 0, saidas: 0 };
+      // Recebido = o maior entre o caixa e as parcelas: baixa antiga feita sem lançamento não aparecia e o cliente parecia dar prejuízo.
+      const pelasParcelas = (c.parcelas || []).reduce((s, p) => s + valorRecebidoDe(p), 0);
+      if (pelasParcelas > r.entradas) r.entradas = pelasParcelas;
+      // Emprestado sem nenhuma saída de "Liberação de capital" (cliente antigo, de antes do lançamento automático): usa o capital × ciclos.
+      if (!r.saidas && (Number(c.valorCapital) || 0) > 0) r.saidas = Number(c.valorCapital) * Math.max(1, new Set((c.parcelas || []).map((p) => p.ciclo || 1)).size);
       const abertas = (c.parcelas || []).filter((p) => !p.paid && !p.renegociada);
       return {
         id: c.id,

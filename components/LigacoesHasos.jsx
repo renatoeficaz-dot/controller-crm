@@ -79,7 +79,7 @@ export default function LigacoesHasos({ ini: iniProp, fim: fimProp, titulo = "Li
         {t && (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <Card rotulo="Ligações feitas" valor={t.feitas} sub={`${(dias.length ? t.feitas / dias.length : 0).toFixed(1).replace(".", ",")} por dia com ligação`} cor="text-brand" />
+              <Card rotulo="Ligações feitas" valor={t.feitas} sub={`${(dias.filter((d) => d.feitas > 0).length ? t.feitas / dias.filter((d) => d.feitas > 0).length : 0).toFixed(1).replace(".", ",")} por dia com ligação`} cor="text-brand" />
               <Card rotulo="Atendidas (com conversa)" valor={t.atendidas} sub={t.feitas ? `${Math.round((t.atendidas / t.feitas) * 100)}% das feitas` : "—"} cor="text-accent" />
               <Card rotulo="Tempo falado" valor={tempo(t.segundos)} sub="nas ligações feitas" />
               <Card rotulo="Recebidas" valor={t.recebidas} sub={t.falhas ? `${t.falhas} clique(s) em Ligar que falharam` : "ligações de clientes"} />
@@ -124,7 +124,7 @@ export default function LigacoesHasos({ ini: iniProp, fim: fimProp, titulo = "Li
             {(dados.usuarios.length > 0 || dados.numeros.length > 0) && (
               <div className="grid sm:grid-cols-2 gap-3">
                 {dados.usuarios.length > 0 && (
-                  <Lista titulo="Feitas por colaborador" itens={dados.usuarios.map((u) => ({ nome: u.nome, valor: `${u.feitas} feitas · ${u.atendidas} atendidas · ${tempo(u.segundos)}` }))} />
+                  <Lista titulo="Feitas por colaborador" itens={dados.usuarios.map((u) => ({ nome: u.nome, valor: `${u.feitas} feitas · ${u.atendidas} atendidas · ${tempo(u.segundos)}${u.falhas ? ` · ${u.falhas} falha(s)` : ""}` }))} />
                 )}
                 {dados.numeros.length > 0 && (
                   <Lista titulo="Por número" itens={dados.numeros.map((n) => ({ nome: n.nome, valor: `${n.feitas} feitas · ${n.recebidas} recebidas` }))} />

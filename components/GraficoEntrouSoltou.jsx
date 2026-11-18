@@ -60,7 +60,7 @@ export default function GraficoEntrouSoltou({ ini, fim, honorariosPct = 30 }) {
     { nome: "Soltou", v: total.soltou, cor: "text-amber-600" },
     { nome: `Soltou + juros (+${honorariosPct}%)`, v: total.projetado, cor: "text-slate-700" },
     { nome: "Diferença (soltou + juros − entrou)", v: total.diferenca, cor: total.diferenca <= 0 ? "text-emerald-600" : "text-red-600", nota: total.diferenca <= 0 ? "entrou mais que a projeção" : "faltou para a projeção" },
-    { nome: `Liquidez previsível (diferença − ${PERDA_MEDIA}%)`, v: r2(total.diferenca * (1 - PERDA_MEDIA / 100)), cor: total.diferenca <= 0 ? "text-emerald-600" : "text-red-600", nota: `desconta a perda média de ${PERDA_MEDIA}%` },
+    { nome: `Liquidez previsível (diferença − ${PERDA_MEDIA}%)`, v: r2(total.projetado * (1 - PERDA_MEDIA / 100) - total.entrou), cor: total.projetado * (1 - PERDA_MEDIA / 100) - total.entrou <= 0 ? "text-emerald-600" : "text-red-600", nota: `desconta a perda média de ${PERDA_MEDIA}%` },
   ];
 
   return (

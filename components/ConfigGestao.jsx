@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchAvisando } from "@/lib/fetchAvisando";
 import Icone from "@/components/Icones";
 import ContactModal from "@/components/ContactModal";
 
@@ -259,7 +260,8 @@ export function ComissaoConfig() {
     if (res.ok) { setNovaFaixa({ minValor: "", pctBonus: "" }); loadFaixas(); }
   }
   async function removerFaixa(id) {
-    await fetch(`/api/comissao/faixas/${id}`, { method: "DELETE" });
+    const _r = await fetchAvisando(`/api/comissao/faixas/${id}`, { method: "DELETE" }, "excluir");
+
     loadFaixas();
   }
 
