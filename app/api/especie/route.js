@@ -17,12 +17,14 @@ export async function GET(req) {
     prisma.especieMovimento.findMany({ where, orderBy: { createdAt: "desc" }, take: 200 }),
   ]);
 
+  // Saldo pelo histórico inteiro (a lista da tela continua limitada aos 200 últimos movimentos).
+  const somas = await prisma.especieMovimento.groupBy({ by: ["usuario", "tipo"], where, _sum: { valor: true } });
   const porUsuario = new Map();
-  for (const m of movs) {
-    const acc = porUsuario.get(m.usuario) || { usuario: m.usuario, recebido: 0, depositado: 0 };
-    if (m.tipo === "recebido") acc.recebido += m.valor;
-    else acc.depositado += m.valor;
-    porUsuario.set(m.usuario, acc);
+  for (const s of somas) {
+    const acc = porUsuario.get(s.usuario) || { usuario: s.usuario, recebido: 0, depositado: 0 };
+    if (s.tipo === "recebido") acc.recebido += s._sum.valor || 0;
+    else acc.depositado += s._sum.valor || 0;
+    porUsuario.set(s.usuario, acc);
   }
 
   const saldos = [...porUsuario.values()].map((r) => ({ ...r, saldo: Math.round((r.recebido - r.depositado) * 100) / 100 }));

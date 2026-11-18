@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
-import { valorParcelaAtual } from "@/lib/finance";
+import { valorParcelaAtual, horaLimiteEfetiva } from "@/lib/finance";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo, texto } from "@/lib/corpo";
@@ -26,13 +26,13 @@ export async function POST(req, { params }) {
   if (!valorPedido || valorPedido <= 0) return NextResponse.json({ error: "Informe o novo valor." }, { status: 400 });
   if (!motivo) return NextResponse.json({ error: "Informe o motivo da mudança de valor." }, { status: 400 });
 
-  const parcela = await prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { name: true } } } });
+  const parcela = await prisma.parcela.findUnique({ where: { id }, include: { contact: { select: { name: true, tipoCliente: true, horarioRecebimento: true } } } });
   if (!parcela) return NextResponse.json({ error: "Parcela não encontrada." }, { status: 404 });
   if (parcela.paid) return NextResponse.json({ error: "Essa parcela já está paga." }, { status: 400 });
 
   const user = await getCurrentUser().catch(() => null);
   const cfg = await prisma.config.findUnique({ where: { id: "singleton" } });
-  const valorOriginal = valorParcelaAtual(parcela, undefined, { multaPct: cfg?.multaPct, horaLimite: cfg?.pagamentoHoraLimite });
+  const valorOriginal = valorParcelaAtual(parcela, undefined, { multaPct: cfg?.multaPct, horaLimite: horaLimiteEfetiva(parcela.contact, cfg) });
   if (valorPedido === valorOriginal) {
     return NextResponse.json({ error: "O valor pedido é igual ao valor atual da parcela." }, { status: 400 });
   }

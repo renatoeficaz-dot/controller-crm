@@ -32,7 +32,7 @@ export async function GET() {
     prisma.contact.findMany({ where: { excluidoEm: null }, select: { id: true, valorCapital: true, cicloAtual: true } }),
     prisma.parcela.findMany({
       where: { renegociada: false, contact: { excluidoEm: null }, OR: [{ paid: false }, { paidAt: { gte: desde } }] },
-      select: { dueDate: true, amount: true, paid: true, paidAt: true },
+      select: { dueDate: true, amount: true, paid: true, paidAt: true, valorPago: true },
     }),
     recebidosNoPeriodo(semanas[0] < `${mesAtual}-01` ? semanas[0] : `${mesAtual}-01`, hoje),
     prisma.lancamento.findMany({ where: { type: "entrada", parcelaId: { not: null }, amount: { gt: 0 }, createdAt: { gte: desde } }, select: { amount: true, createdAt: true } }),

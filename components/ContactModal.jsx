@@ -297,7 +297,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
     }
     if (editandoHorario.manterValorAtual) {
       const valorAtual = editandoHorario.parcela.paid
-        ? editandoHorario.parcela.amountPago
+        ? (editandoHorario.parcela.amountPago ?? editandoHorario.parcela.amount)
         : valorParcelaAtual(editandoHorario.parcela, undefined, multaOpts);
       const res2 = await fetch(`/api/parcelas/${editandoHorario.parcela.id}/fixar-valor`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -2387,7 +2387,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                               </>
                             )}
                             <span className={`font-medium ${p.paid ? "text-emerald-600" : atrasada ? "text-red-600" : "text-slate-700"}`}>
-                              {money(p.paid ? p.amountPago : valorParcelaAtual(p, undefined, multaOpts))}
+                              {money(p.paid ? (p.amountPago ?? p.amount) : valorParcelaAtual(p, undefined, multaOpts))}
                             </span>
                             {!p.paid && p.valorPago > 0 && (
                               <span className="text-[10px] text-amber-600 bg-amber-50 rounded-full px-1.5 py-0.5" title="Já pago desta parcela — o valor acima já é só o que falta">
@@ -2979,7 +2979,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-slate-800">Baixa parcial — {baixaParcialAberta.number}ª parcela</h3>
             <p className="text-xs text-slate-400">
-              Falta {money(valorParcelaAtual(baixaParcialAberta, undefined, multaOpts) - baixaParcialAberta.valorPago)}
+              Falta {money(Math.max(0, valorParcelaAtual(baixaParcialAberta, undefined, multaOpts) - (baixaParcialAberta.valorPago || 0)))}
               {baixaParcialAberta.valorPago > 0 && <> ({money(baixaParcialAberta.valorPago)} já pago)</>}
             </p>
             <label className="block">
@@ -3179,7 +3179,7 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                 className="accent-emerald-500 mt-0.5"
               />
               <span className="text-xs text-slate-600">
-                Manter o valor atual desta parcela ({money(editandoHorario.parcela.paid ? editandoHorario.parcela.amountPago : valorParcelaAtual(editandoHorario.parcela, undefined, multaOpts))})
+                Manter o valor atual desta parcela ({money(editandoHorario.parcela.paid ? (editandoHorario.parcela.amountPago ?? editandoHorario.parcela.amount) : valorParcelaAtual(editandoHorario.parcela, undefined, multaOpts))})
                 e tirar o aviso de atrasada — sem marcar, ela continua recalculando a multa normalmente (se a data já passou, nenhuma
                 troca de horário tira o atraso sozinha; pra isso, mude o vencimento).
               </span>

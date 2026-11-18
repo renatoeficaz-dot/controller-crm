@@ -194,6 +194,7 @@ export default function LancamentosView() {
   const [editandoSaldo, setEditandoSaldo] = useState(null); // { novoSaldo, motivo } | null
   const [config, setConfig] = useState(null);
   const [openContactId, setOpenContactId] = useState(null);
+  const [resumoServidor, setResumoServidor] = useState(null);
 
   const loadConfig = useCallback(async () => {
     const data = await fetch("/api/config").then((r) => r.json()).catch(() => null);
@@ -261,7 +262,11 @@ export default function LancamentosView() {
     if (filtros.valorMin) q.set("valorMin", filtros.valorMin);
     if (filtros.valorMax) q.set("valorMax", filtros.valorMax);
     if (filtros.sort) q.set("sort", filtros.sort);
-    const data = await fetch(`/api/lancamentos?${q}`).then((r) => r.json()).catch(() => []);
+    const res = await fetch(`/api/lancamentos?${q}`).catch(() => null);
+    const data = res ? await res.json().catch(() => []) : [];
+    let resumo = null;
+    try { resumo = JSON.parse(res?.headers.get("x-resumo") || "null"); } catch {}
+    setResumoServidor(resumo);
     setLancamentos(Array.isArray(data) ? data : []);
     setPage(1);
   }, [filtros]);
@@ -321,14 +326,17 @@ export default function LancamentosView() {
   }, [filtros.ini, filtros.fim]);
 
   // Resumo (sobre o período/filtros já aplicados)
+  // Totais vêm do servidor (filtro inteiro, sem transferências entre contas); a soma local só fica de reserva.
   const resumo = useMemo(() => {
+    if (resumoServidor) return { entradas: resumoServidor.entradas, saidas: resumoServidor.saidas, saldo: Math.round((resumoServidor.entradas - resumoServidor.saidas) * 100) / 100 };
     let entradas = 0, saidas = 0;
     for (const l of lancamentos) {
+      if (l.transferenciaId) continue;
       if (l.type === "entrada") entradas += l.amount;
       else saidas += l.amount;
     }
     return { entradas, saidas, saldo: entradas - saidas };
-  }, [lancamentos]);
+  }, [lancamentos, resumoServidor]);
 
   const lancamentosFiltrados = useMemo(() => {
     const q = buscaLanc.trim().toLowerCase();
@@ -378,7 +386,8 @@ export default function LancamentosView() {
 
   // Agrupamento por categoria (para os gráficos de pizza), cada um com seu próprio período
   function agrupar(periodo, tipo) {
-    const base = filtrarPorPeriodo(lancamentos, periodo).filter((l) => l.type === tipo);
+    // Transferência entre contas não é receita nem despesa: inflava as duas pizzas.
+    const base = filtrarPorPeriodo(lancamentos, periodo).filter((l) => l.type === tipo && !l.transferenciaId);
     const map = {};
     for (const l of base) {
       const cat = l.categoria?.name || "Sem categoria";

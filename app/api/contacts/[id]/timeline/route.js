@@ -12,7 +12,7 @@ export async function GET(_req, { params }) {
 
   const [etapas, parcelasPagas, tentativas, negociacoes, documentos, responsaveis] = await Promise.all([
     prisma.etapaLog.findMany({ where: { contactId: id }, orderBy: { createdAt: "desc" } }),
-    prisma.parcela.findMany({ where: { contactId: id, paid: true }, orderBy: { paidAt: "desc" } }),
+    prisma.parcela.findMany({ where: { contactId: id, OR: [{ paid: true }, { valorPago: { gt: 0 }, valorPagoEm: { not: null } }] }, orderBy: { paidAt: "desc" } }),
     prisma.tentativaContato.findMany({ where: { contactId: id }, orderBy: { createdAt: "desc" } }),
     prisma.negociacao.findMany({ where: { contactId: id }, orderBy: { createdAt: "desc" } }),
     prisma.documento.findMany({ where: { contactId: id, conferido: true }, orderBy: { conferidoEm: "desc" } }),
@@ -24,10 +24,12 @@ export async function GET(_req, { params }) {
       tipo: "etapa", data: e.createdAt, usuario: e.usuario,
       titulo: e.deEtapa ? `Mudou de "${e.deEtapa}" para "${e.paraEtapa}"` : `Entrou em "${e.paraEtapa}"`,
     })),
-    ...parcelasPagas.map((p) => ({
-      tipo: "baixa", data: p.paidAt, usuario: p.baixadoPor,
-      titulo: `Pagou a ${p.number}ª parcela`, valor: p.amountPago ?? p.amount,
-    })),
+    ...parcelasPagas.map((p) => {
+      const nome = p.deAcordo || p.number > 1000 ? `${p.number - 1000}ª parcela do acordo` : `${p.number}ª parcela`;
+      return p.paid
+        ? { tipo: "baixa", data: p.paidAt, usuario: p.baixadoPor, titulo: `Pagou a ${nome}`, valor: p.amountPago ?? p.amount }
+        : { tipo: "baixa", data: p.valorPagoEm, usuario: p.baixadoPor, titulo: `Pagou parte da ${nome} (baixa parcial)`, valor: p.valorPago };
+    }),
     ...tentativas.map((t) => ({
       tipo: "tentativa", data: t.createdAt, usuario: t.usuario,
       titulo: `Tentativa de contato (${t.tipo}): ${t.resultado}`, notas: t.notas,

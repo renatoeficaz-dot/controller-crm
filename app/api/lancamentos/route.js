@@ -65,7 +65,9 @@ export async function GET(req) {
   // (sem os filtros da tela) em ordem cronológica real, senão um lançamento
   // filtrado por categoria/banco mostraria um saldo que ignora tudo que
   // aconteceu fora do filtro, o que não bate com o extrato de verdade.
+  // Filtrando por banco, o saldo após cada lançamento é o DAQUELE banco (antes somava todos os bancos e não batia com o extrato da conta).
   const todos = await prisma.lancamento.findMany({
+    where: bancoId ? { bancoId } : undefined,
     select: { id: true, type: true, amount: true },
     orderBy: [{ date: "asc" }, { id: "asc" }],
   });
@@ -77,7 +79,12 @@ export async function GET(req) {
   }
   const comSaldo = lancamentos.map((l) => ({ ...l, saldoApos: saldoPorId.get(l.id) ?? null }));
 
-  return NextResponse.json(comSaldo);
+  // Totais do filtro inteiro: a tela somava só os 500 lançamentos que recebia, e transferência entre contas entrava como entrada E saída.
+  const somas = await prisma.lancamento.groupBy({ by: ["type"], where: { ...where, transferenciaId: null }, _sum: { amount: true }, _count: { _all: true } });
+  const total = await prisma.lancamento.count({ where });
+  const soma = (t) => Math.round((somas.find((s) => s.type === t)?._sum.amount || 0) * 100) / 100;
+  const resumo = { entradas: soma("entrada"), saidas: soma("saida"), total, mostrados: comSaldo.length };
+  return NextResponse.json(comSaldo, { headers: { "x-resumo": JSON.stringify(resumo) } });
 }
 
 export async function POST(req) {

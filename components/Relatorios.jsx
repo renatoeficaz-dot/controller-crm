@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { aReceber, totalRecebido, planejadoNoPeriodo, liberadoNoPeriodo, custoComissaoEstimado, rateioContasPagar, inadimplenciaCravo, fimSemanaStr, fimMesStr } from "@/lib/relatorios";
-import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS, valorEmAberto, diaBR } from "@/lib/finance";
+import { hojeStr, parcelaAtrasada, dueStr, NUM_PARCELAS, valorEmAberto, valorRecebidoDe, entradaDaParcela, diaBR } from "@/lib/finance";
+// Mês "AAAA-MM" de um instante no horário de Brasília (o slice da data UTC jogava o que entrou depois das 21h do último dia no mês seguinte).
+const mesBR = (v) => diaBR(v).slice(0, 7);
+// Capital emprestado ao cliente em todos os ciclos (o recebido também soma todos os ciclos). Aproxima cada ciclo pelo capital atual.
+const capitalEmprestadoDe = (c) => (Number(c.valorCapital) || 0) * Math.max(1, new Set((c.parcelas || []).map((p) => p.ciclo || 1)).size);
 import ContactModal from "@/components/ContactModal";
 import { baixarCsv, numeroCsv } from "@/lib/exportar";
 import Icone from "@/components/Icones";
@@ -282,10 +286,8 @@ export default function Relatorios() {
         const chave = c[campo] || "outros";
         if (!map.has(chave)) map.set(chave, { chave, emprestado: 0, recebido: 0, clientes: 0 });
         const row = map.get(chave);
-        row.emprestado += c.valorCapital;
-        row.recebido += (c.parcelas || [])
-          .filter((p) => p.paid)
-          .reduce((acc, p) => acc + (p.amountPago ?? p.amount), 0);
+        row.emprestado += capitalEmprestadoDe(c);
+        row.recebido += (c.parcelas || []).reduce((acc, p) => acc + valorRecebidoDe(p), 0); // baixa parcial também é dinheiro recebido
         row.clientes++;
       }
     }
@@ -310,13 +312,13 @@ export default function Relatorios() {
     const porEstado = new Map(); // uf -> { recebido, clientes: Map(contactId -> {nome, phone, id, valor}) }
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
-        const valorPeriodo = (c.parcelas || [])
-          .filter((p) => {
-            if (!p.paid || !p.paidAt) return false;
-            const d = new Date(p.paidAt).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-            return d >= ini && d <= fim;
-          })
-          .reduce((acc, p) => acc + (p.amountPago ?? p.amount), 0);
+        // Mesmo critério do "Total recebido": baixa completa pelo paidAt e baixa parcial pelo valorPagoEm (antes a parcial ficava de fora).
+        const valorPeriodo = (c.parcelas || []).reduce((acc, p) => {
+          const e = entradaDaParcela(p);
+          if (!e) return acc;
+          const d = diaBR(e.quando);
+          return d >= ini && d <= fim ? acc + e.valor : acc;
+        }, 0);
         if (valorPeriodo <= 0) continue;
         const uf = c.estado || "Não identificado";
         if (!porEstado.has(uf)) porEstado.set(uf, { recebido: 0, clientes: [] });
@@ -348,18 +350,18 @@ export default function Relatorios() {
         row.clientes++;
         row.emprestado += c.valorCapital;
 
-        const pagas = (c.parcelas || [])
-          .filter((p) => p.paid && p.paidAt)
-          .slice()
-          .sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
+        // Entradas (completas e parciais) em ordem de data. Antes só as quitadas contavam.
+        const entradas = (c.parcelas || []).map(entradaDaParcela).filter(Boolean).sort((a, b) => new Date(a.quando) - new Date(b.quando));
         let acumulado = 0;
+        let fechou = false;
         const inicio = new Date(c.pagamentoCapital);
-        for (const p of pagas) {
-          const valor = p.amountPago ?? p.amount;
-          acumulado += valor;
-          row.recuperado += valor;
-          if (acumulado >= c.valorCapital && row.temposPayback.length < row.clientes) {
-            row.temposPayback.push(Math.max(0, Math.round((new Date(p.paidAt) - inicio) / 86400000)));
+        for (const e of entradas) {
+          acumulado += e.valor;
+          row.recuperado += e.valor;
+          // Um tempo de payback por cliente: antes um cliente que não fechou deixava a vaga para outro registrar dois tempos.
+          if (!fechou && acumulado >= c.valorCapital) {
+            fechou = true;
+            row.temposPayback.push(Math.max(0, Math.round((new Date(e.quando) - inicio) / 86400000)));
           }
         }
       }
@@ -388,23 +390,20 @@ export default function Relatorios() {
 
   // Soma do que já foi pago por um contato.
   function recebidoDe(c) {
-    return (c.parcelas || []).filter((p) => p.paid).reduce((acc, p) => acc + (p.amountPago ?? p.amount), 0);
+    return (c.parcelas || []).reduce((acc, p) => acc + valorRecebidoDe(p), 0); // inclui baixas parciais
   }
 
   // Dias entre a liberação do capital e a parcela que fechou o payback (null
   // se o cliente ainda não devolveu o capital emprestado).
   function diasPaybackDe(c) {
     if (!c.valorCapital || !c.pagamentoCapital) return null;
-    const pagas = (c.parcelas || [])
-      .filter((p) => p.paid && p.paidAt)
-      .slice()
-      .sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
+    const entradas = (c.parcelas || []).map(entradaDaParcela).filter(Boolean).sort((a, b) => new Date(a.quando) - new Date(b.quando));
     let acumulado = 0;
     const inicio = new Date(String(c.pagamentoCapital).slice(0, 10));
-    for (const p of pagas) {
-      acumulado += p.amountPago ?? p.amount;
+    for (const e of entradas) {
+      acumulado += e.valor;
       if (acumulado >= c.valorCapital) {
-        return Math.max(0, Math.round((new Date(diaBR(p.paidAt)) - inicio) / 86400000));
+        return Math.max(0, Math.round((new Date(diaBR(e.quando)) - inicio) / 86400000));
       }
     }
     return null;
@@ -423,17 +422,20 @@ export default function Relatorios() {
 
     for (const c of contatosFiltrados) {
       for (const p of c.parcelas || []) {
-        if (p.paid) continue;
+        // Renegociada (virou acordo) contava junto com as parcelas do acordo; e a baixa parcial não era descontada.
+        if (p.paid || p.renegociada) continue;
         const dias = Math.round((hoje - new Date(dueStr(p))) / 86400000);
         if (dias < 1) continue;
         const faixa = faixas.find((f) => dias <= f.max);
         if (!faixa) continue;
-        faixa.value += p.amount;
+        const aberto = valorEmAberto(p);
+        if (aberto <= 0) continue;
+        faixa.value += aberto;
         faixa.parcelas++;
         faixa.clientes.add(c.id);
         // item 123 (drill-down): guarda o lead por trás do número, não só a contagem.
         const acc = faixa.contatos.get(c.id) || { id: c.id, name: c.name, phone: c.phone, valor: 0, diasMax: 0 };
-        acc.valor += p.amount;
+        acc.valor += aberto;
         acc.diasMax = Math.max(acc.diasMax, dias);
         faixa.contatos.set(c.id, acc);
       }
@@ -495,7 +497,12 @@ export default function Relatorios() {
     let emprestadoNoPeriodo = 0;
     for (const c of contatosFiltrados) {
       if (!c.valorCapital) continue;
-      if ((c.parcelas || []).some((p) => !p.paid && !p.renegociada)) capitalNaRua += c.valorCapital;
+      if ((c.parcelas || []).some((p) => !p.paid && !p.renegociada)) {
+        // Só a fração do capital ainda não devolvida: parcelas do plano do ciclo atual que faltam quitar.
+        const plano = (c.parcelas || []).filter((p) => !p.deAcordo && (p.ciclo || 1) === (c.cicloAtual || 1));
+        const tamanho = Math.max(NUM_PARCELAS, plano.length);
+        capitalNaRua += c.valorCapital * (Math.max(0, tamanho - plano.filter((p) => p.paid).length) / tamanho);
+      }
       if (c.pagamentoCapital) {
         const d = String(c.pagamentoCapital).slice(0, 10);
         if (d >= ini && d <= fim) emprestadoNoPeriodo += c.valorCapital;
@@ -523,7 +530,7 @@ export default function Relatorios() {
       const faixa = faixas.find((f) => c.valorCapital <= f.max);
       if (!faixa) continue;
       faixa.clientes++;
-      faixa.emprestado += c.valorCapital;
+      faixa.emprestado += capitalEmprestadoDe(c);
       faixa.recebido += recebidoDe(c);
       if ((c.parcelas || []).length > 0) {
         faixa.comParcelas++;
@@ -552,7 +559,7 @@ export default function Relatorios() {
       }
       const row = map.get(chave);
       row.clientes++;
-      row.emprestado += c.valorCapital;
+      row.emprestado += capitalEmprestadoDe(c);
       row.recebido += recebidoDe(c);
       if ((c.parcelas || []).length > 0) {
         row.comParcelas++;
@@ -603,9 +610,10 @@ export default function Relatorios() {
     const dias = Array.from({ length: 31 }, (_, i) => ({ label: String(i + 1), value: 0 }));
     for (const c of contatosFiltrados) {
       for (const p of c.parcelas || []) {
-        if (!p.paid || !p.paidAt) continue;
-        const dia = new Date(p.paidAt).getDate();
-        if (dia >= 1 && dia <= 31) dias[dia - 1].value += p.amountPago ?? p.amount;
+        const e = entradaDaParcela(p); // inclui baixa parcial
+        if (!e) continue;
+        const dia = Number(diaBR(e.quando).slice(8, 10));
+        if (dia >= 1 && dia <= 31) dias[dia - 1].value += e.valor;
       }
     }
     return dias;
@@ -638,13 +646,14 @@ export default function Relatorios() {
       return map.get(mes);
     };
     for (const c of contatosFiltrados) {
-      if (c.entrouRecebimentoEm) garante(String(c.entrouRecebimentoEm).slice(0, 7)).vendas++;
+      if (c.entrouRecebimentoEm) garante(mesBR(c.entrouRecebimentoEm)).vendas++;
       if (c.pagamentoCapital && c.valorCapital) {
         garante(String(c.pagamentoCapital).slice(0, 7)).liberado += c.valorCapital;
       }
       for (const p of c.parcelas || []) {
-        if (!p.paid || !p.paidAt) continue;
-        garante(String(p.paidAt).slice(0, 7)).recebido += p.amountPago ?? p.amount;
+        const e = entradaDaParcela(p); // baixa parcial também entra no mês em que foi paga
+        if (!e) continue;
+        garante(mesBR(e.quando)).recebido += e.valor;
       }
     }
     const linhas = Array.from(map.values())
@@ -744,12 +753,13 @@ export default function Relatorios() {
         if (!c.createdAt) continue;
         const k = keyFn(new Date(c.createdAt));
         const valor = (c.parcelas || [])
-          .filter((p) => {
-            if (!p.paid || !p.paidAt) return false;
-            const d = new Date(p.paidAt).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-            return d >= ini && d <= fim;
-          })
-          .reduce((acc, p) => acc + Math.max(0, p.amount - (p.valorPago || 0)), 0);
+          // Era "valor da parcela menos o parcial" numa parcela JÁ PAGA: tirava o que o cliente pagou antes e ignorava o valor real da baixa.
+          .reduce((acc, p) => {
+            const e = entradaDaParcela(p);
+            if (!e) return acc;
+            const d = diaBR(e.quando);
+            return d >= ini && d <= fim ? acc + e.valor : acc;
+          }, 0);
         if (valor <= 0) continue;
         map.set(k, (map.get(k) || 0) + valor);
       }
@@ -1038,10 +1048,11 @@ export default function Relatorios() {
       if (s.name !== "Recebimento") continue;
       for (const c of s.contacts || []) {
         for (const p of c.parcelas || []) {
-          if (p.paid) continue;
+          // Só o ciclo atual e sem as renegociadas; o valor é o que falta (desconta a baixa parcial).
+          if (p.paid || p.renegociada || (p.ciclo || 1) !== (c.cicloAtual || 1)) continue;
           if (p.number < 1 || p.number > NUM_PARCELAS) continue;
           counts[p.number - 1]++;
-          valores[p.number - 1] += p.amount;
+          valores[p.number - 1] += valorEmAberto(p);
         }
       }
     }
@@ -1058,11 +1069,9 @@ export default function Relatorios() {
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
         if (!c.valorCapital || !c.pagamentoCapital) continue;
-        const pagas = (c.parcelas || [])
-          .filter((p) => p.paid && p.paidAt)
-          .slice()
-          .sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
-        const recuperado = pagas.reduce((sum, p) => sum + (p.amountPago ?? p.amount), 0);
+        // Entradas completas e parciais, em ordem de data (antes a parcial não contava como recuperado).
+        const pagas = (c.parcelas || []).map(entradaDaParcela).filter(Boolean).sort((a, b) => new Date(a.quando) - new Date(b.quando));
+        const recuperado = pagas.reduce((sum, e) => sum + e.valor, 0);
         // Projetado: quanto ainda falta voltar desse cliente — soma das
         // parcelas em aberto (não pagas, e não substituídas por acordo).
         const projetado = (c.parcelas || [])
@@ -1071,10 +1080,10 @@ export default function Relatorios() {
         let diasPayback = null;
         let acumulado = 0;
         const inicio = new Date(c.pagamentoCapital);
-        for (const p of pagas) {
-          acumulado += p.amountPago ?? p.amount;
+        for (const e of pagas) {
+          acumulado += e.valor;
           if (acumulado >= c.valorCapital) {
-            diasPayback = Math.max(0, Math.round((new Date(p.paidAt) - inicio) / 86400000));
+            diasPayback = Math.max(0, Math.round((new Date(e.quando) - inicio) / 86400000));
             break;
           }
         }
@@ -1160,7 +1169,7 @@ export default function Relatorios() {
     const out = [];
     for (const s of stagesFiltrados) {
       for (const c of s.contacts || []) {
-        const total = (c.parcelas || []).filter((p) => p.paid).reduce((sum, p) => sum + (p.amountPago ?? p.amount), 0);
+        const total = (c.parcelas || []).reduce((sum, p) => sum + valorRecebidoDe(p), 0); // inclui baixas parciais
         if (total > 0) out.push({ id: c.id, name: c.name, ltv: total, ciclos: c.cicloAtual || 1 });
       }
     }

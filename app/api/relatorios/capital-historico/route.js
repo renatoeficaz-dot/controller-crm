@@ -10,10 +10,12 @@ import { NextResponse } from "next/server";
 export async function GET(req) {
   const data = new URL(req.url).searchParams.get("data");
   if (!data) return NextResponse.json({ error: "informe ?data=YYYY-MM-DD" }, { status: 400 });
-  const corte = new Date(data + "T23:59:59.999Z");
+  // Fim do dia em Brasília (o "Z" cortava às 21h e deixava de fora o que mudou de etapa à noite).
+  const corte = new Date(String(data).slice(0, 10) + "T23:59:59.999-03:00");
+  if (Number.isNaN(corte.getTime())) return NextResponse.json({ error: "informe ?data=YYYY-MM-DD" }, { status: 400 });
 
   const [contatos, logs] = await Promise.all([
-    prisma.contact.findMany({ where: { valorCapital: { gt: 0 } }, select: { id: true, valorCapital: true } }),
+    prisma.contact.findMany({ where: { valorCapital: { gt: 0 }, excluidoEm: null }, select: { id: true, valorCapital: true } }), // lead excluído não é carteira
     prisma.etapaLog.findMany({
       where: { createdAt: { lte: corte } },
       orderBy: { createdAt: "desc" },

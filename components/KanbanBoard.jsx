@@ -89,7 +89,8 @@ function valorAReceber(contact) {
 
 // Total já recebido do cliente (todas as parcelas pagas + pagamentos parciais) — usado na coluna Pago.
 function valorRecebido(contact) {
-  return (contact.parcelas || []).reduce((sum, p) => sum + (p.paid ? (p.amountPago || p.valorPago || p.amount || 0) : (p.valorPago || 0)), 0);
+  // amountPago 0 caía no "||" e virava o valor cheio; parcela quitada depois de um parcial mostrava só o parcial.
+  return (contact.parcelas || []).reduce((sum, p) => sum + (p.paid ? (p.amountPago != null ? p.amountPago : p.amount || 0) : (p.valorPago || 0)), 0);
 }
 
 // Quantos dias a parcela mais atrasada do ciclo atual está vencida (0 se

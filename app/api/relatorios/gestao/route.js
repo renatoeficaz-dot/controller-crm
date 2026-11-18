@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
-import { hojeStr, dueStr, parcelaAtrasada, valorEmAberto } from "@/lib/finance";
+import { hojeStr, dueStr, parcelaAtrasada, valorEmAberto, valorRecebidoDe } from "@/lib/finance";
 
 // Faixas de aging usadas pela provisão — a expectativa de perda cresce com o
 // tempo de atraso, então cada faixa tem seu próprio percentual configurável.
@@ -28,9 +28,10 @@ export async function GET() {
         stage: { select: { name: true } },
       },
     }),
+    // Baixas parciais também são dinheiro recuperado pelo cobrador (antes só a baixa completa contava).
     prisma.parcela.findMany({
-      where: { paid: true },
-      select: { amountPago: true, amount: true, baixadoPor: true, paidAt: true, dueDate: true },
+      where: { OR: [{ paid: true }, { valorPago: { gt: 0 } }] },
+      select: { amountPago: true, amount: true, baixadoPor: true, paidAt: true, dueDate: true, paid: true, valorPago: true },
     }),
     prisma.lancamento.findMany({
       where: { contactId: { not: null } },
@@ -50,7 +51,8 @@ export async function GET() {
   for (const p of baixas) {
     const nome = p.baixadoPor || "— não registrado —";
     const r = garante(nome);
-    r.recuperado += p.amountPago != null ? p.amountPago : p.amount;
+    r.recuperado += valorRecebidoDe(p);
+    if (!p.paid) continue; // parcial soma no recuperado, mas não conta como baixa nem como "em dia"
     r.baixas += 1;
     // Pagou até o vencimento?
     const pagoEm = p.paidAt ? new Date(p.paidAt).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }) : null; // instante: dia em Brasília

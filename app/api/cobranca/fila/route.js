@@ -70,7 +70,7 @@ export async function GET() {
       parcelasAtrasadas: atrasadas.length,
       proximaParcelaId: maisAntiga.id,
       proximaParcelaNumero: maisAntiga.number,
-      proximaParcelaValor: maisAntiga.amount,
+      proximaParcelaValor: valorEmAberto(maisAntiga),
       tentativasHoje,
       canalSugerido: canalPara(dias),
       promessaQuebrada,
