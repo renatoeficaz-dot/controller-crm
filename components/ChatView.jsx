@@ -495,13 +495,13 @@ export default function ChatView() {
 
   // Carrega listas auxiliares (uma vez)
   useEffect(() => {
-    fetch("/api/users").then((r) => r.json()).then(setUsers).catch(() => {});
-    fetch("/api/tags").then((r) => r.json()).then(setAllTags).catch(() => {});
+    fetch("/api/users").then((r) => r.json()).then((d) => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch("/api/tags").then((r) => r.json()).then((d) => setAllTags(Array.isArray(d) ? d : [])).catch(() => {});
     // Só admin pode criar etiqueta (a API recusa os demais) — sem saber o
     // papel, o campo apareceria pra todo mundo e daria erro ao usar.
     fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null))
       .then((u) => { setEuAdmin(u?.role === "admin"); setMeuId(u?.id || null); }).catch(() => {});
-    fetch("/api/templates").then((r) => r.json()).then(setTemplates).catch(() => {});
+    fetch("/api/templates").then((r) => r.json()).then((d) => setTemplates(Array.isArray(d) ? d : [])).catch(() => {});
     fetch("/api/numbers").then((r) => r.json()).then((n) => setNumbers(Array.isArray(n) ? n : [])).catch(() => {});
     fetch("/api/task-types").then((r) => r.json()).then((t) => setTaskTypes(Array.isArray(t) ? t : [])).catch(() => {});
     fetch("/api/config").then((r) => r.json()).then((cfg) => {

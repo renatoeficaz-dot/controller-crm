@@ -101,12 +101,14 @@ export async function POST(req) {
     await prisma.task.createMany({ data: dados });
     return NextResponse.json({ ok: true, criadas: dados.length });
   }
+  const dueDate = body.dueDate ? new Date(body.dueDate) : new Date();
+  if (Number.isNaN(dueDate.getTime())) return NextResponse.json({ error: "Data da tarefa inválida." }, { status: 400 });
   const task = await prisma.task.create({
     data: {
       contactId,
       title,
       notes: texto(body.notes) || null,
-      dueDate: body.dueDate ? new Date(body.dueDate) : new Date(),
+      dueDate,
       tipoId: body.tipoId || null,
       responsavel: body.responsavel || null,
     },

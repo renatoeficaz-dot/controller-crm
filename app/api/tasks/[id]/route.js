@@ -17,11 +17,21 @@ export async function PATCH(req, { params }) {
     const data = {};
     if ("title" in body) data.title = texto(body.title);
     if ("notes" in body) data.notes = texto(body.notes) || null;
-    if ("dueDate" in body) data.dueDate = new Date(body.dueDate);
+    // dueDate null virava 01/01/1970 (new Date(null)) e texto inválido derrubava a rota com 500.
+    if ("dueDate" in body) {
+      const d = body.dueDate ? new Date(body.dueDate) : null;
+      if (!d || Number.isNaN(d.getTime())) return NextResponse.json({ error: "Data da tarefa inválida." }, { status: 400 });
+      data.dueDate = d;
+    }
     if ("done" in body) data.done = !!body.done;
-    if ("tipoId" in body) data.tipoId = body.tipoId || null;
-    if ("contactId" in body && body.contactId) data.contactId = body.contactId;
-    if ("responsavel" in body) data.responsavel = body.responsavel || null;
+    if ("tipoId" in body) data.tipoId = texto(body.tipoId) || null;
+    // Mover a tarefa para outro lead: só para um lead que a pessoa também pode ver (antes bastava mandar qualquer id).
+    if ("contactId" in body && texto(body.contactId) && texto(body.contactId) !== _e.contactId) {
+      const negadoDestino = await negarSeNaoPodeVerContato(texto(body.contactId));
+      if (negadoDestino) return negadoDestino;
+      data.contactId = texto(body.contactId);
+    }
+    if ("responsavel" in body) data.responsavel = texto(body.responsavel) || null;
     const task = await prisma.task.update({
       where: { id },
       data,

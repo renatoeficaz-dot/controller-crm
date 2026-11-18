@@ -6,6 +6,7 @@ import ContasPagarView from "@/components/ContasPagarView";
 import FilaLiberacaoView from "@/components/FilaLiberacaoView";
 import ConciliacaoView from "@/components/ConciliacaoView";
 import Icone from "@/components/Icones";
+import { numeroBR } from "@/lib/numeroBR";
 import { useUndoDelete, UndoToast } from "./UndoToast";
 
 const money = (n) =>
@@ -205,8 +206,11 @@ export default function LancamentosView() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [campo]: novoValor }),
-    });
-    setConfig(await res.json());
+    }).catch(() => null);
+    // Resposta de erro ({ error }) substituía a config inteira e as contas especiais sumiam da tela.
+    const d = await res?.json().catch(() => null);
+    if (!res?.ok || !d || d.error) { alert(d?.error || "Não foi possível salvar."); return; }
+    setConfig(d);
   }
 
   const loadSaldo = useCallback(async () => {
@@ -229,7 +233,7 @@ export default function LancamentosView() {
       return;
     }
     if (!motivo) return;
-    await fetch("/api/lancamentos", {
+    const res = await fetch("/api/lancamentos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -238,7 +242,8 @@ export default function LancamentosView() {
         description: `Ajuste de saldo: ${motivo}`,
         date: hojeStr(),
       }),
-    });
+    }).catch(() => null);
+    if (!res || !res.ok) { alert((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar."); return; }
     setEditandoSaldo(null);
     loadSaldo();
     loadLanc();
@@ -330,7 +335,7 @@ export default function LancamentosView() {
     if (!q) return lancamentos;
     // Busca por valor exato (item 136): "108" ou "108,50" acha o lançamento
     // certo sem precisar rolar a lista procurando o número.
-    const comoValor = Number(q.replace(",", "."));
+    const comoValor = numeroBR(q); // "1.234,56" também acha (antes virava NaN)
     if (!Number.isNaN(comoValor) && /^[\d.,]+$/.test(q)) {
       return lancamentos.filter((l) => Math.abs(l.amount - comoValor) < 0.005);
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icone from "@/components/Icones";
 import MediaBubble, { MediaLightbox } from "./MediaBubble";
 
@@ -31,7 +31,16 @@ export default function DocumentosPopup({ contactId, messages, onClose }) {
   const [promovendo, setPromovendo] = useState(null); // messageId em promoção
   const [lightbox, setLightbox] = useState(null);
 
-  const load = () => fetch(`/api/contacts/${contactId}/documentos`).then((r) => r.json()).then(setDocumentos).catch(() => {});
+  // Resposta atrasada de outro lead (trocou de cliente com o popup aberto) não sobrescreve a lista; erro da API não quebra a tela.
+  const atualRef = useRef(contactId);
+  atualRef.current = contactId;
+  const load = () => {
+    const pedido = contactId;
+    return fetch(`/api/contacts/${pedido}/documentos`)
+      .then((r) => r.json())
+      .then((d) => { if (atualRef.current === pedido) setDocumentos(Array.isArray(d) ? d : []); })
+      .catch(() => {});
+  };
   useEffect(() => { load(); }, [contactId]);
 
   const midiasChat = (messages || []).filter((m) => MIDIA_KINDS.includes(m.kind));
@@ -50,16 +59,19 @@ export default function DocumentosPopup({ contactId, messages, onClose }) {
   }
 
   async function promover(messageId, tipo) {
-    await fetch("/api/documentos/promover", {
+    const res = await fetch("/api/documentos/promover", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId, tipo }),
-    });
+    }).catch(() => null);
     setPromovendo(null);
+    // Falha ao classificar a mídia era silenciosa: parecia que tinha marcado o tipo.
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível marcar o tipo do documento.");
     load();
   }
 
   async function removerDoc(doc) {
     if (!confirm("Remover este documento?")) return;
-    await fetch(`/api/documentos/${doc.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/documentos/${doc.id}`, { method: "DELETE" }).catch(() => null);
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível remover o documento.");
     load();
   }
 

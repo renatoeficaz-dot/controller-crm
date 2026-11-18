@@ -35,7 +35,8 @@ function Ajustes({ userId, totalSemana }) {
     load();
   }
   async function marcar(id, descontado) {
-    await fetch("/api/comissao-ajustes", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, descontado }) });
+    const res = await fetch("/api/comissao-ajustes", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, descontado }) }).catch(() => null);
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar.");
     load();
   }
   async function apagar(id) {

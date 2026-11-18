@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Secao from "@/components/SecaoColapsavel";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -14,13 +14,17 @@ export default function CacEtiquetas({ ini, fim, leadIni, leadFim, coorte }) {
   const [salvando, setSalvando] = useState(null);
   const [rascunhoTotal, setRascunhoTotal] = useState({});
 
+  // Trocar o período rápido disparava várias consultas; a que voltava por último (às vezes a antiga) ficava na tela.
+  const seqRef = useRef(0);
   async function carregar() {
+    const seq = ++seqRef.current;
     const qs = new URLSearchParams({ ini, fim });
     if (leadIni) qs.set("leadIni", leadIni);
     if (leadFim) qs.set("leadFim", leadFim);
     if (coorte) qs.set("coorte", "1");
     const res = await fetch(`/api/relatorios/cac-etiquetas?${qs}`);
     const d = await res.json().catch(() => null);
+    if (seq !== seqRef.current) return;
     if (!res.ok) { setErro(d?.error || "Não foi possível calcular."); return; }
     setErro("");
     setDados(d);

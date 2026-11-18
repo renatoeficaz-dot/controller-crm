@@ -49,7 +49,7 @@ export async function POST(req) {
 
   // "ilimitada" chega como recorrenciaMeses vazio/null com recorrente = true.
   const meses = body.recorrenciaMeses === "" || body.recorrenciaMeses == null ? null : Number(body.recorrenciaMeses);
-  if (body.recorrente && meses != null && (meses < 2 || meses > 120)) {
+  if (body.recorrente && meses != null && (!Number.isInteger(meses) || meses < 2 || meses > 120)) {
     return NextResponse.json({ error: "A repetição deve ser de 2 a 120 vezes (ou ilimitada)." }, { status: 400 });
   }
   const frequencia = FREQUENCIAS.includes(body.frequencia) ? body.frequencia : "mensal";

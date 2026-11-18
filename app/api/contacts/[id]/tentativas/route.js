@@ -21,6 +21,13 @@ export async function POST(req, { params }) {
   const negado = await negarSeNaoPodeVerContato(id);
   if (negado) return negado;
   const body = await lerCorpo(req);
+  // tipo/resultado que não são texto (número, objeto) e data de promessa inválida derrubavam a rota com 500 no Prisma.
+  body.tipo = texto(body.tipo);
+  body.resultado = texto(body.resultado);
+  const diaPromessa = String(body.dataPromessa ?? "").slice(0, 10);
+  if (body.resultado === "prometeu" && body.dataPromessa && (!/^\d{4}-\d{2}-\d{2}$/.test(diaPromessa) || Number.isNaN(new Date(diaPromessa + "T00:00:00.000Z").getTime()))) {
+    return NextResponse.json({ error: "Data da promessa inválida." }, { status: 400 });
+  }
   if (!body.tipo || !body.resultado) {
     return NextResponse.json({ error: "Informe o tipo e o resultado da tentativa." }, { status: 400 });
   }

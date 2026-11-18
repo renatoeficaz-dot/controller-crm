@@ -64,7 +64,7 @@ export async function POST(_req, { params }) {
     if (!res.ok) {
       return NextResponse.json({ error: data?.error?.message || `IA respondeu ${res.status}` }, { status: 502 });
     }
-    const resumo = data?.choices?.[0]?.texto(message?.content);
+    const resumo = texto(data?.choices?.[0]?.message?.content);
     if (!resumo) return NextResponse.json({ error: "A IA não devolveu um resumo." }, { status: 502 });
     return NextResponse.json({ resumo, mensagensLidas: mensagens.length });
   } catch (err) {

@@ -41,6 +41,13 @@ export async function POST(req, { params }) {
   if (!valorCapital || !pagamentoCapital) {
     return NextResponse.json({ error: "Informe o Valor do capital e a Data de pagamento da renovação." }, { status: 400 });
   }
+  // Capital negativo passava ("!-500" é false) e gerava parcelas negativas; data inválida gerava parcelas sem vencimento.
+  if (!Number.isFinite(valorCapital) || valorCapital <= 0) {
+    return NextResponse.json({ error: "Valor do capital inválido." }, { status: 400 });
+  }
+  if (Number.isNaN(new Date(pagamentoCapital).getTime())) {
+    return NextResponse.json({ error: "Data de pagamento da renovação inválida." }, { status: 400 });
+  }
 
   const novoCiclo = contact.cicloAtual + 1;
   const config = await prisma.config.findUnique({ where: { id: "singleton" } });

@@ -440,7 +440,7 @@ function PrestacaoContasModal({ onClose }) {
   async function salvar(e) {
     e.preventDefault();
     setSalvando(true);
-    await fetch("/api/prestacao-contas", {
+    const res = await fetch("/api/prestacao-contas", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         visitas: form.visitas === "" ? null : Number(form.visitas),
@@ -448,8 +448,10 @@ function PrestacaoContasModal({ onClose }) {
         recebidoPix: form.recebidoPix === "" ? null : Number(form.recebidoPix),
         observacao: form.observacao || null,
       }),
-    });
+    }).catch(() => null);
     setSalvando(false);
+    // Antes fechava com "salvo" mesmo quando o servidor recusava (sem conexão, valor inválido).
+    if (!res || !res.ok) { alert((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar."); return; }
     setSalvo(true);
     setTimeout(onClose, 1000);
   }

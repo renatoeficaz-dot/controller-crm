@@ -9,6 +9,14 @@ import { valorEmAberto } from "@/lib/finance";
 import { negarSeNaoPodeVerContato } from "@/lib/contatoAcesso";
 import { lerCorpo, texto, ehNaoEncontrado, respostaNaoEncontrado } from "@/lib/corpo";
 import { markMessagesAsRead } from "@/lib/evolution";
+import { numeroBR } from "@/lib/numeroBR";
+
+// Data vinda do corpo: vazia = null; inválida = null também (antes "abc" chegava ao Prisma como Invalid Date e a rota caía com 500).
+const dataOuNull = (v) => {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
 
 // Busca um contato com suas mensagens (conforme permissão de WhatsApp) e parcelas.
 // mediaUrl (base64) fica de fora — mídia é carregada sob demanda via /api/messages/[id]/media.
@@ -107,14 +115,16 @@ export async function PATCH(req, { params }) {
     if ("chatFixado" in body) data.chatFixado = !!body.chatFixado;
     if ("chatArquivado" in body) {
       data.chatArquivado = !!body.chatArquivado;
-      data.chatVoltaEm = data.chatArquivado && body.chatVoltaEm ? new Date(body.chatVoltaEm) : null;
+      data.chatVoltaEm = data.chatArquivado ? dataOuNull(body.chatVoltaEm) : null;
     }
-    if ("naoPerturbarAte" in body) data.naoPerturbarAte = body.naoPerturbarAte ? new Date(body.naoPerturbarAte) : null;
+    if ("naoPerturbarAte" in body) data.naoPerturbarAte = dataOuNull(body.naoPerturbarAte);
     if ("valorCapital" in body) {
-      data.valorCapital = body.valorCapital === "" || body.valorCapital == null ? null : Number(body.valorCapital);
+      // "1.500,00" virava NaN e "abc" derrubava a gravação inteira da ficha.
+      const capital = body.valorCapital === "" || body.valorCapital == null ? null : numeroBR(body.valorCapital);
+      data.valorCapital = Number.isFinite(capital) ? capital : null;
     }
     if ("pagamentoCapital" in body) {
-      data.pagamentoCapital = body.pagamentoCapital ? new Date(body.pagamentoCapital) : null;
+      data.pagamentoCapital = dataOuNull(body.pagamentoCapital);
     }
     if ("iaPausada" in body) data.iaPausada = !!body.iaPausada;
     if ("checklistTelefoneBate" in body) data.checklistTelefoneBate = !!body.checklistTelefoneBate;

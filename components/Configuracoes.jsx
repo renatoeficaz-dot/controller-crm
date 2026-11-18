@@ -2452,7 +2452,7 @@ function AquecimentoNumero({ numero, onChange }) {
     if (!numero.aquecimentoAtivo) return;
     fetch(`/api/numbers/${numero.id}/enviadas-hoje`)
       .then((r) => r.json())
-      .then((d) => setEnviadas(d.enviadas))
+      .then((d) => setEnviadas(Number(d?.enviadas) || 0))
       .catch(() => {});
   }, [numero.id, numero.aquecimentoAtivo]);
 
@@ -2560,14 +2560,18 @@ function ReguaCobranca() {
   async function criarSugerida() {
     if (regras.length && !confirm("Isso adiciona as 6 faixas sugeridas às que já existem. Continuar?")) return;
     setSalvando(true);
+    let falhas = 0;
     for (const r of REGUA_SUGERIDA) {
-      await fetch("/api/regras-cobranca", {
+      const res = await fetch("/api/regras-cobranca", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(r),
-      });
+      }).catch(() => null);
+      if (!res || !res.ok) falhas++;
     }
     setSalvando(false);
+    // Antes uma faixa recusada sumia sem aviso e a régua ficava incompleta.
+    if (falhas) alert(`${falhas} faixa(s) da régua não foram criadas. Confira a lista.`);
     load();
   }
 
@@ -3515,9 +3519,11 @@ function TagsConfig() {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
-    await fetch("/api/tags", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    setForm({ name: "", color: "#6366f1" });
+    const res = await fetch("/api/tags", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }).catch(() => null);
     setSaving(false);
+    // Nome repetido / erro: o formulário era limpo como se tivesse criado.
+    if (!res || !res.ok) { alert((await res?.json().catch(() => ({})))?.error || "Não foi possível criar a tag."); return; }
+    setForm({ name: "", color: "#6366f1" });
     load();
   }
 
@@ -3530,7 +3536,8 @@ function TagsConfig() {
   async function createRule(e) {
     e.preventDefault();
     if (!ruleForm.match.trim() || !ruleForm.tagId) return;
-    await fetch("/api/tags/rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ruleForm) });
+    const res = await fetch("/api/tags/rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ruleForm) }).catch(() => null);
+    if (!res || !res.ok) { alert((await res?.json().catch(() => ({})))?.error || "Não foi possível criar a regra."); return; }
     setRuleForm({ match: "", tagId: "" });
     load();
   }
@@ -3754,11 +3761,13 @@ function MensagensProntas() {
     const nova = [...templates];
     [nova[i], nova[j]] = [nova[j], nova[i]];
     setTemplates(nova);
-    await fetch("/api/templates/ordem", {
+    const res = await fetch("/api/templates/ordem", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: nova.map((t) => t.id) }),
-    });
+    }).catch(() => null);
+    // Se o servidor recusou, a tela mostrava a ordem nova que não foi gravada: volta para a ordem de antes.
+    if (!res || !res.ok) { setTemplates(templates); alert("Não foi possível salvar a nova ordem."); }
   }
 
   const editando = editId !== null;
@@ -5742,9 +5751,11 @@ function PluggyConfig() {
   }
   async function sincronizar() {
     setOcupado(true);
-    const r = await fetch("/api/pluggy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "sincronizar", atualizarBanco: true }) });
-    const j = await r.json().catch(() => ({}));
+    // Queda de conexão fazia o fetch lançar e o botão ficava travado em "ocupado" até recarregar a página.
+    const r = await fetch("/api/pluggy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "sincronizar", atualizarBanco: true }) }).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : { erroRede: true };
     setOcupado(false);
+    if (j.erroRede) { aviso("Sem conexão com o servidor. Tente de novo."); return; }
     if (j.ocupado) aviso("Já está sincronizando, aguarde.");
     else if (j.semConfig) aviso("Preencha e salve as credenciais primeiro.");
     else aviso((j.contas || []).map((c) => (c.erro ? `${c.conta}: ${c.erro}` : `${c.conta}: ${c.novos} novo(s), ${c.casados} conferido(s)`)).join(" · ") || "Nenhuma conta ativa.");

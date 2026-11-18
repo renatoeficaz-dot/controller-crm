@@ -20,8 +20,17 @@ export async function PATCH(req, { params }) {
   
     const data = {};
     if ("descricao" in body) data.descricao = texto(body.descricao);
-    if ("valor" in body) data.valor = Number(body.valor) || 0;
-    if ("vencimento" in body) data.vencimento = new Date(body.vencimento + "T00:00:00.000Z");
+    // Valor inválido ZERAVA a conta em silêncio (Number("abc") || 0) e vencimento inválido derrubava a rota com 500.
+    if ("valor" in body) {
+      const v = Number(body.valor);
+      if (!Number.isFinite(v) || v <= 0) return NextResponse.json({ error: "Informe um valor válido." }, { status: 400 });
+      data.valor = v;
+    }
+    if ("vencimento" in body) {
+      const venc = new Date(String(body.vencimento || "").slice(0, 10) + "T00:00:00.000Z");
+      if (Number.isNaN(venc.getTime())) return NextResponse.json({ error: "Data de vencimento inválida." }, { status: 400 });
+      data.vencimento = venc;
+    }
     if ("categoriaId" in body) data.categoriaId = body.categoriaId || null;
     if ("bancoId" in body) data.bancoId = body.bancoId || null;
     if ("observacao" in body) data.observacao = texto(body.observacao) || null;

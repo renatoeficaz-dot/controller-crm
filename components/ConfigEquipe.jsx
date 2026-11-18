@@ -9,7 +9,7 @@ const fmtDia = (d) => new Date(d).toLocaleDateString("pt-BR", { timeZone: "UTC" 
 /* ---------------- 32. Controle de espécie ---------------- */
 function EspecieConfig() {
   const [dados, setDados] = useState(null);
-  const load = useCallback(() => fetch("/api/especie").then((r) => r.json()).then(setDados).catch(() => {}), []);
+  const load = useCallback(() => fetch("/api/especie").then((r) => r.json()).then((d) => setDados({ ...d, saldos: Array.isArray(d?.saldos) ? d.saldos : [] })).catch(() => setDados({ saldos: [] })), []);
   useEffect(() => { load(); }, [load]);
   if (!dados) return <p className="text-sm text-slate-400">Carregando…</p>;
 
@@ -89,8 +89,9 @@ function ComissaoFechamentos() {
 
   async function gerar() {
     setGerando(true);
-    await fetch("/api/comissao/fechamentos", { method: "POST" });
+    const res = await fetch("/api/comissao/fechamentos", { method: "POST" }).catch(() => null);
     setGerando(false);
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível gerar o fechamento.");
     load();
   }
 

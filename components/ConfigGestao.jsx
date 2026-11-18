@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Icone from "@/components/Icones";
 import ContactModal from "@/components/ContactModal";
 
@@ -47,6 +47,11 @@ export function ComissaoConfig() {
   const [simulado, setSimulado] = useState("");
   const [todosUsuarios, setTodosUsuarios] = useState([]);
   const [colabSelecionado, setColabSelecionado] = useState("");
+  // Trocar de colaborador rápido: a resposta atrasada do anterior preenchia o formulário do atual, e "Salvar" gravava os
+  // valores de uma pessoa na outra. Só aplica a resposta se ainda for o colaborador selecionado.
+  const colabRef = useRef("");
+  colabRef.current = colabSelecionado;
+  const doColabAtual = (userId) => (d) => { if (colabRef.current !== userId) throw new Error("colaborador trocado"); return d; };
   const [acerto, setAcerto] = useState(null);       // config de pagamento semanal
   const [acertoPrevia, setAcertoPrevia] = useState(null);
   const [salvandoAcerto, setSalvandoAcerto] = useState(false);
@@ -104,6 +109,7 @@ export function ComissaoConfig() {
     if (!userId) { setMetasColab({}); return; }
     fetch(`/api/comissao/metas?userId=${userId}`)
       .then((r) => r.json())
+      .then(doColabAtual(userId))
       .then((lista) => {
         const porMetrica = {};
         for (const m of Object.keys(METRICAS_LABEL)) {
@@ -124,6 +130,7 @@ export function ComissaoConfig() {
     if (!userId) { setAcerto(null); setAcertoPrevia(null); return; }
     fetch(`/api/pagamento-cobrador?userId=${userId}`)
       .then((r) => r.json())
+      .then(doColabAtual(userId))
       .then((d) => {
         setAcerto({
           fixoSemanal: d.config?.fixoSemanal ?? "",
@@ -140,12 +147,14 @@ export function ComissaoConfig() {
 
   async function salvarAcerto() {
     setSalvandoAcerto(true);
-    await fetch("/api/pagamento-cobrador", {
+    const res = await fetch("/api/pagamento-cobrador", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: colabSelecionado, ...acerto }),
-    }).catch(() => {});
+    }).catch(() => null);
     setSalvandoAcerto(false);
+    // Antes o erro do servidor (valor inválido, sem permissão) era ignorado e parecia que tinha salvado.
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar.");
     loadAcerto(colabSelecionado);
   }
 
@@ -153,6 +162,7 @@ export function ComissaoConfig() {
     if (!userId) { setComissaoPct(null); setComissaoPctPrevia(null); return; }
     fetch(`/api/comissao-percentual?userId=${userId}`)
       .then((r) => r.json())
+      .then(doColabAtual(userId))
       .then((d) => {
         setComissaoPct({
           pctCapital: d.config?.pctCapital ?? "",
@@ -166,12 +176,14 @@ export function ComissaoConfig() {
 
   async function salvarComissaoPct() {
     setSalvandoComissaoPct(true);
-    await fetch("/api/comissao-percentual", {
+    const res = await fetch("/api/comissao-percentual", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: colabSelecionado, ...comissaoPct }),
-    }).catch(() => {});
+    }).catch(() => null);
     setSalvandoComissaoPct(false);
+    // Antes o erro do servidor (valor inválido, sem permissão) era ignorado e parecia que tinha salvado.
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar.");
     loadComissaoPct(colabSelecionado);
   }
 
@@ -179,6 +191,7 @@ export function ComissaoConfig() {
     if (!userId) { setComissaoMetas(null); setComissaoMetasPrevia(null); return; }
     fetch(`/api/comissao-metas?userId=${userId}`)
       .then((r) => r.json())
+      .then(doColabAtual(userId))
       .then((d) => {
         setComissaoMetas({
           desde: d.config ? d.config.desde.slice(0, 10) : "",
@@ -212,23 +225,26 @@ export function ComissaoConfig() {
 
   async function salvarMetrica(metrica) {
     setSalvandoMetrica(metrica);
-    await fetch("/api/comissao/metas", {
+    const res = await fetch("/api/comissao/metas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: colabSelecionado, metrica, ...metasColab[metrica] }),
-    });
+    }).catch(() => null);
     setSalvandoMetrica(null);
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar.");
   }
 
   async function salvar(e) {
     e.preventDefault();
     setSalvando(true);
-    await fetch("/api/comissao", {
+    const res = await fetch("/api/comissao", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(f),
-    });
+    }).catch(() => null);
     setSalvando(false);
+    // Mostrava "salvo" mesmo quando o servidor recusava.
+    if (!res || !res.ok) { alert((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar."); return; }
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }

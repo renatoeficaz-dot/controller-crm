@@ -1,3 +1,4 @@
+import { numeroBR } from "@/lib/numeroBR";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
@@ -54,12 +55,14 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "Tipo de negociação inválido." }, { status: 400 });
   }
 
+  // Valor que não é número virava NaN no banco; "1.500,00" também.
+  const valorOuNull = (v) => { if (v == null || v === "") return null; const n = numeroBR(v); return Number.isFinite(n) ? n : null; };
   const neg = await prisma.negociacao.create({
     data: {
       contactId: id,
       tipo: body.tipo,
-      valorOriginal: body.valorOriginal != null ? Number(body.valorOriginal) : null,
-      valorNegociado: body.valorNegociado != null ? Number(body.valorNegociado) : null,
+      valorOriginal: valorOuNull(body.valorOriginal),
+      valorNegociado: valorOuNull(body.valorNegociado),
       aceito: body.tipo === "desconto_aceito",
       notas: texto(body.notas) || null,
       usuario: session?.name || null,

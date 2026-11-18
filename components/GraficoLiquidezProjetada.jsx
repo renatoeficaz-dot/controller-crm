@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { numeroBR } from "@/lib/numeroBR";
 
 const money = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const curto = (n) => {
@@ -51,7 +52,7 @@ export default function GraficoLiquidezProjetada({ ini, fim, honorariosPct = 30 
 
   const { dias, total } = useMemo(() => {
     const k = 1 + (Number(honorariosPct) || 0) / 100;
-    const num = (v) => Number(String(v).replace(",", ".")) || 0;
+    const num = (v) => numeroBR(v) || 0;
     const base = serie || [];
     const opDia = (dia) => {
       const v = num(p.operacional);
@@ -92,7 +93,7 @@ export default function GraficoLiquidezProjetada({ ini, fim, honorariosPct = 30 
     { nome: "Soltou", v: total.soltou, cor: "text-amber-600" },
     { nome: `Retorno projetado (+${honorariosPct}%, −${p.perdaPct}% de perda)`, v: total.projetadoLiq, cor: "text-slate-700" },
     { nome: `Comissão ${p.comissaoPct}% do que entrou (${money(total.entrou)})`, v: total.comissao, cor: "text-red-600" },
-    { nome: `CAC: ${total.clientes} cliente${total.clientes === 1 ? "" : "s"} × ${money(Number(String(p.cac).replace(",", ".")) || 0)}`, v: total.cac, cor: "text-red-600" },
+    { nome: `CAC: ${total.clientes} cliente${total.clientes === 1 ? "" : "s"} × ${money(numeroBR(p.cac) || 0)}`, v: total.cac, cor: "text-red-600" },
     { nome: "Custo operacional", v: total.oper, cor: "text-red-600" },
     { nome: "Liquidez projetada", v: total.liquidez, cor: total.liquidez >= 0 ? "text-emerald-600" : "text-red-600" },
   ];

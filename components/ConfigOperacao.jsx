@@ -34,11 +34,11 @@ export function MotivosPerdaConfig() {
   const [novo, setNovo] = useState("");
 
   const load = useCallback(() => {
-    fetch("/api/motivos-perda").then((r) => r.json()).then(setLista).catch(() => {});
+    fetch("/api/motivos-perda").then((r) => r.json()).then((d) => setLista(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
   useEffect(load, [load]);
   useEffect(() => {
-    fetch("/api/templates?todos=1").then((r) => r.json()).then(setTemplates).catch(() => {});
+    fetch("/api/templates?todos=1").then((r) => r.json()).then((d) => setTemplates(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   async function adicionar(e) {

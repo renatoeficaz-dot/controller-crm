@@ -2,11 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { lerCorpo, texto } from "@/lib/corpo";
+import { numeroBR } from "@/lib/numeroBR";
 import { calcularComissaoMetas } from "@/lib/comissaoMetas";
 import { registrarAuditoria } from "@/lib/auditoria";
 
 const num = (v, padrao) => {
-  const n = Number(String(v ?? "").replace(",", "."));
+  const n = numeroBR(v);
   return Number.isFinite(n) && n >= 0 ? n : padrao;
 };
 

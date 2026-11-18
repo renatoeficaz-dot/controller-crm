@@ -50,6 +50,10 @@ export async function PATCH(req, { params }) {
 
   // É uma ALTERAÇÃO (não a baixa original) quando a parcela já estava paga e
   // o valor está mudando, ou quando está sendo desmarcada como paga.
+  // Valor da baixa que não é número ("abc") ou negativo seguia para o banco como NaN/negativo.
+  if (paid && (!Number.isFinite(amountPago) || amountPago < 0)) {
+    return NextResponse.json({ error: "Valor pago inválido." }, { status: 400 });
+  }
   const ehAlteracao = parcelaAtual.paid && (!paid || amountPago !== parcelaAtual.amountPago);
   if (ehAlteracao) {
     // Ação sensível (item 43): estornar exige "estornar_baixa"; mudar valor de

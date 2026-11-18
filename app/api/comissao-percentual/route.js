@@ -2,10 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { lerCorpo, texto } from "@/lib/corpo";
+import { numeroBR } from "@/lib/numeroBR";
 import { calcularComissaoPercentualSemana } from "@/lib/comissaoPercentual";
 
 const num = (v) => {
-  const n = Number(String(v ?? "").replace(",", "."));
+  const n = numeroBR(v);
   return Number.isFinite(n) ? n : 0;
 };
 
