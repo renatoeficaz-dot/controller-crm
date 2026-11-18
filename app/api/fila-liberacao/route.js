@@ -13,8 +13,9 @@ export async function GET() {
 
   const [contatos, entradas, saidas] = await Promise.all([
     prisma.contact.findMany({
-      where: { stageId: stage.id },
-      orderBy: { updatedAt: "asc" }, // quem está esperando há mais tempo primeiro
+      // Sem lead excluído; ordem pela ENTRADA na etapa: por updatedAt, qualquer edição na ficha (uma anotação) mandava o lead pro fim da fila.
+      where: { stageId: stage.id, excluidoEm: null },
+      orderBy: [{ entrouEtapaEm: "asc" }, { updatedAt: "asc" }],
       select: {
         id: true,
         name: true,
@@ -24,13 +25,14 @@ export async function GET() {
         puxadaRisco: true,
         cicloAtual: true,
         updatedAt: true,
+        entrouEtapaEm: true,
       },
     }),
     prisma.lancamento.aggregate({ where: { type: "entrada" }, _sum: { amount: true } }),
     prisma.lancamento.aggregate({ where: { type: "saida" }, _sum: { amount: true } }),
   ]);
 
-  const saldo = (entradas._sum.amount || 0) - (saidas._sum.amount || 0);
+  const saldo = Math.round(((entradas._sum.amount || 0) - (saidas._sum.amount || 0)) * 100) / 100;
 
   // Marca até onde o saldo alcança, na ordem da fila — deixa explícito quem dá
   // pra atender agora e quem depende de entrar mais dinheiro.
@@ -41,7 +43,7 @@ export async function GET() {
     acumulado += valor;
     return {
       ...c,
-      diasEsperando: Math.floor((hoje - new Date(c.updatedAt).getTime()) / 86400000),
+      diasEsperando: Math.floor((hoje - new Date(c.entrouEtapaEm || c.updatedAt).getTime()) / 86400000),
       acumulado,
       cabeNoSaldo: acumulado <= saldo,
     };

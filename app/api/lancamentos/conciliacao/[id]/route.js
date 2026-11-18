@@ -20,18 +20,30 @@ export async function PATCH(req, { params }) {
   const agora = new Date();
   const base = { resolvidoPor: user.name, resolvidoEm: agora, observacao: texto(body.observacao) || null };
   const jaResolvido = () => NextResponse.json({ error: "Esse movimento já foi resolvido." }, { status: 409 });
+  // Troca "pendente" por "processando" numa operação só: quem chegar depois (clique duplo) não passa.
+  const reservar = async (movId) => (await prisma.extratoMovimento.updateMany({ where: { id: movId, status: "pendente" }, data: { status: "processando" } })).count === 1;
 
   if (acao === "lancar") {
     if (mov.status !== "pendente") return jaResolvido();
     const categoriaId = texto(body.categoriaId) || null;
     const contactId = texto(body.contactId) || null;
     if (!categoriaId) return NextResponse.json({ error: "Escolha a categoria do lançamento." }, { status: 400 });
-    if (categoriaId && !(await prisma.lancamentoCategoria.findUnique({ where: { id: categoriaId }, select: { id: true } }))) return NextResponse.json({ error: "Categoria não encontrada." }, { status: 400 });
+    const cat = await prisma.lancamentoCategoria.findUnique({ where: { id: categoriaId }, select: { type: true } });
+    if (!cat) return NextResponse.json({ error: "Categoria não encontrada." }, { status: 400 });
+    if (cat.type !== mov.tipo) return NextResponse.json({ error: `Essa categoria é de ${cat.type === "entrada" ? "entrada" : "saída"} e o movimento é de ${mov.tipo === "entrada" ? "entrada" : "saída"}.` }, { status: 400 });
     if (contactId && !(await prisma.contact.findUnique({ where: { id: contactId }, select: { id: true } }))) return NextResponse.json({ error: "Cliente não encontrado." }, { status: 400 });
     const descricao = texto(body.descricao) || mov.descricao || (mov.tipo === "entrada" ? "Entrada conferida no extrato" : "Saída conferida no extrato");
-    const lanc = await prisma.lancamento.create({
-      data: { type: mov.tipo, amount: mov.valor, description: descricao, date: mov.data, bancoId: mov.bancoId, categoriaId, contactId, conciliadoEm: agora },
-    });
+    // Reserva o movimento ANTES de lançar: dois cliques (ou duas abas) passavam juntos pelo "pendente" e criavam dois lançamentos.
+    if (!(await reservar(id))) return jaResolvido();
+    let lanc;
+    try {
+      lanc = await prisma.lancamento.create({
+        data: { type: mov.tipo, amount: mov.valor, description: descricao, date: mov.data, bancoId: mov.bancoId, categoriaId, contactId, conciliadoEm: agora },
+      });
+    } catch (e) {
+      await prisma.extratoMovimento.update({ where: { id }, data: { status: "pendente" } }).catch(() => {}); // não deixa preso em "processando"
+      throw e;
+    }
     await prisma.extratoMovimento.update({ where: { id }, data: { status: "lancado", lancamentoId: lanc.id, ...base } });
     await prisma.auditLog.create({ data: { usuario: user.name, acao: "lancar_do_extrato", entidade: "Lancamento", entidadeId: lanc.id, detalhe: `${mov.tipo} R$ ${mov.valor.toFixed(2)} — ${descricao}` } }).catch(() => {});
     return NextResponse.json({ ok: true, lancamentoId: lanc.id });
@@ -55,11 +67,20 @@ export async function PATCH(req, { params }) {
     const plano = planoBaixa(lista, mov.valor);
     if (plano.sobra > 0.01) return NextResponse.json({ error: `O Pix é de R$ ${mov.valor.toFixed(2)} e as parcelas marcadas só somam R$ ${(mov.valor - plano.sobra).toFixed(2)}. Marque mais parcelas.` }, { status: 400 });
     if (!plano.itens.length) return NextResponse.json({ error: "Nada a baixar nas parcelas marcadas." }, { status: 400 });
+    // Reserva o movimento: com dois cliques o mesmo Pix dava BAIXA DUAS VEZES nas parcelas do cliente.
+    if (!(await reservar(id))) return jaResolvido();
     const t0 = new Date(Date.now() - 1000);
     const hora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).format(mov.data);
+    let feitas = 0;
     for (const it of plano.itens) {
       const r = await aplicarBaixaParcial({ id: it.id, valor: it.valor, formaPagamento: "pix", usuarioNome: user.name, origem: "Extrato OFX", semJuros: it.semJuros, cobrarDif: false, horaPagamento: hora, pagoEm: mov.data });
-      if (r?.erro) return NextResponse.json({ error: `${r.erro} (algumas parcelas anteriores podem já ter sido baixadas; confira o cliente).` }, { status: r.status || 400 });
+      if (r?.erro) {
+        // Nada baixado: o movimento volta para pendente. Parte baixada: fica resolvido com o aviso (reabrir faria baixar de novo).
+        if (!feitas) await prisma.extratoMovimento.update({ where: { id }, data: { status: "pendente" } });
+        else await prisma.extratoMovimento.update({ where: { id }, data: { status: "lancado", ...base, observacao: `Baixa parcial: ${feitas} de ${plano.itens.length} parcelas — ${r.erro}` } });
+        return NextResponse.json({ error: `${r.erro}${feitas ? ` (${feitas} parcela(s) já foram baixadas; confira o cliente).` : ""}` }, { status: r.status || 400 });
+      }
+      feitas++;
     }
     // Os lançamentos que a baixa acabou de criar passam a valer na data do Pix, na conta do extrato, e já contam como conferidos.
     const novos = await prisma.lancamento.findMany({ where: { parcelaId: { in: plano.itens.map((i) => i.id) }, type: "entrada", createdAt: { gte: t0 }, conciliadoEm: null }, select: { id: true }, orderBy: { createdAt: "asc" } });
@@ -79,6 +100,9 @@ export async function PATCH(req, { params }) {
     if (!l) return NextResponse.json({ error: "Lançamento não encontrado." }, { status: 404 });
     if (l.type !== mov.tipo) return NextResponse.json({ error: "O lançamento é de outro tipo (entrada/saída)." }, { status: 400 });
     if (l.conciliadoEm) return NextResponse.json({ error: "Esse lançamento já foi conferido com outro movimento." }, { status: 409 });
+    // Vincular um lançamento de outro valor "conferia" dinheiro que não bate com o extrato.
+    if (Math.abs((l.amount || 0) - (mov.valor || 0)) > 0.01) return NextResponse.json({ error: `O lançamento é de R$ ${l.amount.toFixed(2)} e o movimento do extrato é de R$ ${mov.valor.toFixed(2)}.` }, { status: 400 });
+    if (!(await reservar(id))) return jaResolvido();
     await prisma.$transaction([
       prisma.extratoMovimento.update({ where: { id }, data: { status: "conciliado", lancamentoId: l.id, ...base } }),
       prisma.lancamento.update({ where: { id: l.id }, data: { conciliadoEm: agora } }),

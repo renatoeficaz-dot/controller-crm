@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { lerCorpo, texto } from "@/lib/corpo";
+import { numeroBR } from "@/lib/numeroBR";
 
 // Transferência entre contas (item 133) = uma saída na origem + uma entrada
 // no destino, mesmo valor, vinculadas por transferenciaId — pra achar o par
@@ -11,8 +12,8 @@ export async function POST(req) {
   if (!origemId || !destinoId || origemId === destinoId) {
     return NextResponse.json({ error: "Escolha duas contas diferentes." }, { status: 400 });
   }
-  const v = Number(valor);
-  if (!v || v <= 0) return NextResponse.json({ error: "Valor inválido." }, { status: 400 });
+  const v = Math.round(numeroBR(valor) * 100) / 100; // "1.234,56" também
+  if (!Number.isFinite(v) || v <= 0) return NextResponse.json({ error: "Valor inválido." }, { status: 400 });
 
   const [origem, destino] = await Promise.all([
     prisma.banco.findUnique({ where: { id: origemId } }),
@@ -24,7 +25,8 @@ export async function POST(req) {
   const desc = texto(descricao) || `Transferência: ${origem.name} → ${destino.name}`;
   // "YYYY-MM-DD" puro vira meia-noite UTC — em fuso negativo (Brasil) isso
   // exibe um dia ANTES do que foi escolhido. Meio-dia evita virar o dia.
-  const data = date ? new Date(date + "T12:00:00") : new Date();
+  const data = date ? new Date(String(date).slice(0, 10) + "T12:00:00") : new Date();
+  if (Number.isNaN(data.getTime())) return NextResponse.json({ error: "Data inválida." }, { status: 400 }); // antes: erro 500
 
   const [saida, entrada] = await prisma.$transaction([
     prisma.lancamento.create({ data: { type: "saida", amount: v, description: desc, date: data, bancoId: origemId, transferenciaId } }),

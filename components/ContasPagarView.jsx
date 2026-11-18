@@ -79,21 +79,25 @@ export default function ContasPagarView() {
 
   async function pagar(conta) {
     if (!confirm(`Marcar "${conta.descricao}" como paga (${money(conta.valor)})?\n\nIsso gera um lançamento de saída e altera o saldo.`)) return;
-    await fetch(`/api/contas-pagar/${conta.id}`, {
+    const res = await fetch(`/api/contas-pagar/${conta.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pago: true }),
-    });
+    }).catch(() => null);
+    // Antes a falha passava em silêncio e a conta parecia paga.
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível pagar a conta.");
     load();
   }
 
   async function estornar(conta) {
     if (!confirm(`Estornar "${conta.descricao}"?\n\nO lançamento de saída correspondente será removido.`)) return;
-    await fetch(`/api/contas-pagar/${conta.id}`, {
+    const res = await fetch(`/api/contas-pagar/${conta.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pago: false }),
-    });
+    }).catch(() => null);
+    // Antes a falha passava em silêncio e a conta parecia estornada.
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível estornar a conta.");
     load();
   }
 
@@ -108,7 +112,8 @@ export default function ContasPagarView() {
     } else if (!confirm(`Excluir "${conta.descricao}"?`)) {
       return;
     }
-    await fetch(`/api/contas-pagar/${conta.id}${futuras ? "?futuras=1" : ""}`, { method: "DELETE" });
+    const res = await fetch(`/api/contas-pagar/${conta.id}${futuras ? "?futuras=1" : ""}`, { method: "DELETE" }).catch(() => null);
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível excluir a conta.");
     load();
   }
 

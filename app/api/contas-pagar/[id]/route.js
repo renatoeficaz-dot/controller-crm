@@ -15,6 +15,7 @@ export async function PATCH(req, { params }) {
         ? await pagarConta(id, { valorPago: body.valorPago, data: body.data, bancoId: body.bancoId })
         : await estornarConta(id);
       if (!conta) return NextResponse.json({ error: "Conta não encontrada." }, { status: 404 });
+      if (conta.erro) return NextResponse.json({ error: conta.erro }, { status: 400 });
       return NextResponse.json(conta);
     }
   
@@ -24,6 +25,9 @@ export async function PATCH(req, { params }) {
     if ("valor" in body) {
       const v = Number(body.valor);
       if (!Number.isFinite(v) || v <= 0) return NextResponse.json({ error: "Informe um valor válido." }, { status: 400 });
+      // Conta já paga: o valor da conta mudava e o lançamento de saída continuava com o valor antigo.
+      const atual = await prisma.contaPagar.findUnique({ where: { id }, select: { pago: true, valor: true } });
+      if (atual?.pago && Math.abs(atual.valor - v) > 0.004) return NextResponse.json({ error: "Essa conta já foi paga: estorne e pague de novo com o valor certo." }, { status: 409 });
       data.valor = v;
     }
     if ("vencimento" in body) {

@@ -1,6 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { lerCorpo, texto } from "@/lib/corpo";
+import { numeroBR } from "@/lib/numeroBR";
+// Data "AAAA-MM-DD" do formulário -> meio-dia (não vira o dia em fuso negativo). Inválida = null (antes ia ao Prisma e dava erro 500).
+function dataDoForm(v) {
+  if (!v) return undefined;
+  const d = new Date(String(v).slice(0, 10) + "T12:00:00");
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+// Categoria/banco/cliente que não existem (id velho, apagado) davam erro de chave no banco (500). Categoria de saída num lançamento de
+// entrada (e o contrário) bagunçava as pizzas por categoria.
+async function conferirVinculos({ type, categoriaId, bancoId, contactId }) {
+  if (categoriaId) {
+    const c = await prisma.lancamentoCategoria.findUnique({ where: { id: categoriaId }, select: { type: true } });
+    if (!c) return "Categoria não encontrada.";
+    if (c.type !== type) return type === "entrada" ? "Essa categoria é de saída — escolha uma categoria de entrada." : "Essa categoria é de entrada — escolha uma categoria de saída.";
+  }
+  if (bancoId && !(await prisma.banco.findUnique({ where: { id: bancoId }, select: { id: true } }))) return "Conta (banco) não encontrada.";
+  if (contactId && !(await prisma.contact.findUnique({ where: { id: contactId }, select: { id: true } }))) return "Cliente não encontrado.";
+  return null;
+}
+
 
 const ORDER_MAP = {
   recentes: { date: "desc" },
@@ -35,8 +55,9 @@ export async function GET(req) {
     const d = new Date(valor + sufixo);
     return Number.isNaN(d.getTime()) ? null : d;
   };
-  const dataIni = dataOuNulo(ini, "T00:00:00Z");
-  const dataFim = dataOuNulo(fim, "T23:59:59Z");
+  // Dia de Brasília: com "Z" a baixa feita depois das 21h (gravada com a hora real) caía no dia seguinte do filtro.
+  const dataIni = dataOuNulo(ini, "T00:00:00-03:00");
+  const dataFim = dataOuNulo(fim, "T23:59:59.999-03:00");
   if (dataIni || dataFim) {
     where.date = {};
     if (dataIni) where.date.gte = dataIni;
@@ -46,8 +67,11 @@ export async function GET(req) {
   if (tagId) where.contact = { ...(where.contact || {}), tags: { some: { id: tagId } } };
   if (valorMin || valorMax) {
     where.amount = {};
-    if (valorMin) where.amount.gte = Number(valorMin);
-    if (valorMax) where.amount.lte = Number(valorMax);
+    // Valor que não é número ia como NaN ao Prisma (erro 500); "1.234,56" também é aceito.
+    const vMin = numeroBR(valorMin), vMax = numeroBR(valorMax);
+    if (valorMin && Number.isFinite(vMin)) where.amount.gte = vMin;
+    if (valorMax && Number.isFinite(vMax)) where.amount.lte = vMax;
+    if (!Object.keys(where.amount).length) delete where.amount;
   }
 
   // Relatório de custos (Relatórios › "O período compensou?"): sem o teto de 500 da tela e sem a saída que nasceu do pagamento de uma
@@ -101,6 +125,10 @@ export async function POST(req) {
   if (!["entrada", "saida"].includes(type) || !amount || amount <= 0) {
     return NextResponse.json({ error: "Tipo (entrada/saida) e valor positivo obrigatórios." }, { status: 400 });
   }
+  const dataLanc = dataDoForm(body.date);
+  if (dataLanc === null) return NextResponse.json({ error: "Data inválida." }, { status: 400 });
+  const erroVinculo = await conferirVinculos({ type, categoriaId: body.categoriaId || null, bancoId: body.bancoId || null, contactId: body.contactId || null });
+  if (erroVinculo) return NextResponse.json({ error: erroVinculo }, { status: 400 });
   const lanc = await prisma.lancamento.create({
     data: {
       type,
@@ -109,7 +137,7 @@ export async function POST(req) {
       // "YYYY-MM-DD" puro vira meia-noite UTC — em fuso negativo (Brasil) isso
       // exibe um dia ANTES do que foi escolhido. Meio-dia evita virar o dia
       // em qualquer fuso real.
-      date: body.date ? new Date(body.date + "T12:00:00") : new Date(),
+      date: dataLanc || new Date(),
       categoriaId: body.categoriaId || null,
       bancoId: body.bancoId || null,
       contactId: body.contactId || null,

@@ -7,6 +7,7 @@ import FilaLiberacaoView from "@/components/FilaLiberacaoView";
 import ConciliacaoView from "@/components/ConciliacaoView";
 import Icone from "@/components/Icones";
 import { numeroBR } from "@/lib/numeroBR";
+import { baixarCsv, numeroCsv } from "@/lib/exportar";
 import { useUndoDelete, UndoToast } from "./UndoToast";
 
 const money = (n) =>
@@ -26,15 +27,16 @@ function hojeStr() {
   return new Date().toLocaleDateString("en-CA");
 }
 
-const EMPTY_FORM = {
+// Funções (e não objetos fixos): com a tela aberta desde ontem, o lançamento novo vinha com a data de ontem e o filtro parava ontem.
+const novoForm = () => ({
   type: "entrada", amount: "", description: "", date: hojeStr(), categoriaId: "", bancoId: "", contactId: "",
   // Recorrência só se aplica a saída nova (vira Conta a pagar em vez de lançamento imediato).
   recorrente: false, tipoRecorrencia: "meses", recorrenciaMeses: "12",
-};
-const EMPTY_FILTROS = {
+});
+const novosFiltros = () => ({
   type: "", categoriaId: "", bancoId: "", responsavel: "", tagId: "",
   ini: inicioMesStr(), fim: hojeStr(), valorMin: "", valorMax: "", sort: "recentes",
-};
+});
 const PAGE_SIZE = 10;
 
 const PIE_COLORS = ["#10b981", "#f59e0b", "#6366f1", "#ef4444", "#3b82f6", "#ec4899", "#8b5cf6", "#14b8a6"];
@@ -154,8 +156,10 @@ export default function LancamentosView() {
     setSalvandoTransfer(true);
     const res = await fetch("/api/lancamentos/transferencia", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(transferAberta),
-    });
+    }).catch(() => null);
     setSalvandoTransfer(false);
+    // Sem conexão o fetch lançava e o botão ficava travado em "salvando".
+    if (!res) { setErroTransfer("Sem conexão com o servidor. Tente de novo."); return; }
     const d = await res.json().catch(() => ({}));
     if (!res.ok) { setErroTransfer(d.error || "Erro ao transferir."); return; }
     setTransferAberta(null);
@@ -165,7 +169,7 @@ export default function LancamentosView() {
   const [contacts, setContacts] = useState([]);
   const [users, setUsers] = useState([]);
   const [tags, setTags] = useState([]);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(novoForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -173,8 +177,8 @@ export default function LancamentosView() {
   const [aba, setAba] = useState("lancamentos");
 
   // Filtros aplicados (o que a API realmente usa) vs. rascunho (o que o usuário está mexendo)
-  const [filtros, setFiltros] = useState(EMPTY_FILTROS);
-  const [draft, setDraft] = useState(EMPTY_FILTROS);
+  const [filtros, setFiltros] = useState(novosFiltros);
+  const [draft, setDraft] = useState(novosFiltros);
   const [filtrosAbertos, setFiltrosAbertos] = useState(true);
   const [buscaLanc, setBuscaLanc] = useState("");
   const [page, setPage] = useState(1);
@@ -227,7 +231,9 @@ export default function LancamentosView() {
     const novoSaldo = Number(editandoSaldo.novoSaldo);
     if (Number.isNaN(novoSaldo)) return;
     const motivo = editandoSaldo.motivo.trim();
-    const atual = saldoAtual?.saldo ?? 0;
+    // Saldo relido na hora: com a tela aberta, uma baixa que entrou nesse meio-tempo deixava o ajuste com a diferença errada.
+    const fresco = await fetch("/api/lancamentos/saldo").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const atual = fresco?.saldo ?? saldoAtual?.saldo ?? 0;
     const diff = Math.round((novoSaldo - atual) * 100) / 100;
     if (diff === 0) {
       setEditandoSaldo(null);
@@ -276,8 +282,8 @@ export default function LancamentosView() {
       fetch("/api/lancamentos/categorias").then((r) => r.json()).catch(() => []),
       fetch("/api/lancamentos/bancos").then((r) => r.json()).catch(() => []),
     ]);
-    setCategorias(cats);
-    setBancos(bks);
+    setCategorias(Array.isArray(cats) ? cats : []); // resposta de erro virava "lista" e quebrava os filtros
+    setBancos(Array.isArray(bks) ? bks : []);
   }, []);
 
   useEffect(() => { loadMeta(); }, [loadMeta]);
@@ -287,18 +293,26 @@ export default function LancamentosView() {
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then((u) => setUsers(Array.isArray(u) ? u : [])).catch(() => {});
     fetch("/api/tags").then((r) => r.json()).then((t) => setTags(Array.isArray(t) ? t : [])).catch(() => {});
-    fetch("/api/stages").then((r) => r.json()).then((s) => {
-      const stgs = s || [];
-      setContacts(stgs.flatMap((st) => (st.contacts || []).map((c) => ({ id: c.id, name: c.name }))));
-    }).catch(() => {});
+    // Inclui os antigos de "Venda perdida" (o Kanban só manda os da última semana): sem eles não dava para ligar um lançamento a esses clientes.
+    Promise.all([
+      fetch("/api/stages").then((r) => r.json()).catch(() => []),
+      fetch("/api/stages?antigas=1").then((r) => (r.ok ? r.json() : [])).catch(() => []),
+    ]).then(([s, a]) => {
+      const vistos = new Set();
+      const lista = [];
+      for (const st of [...(Array.isArray(s) ? s : []), ...(Array.isArray(a) ? a : [])]) {
+        for (const c of st.contacts || []) if (!vistos.has(c.id)) { vistos.add(c.id); lista.push({ id: c.id, name: c.name }); }
+      }
+      setContacts(lista.sort((x, y) => (x.name || "").localeCompare(y.name || "", "pt-BR")));
+    });
   }, []);
 
   function aplicarFiltros() {
     setFiltros(draft);
   }
   function limparFiltros() {
-    setDraft(EMPTY_FILTROS);
-    setFiltros(EMPTY_FILTROS);
+    setDraft(novosFiltros());
+    setFiltros(novosFiltros());
   }
 
   // Clicar numa categoria (na tabela ou no gráfico de pizza) filtra a lista
@@ -361,27 +375,19 @@ export default function LancamentosView() {
   const lancamentosPagina = lancamentosFiltrados.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE);
 
   function exportarCsv() {
-    const linhas = [["Data", "Tipo", "Descrição", "Categoria", "Banco", "Responsável", "Lead", "Valor"]];
-    for (const l of lancamentosFiltrados) {
-      linhas.push([
-        new Date(l.date).toLocaleDateString("pt-BR"),
-        l.type === "entrada" ? "Entrada" : "Saída",
-        l.description || "",
-        l.categoria?.name || "",
-        l.banco?.name || "",
-        l.contact?.responsavel || "",
-        l.contact?.name || "",
-        String(l.amount).replace(".", ","),
-      ]);
-    }
-    const csv = linhas.map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\n");
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `lancamentos_${hojeStr()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Exportador comum: nome de lead começando com "=" não vira fórmula no Excel, valor sai com 2 casas (antes 108,30000001) e o
+    // download não é cancelado. A lista tem no máximo 500 lançamentos: avisa quando o filtro tem mais.
+    if (resumoServidor && resumoServidor.total > resumoServidor.mostrados && !confirm(`O filtro tem ${resumoServidor.total} lançamentos, mas só ${resumoServidor.mostrados} estão carregados e vão para o arquivo. Diminua o período para exportar tudo. Exportar assim mesmo?`)) return;
+    baixarCsv(`lancamentos_${hojeStr()}`, [
+      { label: "Data", valor: (l) => new Date(l.date).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) },
+      { label: "Tipo", valor: (l) => (l.type === "entrada" ? "Entrada" : "Saída") },
+      { label: "Descrição", valor: (l) => l.description || "" },
+      { label: "Categoria", valor: (l) => l.categoria?.name || "" },
+      { label: "Banco", valor: (l) => l.banco?.name || "" },
+      { label: "Responsável", valor: (l) => l.contact?.responsavel || "" },
+      { label: "Lead", valor: (l) => l.contact?.name || "" },
+      { label: "Valor", valor: (l) => numeroCsv(l.amount) },
+    ], lancamentosFiltrados);
   }
 
   // Agrupamento por categoria (para os gráficos de pizza), cada um com seu próprio período
@@ -401,7 +407,7 @@ export default function LancamentosView() {
 
   function abrirNovo() {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    setForm(novoForm());
     setError("");
     setNovaCatInline(null);
     setFormOpen(true);
@@ -445,11 +451,11 @@ export default function LancamentosView() {
           recorrente: true,
           recorrenciaMeses: form.tipoRecorrencia === "meses" ? form.recorrenciaMeses : null,
         }),
-      });
+      }).catch(() => null);
       setSaving(false);
-      if (!res.ok) { setError((await res.json().catch(() => ({}))).error || "Erro."); return; }
+      if (!res || !res.ok) { setError((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar."); return; }
       setFormOpen(false);
-      setForm(EMPTY_FORM);
+      setForm(novoForm());
       setAba("contas");
       return;
     }
@@ -459,11 +465,12 @@ export default function LancamentosView() {
       method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, amount: Number(form.amount) }),
-    });
+    }).catch(() => null);
     setSaving(false);
-    if (!res.ok) { setError((await res.json().catch(() => ({}))).error || "Erro."); return; }
+    // Sem conexão o botão ficava travado em "salvando" para sempre.
+    if (!res || !res.ok) { setError((await res?.json().catch(() => ({})))?.error || "Não foi possível salvar (sem conexão?)."); return; }
     setFormOpen(false);
-    setForm(EMPTY_FORM);
+    setForm(novoForm());
     setEditingId(null);
     loadLanc();
     loadSaldo();
@@ -472,9 +479,11 @@ export default function LancamentosView() {
   function removeLanc(id) {
     const l = lancamentos.find((x) => x.id === id);
     if (!l) return;
-    setLancamentos((prev) => prev.filter((x) => x.id !== id));
+    if (l.transferenciaId && !confirm("Esse lançamento é de uma transferência entre contas: os DOIS lados (saída e entrada) serão excluídos. Continuar?")) return;
+    setLancamentos((prev) => prev.filter((x) => x.id !== id && (!l.transferenciaId || x.transferenciaId !== l.transferenciaId)));
     agendarExclusao(`Lançamento "${l.description || money(l.amount)}"`, async () => {
-      const res = await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/lancamentos/${id}`, { method: "DELETE" }).catch(() => null);
+      if (!res) { alert("Sem conexão: o lançamento NÃO foi excluído."); loadLanc(); return; }
       if (!res.ok) {
         // Exclusão falhou de verdade — devolve o lançamento pra lista em vez
         // de deixar sumir da tela sem sumir do banco (dava a falsa impressão
@@ -495,7 +504,8 @@ export default function LancamentosView() {
   async function addCat(e) {
     e.preventDefault();
     if (!newCat.name.trim()) return;
-    await fetch("/api/lancamentos/categorias", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newCat) });
+    const res = await fetch("/api/lancamentos/categorias", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newCat) }).catch(() => null);
+    if (!res || !res.ok) { alert((await res?.json().catch(() => ({})))?.error || "Não foi possível criar a categoria."); return; }
     setNewCat({ name: "", type: "entrada" });
     loadMeta();
   }
@@ -517,29 +527,43 @@ export default function LancamentosView() {
     setNovaCatInline(null);
   }
   async function removeCat(id) {
-    await fetch(`/api/lancamentos/categorias/${id}`, { method: "DELETE" });
+    // Um clique apagava a categoria sem perguntar, e todos os lançamentos dela ficavam "Sem categoria".
+    const cat = categorias.find((c) => c.id === id);
+    const usados = lancamentos.filter((l) => l.categoriaId === id).length;
+    if (!confirm(`Excluir a categoria "${cat?.name || ""}"?${usados ? `\n\n${usados} lançamento(s) nesta lista ficam sem categoria.` : ""}`)) return;
+    const res = await fetch(`/api/lancamentos/categorias/${id}`, { method: "DELETE" }).catch(() => null);
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível excluir a categoria.");
     loadMeta();
+    loadLanc();
   }
   async function renameCat(id, name) {
     if (!name.trim()) return;
-    await fetch(`/api/lancamentos/categorias/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+    const res = await fetch(`/api/lancamentos/categorias/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).catch(() => null);
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível renomear a categoria.");
     loadMeta();
   }
 
   async function addBanco(e) {
     e.preventDefault();
     if (!newBanco.trim()) return;
-    await fetch("/api/lancamentos/bancos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newBanco }) });
+    const res = await fetch("/api/lancamentos/bancos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newBanco }) }).catch(() => null);
+    if (!res || !res.ok) { alert((await res?.json().catch(() => ({})))?.error || "Não foi possível criar a conta."); return; }
     setNewBanco("");
     loadMeta();
   }
   async function removeBanco(id) {
-    await fetch(`/api/lancamentos/bancos/${id}`, { method: "DELETE" });
+    // Excluir a conta sem perguntar deixava os lançamentos dela sem banco (saldo por conta e conciliação quebravam).
+    const b = bancos.find((x) => x.id === id);
+    if (!confirm(`Excluir a conta "${b?.name || ""}"?\n\nOs lançamentos dela ficam sem conta e a conciliação dessa conta deixa de funcionar.`)) return;
+    const res = await fetch(`/api/lancamentos/bancos/${id}`, { method: "DELETE" }).catch(() => null);
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível excluir a conta.");
     loadMeta();
+    loadLanc();
   }
   async function renameBanco(id, name) {
     if (!name.trim()) return;
-    await fetch(`/api/lancamentos/bancos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+    const res = await fetch(`/api/lancamentos/bancos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).catch(() => null);
+    if (!res || !res.ok) alert((await res?.json().catch(() => ({})))?.error || "Não foi possível renomear a conta.");
     loadMeta();
   }
 
