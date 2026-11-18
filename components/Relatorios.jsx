@@ -873,7 +873,7 @@ export default function Relatorios() {
     const [a, b] = p.range();
     setIni(a);
     setFim(b);
-    // "Novas vendas"/"Renovações" seguem a Data de criação da lead: sem isto, trocar o período para "Hoje" deixava esses números
+    // "Leads novos" segue a Data de criação da lead: sem isto, trocar o período para "Hoje" deixava esses números
     // no mês inteiro (filtro de criação antigo) e eles não batiam com o resto. "Todo período" limpa o filtro de criação.
     sincronizarCriacao(p.key, a, b);
   }
@@ -1240,20 +1240,43 @@ export default function Relatorios() {
   // essa distinção, os dois se combinavam (E lógico) — filtrar só por "Data
   // de criação" ainda cortava pelo período do mês por baixo dos panos, e o
   // número não batia com o que a pessoa configurou no filtro.
-  const { novasVendas, renovacoes } = useMemo(() => {
+  // "Leads novos" = leads que chegaram (segue a Data de criação, como antes era o card "Novas vendas").
+  // "Novas vendas" = empréstimos que SAÍRAM no período: entrou em Recebimento entre ini e fim, com capital, e não foi perdido.
+  // "Renovações" = renovações FEITAS no período: cliente de 2º ciclo ou mais com a liberação (pagamentoCapital) entre ini e fim.
+  // Venda e renovação contam pelo período (ini/fim), não pela data de criação do lead — cliente que renova é antigo e nunca caía
+  // no filtro de criação. Os outros filtros (estado, etapa, gênero, tipo) continuam valendo.
+  const { leadsNovos, novasVendas, renovacoes } = useMemo(() => {
     const all = stagesFiltrados.flatMap((s) => s.contacts || []);
     const usaFiltroCriacao = !!(criacaoIni || criacaoFim);
     // stagesFiltrados já aplica criacaoIni/Fim quando ativo — não filtra de novo aqui.
-    const nv = usaFiltroCriacao
+    const leads = usaFiltroCriacao
       ? all.length
       : all.filter((c) => {
           if (!c.createdAt) return false;
           const d = new Date(c.createdAt).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
           return d >= ini && d <= fim;
         }).length;
-    const ren = all.filter((c) => (c.cicloAtual || 1) > 1).length;
-    return { novasVendas: nv, renovacoes: ren };
-  }, [stagesFiltrados, ini, fim, criacaoIni, criacaoFim]);
+    let vendas = 0;
+    let ren = 0;
+    for (const s of stages) {
+      if (etapaFiltro && s.id !== etapaFiltro) continue;
+      for (const c of s.contacts || []) {
+        if (estadoFiltro && c.estado !== estadoFiltro) continue;
+        if (generoFiltroRel && c.genero !== generoFiltroRel) continue;
+        if (tipoClienteFiltroRel && c.tipoCliente !== tipoClienteFiltroRel) continue;
+        if (!((Number(c.valorCapital) || 0) > 0)) continue;
+        if (s.name !== "Venda perdida" && c.entrouRecebimentoEm) {
+          const d = diaBR(c.entrouRecebimentoEm);
+          if (d >= ini && d <= fim) vendas++;
+        }
+        if ((c.cicloAtual || 1) > 1 && c.pagamentoCapital) {
+          const d = String(c.pagamentoCapital).slice(0, 10);
+          if (d >= ini && d <= fim) ren++;
+        }
+      }
+    }
+    return { leadsNovos: leads, novasVendas: vendas, renovacoes: ren };
+  }, [stagesFiltrados, stages, ini, fim, criacaoIni, criacaoFim, estadoFiltro, etapaFiltro, generoFiltroRel, tipoClienteFiltroRel]);
 
   // Manda pro servidor os indicadores JÁ calculados aqui — refazer as contas
   // no backend abriria espaço pro PDF divergir do que está na tela.
@@ -1271,7 +1294,7 @@ export default function Relatorios() {
             generoFiltroRel && `Gênero: ${GENERO_LABEL[generoFiltroRel] || generoFiltroRel}`,
             tipoClienteFiltroRel && `Tipo: ${TIPO_CLIENTE_LABEL[tipoClienteFiltroRel] || tipoClienteFiltroRel}`,
           ].filter(Boolean).join(" · ") || "nenhum",
-          novasVendas, renovacoes,
+          leadsNovos, novasVendas, renovacoes,
           receberDia: receber.dia, receberSemana: receber.semana, receberMes: receber.mes,
           recebido,
           inadCapital: inad.pendenteCapital, inadTotal: inad.pendenteTotal,
@@ -1535,6 +1558,7 @@ export default function Relatorios() {
           </button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-3">
+          <CardCompacto titulo="Leads novos" valor={leadsNovos} cor="text-slate-600" numero />
           <CardCompacto titulo="Novas vendas" valor={novasVendas} cor="text-violet-600" numero />
           <CardCompacto titulo="Renovações" valor={renovacoes} cor="text-amber-600" numero />
           <CardCompacto titulo="A receber hoje" valor={receber.dia} cor="text-emerald-600" />

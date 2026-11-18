@@ -81,8 +81,9 @@ export async function POST(req) {
     if (d.filtros) doc.text(`Filtros: ${d.filtros}`);
 
     secao(doc, "Visão geral");
+    campo(doc, "Leads novos no período", d.leadsNovos);
     campo(doc, "Novas vendas no período", d.novasVendas);
-    campo(doc, "Renovações (ciclo > 1)", d.renovacoes);
+    campo(doc, "Renovações feitas no período", d.renovacoes);
     campo(doc, "A receber hoje", d.receberDia != null ? money(d.receberDia) : null);
     campo(doc, "A receber na semana", d.receberSemana != null ? money(d.receberSemana) : null);
     campo(doc, "A receber no mês", d.receberMes != null ? money(d.receberMes) : null);
