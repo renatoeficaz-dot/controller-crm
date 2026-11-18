@@ -10,10 +10,26 @@ export async function PATCH(req, { params }) {
     const body = await lerCorpo(req);
     const data = {};
     for (const f of ["label", "number", "instance"]) {
-      if (f in body) data[f] = texto(body[f]);
+      if (f in body) {
+        data[f] = texto(body[f]);
+        // Em branco deixava o número sem instância (nada mais saía por ele) ou sem nome no seletor.
+        if (!data[f]) return NextResponse.json({ error: "Nome, número e instância não podem ficar vazios." }, { status: 400 });
+      }
     }
-    if ("userId" in body) data.userId = body.userId || null;
-    if ("agentId" in body) data.agentId = body.agentId || null;
+    if (data.number) data.number = data.number.replace(/\D/g, "") || data.number;
+    if (data.instance) {
+      const outro = await prisma.whatsappNumber.findFirst({ where: { instance: data.instance, NOT: { id } }, select: { id: true } });
+      if (outro) return NextResponse.json({ error: "Já existe outro número com essa instância." }, { status: 409 });
+    }
+    // Usuário/agente de IA que não existe dava erro de chave (500).
+    if ("userId" in body) {
+      if (body.userId && !(await prisma.user.findUnique({ where: { id: String(body.userId) }, select: { id: true } }))) return NextResponse.json({ error: "Usuário não encontrado." }, { status: 400 });
+      data.userId = body.userId ? String(body.userId) : null;
+    }
+    if ("agentId" in body) {
+      if (body.agentId && !(await prisma.iaAgent.findUnique({ where: { id: String(body.agentId) }, select: { id: true } }).catch(() => ({ id: 1 })))) return NextResponse.json({ error: "Agente de IA não encontrado." }, { status: 400 });
+      data.agentId = body.agentId ? String(body.agentId) : null;
+    }
     if ("provider" in body) data.provider = body.provider === "waha" ? "waha" : body.provider === "waba" ? "waba" : "evolution";
     // WABA (API oficial da Meta): credenciais do número. O token só muda se vier um valor novo (nunca o "***" da listagem).
     if ("wabaPhoneNumberId" in body) data.wabaPhoneNumberId = texto(body.wabaPhoneNumberId).replace(/\D/g, "") || null;
@@ -40,7 +56,7 @@ export async function PATCH(req, { params }) {
     }
     if ("proxyServer" in body) data.proxyServer = texto(body.proxyServer) || null;
     if ("proxyUsername" in body) data.proxyUsername = texto(body.proxyUsername) || null;
-    if ("proxyPassword" in body) data.proxyPassword = texto(body.proxyPassword) || null;
+    if ("proxyPassword" in body && body.proxyPassword !== "***") data.proxyPassword = texto(body.proxyPassword) || null;
   
     // WAHA só aceita [a-zA-Z0-9_-] no nome da sessão — mesma correção do
     // POST em app/api/numbers/route.js, aqui pro caso de editar a instância
@@ -65,7 +81,8 @@ export async function PATCH(req, { params }) {
         user: { select: { id: true, name: true } },
       },
     });
-    return NextResponse.json({ ...updated, wabaAccessToken: updated.wabaAccessToken ? "***" : null });
+    // Senha do proxy também não volta em texto puro na resposta (a lista já escondia de quem não é admin).
+    return NextResponse.json({ ...updated, wabaAccessToken: updated.wabaAccessToken ? "***" : null, proxyPassword: updated.proxyPassword ? "***" : null });
   } catch (err) {
     // Registro do `where` não existe (link velho, dois cliques, id
     // chutado): é "não achei", não erro de servidor.

@@ -38,8 +38,17 @@ export async function PATCH(req, { params }) {
     for (const campo of ["metaVendasMinima", "metaVendasMedia", "metaVendasDia", "metaPctRecebimentoMinima", "metaPctRecebimentoMedia", "metaPctRecebimento"]) {
       if (campo in body) data[campo] = num(body[campo]);
     }
+    // Metas da equipe em ordem (mínima <= média <= meta), como as metas gerais: fora de ordem as faixas do dia saíam trocadas.
+    const atualEq = await prisma.equipe.findUnique({ where: { id }, select: { metaVendasMinima: true, metaVendasMedia: true, metaVendasDia: true, metaPctRecebimentoMinima: true, metaPctRecebimentoMedia: true, metaPctRecebimento: true } });
+    for (const [nomeG, grupo] of [["vendas", ["metaVendasMinima", "metaVendasMedia", "metaVendasDia"]], ["recebimento", ["metaPctRecebimentoMinima", "metaPctRecebimentoMedia", "metaPctRecebimento"]]]) {
+      if (!grupo.some((c) => c in data)) continue;
+      const [mi, me, ch] = grupo.map((c) => (c in data ? data[c] : atualEq?.[c]) || 0);
+      if (ch > 0 && (mi > me || me > ch)) return NextResponse.json({ error: `Meta de ${nomeG} da equipe: mínima <= média <= meta (hoje ${mi} / ${me} / ${ch}).` }, { status: 400 });
+    }
     if ("membrosIds" in body) {
-      data.membros = { set: (body.membrosIds || []).map((mid) => ({ id: mid })) };
+      // Lista que não é lista, ou id de usuário apagado, derrubava a gravação com 500.
+      const ids = Array.isArray(body.membrosIds) ? body.membrosIds.filter((x) => typeof x === "string") : [];
+      data.membros = { set: await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true } }) };
     }
     const equipe = await prisma.equipe.update({ where: { id }, data, select: SELECT });
     return NextResponse.json(equipe);

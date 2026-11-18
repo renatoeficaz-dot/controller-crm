@@ -38,9 +38,18 @@ export async function POST(req) {
   // (cedilha/espaço) salvava certinho aqui mas dava erro só depois, ao tentar
   // conectar de verdade.
   if (provider === "waha") instance = wahaSessionSlug(instance);
+  // Mesma instância em dois cadastros: as mensagens chegavam e saíam pelo número errado (o sistema acha o número pela instância).
+  if (await prisma.whatsappNumber.findFirst({ where: { instance }, select: { id: true } })) {
+    return NextResponse.json({ error: "Já existe um número com essa instância." }, { status: 409 });
+  }
+  // Usuário que não existe dava erro de chave (500).
+  if (body.userId && !(await prisma.user.findUnique({ where: { id: String(body.userId) }, select: { id: true } }))) {
+    return NextResponse.json({ error: "Usuário não encontrado." }, { status: 400 });
+  }
   const created = await prisma.whatsappNumber.create({
     data: {
-      label, number, instance, provider, userId: body.userId || null,
+      // Número só com dígitos: com espaço/traço/parênteses ele não casava com o telefone das conversas.
+      label, number: number.replace(/\D/g, "") || number, instance, provider, userId: body.userId ? String(body.userId) : null,
       ...(provider === "waba"
         ? {
             wabaPhoneNumberId: texto(body.wabaPhoneNumberId).replace(/\D/g, "") || null,
@@ -55,5 +64,6 @@ export async function POST(req) {
       agent: { select: { id: true, name: true } },
     },
   });
-  return NextResponse.json(created);
+  // Token da API oficial não volta em texto puro (igual à lista).
+  return NextResponse.json({ ...created, wabaAccessToken: created.wabaAccessToken ? "***" : null });
 }

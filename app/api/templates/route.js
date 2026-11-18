@@ -26,10 +26,15 @@ export async function GET(req) {
 export async function POST(req) {
   const data = await lerCorpo(req);
   const title = texto(data.title);
-  const mediaType = data.mediaType || null;
+  // Tipo fora da lista virava mensagem que o envio não sabe mandar.
+  const mediaType = ["text", "image", "audio", "document", "contact", "video"].includes(data.mediaType) ? data.mediaType : null;
 
   if (!title) {
     return NextResponse.json({ error: "Preencha o título." }, { status: 400 });
+  }
+  // A IA e os motivos de perda acham a mensagem pelo TÍTULO: dois com o mesmo título faziam sair a mensagem errada.
+  if (await prisma.messageTemplate.findFirst({ where: { title }, select: { id: true } })) {
+    return NextResponse.json({ error: "Já existe uma mensagem com esse título." }, { status: 409 });
   }
 
   // Validação por tipo

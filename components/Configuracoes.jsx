@@ -431,8 +431,9 @@ function Honorarios() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        honorariosPct: Number(form.honorariosPct),
-        multaPct: Number(form.multaPct),
+        // Campo apagado ia como 0 (Number("") = 0) e zerava os honorários de toda parcela nova; vazio vai vazio e o servidor recusa.
+        honorariosPct: form.honorariosPct === "" ? "" : Number(form.honorariosPct),
+        multaPct: form.multaPct === "" ? "" : Number(form.multaPct),
         pagamentoHoraLimite: form.pagamentoHoraLimite,
         codigoCalculadora: form.codigoCalculadora,
       }),
@@ -2597,7 +2598,7 @@ function ReguaCobranca() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [campo]: valor }),
     }, "salvar");
-
+    if (!_r) load(); // recusado (ex.: faixa invertida, mensagem vazia): a tela volta ao que está gravado
   }
 
   async function remover(id) {

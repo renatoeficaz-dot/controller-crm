@@ -8,7 +8,10 @@ export async function PATCH(req, { params }) {
     const { name, color, custoPorLead } = await lerCorpo(req);
     const data = {};
     if (name) {
+      if (typeof name !== "string") return NextResponse.json({ error: "Nome inválido." }, { status: 400 }); // número derrubava no .trim()
       if (nomeMuitoLongo(name)) return NextResponse.json({ error: "Nome muito longo." }, { status: 400 });
+      const outra = await prisma.tag.findFirst({ where: { name: name.trim(), NOT: { id } }, select: { id: true } });
+      if (outra) return NextResponse.json({ error: "Já existe uma etiqueta com esse nome." }, { status: 409 });
       data.name = name.trim();
     }
     if (color && /^#[0-9a-fA-F]{6}$/.test(color)) data.color = color;

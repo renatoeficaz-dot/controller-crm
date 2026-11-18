@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { lerCorpo, texto } from "@/lib/corpo";
 
+// Lista de ids vinda do corpo: qualquer coisa que não seja lista de texto (número, objeto) derrubava a rota no .join/.map com 500.
+const listaIds = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x) : []);
 const ROLES = ["admin", "vendedor", "cobrador"];
 const USER_SELECT = {
   id: true,
@@ -69,7 +71,7 @@ export async function POST(req) {
   const body = await lerCorpo(req);
   const name = texto(body.name);
   const login = texto(body.login);
-  const password = body.password || "";
+  const password = typeof body.password === "string" ? body.password : ""; // número/objeto derrubava o bcrypt com 500
 
   if (!name || !login || !password) {
     return NextResponse.json({ error: "Preencha nome, login e senha." }, { status: 400 });
@@ -83,6 +85,13 @@ export async function POST(req) {
   if (exists) {
     return NextResponse.json({ error: "Já existe um usuário com esse login." }, { status: 409 });
   }
+  // Leads, tarefas, baixas e comissão são ligados pelo NOME do usuário: dois usuários com o mesmo nome viam e somavam as coisas um do outro.
+  if (await prisma.user.findFirst({ where: { name }, select: { id: true } })) {
+    return NextResponse.json({ error: "Já existe um usuário com esse nome. Use um nome diferente (ex.: com o sobrenome)." }, { status: 409 });
+  }
+  if (body.equipeId && !(await prisma.equipe.findUnique({ where: { id: String(body.equipeId) }, select: { id: true } }))) {
+    return NextResponse.json({ error: "Equipe não encontrada." }, { status: 400 });
+  }
 
   const role = ROLES.includes(body.role) ? body.role : "vendedor";
   const passwordHash = await bcrypt.hash(password, 10);
@@ -93,16 +102,17 @@ export async function POST(req) {
       passwordHash,
       role,
       verTodosLeads: role === "admin" ? true : !!body.verTodosLeads,
-      paginasVisiveis: role === "admin" ? null : (body.paginasVisiveis || []).join(",") || null,
-      kanbansVisiveis: { connect: (body.kanbansVisiveis || []).map((id) => ({ id })) },
-      numerosVisiveis: { connect: (body.numerosVisiveis || []).map((id) => ({ id })) },
-      numerosLigacao: { connect: (body.numerosLigacao || []).map((id) => ({ id })) },
+      paginasVisiveis: role === "admin" ? null : listaIds(body.paginasVisiveis).join(",") || null,
+      // Só colunas/números que existem (id apagado no "connect" derrubava o cadastro com 500).
+      kanbansVisiveis: { connect: (await prisma.stage.findMany({ where: { id: { in: listaIds(body.kanbansVisiveis) } }, select: { id: true } })) },
+      numerosVisiveis: { connect: (await prisma.whatsappNumber.findMany({ where: { id: { in: listaIds(body.numerosVisiveis) } }, select: { id: true } })) },
+      numerosLigacao: { connect: (await prisma.whatsappNumber.findMany({ where: { id: { in: listaIds(body.numerosLigacao) } }, select: { id: true } })) },
       metaVendasMinimaPropria: metaOuNull(body.metaVendasMinimaPropria),
       metaVendasMediaPropria: metaOuNull(body.metaVendasMediaPropria),
       metaVendasDiaPropria: metaOuNull(body.metaVendasDiaPropria),
-      permissoesExtras: (body.permissoesExtras || []).join(",") || null,
+      permissoesExtras: listaIds(body.permissoesExtras).join(",") || null,
       somenteLeitura: !!body.somenteLeitura,
-      equipeId: body.equipeId || null,
+      equipeId: body.equipeId ? String(body.equipeId) : null,
     },
     select: USER_SELECT,
   });

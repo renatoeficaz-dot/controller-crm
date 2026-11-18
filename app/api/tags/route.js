@@ -19,6 +19,8 @@ export async function POST(req) {
   // Só cor hexadecimal: qualquer outro texto era aceito e a etiqueta saía
   // sem cor nenhuma na tela (o navegador ignora o valor inválido no estilo).
   const cor = /^#[0-9a-fA-F]{6}$/.test(color || "") ? color : "#6366f1";
+  // Nome repetido: o banco recusa (nome único) e a rota caía com 500.
+  if (await prisma.tag.findUnique({ where: { name: name.trim() }, select: { id: true } })) return NextResponse.json({ error: "Já existe uma etiqueta com esse nome." }, { status: 409 });
   const tag = await prisma.tag.create({ data: { name: name.trim(), color: cor } });
   return NextResponse.json(tag);
 }

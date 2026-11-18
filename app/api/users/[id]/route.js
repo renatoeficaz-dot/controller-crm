@@ -6,6 +6,8 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { lerCorpo, ehNaoEncontrado, respostaNaoEncontrado, texto } from "@/lib/corpo";
 
 // Edita um usuário (nome, login e/ou senha). Senha só muda se for enviada.
+// Lista de ids vinda do corpo: qualquer coisa que não seja lista de texto (número, objeto) derrubava a rota no .join/.map com 500.
+const listaIds = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x) : []);
 export async function PATCH(req, { params }) {
   try {
     const { id } = await params;
@@ -15,6 +17,9 @@ export async function PATCH(req, { params }) {
     if ("name" in body) {
       const name = texto(body.name);
       if (!name) return NextResponse.json({ error: "Nome não pode ficar vazio." }, { status: 400 });
+      // Nome repetido mistura leads, tarefas e comissão das duas pessoas (tudo é ligado pelo nome).
+      const outro = await prisma.user.findFirst({ where: { name, NOT: { id } }, select: { id: true } });
+      if (outro) return NextResponse.json({ error: "Já existe outro usuário com esse nome." }, { status: 409 });
       data.name = name;
     }
   
@@ -44,13 +49,13 @@ export async function PATCH(req, { params }) {
     const ROLES = ["admin", "vendedor", "cobrador"];
     if ("role" in body && ROLES.includes(body.role)) data.role = body.role;
     if ("verTodosLeads" in body) data.verTodosLeads = !!body.verTodosLeads;
-    if ("paginasVisiveis" in body) data.paginasVisiveis = (body.paginasVisiveis || []).join(",") || null;
+    if ("paginasVisiveis" in body) data.paginasVisiveis = listaIds(body.paginasVisiveis).join(",") || null;
     // Admin sempre vê tudo (não faz sentido restringir)
     if (data.role === "admin") {
       data.verTodosLeads = true;
       data.paginasVisiveis = null;
     }
-    if ("permissoesExtras" in body) data.permissoesExtras = (body.permissoesExtras || []).join(",") || null;
+    if ("permissoesExtras" in body) data.permissoesExtras = listaIds(body.permissoesExtras).join(",") || null;
     if ("somenteLeitura" in body) data.somenteLeitura = !!body.somenteLeitura;
     // Suspensão por tempo: data/hora ISO até quando o acesso fica bloqueado; vazio/null reativa na hora.
     if ("suspensoAte" in body) {
@@ -63,15 +68,28 @@ export async function PATCH(req, { params }) {
         data.suspensoAte = null;
       }
     }
-    if ("equipeId" in body) data.equipeId = body.equipeId || null;
+    if ("equipeId" in body) {
+      if (body.equipeId && !(await prisma.equipe.findUnique({ where: { id: String(body.equipeId) }, select: { id: true } }))) {
+        return NextResponse.json({ error: "Equipe não encontrada." }, { status: 400 });
+      }
+      data.equipeId = body.equipeId ? String(body.equipeId) : null;
+    }
+    // Só ids que existem (coluna ou número apagado no "set" derrubava a gravação com 500).
     if ("kanbansVisiveis" in body) {
-      data.kanbansVisiveis = { set: (body.kanbansVisiveis || []).map((kid) => ({ id: kid })) };
+      data.kanbansVisiveis = { set: await prisma.stage.findMany({ where: { id: { in: listaIds(body.kanbansVisiveis) } }, select: { id: true } }) };
     }
     if ("numerosVisiveis" in body) {
-      data.numerosVisiveis = { set: (body.numerosVisiveis || []).map((nid) => ({ id: nid })) };
+      data.numerosVisiveis = { set: await prisma.whatsappNumber.findMany({ where: { id: { in: listaIds(body.numerosVisiveis) } }, select: { id: true } }) };
     }
     if ("numerosLigacao" in body) {
-      data.numerosLigacao = { set: (body.numerosLigacao || []).map((nid) => ({ id: nid })) };
+      data.numerosLigacao = { set: await prisma.whatsappNumber.findMany({ where: { id: { in: listaIds(body.numerosLigacao) } }, select: { id: true } }) };
+    }
+    // Tirar o último administrador deixava o sistema sem ninguém que pudesse mexer em configuração, usuários e permissões.
+    if ("role" in data && data.role !== "admin") {
+      const eraAdmin = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+      if (eraAdmin?.role === "admin" && (await prisma.user.count({ where: { role: "admin" } })) <= 1) {
+        return NextResponse.json({ error: "Esse é o único administrador: promova outra pessoa antes de mudar o nível dele." }, { status: 409 });
+      }
     }
   
     // Meta individual: vazio = null = usa a meta global (não é meta de zero).
@@ -133,6 +151,13 @@ export async function PATCH(req, { params }) {
         detalhe: `${user.name}: nível ${user.role}, vê todos os leads: ${user.verTodosLeads ? "sim" : "não"}`,
       });
     }
+    // Renomeou: os leads e as tarefas que estavam com o nome antigo continuam com ele (antes sumiam da carteira da pessoa).
+    if (antes?.name && "name" in data && antes.name !== user.name) {
+      await prisma.contact.updateMany({ where: { responsavel: antes.name }, data: { responsavel: user.name } }).catch(() => {});
+      await prisma.task.updateMany({ where: { responsavel: antes.name }, data: { responsavel: user.name } }).catch(() => {});
+      const session = await getSession();
+      registrarAuditoria({ usuario: session?.name, acao: "renomear_usuario", entidade: "User", entidadeId: id, detalhe: `${antes.name} → ${user.name} (leads e tarefas acompanharam)` });
+    }
     if (body.password) {
       const session = await getSession();
       registrarAuditoria({
@@ -161,6 +186,11 @@ export async function DELETE(_req, { params }) {
       getSession(),
       prisma.user.findUnique({ where: { id }, select: { name: true, role: true } }),
     ]);
+    // Excluir a si mesmo (sessão some no meio) ou o último administrador trancava o sistema.
+    if (session?.uid === id) return NextResponse.json({ error: "Você não pode excluir o seu próprio usuário." }, { status: 400 });
+    if (alvo?.role === "admin" && (await prisma.user.count({ where: { role: "admin" } })) <= 1) {
+      return NextResponse.json({ error: "Esse é o único administrador: promova outra pessoa antes de excluí-lo." }, { status: 409 });
+    }
     await prisma.user.delete({ where: { id } });
     registrarAuditoria({
       usuario: session?.name,

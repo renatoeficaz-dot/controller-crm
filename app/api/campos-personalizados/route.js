@@ -18,7 +18,8 @@ export async function POST(req) {
 
   const ultimo = await prisma.campoPersonalizado.findFirst({ orderBy: { ordem: "desc" } });
   const criado = await prisma.campoPersonalizado.create({
-    data: { chave, label: label.trim(), tipo: tipo || "texto", opcoes: opcoes || null, ordem: (ultimo?.ordem ?? -1) + 1 },
+    // Tipo fora da lista virava campo que a ficha não sabe desenhar; opções que não são texto derrubavam o Prisma.
+    data: { chave, label: label.trim(), tipo: ["texto", "numero", "data", "opcoes", "sim_nao"].includes(tipo) ? tipo : "texto", opcoes: typeof opcoes === "string" ? opcoes.slice(0, 2000) : Array.isArray(opcoes) ? opcoes.filter((o) => typeof o === "string").join(",") : null, ordem: (ultimo?.ordem ?? -1) + 1 },
   }).catch(() => null);
   if (!criado) return NextResponse.json({ error: "Já existe um campo com esse nome." }, { status: 409 });
   return NextResponse.json(criado);

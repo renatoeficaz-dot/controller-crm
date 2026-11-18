@@ -6,6 +6,10 @@ export async function PATCH(req, { params }) {
   try {
     const { id } = await params;
     const { templateId } = await lerCorpo(req);
+    // Mensagem que não existe (apagada) dava erro de chave 500.
+    if (templateId && !(await prisma.messageTemplate.findUnique({ where: { id: String(templateId) }, select: { id: true } }))) {
+      return NextResponse.json({ error: "Mensagem não encontrada." }, { status: 400 });
+    }
     const atualizado = await prisma.motivoPerda.update({
       where: { id },
       data: { templateId: templateId || null },
