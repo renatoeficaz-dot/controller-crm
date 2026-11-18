@@ -13,8 +13,11 @@ export default function UsoAtivoTracker() {
 
   useEffect(() => {
     const marcar = () => { ultimaAtividade.current = Date.now(); };
-    const eventos = ["mousemove", "mousedown", "keydown", "scroll", "touchstart"];
-    eventos.forEach((ev) => window.addEventListener(ev, marcar, { passive: true }));
+    // "scroll" não sobe até a janela: rolar o chat, o funil ou uma lista (que rolam dentro de um painel, não a página) não contava
+    // como uso — no celular, ler e rolar conversas era quase todo o trabalho e ficava de fora. Escuta na fase de captura e também o
+    // arrastar do dedo e a rodinha do mouse.
+    const eventos = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "touchmove", "wheel", "pointerdown", "input"];
+    eventos.forEach((ev) => window.addEventListener(ev, marcar, { passive: true, capture: true }));
 
     const t = setInterval(() => {
       const ativo = Date.now() - ultimaAtividade.current < JANELA_ATIVO;
@@ -24,7 +27,7 @@ export default function UsoAtivoTracker() {
     }, INTERVALO);
 
     return () => {
-      eventos.forEach((ev) => window.removeEventListener(ev, marcar));
+      eventos.forEach((ev) => window.removeEventListener(ev, marcar, { capture: true }));
       clearInterval(t);
     };
   }, []);
