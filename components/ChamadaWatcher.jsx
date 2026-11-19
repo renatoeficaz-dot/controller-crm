@@ -69,21 +69,67 @@ export default function ChamadaWatcher() {
       }
       if (c.status === "chamando" && c.paraId === euId) {
         setChamada(c);
-        // Toca uma vez por chamada — o poll roda a cada 4s e ficaria
-        // repetindo o bipe sem parar.
+        // Toca a cada checagem enquanto estiver chamando (como um telefone). Antes tocava UM bipe só: quem não estava
+        // olhando para a tela naquele segundo perdia a chamada.
+        tocarAlerta();
+        // Aba escondida (a pessoa está no WhatsApp/outra aba): aviso do Windows/celular + título piscando.
         if (!jaTocou.current.has(c.id)) {
           jaTocou.current.add(c.id);
-          tocarAlerta();
+          try {
+            if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+              const n = new Notification(`${c.video ? "Chamada de vídeo" : "Chamada de voz"} de ${c.de?.name || "alguém"}`, { body: "Clique para abrir o sistema e atender.", tag: "chamada-" + c.id, requireInteraction: true });
+              n.onclick = () => { window.focus(); n.close(); };
+            }
+          } catch {}
         }
+        if (document.hidden) document.title = (document.title.startsWith("📞") ? "" : "📞 ") + `Chamada de ${c.de?.name || ""}`;
       }
     }
 
+    // O relógio roda num Worker: com a aba em segundo plano há alguns minutos, o navegador atrasa o setInterval da página
+    // para 1x por minuto — e a chamada expira em 60s, então ela nem chegava a tocar para quem estava em outra aba.
+    // Timer de Worker não sofre esse atraso. Sem suporte a Worker, volta ao setInterval.
     checar();
-    const t = setInterval(checar, INTERVALO);
+    let worker = null;
+    let t = null;
+    try {
+      const url = URL.createObjectURL(new Blob([`setInterval(() => postMessage(1), ${INTERVALO});`], { type: "text/javascript" }));
+      worker = new Worker(url);
+      URL.revokeObjectURL(url);
+      worker.onmessage = () => checar();
+    } catch {
+      t = setInterval(checar, INTERVALO);
+    }
     return () => {
       vivo = false;
-      clearInterval(t);
+      worker?.terminate();
+      if (t) clearInterval(t);
     };
+  }, [euId]);
+
+  // Título da aba volta ao normal quando a chamada para de tocar.
+  const tituloOriginal = useRef("");
+  useEffect(() => {
+    if (chamada) {
+      if (!tituloOriginal.current) tituloOriginal.current = document.title.replace(/^📞 .*$/, "") || "Controller";
+      return undefined;
+    }
+    if (tituloOriginal.current) {
+      document.title = tituloOriginal.current;
+      tituloOriginal.current = "";
+    }
+    return undefined;
+  }, [chamada]);
+
+  // Permissão de notificação pedida no primeiro clique (o navegador só deixa pedir depois de uma interação).
+  useEffect(() => {
+    if (!euId || typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "default") return undefined;
+    const pedir = () => {
+      try { Notification.requestPermission().catch(() => {}); } catch {}
+      window.removeEventListener("pointerdown", pedir);
+    };
+    window.addEventListener("pointerdown", pedir, { once: true });
+    return () => window.removeEventListener("pointerdown", pedir);
   }, [euId]);
 
   const responder = useCallback(async (acao) => {
