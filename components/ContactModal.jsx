@@ -2636,6 +2636,8 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                 phone={form.phone}
                 name={form.name}
                 fallback={() => window.open("https://wa.me/" + String(form.phone).replace(/\D/g, ""), "_blank")}
+                // Visível também no celular: a ligação pelo botão fica registrada (quem ligou, atendeu, duração); a feita no WhatsApp do aparelho não.
+                wrapperClass="inline-flex"
                 className="flex shrink-0 items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
               />
             )}
