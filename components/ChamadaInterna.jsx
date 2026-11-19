@@ -68,12 +68,17 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
 
   useEffect(() => {
     let vivo = true;
+    // Câmera/microfone prontos (ou recusados). A sinalização só é processada depois disso: antes, quem atendia respondia à
+    // oferta em ~2s, ANTES da câmera abrir (a permissão leva alguns segundos) — a resposta saía "só receber" e o outro lado
+    // ficava com a tela preta e sem áudio, mesmo aparecendo "Em chamada".
+    let midiaPronta = false;
+    let processando = false;
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     pcRef.current = pc;
 
     pc.ontrack = (e) => {
-      if (remotoRef.current) remotoRef.current.srcObject = e.streams[0];
-      setStatus("falando");
+      if (remotoRef.current) remotoRef.current.srcObject = e.streams[0] || new MediaStream([e.track]);
+      // "Em chamada" só quando a conexão fecha de verdade (onconnectionstatechange) — antes aparecia com a tela preta.
     };
     pc.onicecandidate = (e) => {
       if (e.candidate) enviarSinal("candidato", e.candidate);
@@ -99,6 +104,7 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
       } catch (e1) {
         if (!chamada.video) {
           setErro(erroMicrofone(e1));
+          midiaPronta = true; // sem microfone: ao menos recebe o áudio/vídeo do outro
           return;
         }
         try {
@@ -106,6 +112,7 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
           setSemCamera(true);
         } catch (e2) {
           setErro(erroMicrofone(e2));
+          midiaPronta = true;
           return;
         }
       }
@@ -127,11 +134,25 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
       } else {
         await enviarSinal("pronto", null);
       }
+      midiaPronta = true;
     })();
 
     // Poll da sinalização. Candidatos que chegam antes da descrição remota
     // ficam na fila — aplicar antes disso o WebRTC recusa.
     const timer = setInterval(async () => {
+      // Uma leitura por vez: duas rodando juntas (rede lenta) aplicavam candidatos antes da descrição e a conexão não fechava.
+      if (!midiaPronta || processando) return;
+      processando = true;
+      try {
+        await lerSinais();
+      } catch {
+        // sinal inválido/conexão fechada: tenta de novo na próxima leitura
+      } finally {
+        processando = false;
+      }
+    }, 1500);
+
+    async function lerSinais() {
       // cache: "no-store" — sem isso, navegadores mobile (mais agressivos que
       // Chrome desktop nisso) podem reaproveitar uma resposta antiga desse
       // mesmo GET repetido em vez de buscar de novo, atrasando ou perdendo
@@ -167,7 +188,7 @@ export default function ChamadaInterna({ chamada, euId, onEncerrar }) {
           onEncerrar?.();
         }
       }
-    }, 1500);
+    }
 
     return () => {
       vivo = false;
