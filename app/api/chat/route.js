@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { getCurrentUser, veTodosLeads, mensagensWhere, instanciasVisiveis } from "@/lib/session";
+import { getCurrentUser, veTodosLeads, mensagensWhere, instanciasVisiveis, kanbansVisiveis } from "@/lib/session";
 
 // Lista conversas do usuário (contatos com mensagens, ordenados pela mais recente).
 // Cada item traz o contato + última mensagem + contagem de não lidas + dados
@@ -45,10 +45,18 @@ async function montarLista(user, mostrarArquivadas) {
   await prisma.contact.updateMany({ where: { chatArquivado: true, chatVoltaEm: { lte: new Date() } }, data: { chatArquivado: false, chatVoltaEm: null } }).catch(() => {});
   // Conversas fechadas "para voltar daqui X": chegou a hora, reabre.
   await prisma.contact.updateMany({ where: { chatArquivado: true, chatVoltaEm: { lte: new Date() } }, data: { chatArquivado: false, chatVoltaEm: null } }).catch(() => {});
+  // Usuário não-admin com COLUNAS restritas (kanbansVisiveis) vê as conversas
+  // de TODOS os leads que estão nas etapas dele, não importa o responsável —
+  // mesma regra do funil. O chat não filtrava por etapa nenhuma; aqui a gente
+  // amarra às etapas visíveis pra não vazar conversa de etapa que ele não vê.
+  // Admin tem colunas=null → segue sem restrição, como sempre.
+  const colunas = kanbansVisiveis(user); // null = todas
+  const veTudoNasEtapas = !!user && user.role !== "admin" && Array.isArray(colunas) && colunas.length > 0;
   const contactWhere = {
     excluidoEm: null,
     chatArquivado: mostrarArquivadas, // item 82: por padrão só as não-arquivadas
-    ...(veTodosLeads(user) ? {} : { responsavel: user?.name || "__none__" }),
+    ...((veTodosLeads(user) || veTudoNasEtapas) ? {} : { responsavel: user?.name || "__none__" }),
+    ...(veTudoNasEtapas ? { stageId: { in: colunas } } : {}),
   };
   const msgWhere = mensagensWhere(user);
 

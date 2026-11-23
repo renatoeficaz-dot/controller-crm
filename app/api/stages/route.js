@@ -31,9 +31,18 @@ export async function GET(req) {
   }
 
   const digitosBusca = busca.replace(/\D/g, "");
+  // Usuário não-admin com COLUNAS restritas (kanbansVisiveis) enxerga a fila
+  // inteira das etapas dele — todos os leads dessas colunas, não importa o
+  // responsável. É o modelo de cobrança: quem cuida da etapa "Recebimento"
+  // precisa ver todo mundo que está pra receber, não só os leads em que ele é
+  // o responsável. As colunas já estão limitadas a `colunas`, então isto não
+  // vaza lead de etapa que ele não vê. NÃO mexe nas Tarefas (rota própria, que
+  // segue por verTodosLeads = só as dele). Admin tem colunas=null, então aqui
+  // é sempre false pra ele.
+  const veTudoNasEtapas = !!user && user.role !== "admin" && Array.isArray(colunas) && colunas.length > 0;
   const contactWhere = {
     excluidoEm: null, // exclusão fica reversível por 24h — não some da lista de vez
-    ...(veTodosLeads(user) ? {} : { responsavel: user?.name || "__none__" }),
+    ...((veTodosLeads(user) || veTudoNasEtapas) ? {} : { responsavel: user?.name || "__none__" }),
     ...(busca ? { OR: [{ name: { contains: busca } }, ...(digitosBusca ? [{ phone: { contains: digitosBusca } }] : [])] } : {}),
   };
 
