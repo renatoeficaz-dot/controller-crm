@@ -2222,9 +2222,9 @@ export default function ContactModal({ contactId, onClose, onChanged, abrirNovaT
                           {form.pixNomeCompleto || <span className="text-amber-600">nome não informado</span>}
                         </p>
                       </div>
-                      <div className="border-t border-slate-100 pt-1.5 flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400">Valor a transferir</span>
-                        <span className="text-base font-semibold text-emerald-600">{money(resumo.capital)}</span>
+                      <div className="border-t border-slate-100 pt-1.5">
+                        <p className="text-[10px] text-slate-400">Valor a transferir</p>
+                        <p className="text-base font-semibold text-emerald-600">{money(resumo.capital)}</p>
                       </div>
                     </div>
                   ) : (
